@@ -12,10 +12,41 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
-<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="manifest" id="app-manifest-link" href="">
+<link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAEfklEQVR4nO3dQXLbRhCG0aGsY0anyDZaWducwjpmVMkiRRdNgyQwAIjGj/c23lgyyvWx3YBozqkV8Ncf//y79TUw38fn62nra9jkAgR8DFsE/rQ/UMTH9qy4V/1DRMyQNeNe5RsLmTHWCPtl6W8oZsZao5XFXiFCZo6lpvUiE1rMzLVUQ7NeFUJmDXOmdfeEFjNrmdNWV9BiZm29jU0OWsw8S09rk4IWM882tbnRQYuZrUxpb1TQYmZrYxt8GLSYqWJMi4v/6Bu2dDdo05lqHjV5M2gxU9W9Nq0cRBkM2nSmuluN/ha0mNmLoVatHET5JWjTmb25btaEJoqgifIzaOsGe3XZrglNFEET5aU16wb7d27YhCaKoIkiaKKc7M8kMaGJImiivG59Afd8//Ft8te8v32tcCXsRdkJ3RPznK8jQ8mg50Yp6uMq95TjOsYxK8StgK0fx1NyQp8JkqlKBz2G9YJLuw5azFwr/djunqGY39++JkfuRTFfpdWw/IQeG1ylv1S2Uzroc8zXUfc8CeEYSgd96VbccGk3Qbd2e2+Gs9I3hY9u8paI2Qsiy64m9CUhMqR80MJlitJBn9eNc9TXv976/RxXuTcntbZMmCb7MZWc0HNjFPNxlQy6tf4oxXxsJVcO6FV2QkMPQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRCn9UWCOdWOqshPasW70KBm0Y93oVe5jDBzrxhwlJ/TZnJg5ptJBw1Sln3I8MrSeOAXr+Sqtdrud0EJkSPmgh8J11gq3lA566OQrMXNP6aAveTTHGLu6KVzjwE0viCylJ7TYmKp00K3djlrsDCkfdGvjT8GC0kFf7sxjYvZsmnJvTmrNsW70KzmhHetGr5JBt+ZYN/qUXDmgV9kJDT0ETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNlNIfBeYULKYqO6GdgkWPkkE7BYte5f7X95xPGF3j00nZl5IT+mxqkAKmdNAwlaCJUvqx3TN8//Ht762vYe/e377+3PoazkxoogiaKIImiqCJcvibwko3NMxnQhNF0EQpHfTUNxl5UxLl3pzUmlOw6FdyQjsFi14lg27NKVj0KblyQK+yExp6CJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJooLx+fr6etLwKW8PH5ejKhiSJoogiaKC+t/b97bH0hMMe5YROaKIImys+grR3s1WW7JjRRBE2UX4K2drA3182a0ET5LWhTmr0YanVwQoua6m41auUgys2gTWmqutfm3Qktaqp51KSVgygPgzalqWJMi6MmtKjZ2tgGR68comYrU9qbtEOLmmeb2tzkm0JR8yw9rXU95RA1a+ttrPuxnahZy5y2FonSWYcsYYkhucgPVkxr5lqqocVDNK2ZYulhuPiPvk1rxlqjlVXjM60ZsubQe9o0FfexPetf7k3WA3EfwxbrZ4l9V+AZKtw//Qd2RoEs7T4HjAAAAABJRU5ErkJggg==">
+<link rel="apple-touch-icon" sizes="192x192" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAFBElEQVR4nO3dS27bSBQF0PJnmfEqMo1H9rRXYS8zRnrQUNpxKFEkq8Qq3nMmBvKRCONeviJFqO5KZ358+/lr72Ogndf3x7u9j+GzXQ9G2Cll31Lc/I2FnktuXYabvZngs8StitD8TQSfLVoXodmLCz41tSpC9RcVfFqqXYT7mi8m/LRWO2NV2iT47KHGNNg8AYSfvdTI3qYCCD9725rB1QUQfnqxJYurCiD89GZtJhcXQPjp1ZpsLiqA8NO7pRm9ugDCzyiWZPWqAgg/o7k2s7MFEH5GdU12qz4KAaO5WABnf0Y3l+GzBRB+juJSli2BiDZZAGd/juZcpk0Aov1VAGd/jmoq2yYA0f4ogLM/R/c14yYA0X4XwNmfFJ+zbgIQTQGIdl+K5Q95Tpk3AYimAERTAKIpANHuXACTzAQg2uPeB3CNl7eH1f/3+emj4pFwNN1PgC3hr/H/ObauC1ArvErAOd1eBH8N7ZKlzMvbQ3l++tj0GmToegKcLA3/6afAM2eIAqxl6cOcQxXAkoelDlMAZ3vWGOJzgDlT4d9y9lem+nqdxkNNgGuD2esvm/4MU4DPd3em/vxE+FliiAKcC72lClsNUYCps3rtdT+ZhrkInvpk9+vf13wvMgwxAeYILGsNVQBBp7ahClDK/yX4+hPWGKIA5251zoXfXSLmdPs4dCl1A2xSMKXrCVArtMLPOV0XoJTt4RV+Lul6CQStdT8BoCUFIJoCEE0BiKYARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDRFIBoCkA0BSCaAhBNAYg2xJfj2imeVrqfAHaKp6WuC2CneFrr9nuB1m59dKs9BDiGrifAieDSyhAFuJYN81jqMAWwzmeNIW6DzrFRdv96ncaHmQCf9frLpj9DFWDqzGzdzxbDFGBqc2xLFbYa4hrg3E7xXzn7s9QQBZjbJPv0b2q+HxmGWQJdCqXAstYwBShF0KlvqAKUYqNs6hqiADbKppVunwYtxUbZtNf1BLBRNq11XYBSbJRNW10vgaC17icAtKQARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDRFIBoCkA0BSCaAhBNAYimAERTAKIpANGG+HJcG2XTSvcTwEbZtNR1AWyUTWvdfi9Qja2PbJ/EnK4nwMna4Ao8c4YoALSiAEQb4jborb28Pfyz9zEczfPTx/e9j2GKCUA0BSCaAhBNAYjmInhCrxds1GcCEE0BiKYARBuiAGuf5vQUKHO6fRq0FBtl017XE8BG2bTWdQFKsVE2bXW9BILWup8A0JICEE0BiKYARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDR7l/fH+/2PgjYw+v7450JQDQFIJoCEE0BiHZfyn8XA3sfCNzSKfMmANEUgGi/C2AZRIrPWTcBiPZHAUwBju5rxk0Aov1VAFOAo5rKtglAtMkCmAIczblMmwBEO1sAU4CjuJTlixNACRjdXIYtgYg2WwBTgFFdk92rJoASMJprM3v1EkgJGMWSrC66BlACerc0o4svgpWAXq3J5qq7QEpAb9ZmcvVtUCWgF1uyuOlzACVgb1szuPmDMCVgLzWyVzW8P779/FXz9WBKzZNu1UchTANaq52xZoE1Daip1cm1+RlbEdii9ariZksWRWCJWy2nb75mVwQuufV15K4XrcpAKfvePOnuro1SHFtvdwr/BXDBpKCBDCFXAAAAAElFTkSuQmCC">
+<link rel="icon" type="image/png" sizes="512x512" href="data:image/png;base64,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">
+<script>
+// 🆕 O'RNATILADIGAN (INSTALLABLE) YAGONA-FAYL PWA: ilgari manifest.json,
+// sw.js va icon-*.png alohida fayllar sifatida (bir xil papkada) kerak
+// edi — shu sababli faqat HTML faylning o'zini ko'chirib olish "O'rnatish"
+// (Add to Home Screen / Install) tugmasini chiqarmasdi (manifest/SW/ikonkalar
+// topilmagani uchun brauzer PWA sifatida tanimasdi). Endi manifest ham,
+// ikonkalar ham to'g'ridan-to'g'ri shu HTML faylning ICHIGA (base64 rasm +
+// inline manifest sifatida) joylashtirilgan — fayl qayerga qo'yilsa ham
+// (istalgan nom bilan, istalgan papkada, istalgan statik hosting'da:
+// GitHub Pages, Netlify, Vercel va h.k.) o'zi to'liq ishlaydi va
+// "Bosh ekranga qo'shish / O'rnatish" imkoniyati chiqadi.
+(function() {
+  var manifest = {
+    name: "ToDoList",
+    short_name: "ToDoList",
+    start_url: ".",
+    scope: ".",
+    display: "standalone",
+    background_color: "#0B0B12",
+    theme_color: "#7C5CFC",
+    icons: [
+      { src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAFBElEQVR4nO3dS27bSBQF0PJnmfEqMo1H9rRXYS8zRnrQUNpxKFEkq8Qq3nMmBvKRCONeviJFqO5KZ358+/lr72Ogndf3x7u9j+GzXQ9G2Cll31Lc/I2FnktuXYabvZngs8StitD8TQSfLVoXodmLCz41tSpC9RcVfFqqXYT7mi8m/LRWO2NV2iT47KHGNNg8AYSfvdTI3qYCCD9725rB1QUQfnqxJYurCiD89GZtJhcXQPjp1ZpsLiqA8NO7pRm9ugDCzyiWZPWqAgg/o7k2s7MFEH5GdU12qz4KAaO5WABnf0Y3l+GzBRB+juJSli2BiDZZAGd/juZcpk0Aov1VAGd/jmoq2yYA0f4ogLM/R/c14yYA0X4XwNmfFJ+zbgIQTQGIdl+K5Q95Tpk3AYimAERTAKIpANHuXACTzAQg2uPeB3CNl7eH1f/3+emj4pFwNN1PgC3hr/H/ObauC1ArvErAOd1eBH8N7ZKlzMvbQ3l++tj0GmToegKcLA3/6afAM2eIAqxl6cOcQxXAkoelDlMAZ3vWGOJzgDlT4d9y9lem+nqdxkNNgGuD2esvm/4MU4DPd3em/vxE+FliiAKcC72lClsNUYCps3rtdT+ZhrkInvpk9+vf13wvMgwxAeYILGsNVQBBp7ahClDK/yX4+hPWGKIA5251zoXfXSLmdPs4dCl1A2xSMKXrCVArtMLPOV0XoJTt4RV+Lul6CQStdT8BoCUFIJoCEE0BiKYARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDRFIBoCkA0BSCaAhBNAYg2xJfj2imeVrqfAHaKp6WuC2CneFrr9nuB1m59dKs9BDiGrifAieDSyhAFuJYN81jqMAWwzmeNIW6DzrFRdv96ncaHmQCf9frLpj9DFWDqzGzdzxbDFGBqc2xLFbYa4hrg3E7xXzn7s9QQBZjbJPv0b2q+HxmGWQJdCqXAstYwBShF0KlvqAKUYqNs6hqiADbKppVunwYtxUbZtNf1BLBRNq11XYBSbJRNW10vgaC17icAtKQARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDRFIBoCkA0BSCaAhBNAYimAERTAKIpANGG+HJcG2XTSvcTwEbZtNR1AWyUTWvdfi9Qja2PbJ/EnK4nwMna4Ao8c4YoALSiAEQb4jborb28Pfyz9zEczfPTx/e9j2GKCUA0BSCaAhBNAYjmInhCrxds1GcCEE0BiKYARBuiAGuf5vQUKHO6fRq0FBtl017XE8BG2bTWdQFKsVE2bXW9BILWup8A0JICEE0BiKYARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDR7l/fH+/2PgjYw+v7450JQDQFIJoCEE0BiHZfyn8XA3sfCNzSKfMmANEUgGi/C2AZRIrPWTcBiPZHAUwBju5rxk0Aov1VAFOAo5rKtglAtMkCmAIczblMmwBEO1sAU4CjuJTlixNACRjdXIYtgYg2WwBTgFFdk92rJoASMJprM3v1EkgJGMWSrC66BlACerc0o4svgpWAXq3J5qq7QEpAb9ZmcvVtUCWgF1uyuOlzACVgb1szuPmDMCVgLzWyVzW8P779/FXz9WBKzZNu1UchTANaq52xZoE1Daip1cm1+RlbEdii9ariZksWRWCJWy2nb75mVwQuufV15K4XrcpAKfvePOnuro1SHFtvdwr/BXDBpKCBDCFXAAAAAElFTkSuQmCC", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: "data:image/png;base64,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", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+    ]
+  };
+  try {
+    var blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    document.getElementById('app-manifest-link').setAttribute('href', URL.createObjectURL(blob));
+  } catch (e) { /* eski brauzerlarda manifest shunchaki ishlamaydi, ilova o'zi baribir ishlayveradi */ }
+})();
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -638,7 +669,20 @@
      me'yoridan katta bo'lib ketmaydi. */
   #pomo-cal-weekdays, #pomo-cal-grid { max-width:480px; margin-left:auto; margin-right:auto; }
   .modal h2 { font-family:'Syne',sans-serif; font-size:var(--fs-lg); font-weight:600; margin-bottom:20px; }
-  .modal-field { margin-bottom:14px; }
+  .modal-field { margin-bottom:14px; break-inside:avoid; -webkit-column-break-inside:avoid; page-break-inside:avoid; }
+
+  /* 🆕 "Kitob" ko'rinishi: Yangi vazifa/Tahrirlash oynasidagi maydonlar
+     uzunasiga cho'zilib ketmasligi uchun, yetarli joy bo'lganda (planshet/
+     desktop) ikkita ustunga (2 sahifa kabi) bo'linib ko'rsatiladi — tor
+     (mobil) ekranda esa odatdagidek bitta ustunda, tepadan pastga davom
+     etadi. CSS `columns` avtomatik oqim beradi, shu sababli qaysi maydon
+     qaysi "sahifada" turishini qo'lda belgilashning hojati yo'q — .modal-field
+     dagi break-inside:avoid tufayli bitta maydon ikki ustun orasida bo'linib
+     qolmaydi. */
+  .modal-fields-columns { column-count:1; }
+  @media (min-width:620px) {
+    .modal-fields-columns { column-count:2; column-gap:32px; }
+  }
   .modal-field label { display:block; font-size:var(--fs-xs); color:var(--text-muted); letter-spacing:0.05em; text-transform:uppercase; margin-bottom:6px; }
   .modal-field input[type="text"], .modal-field select, .modal-field input[type="date"] {
     width:100%; padding:11px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
@@ -1872,11 +1916,29 @@
 
 
 <script>
+// 🆕 INLINE SERVICE WORKER: ilgari qattiq yozilgan '/ToDoList/sw.js' bo'yicha
+// alohida fayl talab qilinardi — fayl istalgan boshqa manzilda (masalan
+// Netlify ildizida yoki boshqa papka nomida) joylashtirilsa, bu yo'l
+// hech qachon topilmasdi (404) va PWA o'rnatilmasdi. Endi Service Worker
+// kodi to'g'ridan-to'g'ri shu faylning ICHIDA (Blob sifatida) yaratiladi —
+// tashqi fayl SHART EMAS, shu sabab fayl qayerga ko'chirilsa ham ishlaydi.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/ToDoList/sw.js')
-      .then(function(reg) { console.log('SW registered'); })
-      .catch(function(err) { console.log('SW error:', err); });
+    try {
+      var swCode = [
+        "self.addEventListener('install', function(e){ self.skipWaiting(); });",
+        "self.addEventListener('activate', function(e){ e.waitUntil(self.clients.claim()); });",
+        // Minimal pass-through fetch handler — Chrome/Android'ning "o'rnatish"
+        // (installability) mezoni SHUNCHAKI ro'yxatdan o'tgan SW + fetch
+        // ishlovchisi borligini talab qiladi; to'liq offline-keshlash shart emas.
+        "self.addEventListener('fetch', function(e){ /* pass-through */ });"
+      ].join('\\n');
+      var blob = new Blob([swCode], { type: 'application/javascript' });
+      var swUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl)
+        .then(function(reg) { console.log('SW registered (inline)'); })
+        .catch(function(err) { console.log('SW error:', err); });
+    } catch (e) { console.log('SW inline setup failed:', e); }
   });
 }
 </script>
@@ -2097,6 +2159,12 @@ if ('serviceWorker' in navigator) {
       <div class="stat"><div class="stat-label" data-i18n="goals_stat_today">Bugun belgilandi</div><div class="stat-val" id="goals-stat-today">0</div></div>
     </div>
 
+    <div id="goals-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div id="goals-empty" style="text-align:center;padding:48px 20px;color:var(--text-dim);font-size:var(--fs-base);line-height:1.7;display:none">
+      <div style="font-size:var(--fs-5xl);margin-bottom:12px;opacity:0.6">🎯</div>
+      <span data-i18n-html="goals_empty">Hali maqsad yo'q.<br>Yangi maqsad qo'shing!</span>
+    </div>
+
     <!-- 🆕 MAQSADLAR KALENDARI — vazifalar bo'limidagi kalendar (calendar-section)
          bilan bir xil naqsh: oy ko'rinishi, har bir kun barcha maqsadlar bo'yicha
          umumiy holatga qarab rangga bo'yaladi, va kunni bosganda o'sha kunga
@@ -2106,7 +2174,10 @@ if ('serviceWorker' in navigator) {
          gcalToggleGoal, goalsCalPrevMonth/NextMonth/GoToday. Bitta yagona manba —
          isGoalDueOnDate/_goalToggleDateCore — xuddi kartochkadagi "Bugun bajardim"
          tugmasi va yuqoridagi bitta-maqsad modal-kalendari (openGoalCalendar) bilan
-         bir xil, shu sababli barcha joyda natija izchil bo'ladi. -->
+         bir xil, shu sababli barcha joyda natija izchil bo'ladi.
+         🔁 KO'CHIRILDI: foydalanuvchi so'rovi bo'yicha eng pastga tushirildi —
+         bu bo'limda asosan MAQSADLAR RO'YXATI muhim, kalendar esa yordamchi
+         (ikkinchi darajali) ma'lumot, shu sabab pastroqda turishi kerak. -->
     <div id="goals-calendar-section" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:16px">
       <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px" data-i18n="goals_calendar_title">📅 Maqsadlar kalendari</div>
       <!-- Month nav -->
@@ -2142,12 +2213,6 @@ if ('serviceWorker' in navigator) {
           <div id="gcal-detail-list" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
       </div>
-    </div>
-
-    <div id="goals-list" style="display:flex;flex-direction:column;gap:10px"></div>
-    <div id="goals-empty" style="text-align:center;padding:48px 20px;color:var(--text-dim);font-size:var(--fs-base);line-height:1.7;display:none">
-      <div style="font-size:var(--fs-5xl);margin-bottom:12px;opacity:0.6">🎯</div>
-      <span data-i18n-html="goals_empty">Hali maqsad yo'q.<br>Yangi maqsad qo'shing!</span>
     </div>
   </div>
 
@@ -2912,6 +2977,34 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
 
+      <!-- 0d. Imtihon natijalari (IELTS/SAT/CEFR) yoqish/o'chirish -->
+      <div id="exam-results-settings-card" class="settings-sub-card">
+        <button type="button" class="settings-sub-header" onclick="toggleSettingsSubCard('exam-results-settings-card')">
+          <span class="settings-sub-header-left">
+            <span class="settings-sub-icon icon-pink">📊</span>
+            <span style="min-width:0">
+              <span class="settings-sub-title" data-i18n="exam_results_settings_card_title">📊 Imtihon natijalari</span>
+              <span class="settings-sub-subtitle" data-i18n="exam_results_settings_card_desc">IELTS / SAT / CEFR</span>
+            </span>
+          </span>
+          <span class="settings-sub-arrow-wrap"><span class="settings-sub-arrow">▾</span></span>
+        </button>
+        <div class="settings-sub-body" style="display:none">
+
+          <!-- Natija kiritish funksiyasi on/off -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0">
+            <div style="min-width:0">
+              <div style="font-size:var(--fs-base);font-weight:600;color:var(--text)" data-i18n="exam_results_toggle_title">📊 Natija kiritish funksiyasi</div>
+              <div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px;line-height:1.5" data-i18n="exam_results_toggle_desc">O'chirilgan bo'lsa, IELTS/SAT/CEFR bo'limi, hisoblagich va natija kiritish butunlay yashiriladi — imtihonga tayyorlanmasangiz shart emas.</div>
+            </div>
+            <div id="exam-results-switch" onclick="toggleExamResultsEnabled()" role="switch" style="flex-shrink:0;width:46px;height:26px;border-radius:var(--radius-full);background:var(--surface2);border:1px solid var(--border);position:relative;cursor:pointer;transition:background 0.2s,border-color 0.2s">
+              <div id="exam-results-knob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--text-dim);transition:left 0.2s ease,background 0.2s"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
       </div><!-- /.settings-groups-grid -->
 
       <div class="settings-eyebrow"><span data-i18n="settings_eyebrow_data">🗂️ Ma'lumotlar va tozalash</span></div>
@@ -2999,11 +3092,12 @@ if ('serviceWorker' in navigator) {
       <button type="button" id="reyting-metric-streak" class="reyting-toggle-btn" onclick="setReytingMetric('streak')" data-i18n="reyting_metric_streak">⚡ Streak</button>
     </div>
 
-    <!-- Yo'nalish filtri: Hammasi / IELTS / SAT -->
-    <div id="reyting-subject-filter" style="display:flex;gap:8px;margin-bottom:16px">
+    <!-- Yo'nalish filtri: Hammasi / IELTS / SAT / CEFR -->
+    <div id="reyting-subject-filter" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
       <button type="button" id="reyting-subject-all" class="reyting-subject-pill" onclick="setReytingSubjectFilter('all')" data-i18n="reyting_filter_all">Hammasi</button>
       <button type="button" id="reyting-subject-ielts" class="reyting-subject-pill" onclick="setReytingSubjectFilter('ielts')" data-i18n="reyting_filter_ielts">📊 IELTS</button>
       <button type="button" id="reyting-subject-sat" class="reyting-subject-pill" onclick="setReytingSubjectFilter('sat')" data-i18n="reyting_filter_sat">📐 SAT</button>
+      <button type="button" id="reyting-subject-cefr" class="reyting-subject-pill" onclick="setReytingSubjectFilter('cefr')" data-i18n="reyting_filter_cefr">📘 CEFR</button>
     </div>
 
     <!-- Yangi mavsumgacha qolgan vaqt — sekundigacha jonli hisoblagich -->
@@ -3593,8 +3687,10 @@ if ('serviceWorker' in navigator) {
 </div>
 
 <div class="modal-overlay" id="modal-overlay">
-  <div class="modal" id="modal-box">
+  <div class="modal" id="modal-box" style="max-width:680px">
     <h2 id="modal-title" data-i18n="task_modal_title_new">Yangi vazifa</h2>
+
+    <div class="modal-fields-columns">
 
     <div class="modal-field">
       <label data-i18n="task_name_label">Vazifa nomi</label>
@@ -3708,6 +3804,8 @@ if ('serviceWorker' in navigator) {
       <label><span data-i18n="task_note_label">Izoh / Note</span> <span style="color:var(--text-dim);font-style:italic" data-i18n="task_optional">(ixtiyoriy)</span></label>
       <input type="text" id="m-note" placeholder="Qo'shimcha ma'lumot..." data-i18n-ph="task_note_ph" maxlength="200" />
     </div>
+
+    </div><!-- /.modal-fields-columns -->
 
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()" data-i18n="btn_cancel">Bekor</button>
@@ -5284,6 +5382,8 @@ const I18N = {
     onb_step_mood_title: "😊 Kayfiyat kundaligi",
     onb_step_mood_desc: "Har kuni kayfiyatingizni belgilab boring va ixtiyoriy izoh qoldiring — kalendar orqali o'tgan kunlardagi kayfiyatingizni ham ko'rishingiz mumkin.",
     onb_finish_toast: "🎉 Tanishuv yakunlandi! Endi ilovadan bemalol foydalanishingiz mumkin.",
+    onb_teach_prompt_msg: "🧭 Ilova bilan tanishib chiqishni xohlaysizmi? Barcha bo'limlarni (Vazifalar, Pomodoro, Do'stlar va h.k.) qisqacha ko'rsatib beraman!",
+    onb_teach_prompt_yes: "Ha, ko'rsating!",
     onb_advanced_show: "Batafsil ma'lumot",
     onb_advanced_hide: "Yopish",
     onb_step_tasks_advanced: "Vazifa qo'shish uchun pastdagi \"+\" tugmasini bosing. Har bir vazifaga muddat, takrorlanish (masalan har kuni yoki haftaning muayyan kunlari) va qiyinlik darajasini belgilashingiz mumkin — qiyinroq vazifalar ko'proq tanga beradi. Vazifani ushlab turib chapga suring — tahrirlash yoki o'chirish menyusi chiqadi.",
@@ -5349,6 +5449,12 @@ const I18N = {
     onb_step_chest_advanced: "Sandiqni ochish uchun ko'proq vazifa bajarib, uni to'ldirishingiz kerak. To'lgach, yuqoridagi Spin tugmasi orqali aylanma o'yin o'ynab tasodifiy miqdorda bonus tanga yoki maxsus mukofot yutib olasiz. Spin bepul emas — har safar bir nechta tanga sarflanadi.",
     onb_step_calendar_advanced: "Har bir kun katakchasini bosganingizda o'sha kuni bajarilgan va bajarilmagan vazifalar ro'yxati ochiladi. Ro'yxatdagi ✅/⬜ belgisini bosib, hatta o'tgan kunlardagi vazifani ham bajarilgan yoki bajarilmagan deb qayta belgilashingiz (tahrirlashingiz) mumkin — masalan, o'sha kuni belgilashni unutib qolgan bo'lsangiz, keyinroq to'g'rilash uchun. Oyni almashtirish uchun tepadagi ‹ va › strelkalaridan foydalaning — shu orqali o'tgan oylardagi progressingizni ham ko'rib chiqishingiz mumkin.",
     onb_step_export_advanced: "Eksport tugmasi barcha ma'lumotlaringizni (.json) fayl sifatida yuklab beradi — uni bulutga yoki xotiraga saqlab qo'ying. Import qilganda esa mavjud fayldan barcha vazifa, tanga va statistikangiz to'liq tiklanadi — bu odatda telefon almashtirganda yoki ilovani qayta o'rnatganda kerak bo'ladi.",
+    onb_step_pomodoro_title: "⏱️ Pomodoro",
+    onb_step_pomodoro_desc: "Diqqatni jamlab ishlash uchun Pomodoro taymerdan foydalaning: belgilangan vaqt davomida (masalan 25 daqiqa) ishlaysiz, so'ndan keyin qisqa tanaffus olasiz. Ushbu tugmani bosib istalgan vaqt ochishingiz mumkin.",
+    onb_step_pomodoro_advanced: "Ish va tanaffus davomiyligini o'zingiz sozlashingiz mumkin. Har bir tugallangan Pomodoro sikli statistikada saqlanadi — qancha vaqt e'tiborli ishlaganingizni kuzatib borishingiz mumkin.",
+    onb_step_friends_title: "👥 Do'stlar",
+    onb_step_friends_desc: "Do'stlaringizni qo'shing, ular bilan musobaqalashing (Challenge) yoki birgalikda Party tuzib maqsadlarga erishing. Yuqoridagi tugma orqali istalgan vaqt ochishingiz mumkin.",
+    onb_step_friends_advanced: "ID yoki username orqali do'st qo'shing, so'ng ularga Challenge (musobaqa) yoki Party (jamoa) taklifi yuborishingiz mumkin. Reyting bo'limida do'stlaringiz bilan solishtirib ko'rishingiz ham mumkin.",
     onb_step_settings_advanced: "Sozlamalar bo'limi bir nechta kichik kartalarga bo'lingan: Interfeys (tungi rejim, xarakter ko'rinishi, mavzu), Ovoz va Musiqa (audio va fon tovushlari) va O'yin qoidalari (qiyinlik darajasi). Har birining sarlavhasini bosib ochishingiz mumkin.",
     onb_step_music_advanced: "Fon tovushlari yoqilgach, pastda \"Qo'shiqlarni ochish\" tugmasi paydo bo'ladi — u orqali turli ambient trekni tanlab, ovozini sozlab, ishlash yoki dam olish paytida fonda qo'yib qo'yishingiz mumkin.",
     onb_step_mood_advanced: "Kayfiyat belgilash faqat bugungi kun uchun mavjud, lekin kalendar orqali barcha o'tgan kunlardagi belgilangan kayfiyatlarni va izohlarni ko'rib chiqishingiz mumkin. Xohlasangiz, bugungi kayfiyatni o'zgartirish yoki o'chirish ham mumkin.",
@@ -5512,6 +5618,18 @@ const I18N = {
     spin_tomorrow_btn: 'Ertaga keling! 🌙',
     spin_prize_toast: ' tanga! ',
     spin_no_luck: 'Omadsiz',
+    spin_prize_freeze_label: '❄️ Freeze',
+    spin_prize_reward_label: '🎁 Sovg\'a',
+    spin_prize_respin_label: '🔄 Yana Spin',
+    spin_prize_freeze_toast: '❄️ +1 Muzlatish qo\'shildi!',
+    spin_prize_reward_toast: '🎁 Yutdingiz: {name} (bepul)!',
+    spin_prize_reward_fallback_toast: '🎁 Omadingiz keldi! Lekin hali hech qanday sovg\'a qo\'shmagansiz — Sovg\'alar bo\'limiga o\'ting.',
+    spin_prize_respin_toast: '🔄 Yana bir marta Spin qilish imkoni!',
+    spin_prize_xp_label: '⭐ +XP',
+    spin_prize_xp_toast: '⭐ +{amt} XP qo\'shildi!',
+    spin_prize_double_label: '2x Bonus',
+    spin_prize_double_toast: '🔥 Keyingi bajaradigan vazifangiz uchun tanga 2 BAROBAR bo\'ladi!',
+    spin_double_consumed_toast: '🔥 2x bonus ishlatildi — tanga ikki barobar berildi!',
     spin_odds_btn: "🎁 Mumkin bo'lgan sovg'alar",
     spin_odds_title: "🎁 Mumkin bo'lgan sovg'alar",
     spin_odds_desc: "Har bir sovg'aning tushish ehtimoli (%) — eng qimmati (100 tanga) eng past ehtimolga (0.1%) ega, ya'ni eng qiyin tushadigan sovg'a.",
@@ -5807,6 +5925,7 @@ const I18N = {
     pc_shown_toast: "👁️ Endi \"Tezkor kirish\"da ko'rinadi",
     pin_locked_error: '⏱️ Juda ko\'p xato urinish. {s}s dan keyin qayta urinib ko\'ring',
     pc_info_title: '🕵️‍♂️ Personal Check haqida',
+    pc_quickaccess_btn: '🕵️ Focus',
     pc_info_body: "Personal Check — bu sizning shaxsiy odatlaringiz va intizomingizni xavfsiz kuzatib borish uchun mo'ljallangan maxsus sirli bo'limdir.<br><br>Masalan:<br>• Masturbatsiya qilmaslik<br>• Chekmaslik<br>• Ijtimoiy tarmoqlarda ortiqcha vaqt sarflamaslik<br><br>Bu ma'lumotlar faqat sizga ko'rinadi. Xohlasangiz, Sozlamalardagi \"PIN himoyasi\" tugmasi orqali bo'limni PIN kod bilan qo'shimcha himoyalashingiz mumkin.",
     pc_info_access: "🔑 Kirish: asosiy ekrandagi logotip belgisi ustiga ketma-ket 5 marta bosing.",
     pc_info_footer: 'Davom etish uchun Enter tugmasini bosing',
@@ -5954,6 +6073,7 @@ const I18N = {
     reyting_filter_all: 'Hammasi',
     reyting_filter_ielts: '📊 IELTS',
     reyting_filter_sat: '📐 SAT',
+    reyting_filter_cefr: '📘 CEFR',
     reyting_loading_msg: 'Yuklanmoqda…',
     reyting_offline_msg: "Reyting hozircha ulanmagan (internet yo'q yoki server sozlanmagan) — faqat sizning natijangiz ko'rsatilmoqda.",
     reyting_load_error_msg: "Reytingni yuklab bo'lmadi. Birozdan so'ng qayta urinib ko'ring.",
@@ -6243,6 +6363,12 @@ const I18N = {
     friends_accept_requests_desc: "O'chirilgan bo'lsa, boshqa foydalanuvchilar sizga yangi do'stlik so'rovi yubora olmaydi (mavjud so'rovlaringiz saqlanadi).",
     friends_accept_requests_on_toast: "📥 Do'stlik so'rovlari yoqildi",
     friends_accept_requests_off_toast: "🔕 Do'stlik so'rovlari o'chirildi",
+    exam_results_settings_card_title: "📊 Imtihon natijalari",
+    exam_results_settings_card_desc: "IELTS / SAT / CEFR",
+    exam_results_toggle_title: "📊 Natija kiritish funksiyasi",
+    exam_results_toggle_desc: "O'chirilgan bo'lsa, IELTS/SAT/CEFR bo'limi, hisoblagich va natija kiritish butunlay yashiriladi — imtihonga tayyorlanmasangiz shart emas.",
+    exam_results_on_toast: "📊 Natija kiritish yoqildi",
+    exam_results_off_toast: "🔕 Natija kiritish o'chirildi",
     friends_notify_incoming_title: "👥 Yangi do'stlik so'rovi",
     friends_notify_incoming_body: "{name} sizga do'stlik so'rovi yubordi",
     friends_demo_reason_1: "Men sizning sinfdoshingizman",
@@ -6859,6 +6985,8 @@ const I18N = {
     onb_step_mood_title: "😊 Mood journal",
     onb_step_mood_desc: "Log your mood every day and add an optional note — you can also browse a calendar of your past moods.",
     onb_finish_toast: "🎉 Tour finished! You're all set to use the app.",
+    onb_teach_prompt_msg: "🧭 Want a quick walkthrough of the app? I'll show you around every section (Tasks, Pomodoro, Friends, and more)!",
+    onb_teach_prompt_yes: "Yes, show me!",
     onb_advanced_show: "More details",
     onb_advanced_hide: "Hide",
     onb_step_tasks_advanced: "Tap the \"+\" button below to add a task. You can set a due date, a repeat pattern (e.g. daily or specific weekdays), and a difficulty level — harder tasks pay more coins. Swipe a task to the left to reveal the edit/delete menu.",
@@ -6924,6 +7052,12 @@ const I18N = {
     onb_step_chest_advanced: "Complete more tasks to fill up the Chest before you can open it. Once it's full, use the Spin button up top to play a wheel for a random amount of bonus coins or a special reward. Spinning isn't free — it costs a few coins each time.",
     onb_step_calendar_advanced: "Tap any day's cell to see the tasks that were done and missed that day. Tap the ✅/⬜ icon next to a task to toggle it done or not done — this also works for past days, so you can fix a day you forgot to mark. Use the ‹ and › arrows at the top to switch months and review your progress from previous months too.",
     onb_step_export_advanced: "The Export button downloads all your data as a .json file — save it to the cloud or your device. Import restores everything (tasks, coins, and stats) from that file, which is handy when switching phones or reinstalling the app.",
+    onb_step_pomodoro_title: "⏱️ Pomodoro",
+    onb_step_pomodoro_desc: "Use the Pomodoro timer to focus: work for a set time (e.g. 25 minutes), then take a short break. Tap this button anytime to open it.",
+    onb_step_pomodoro_advanced: "You can customize the work and break lengths yourself. Every completed Pomodoro cycle is saved to your stats, so you can track how much focused time you've put in.",
+    onb_step_friends_title: "👥 Friends",
+    onb_step_friends_desc: "Add friends, challenge each other, or form a Party to reach goals together. Tap this button anytime to open it.",
+    onb_step_friends_advanced: "Add a friend by their ID or username, then send them a Challenge or a Party invite. You can also compare yourself with friends on the Leaderboard.",
     onb_step_settings_advanced: "Settings is split into a few cards: Interface (dark mode, character visibility, theme), Sound & Music (audio and ambient background sounds), and Game Rules (difficulty level). Tap any card's header to expand it.",
     onb_step_music_advanced: "Once ambient sounds are enabled, an \"Open tracks\" button appears below — use it to pick different ambient tracks, adjust the volume, and play them in the background while you work or relax.",
     onb_step_mood_advanced: "You can only set today's mood, but the calendar lets you look back through every day you've logged, along with any notes. You can also change or delete today's entry if you'd like.",
@@ -7087,6 +7221,18 @@ const I18N = {
     spin_tomorrow_btn: 'Come back tomorrow! 🌙',
     spin_prize_toast: ' coins! ',
     spin_no_luck: 'No luck',
+    spin_prize_freeze_label: '❄️ Freeze',
+    spin_prize_reward_label: '🎁 Reward',
+    spin_prize_respin_label: '🔄 Spin again',
+    spin_prize_freeze_toast: '❄️ +1 Freeze added!',
+    spin_prize_reward_toast: '🎁 You won: {name} (free)!',
+    spin_prize_reward_fallback_toast: "🎁 Lucky! But you haven't added any rewards yet — check the Rewards tab.",
+    spin_prize_respin_toast: '🔄 You get another Spin!',
+    spin_prize_xp_label: '⭐ +XP',
+    spin_prize_xp_toast: '⭐ +{amt} XP added!',
+    spin_prize_double_label: '2x Bonus',
+    spin_prize_double_toast: '🔥 Your next completed task will earn DOUBLE coins!',
+    spin_double_consumed_toast: '🔥 2x bonus used — coins doubled!',
     spin_odds_btn: '🎁 Possible prizes',
     spin_odds_title: '🎁 Possible prizes',
     spin_odds_desc: 'Drop chance (%) for each prize — the top prize (100 coins) has the lowest chance (0.1%), making it the hardest to get.',
@@ -7385,6 +7531,7 @@ const I18N = {
     pc_shown_toast: '👁️ Now visible in Quick Access',
     pin_locked_error: '⏱️ Too many failed attempts. Try again in {s}s',
     pc_info_title: '🕵️‍♂️ About Personal Check',
+    pc_quickaccess_btn: '🕵️ Focus',
     pc_info_body: "Personal Check is a special hidden section for privately tracking your personal habits and discipline.<br><br>For example:<br>• Not masturbating<br>• Not smoking<br>• Not wasting time on social media<br><br>This data is visible only to you. If you'd like, you can also protect the section with a PIN using the \"PIN protection\" switch in Settings.",
     pc_info_access: '🔑 Access: tap the logo on the main screen 5 times in a row.',
     pc_info_footer: 'Press Enter to continue',
@@ -7528,6 +7675,7 @@ const I18N = {
     reyting_filter_all: 'All',
     reyting_filter_ielts: '📊 IELTS',
     reyting_filter_sat: '📐 SAT',
+    reyting_filter_cefr: '📘 CEFR',
     reyting_loading_msg: 'Loading…',
     reyting_offline_msg: "Leaderboard isn't connected right now (no internet or the server isn't configured) — showing only your own result.",
     reyting_load_error_msg: 'Could not load the leaderboard. Please try again shortly.',
@@ -7815,6 +7963,12 @@ const I18N = {
     friends_accept_requests_desc: "When off, other users can't send you new friend requests (your existing requests stay).",
     friends_accept_requests_on_toast: "📥 Friend requests turned on",
     friends_accept_requests_off_toast: "🔕 Friend requests turned off",
+    exam_results_settings_card_title: "📊 Exam results",
+    exam_results_settings_card_desc: "IELTS / SAT / CEFR",
+    exam_results_toggle_title: "📊 Exam results feature",
+    exam_results_toggle_desc: "When off, the IELTS/SAT/CEFR section, countdown, and result entry are hidden entirely — no need if you're not preparing for an exam.",
+    exam_results_on_toast: "📊 Exam results turned on",
+    exam_results_off_toast: "🔕 Exam results turned off",
     friends_notify_incoming_title: "👥 New friend request",
     friends_notify_incoming_body: "{name} sent you a friend request",
     friends_demo_reason_1: "I'm your classmate",
@@ -8430,6 +8584,8 @@ const I18N = {
     onb_step_mood_title: '😊 Дневник настроения',
     onb_step_mood_desc: 'Отмечайте своё настроение каждый день и добавляйте заметку — а в календаре можно посмотреть настроение за прошлые дни.',
     onb_finish_toast: '🎉 Тур завершён! Теперь вы можете свободно пользоваться приложением.',
+    onb_teach_prompt_msg: '🧭 Хотите быстрый обзор приложения? Покажу все разделы (Задачи, Pomodoro, Друзья и другое)!',
+    onb_teach_prompt_yes: 'Да, покажите!',
     onb_advanced_show: 'Подробнее',
     onb_advanced_hide: 'Скрыть',
     onb_step_tasks_advanced: 'Нажмите кнопку «+» внизу, чтобы добавить задачу. Можно задать срок, повторение (например, каждый день или в определённые дни недели) и уровень сложности — за более сложные задачи начисляется больше монет. Смахните задачу влево, чтобы открыть меню редактирования или удаления.',
@@ -8495,6 +8651,12 @@ const I18N = {
     onb_step_chest_advanced: 'Чтобы открыть сундук, нужно выполнить больше задач и заполнить его. Когда он полон, нажмите кнопку Spin вверху, чтобы сыграть в рулетку и получить случайное количество бонусных монет или особую награду. Spin не бесплатен — каждый раз списывается несколько монет.',
     onb_step_calendar_advanced: 'Нажмите на ячейку любого дня, чтобы увидеть выполненные и пропущенные в этот день задачи. Нажмите на значок ✅/⬜ рядом с задачей, чтобы отметить её как выполненную или невыполненную — это работает и для прошлых дней, если вы забыли отметить задачу вовремя. Используйте стрелки ‹ и › вверху, чтобы переключать месяцы и просматривать прогресс за предыдущие месяцы.',
     onb_step_export_advanced: 'Кнопка Export скачивает все ваши данные в файл .json — сохраните его в облако или на устройство. Import полностью восстанавливает задачи, монеты и статистику из этого файла — удобно при смене телефона или переустановке приложения.',
+    onb_step_pomodoro_title: "⏱️ Pomodoro",
+    onb_step_pomodoro_desc: "Используйте таймер Pomodoro для концентрации: работайте заданное время (например, 25 минут), затем делайте короткий перерыв. Нажмите эту кнопку в любое время, чтобы открыть его.",
+    onb_step_pomodoro_advanced: "Вы можете сами настроить длительность работы и перерыва. Каждый завершённый цикл Pomodoro сохраняется в статистике — так вы отслеживаете, сколько времени поработали сосредоточенно.",
+    onb_step_friends_title: "👥 Друзья",
+    onb_step_friends_desc: "Добавляйте друзей, соревнуйтесь (Challenge) или создавайте команду (Party) для совместных целей. Нажмите эту кнопку в любое время, чтобы открыть раздел.",
+    onb_step_friends_advanced: "Добавьте друга по ID или имени пользователя, затем отправьте вызов (Challenge) или приглашение в команду (Party). Также можно сравнить себя с друзьями в Рейтинге.",
     onb_step_settings_advanced: 'Настройки разделены на несколько карточек: Интерфейс (тёмный режим, видимость персонажа, тема), Звук и музыка (аудио и фоновые звуки) и Правила игры (уровень сложности). Нажмите на заголовок карточки, чтобы её развернуть.',
     onb_step_music_advanced: 'После включения фоновых звуков ниже появится кнопка «Открыть треки» — с её помощью можно выбрать разные фоновые треки, настроить громкость и включить их на фоне во время работы или отдыха.',
     onb_step_mood_advanced: 'Настроение можно отметить только за сегодняшний день, но в календаре вы можете просмотреть все прошлые записи вместе с заметками. Сегодняшнюю запись также можно изменить или удалить.',
@@ -8660,6 +8822,18 @@ const I18N = {
     coins_suffix_short: '🪙',
     // Spin / бейджи
     spin_no_luck: 'Не повезло',
+    spin_prize_freeze_label: '❄️ Заморозка',
+    spin_prize_reward_label: '🎁 Приз',
+    spin_prize_respin_label: '🔄 Ещё Spin',
+    spin_prize_freeze_toast: '❄️ +1 заморозка добавлена!',
+    spin_prize_reward_toast: '🎁 Вы выиграли: {name} (бесплатно)!',
+    spin_prize_reward_fallback_toast: 'Повезло! Но у вас пока нет наград — загляните в раздел Награды.',
+    spin_prize_respin_toast: '🔄 Ещё одна попытка Spin!',
+    spin_prize_xp_label: '⭐ +XP',
+    spin_prize_xp_toast: '⭐ +{amt} XP добавлено!',
+    spin_prize_double_label: '2x Бонус',
+    spin_prize_double_toast: '🔥 За следующее выполненное задание монеты будут УДВОЕНЫ!',
+    spin_double_consumed_toast: '🔥 2x бонус использован — монеты удвоены!',
     spin_odds_btn: '🎁 Возможные призы',
     spin_odds_title: '🎁 Возможные призы',
     spin_odds_desc: 'Шанс выпадения (%) для каждого приза — главный приз (100 монет) имеет самый низкий шанс (0.1%), то есть выпадает реже всех.',
@@ -8959,6 +9133,7 @@ const I18N = {
     pc_shown_toast: '👁️ Теперь видно в быстром доступе',
     pin_locked_error: '⏱️ Слишком много неверных попыток. Повторите через {s}с',
     pc_info_title: '🕵️‍♂️ О разделе Personal Check',
+    pc_quickaccess_btn: '🕵️ Focus',
     pc_info_body: "Personal Check — это специальный скрытый раздел для приватного отслеживания ваших личных привычек и дисциплины.<br><br>Например:<br>• Не мастурбировать<br>• Не курить<br>• Не тратить лишнее время в соцсетях<br><br>Эти данные видны только вам. При желании раздел можно дополнительно защитить PIN-кодом через переключатель «Защита PIN-кодом» в Настройках.",
     pc_info_access: '🔑 Доступ: нажмите на логотип на главном экране 5 раз подряд.',
     pc_info_footer: 'Нажмите Enter, чтобы продолжить',
@@ -9101,6 +9276,7 @@ const I18N = {
     reyting_filter_all: 'Все',
     reyting_filter_ielts: '📊 IELTS',
     reyting_filter_sat: '📐 SAT',
+    reyting_filter_cefr: '📘 CEFR',
     reyting_loading_msg: 'Загрузка…',
     reyting_offline_msg: 'Рейтинг сейчас не подключён (нет интернета или сервер не настроен) — показан только ваш результат.',
     reyting_load_error_msg: 'Не удалось загрузить рейтинг. Попробуйте немного позже.',
@@ -9388,6 +9564,12 @@ const I18N = {
     friends_accept_requests_desc: "Если выключено, другие пользователи не смогут отправлять вам новые заявки в друзья (текущие заявки сохранятся).",
     friends_accept_requests_on_toast: "📥 Заявки в друзья включены",
     friends_accept_requests_off_toast: "🔕 Заявки в друзья отключены",
+    exam_results_settings_card_title: "📊 Результаты экзамена",
+    exam_results_settings_card_desc: "IELTS / SAT / CEFR",
+    exam_results_toggle_title: "📊 Функция ввода результатов",
+    exam_results_toggle_desc: "Если выключено, раздел IELTS/SAT/CEFR, таймер и ввод результатов полностью скрываются — не нужно, если вы не готовитесь к экзамену.",
+    exam_results_on_toast: "📊 Ввод результатов включён",
+    exam_results_off_toast: "🔕 Ввод результатов отключён",
     friends_notify_incoming_title: "👥 Новая заявка в друзья",
     friends_notify_incoming_body: "{name} отправил(а) вам заявку в друзья",
     friends_demo_reason_1: "Я твой одноклассник",
@@ -12886,7 +13068,20 @@ function grantTaskReward(tsk, dateStr) {
   // qisqartirilgan miqdorni hisoblab, uni ANIQ shu qiymat sifatida
   // qotiramiz (f.rewardAmt), shunda keyinchalik revokeTaskReward() ham
   // aynan shu (kamaytirilgan) miqdorni qaytarib oladi — muvozanat buzilmaydi.
-  var amt = f.rewardAmt || applyDebtEarningPenalty(taskCoinValue(tsk));
+  var amt = f.rewardAmt;
+  if (!amt) {
+    amt = applyDebtEarningPenalty(taskCoinValue(tsk));
+    // 🎰 Spin'dan "2x Bonus" yutib olingan bo'lsa — birinchi marta
+    // hisoblanayotgan (hali "muzlatilmagan") mukofot shu yerda ikki
+    // barobar qilinadi, so'ng bonus "sarflanadi" (faqat BITTA vazifaga
+    // qo'llanadi). f.rewardAmt sifatida saqlanadigani uchun, keyinchalik
+    // Undone/Done qilinsa ham har doim aynan shu (2x) miqdor bilan mos keladi.
+    if (S.spinDoubleNextTaskActive && amt > 0) {
+      amt = amt * 2;
+      S.spinDoubleNextTaskActive = false;
+      setTimeout(function(){ toast(t('spin_double_consumed_toast')); }, 500);
+    }
+  }
   f.rewardAmt = amt; f.rewardGiven = true;
   S.coins = (S.coins||0) + amt;
   S.totalCoins = (S.totalCoins||0) + amt;
@@ -12918,6 +13113,41 @@ function refundTaskPenalty(tsk, dateStr) {
   if (!f.penaltyGiven) return 0;
   var amt = f.penaltyAmt;
   f.penaltyGiven = false; // penaltyAmt saqlanib qoladi — qayta bajarilmay qolsa xuddi shu miqdor qaytadan yechiladi
+  S.coins = (S.coins||0) + amt;
+  return amt;
+}
+
+// 🆕 SUB-TASKLAR UCHUN HAM XUDDI ASOSIY VAZIFALARDAGI KABI "kun o'tkazib
+// yuborilsa jazo" tizimi — ilgari FAQAT alohida "muddat" (dueDate)
+// belgilangan sub-tasklar uchun (qarang: applySubtaskDueDatePenalties)
+// jarima bor edi; oddiy kunlik/haftalik takrorlanuvchi sub-tasklar
+// umuman jarimalanmasdi. Endi asosiy vazifalar bilan bir xil kunda,
+// bir xil "faqat eng oxirgi o'tgan kun uchun" qoidasi bilan ishlaydi —
+// jarima miqdori shu sub-taskning o'z qiyinlik/tanga qiymatiga teng.
+function getSubtaskDayFlag(subId, dateStr) {
+  if (!S.subtaskDayFlags) S.subtaskDayFlags = {};
+  if (!S.subtaskDayFlags[subId]) S.subtaskDayFlags[subId] = {};
+  if (!S.subtaskDayFlags[subId][dateStr]) {
+    S.subtaskDayFlags[subId][dateStr] = { penaltyGiven:false, penaltyAmt:0 };
+  }
+  return S.subtaskDayFlags[subId][dateStr];
+}
+function chargeSubtaskPenalty(sub, dateStr) {
+  var f = getSubtaskDayFlag(sub.id, dateStr);
+  if (f.penaltyGiven) return 0;
+  var amt = f.penaltyAmt || taskCoinValue(sub);
+  if (amt <= 0) return 0; // "Bepul" (0 tanga) sub-tasklar uchun jarima yo'q
+  f.penaltyAmt = amt; f.penaltyGiven = true;
+  S.coins = (S.coins||0) - amt;
+  return amt;
+}
+// Avval yechilgan sub-task jazosini qaytarib berish (o'sha o'tkazib
+// yuborilgan kun keyinroq Done deb belgilansa). Jazo yo'q bo'lsa — 0.
+function refundSubtaskPenalty(sub, dateStr) {
+  var f = getSubtaskDayFlag(sub.id, dateStr);
+  if (!f.penaltyGiven) return 0;
+  var amt = f.penaltyAmt;
+  f.penaltyGiven = false;
   S.coins = (S.coins||0) + amt;
   return amt;
 }
@@ -13264,6 +13494,36 @@ function checkReset() {
                 if (!S.pendingMissedMsg) S.pendingMissedMsg = '😔 ' + t('missed_tasks_msg').replace('{n}', missedTasks.length).replace('{penalty}', penalty);
               }
             }
+
+            // 🆕 SUB-TASKLAR UCHUN HAM: ilgari faqat asosiy vazifalar
+            // o'tkazib yuborilgani uchun jazolanardi, ichidagi oddiy
+            // (dueDate'siz, kunlik/haftalik) sub-tasklar esa umuman
+            // jarimalanmasdi. Endi ular ham xuddi shu "eng oxirgi
+            // o'tkazib yuborilgan kun" uchun, o'z qiyinlik/tanga
+            // qiymatiga teng jazo bilan tekshiriladi. Alohida "Muddat"
+            // (dueDate) belgilangan sub-tasklar bu yerdan chetlab
+            // o'tiladi — ular allaqachon o'zining alohida, proporsional
+            // tizimi orqali jarimalanadi (qarang: applySubtaskDueDatePenalties).
+            var missedSubtasks = [];
+            S.tasks.forEach(function(pt) {
+              if (pt.createdAt && ps < pt.createdAt) return;
+              if (pt.isFrozen && (!pt.frozenAt || ps >= pt.frozenAt)) return;
+              ensureSubtasks(pt).forEach(function(sub) {
+                if (sub.dueDate) return; // alohida tizim bilan jarimalanadi
+                if (!subtaskDueToday(sub, ps)) return;
+                if (subtaskDoneOnDate(pt.id, sub.id, ps)) return;
+                if (sub.skipped && sub.skippedDate === ps) return;
+                missedSubtasks.push(sub);
+              });
+            });
+            if (missedSubtasks.length > 0) {
+              var subPenalty = 0;
+              missedSubtasks.forEach(function(sub) { subPenalty += chargeSubtaskPenalty(sub, ps); });
+              if (subPenalty > 0) {
+                addTarixLog('out', '😔 ' + t('missed_tasks_log').replace('{n}', missedSubtasks.length), -subPenalty, null, ps);
+                if (!S.pendingMissedMsg) S.pendingMissedMsg = '😔 ' + t('missed_tasks_msg').replace('{n}', missedSubtasks.length).replace('{penalty}', subPenalty);
+              }
+            }
           }
         }
       }
@@ -13276,6 +13536,27 @@ function checkReset() {
     // s.done'ni qayta false qiladi) BOSHLANISHIDAN OLDIN, hali "kechagi"
     // haqiqiy bajarilish holati saqlanib turganda chaqiriladi.
     applySubtaskDueDatePenalties();
+
+    // 🐛 TUZATILDI: Extract qilingan (fromParentId bor) TAKRORLANUVCHI
+    // (once bo'lmagan) vazifalar ilgari abadiy mustaqil vazifa bo'lib
+    // qolib ketardi — faqat "✅ Bajarildi" qilinganda ota-vazifaga
+    // qaytardi, aks holda hech qachon. Endi har kuni (soat 00:00 dan
+    // keyin) bunday vazifalar avtomatik ravishda o'z ota-vazifasiga
+    // qaytariladi — kecha bajarilgan bo'lsa tugallangan tarix sifatida,
+    // bajarilmagan bo'lsa oddiy bajarilmagan sub-task sifatida (kunlik
+    // reset pastdagi forEach'da bo'lishidan OLDIN, hali "kechagi"
+    // haqiqiy done holati saqlanib turganda). Ota-vazifa o'chirilgan
+    // bo'lsa — bog'lanish shunchaki tozalanadi, task mustaqil qolaveradi.
+    var _extractedToFold = S.tasks.filter(function(x){ return x.fromParentId && x.repeat !== 'once'; });
+    if (_extractedToFold.length) {
+      _extractedToFold.forEach(function(pt) {
+        var parent = S.tasks.find(function(x){ return x.id === pt.fromParentId; });
+        if (!parent) { pt.fromParentId = null; pt.fromParentName = null; pt.fromSubtaskMeta = null; return; }
+        foldExtractedTaskIntoParent(pt, parent, !!pt.done, pt.doneDate);
+      });
+      S.tasks = S.tasks.filter(function(x){ return _extractedToFold.indexOf(x) === -1 || !x.fromParentId; });
+      ensureFullTaskOrder();
+    }
 
     // reset daily tasks
     S.tasks.forEach(t => {
@@ -13835,29 +14116,7 @@ function toggleTaskInternal(id) {
     if (tsk.fromParentId) {
       var _parent = S.tasks.find(function(x){ return x.id === tsk.fromParentId; });
       if (_parent) {
-        var _meta = tsk.fromSubtaskMeta || {};
-        var _parentSubs = ensureSubtasks(_parent);
-        _parentSubs.push({
-          id: genSubtaskId(), name: tsk.name, done: true, doneDate: today(),
-          diff: _meta.diff||tsk.diff||0, coins: _meta.coins||tsk.coins||0,
-          repeat: _meta.repeat || 'once',
-          days: _meta.days || null,
-          interval: _meta.interval || null,
-          startDate: _meta.startDate || null,
-          nextDate: null,
-          label: _meta.label || tsk.label || null,
-          subtasks: []
-        });
-        // 🐛 BUG FIX (5): agar bu (endi Done bo'lgan) task standalone
-        // vazifa sifatida turgan paytida o'zining ichiga yangi
-        // sub-sub-tasklar orttirgan bo'lsa — ularni yashirin (nested,
-        // UI'da hech qachon ko'rsatilmaydigan) holda qoldirish o'rniga,
-        // to'g'ridan-to'g'ri ota-vazifaning asosiy .subtasks[] massiviga
-        // TEKIS (flat) qilib qo'shamiz — shunda ular oddiy sub-task
-        // sifatida ro'yxatda ko'rinadi.
-        if (Array.isArray(tsk.subtasks) && tsk.subtasks.length) {
-          tsk.subtasks.forEach(function (nested) { _parentSubs.push(nested); });
-        }
+        foldExtractedTaskIntoParent(tsk, _parent, true, today());
         S.tasks = S.tasks.filter(function(x){ return x.id !== tsk.id; });
         _foldedBack = true;
       }
@@ -13900,27 +14159,8 @@ function toggleTaskInternal(id) {
     // qidirib, ularni yana shu ota-taskning sub-tasklar ro'yxatiga qaytaramiz.
     var _pulledBack = S.tasks.filter(function(x){ return x.fromParentId === tsk.id && !x.done; });
     if (_pulledBack.length) {
-      var _subsArr = ensureSubtasks(tsk);
       _pulledBack.forEach(function(pt) {
-        var meta = pt.fromSubtaskMeta || {};
-        _subsArr.push({
-          id: pt.id, name: pt.name, done: false,
-          diff: meta.diff||pt.diff||0, coins: meta.coins||pt.coins||0,
-          repeat: meta.repeat || pt.repeat || 'once',
-          days: meta.days || pt.days || null,
-          interval: meta.interval || pt.interval || null,
-          startDate: meta.startDate || null,
-          nextDate: pt.nextDate || null,
-          label: meta.label || pt.label || null,
-          subtasks: []
-        });
-        // 🐛 BUG FIX (5): xuddi shu tarzda — pt standalone task bo'lib
-        // turgan paytida o'z sub-tasklarini orttirgan bo'lsa, ularni
-        // nested (ko'rinmaydigan) holda yashirmay, ota-vazifaning asosiy
-        // .subtasks[] ro'yxatiga tekis qilib qo'shamiz.
-        if (Array.isArray(pt.subtasks) && pt.subtasks.length) {
-          pt.subtasks.forEach(function (nested) { _subsArr.push(nested); });
-        }
+        foldExtractedTaskIntoParent(pt, tsk, false, null);
       });
       S.tasks = S.tasks.filter(function(x){ return !(x.fromParentId === tsk.id && !x.done); });
       ensureFullTaskOrder();
@@ -15564,6 +15804,36 @@ function saveSubtaskModal() {
   toast(t('subtask_added_toast'));
 }
 
+// Ajratib chiqarilgan (fromParentId bilan belgilangan) mustaqil vazifani
+// ota-vazifaning sub-tasklar ro'yxatiga qaytarib qo'shadi. Bitta umumiy
+// manba — Done bosilganda (toggleTaskInternal), ota-vazifa Undone
+// qilinganda (toggleTaskInternal) VA har kecha soat 00:00 da (checkReset)
+// aynan shu funksiya orqali ishlaydi, shu sababli hammasi bir xil.
+// asDone=true bo'lsa — tugallangan tarix sifatida (yangi ID bilan,
+// aks holda bir xil ID keyinchalik takroriy sub-task konfliktiga olib
+// kelishi mumkin); asDone=false bo'lsa — hali bajarilmagan sub-task
+// sifatida (ASL ID saqlanadi, aks holda streak/tarix uzilib qolardi).
+function foldExtractedTaskIntoParent(pt, parent, asDone, doneDateStr) {
+  var meta = pt.fromSubtaskMeta || {};
+  var subsArr = ensureSubtasks(parent);
+  subsArr.push({
+    id: asDone ? genSubtaskId() : pt.id, name: pt.name, done: !!asDone, doneDate: asDone ? (doneDateStr || today()) : null,
+    diff: meta.diff || pt.diff || 0, coins: meta.coins || pt.coins || 0,
+    repeat: meta.repeat || pt.repeat || 'once',
+    days: meta.days || pt.days || null,
+    interval: meta.interval || pt.interval || null,
+    startDate: meta.startDate || null,
+    nextDate: asDone ? null : (pt.nextDate || null),
+    label: meta.label || pt.label || null,
+    subtasks: []
+  });
+  // O'zining ichida orttirgan (nested) sub-tasklari bo'lsa, ularni ham
+  // ota-vazifaning asosiy .subtasks[] ro'yxatiga tekis qilib qo'shamiz.
+  if (Array.isArray(pt.subtasks) && pt.subtasks.length) {
+    pt.subtasks.forEach(function (nested) { subsArr.push(nested); });
+  }
+}
+
 // Sub-taskni ota-taskdan chiqarib, ALOHIDA asosiy vazifaga aylantiradi
 // (aksincha jarayoni — addTaskAsSubtask'ga qarang). Barcha
 // sozlamalari (qiyinlik, takrorlanish, rang) saqlanib qoladi.
@@ -15602,6 +15872,12 @@ function extractSubtaskToTask(taskId, subId) {
     // toggleTaskInternal() va boshqa joylardagi fold-back/pull-back
     // logikasi faqat shu ikki maydonga qarab ishlaydi.
     fromParentId: taskId,
+    // 🐛 TUZATILDI: `fromParentName` maydoni asosiy ro'yxatdagi qizil
+    // "ota-vazifa nomi" belgisi (task-parent-badge, qarang: taskItemHtml)
+    // uchun kerak edi, lekin hech qachon yozilmagan bo'lib chiqdi — shu
+    // sababli extract qilingan vazifa hech qanday kontekstsiz, oddiy
+    // mustaqil vazifadek ko'rinib, foydalanuvchini adashtirardi.
+    fromParentName: tk.name,
     fromSubtaskMeta: {
       diff: sub.diff||0, coins: sub.coins||0, repeat: sub.repeat||'daily',
       days: sub.repeat==='custom-days' ? (sub.days||[]) : null,
@@ -15645,6 +15921,7 @@ function extractPendingSubtasksOnParentDone(tk) {
       isFrozen: false, frozenAt: null,
       subtasks: Array.isArray(sub.subtasks) ? sub.subtasks : [],
       fromParentId: tk.id,
+      fromParentName: tk.name,
       fromSubtaskMeta: {
         diff: sub.diff||0, coins: sub.coins||0, repeat: sub.repeat||'daily',
         days: sub.repeat==='custom-days' ? (sub.days||[]) : null,
@@ -15728,6 +16005,12 @@ function toggleSubtask(taskId, subId, dateStr, silent) {
       S.totalCoins = (S.totalCoins||0) + amt;
       setTimeout(function(){ SFX.coin(); }, 80);
     }
+    // 🆕 Agar bu sana uchun ilgari (o'tkazib yuborilgani sababli) jarima
+    // yechilgan bo'lsa — endi kechiktirib bo'lsa ham bajarilgani uchun
+    // o'sha jarima qaytarib beriladi (asosiy vazifalardagi refundTaskPenalty
+    // bilan bir xil mantiq).
+    var _subRefunded = refundSubtaskPenalty(sub, dateStr);
+    if (_subRefunded > 0) addTarixLog('in', t('penalty_returned_log'), _subRefunded, null, dateStr);
     // Sub-task ham "bajarilgan vazifa" hisoblanadi — umumiy hisoblagichga
     // qo'shiladi (statistika/nishonlar "✅ Vazifalar" mezoni buni to'g'ri
     // ko'rishi uchun).
@@ -16152,7 +16435,7 @@ function makeTaskEl(t, future) {
         ${t.done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}
       </button>
       <div class="task-info">
-        <div class="task-name">${t.pinned ? '<span title="' + esc(tr('task_pinned_badge')) + '" style="margin-right:4px">📌</span>' : ''}${t.fromParentName ? `<span class="task-parent-badge">${esc(t.fromParentName)}</span> ` : ''}${t.emoji ? `<span style="margin-right:5px;font-size:var(--fs-md)">${t.emoji}</span>` : ''}${esc(t.name)}</div>
+        <div class="task-name">${t.pinned ? '<span title="' + esc(tr('task_pinned_badge')) + '" style="margin-right:4px">📌</span>' : ''}${t.fromParentName ? `<span class="task-parent-badge">${esc(t.fromParentName)} ›</span> ` : ''}${t.emoji ? `<span style="margin-right:5px;font-size:var(--fs-md)">${t.emoji}</span>` : ''}${esc(t.name)}</div>
         ${t.note ? `<div class="task-note task-note-collapsed" id="note-${t.id}">📝 ${esc(t.note)}</div><button class="task-note-toggle" onclick="event.stopPropagation();toggleNote(${t.id},this)">${tr('note_more_btn')}</button>` : ''}
         ${subText?`<div class="task-sub${subOverdue?' overdue':''}">${subText}</div>`:''}
         ${dueLine?`<div class="task-sub${dueOverdue?' overdue':''}">${dueLine}</div>`:''}
@@ -16965,12 +17248,26 @@ function render() {
     // qo'llanilgan bo'lsa ham) aniq mukofot miqdorlari yig'indisi, plyus
     // bugun ochilgan sandiqlardan (chest) kelgan tangalar.
     var lbCoinsPossible = 0, lbCoinsEarned = 0;
+    var _lbToday = today();
     lbSourceTasks.forEach(function(tk){
       lbCoinsPossible += taskCoinValue(tk);
       if (tk.done) {
-        var flag = getTaskDayFlag(tk.id, today());
+        var flag = getTaskDayFlag(tk.id, _lbToday);
         lbCoinsEarned += flag.rewardGiven ? flag.rewardAmt : taskCoinValue(tk);
       }
+      // 🐛 TUZATILDI: "Bugungi imkoniyat"/"Bugun to'plangan" ilgari faqat
+      // asosiy vazifaning o'zini hisobga olardi — sub-tasklarning tanga
+      // qiymati butunlay unutilgan edi. Endi shu kunga tegishli (subtaskDueToday)
+      // har bir sub-task ham qo'shiladi; bajarilganlari (subtaskDoneOnDate)
+      // "to'plangan"ga, hammasi "imkoniyat"ga hisoblanadi — toggleSubtask()
+      // qanday miqdor berayotgan bo'lsa (taskCoinValue(sub)), aynan o'sha
+      // miqdor bilan bir xil bo'lishi uchun.
+      ensureSubtasks(tk).forEach(function(sub){
+        if (!subtaskDueToday(sub, _lbToday)) return;
+        var subAmt = taskCoinValue(sub);
+        lbCoinsPossible += subAmt;
+        if (subtaskDoneOnDate(tk.id, sub.id, _lbToday)) lbCoinsEarned += subAmt;
+      });
     });
     (S.chestHistory || []).forEach(function(h){
       if (h.date === today()) lbCoinsEarned += (h.coins || 0);
@@ -18834,7 +19131,7 @@ var reytingScope = 'global';   // 'global' | 'local'
 var reytingMetric = 'coins';   // 'coins' | 'hp' | 'streak'
 var reytingSubjectFilter = (function(){
   try { return localStorage.getItem('reytingSubjectFilter') || 'all'; } catch(e) { return 'all'; }
-})(); // 'all' | 'ielts' | 'sat'
+})(); // 'all' | 'ielts' | 'sat' | 'cefr'
 // Hozir ochiq turgan "Player Profile" modalining foydalanuvchi id'si (agar
 // modal yopiq bo'lsa — null).
 var _openPlayerProfileId = null;
@@ -19132,10 +19429,11 @@ function renderReyting() {
   if (cBtn) cBtn.classList.toggle('active', reytingMetric === 'coins');
   if (hBtn) hBtn.classList.toggle('active', reytingMetric === 'hp');
   if (sBtn) sBtn.classList.toggle('active', reytingMetric === 'streak');
-  var aBtn = document.getElementById('reyting-subject-all'), iBtn = document.getElementById('reyting-subject-ielts'), satBtn = document.getElementById('reyting-subject-sat');
+  var aBtn = document.getElementById('reyting-subject-all'), iBtn = document.getElementById('reyting-subject-ielts'), satBtn = document.getElementById('reyting-subject-sat'), cefrBtn = document.getElementById('reyting-subject-cefr');
   if (aBtn) aBtn.classList.toggle('active', reytingSubjectFilter === 'all');
   if (iBtn) iBtn.classList.toggle('active', reytingSubjectFilter === 'ielts');
   if (satBtn) satBtn.classList.toggle('active', reytingSubjectFilter === 'sat');
+  if (cefrBtn) cefrBtn.classList.toggle('active', reytingSubjectFilter === 'cefr');
   var myCountry = (S.profile && S.profile.country) || null;
   if (lBtn) lBtn.innerHTML = countryFlagImg(myCountry,14) + ' <span data-i18n="reyting_scope_local">' + t('reyting_scope_local') + '</span>';
 
@@ -19360,67 +19658,71 @@ function showReytingInfoModal() {
 function getSpinPrizes() {
   var noLuck = t('spin_no_luck');
   var unit = t('coins_suffix_short');
+  var freezeLbl = t('spin_prize_freeze_label');
+  var rewardLbl = t('spin_prize_reward_label');
+  var respinLbl = t('spin_prize_respin_label');
+  var xpLbl = t('spin_prize_xp_label');
+  var doubleLbl = t('spin_prize_double_label');
   // ⚠️ Diqqat: bu ro'yxatni o'zgartirsangiz, har bir prize'ning
   // "weight" (og'irlik) qiymati umumiy 10000 birlikka nisbatan hisoblanadi
-  // (weight/100 = foiz). Eng katta yutuq (100 tanga) eng KICHIK weight'ga
-  // ega bo'lishi kerak — ya'ni barcha sovg'alar orasida eng qiyin
-  // tushadigani, CS2/Standoff 2 case-opening tizimidagi kabi.
+  // (weight/100 = foiz).
+  //
+  // 🔴 YANA QAYTA BALANSLANDI (foydalanuvchi so'rovi bo'yicha):
+  // (1) ❄️ Freeze umumiy ehtimoli 3.36% dan aniq 2%ga tushirildi
+  // (3 ta 112-weight o'rniga 2 ta 100-weight qatorga),
+  // (2) ENG KATTA yutuq (100 tanga) 0.1% dan aniq 0.02% (weight:2/10000)
+  // ga tushirildi — yanada nodir bo'lsin uchun,
+  // (3) ikkita yangi tur qo'shildi: ⭐ +XP (darhol XP beradi, level
+  // ko'tarilishiga yaqinlashtiradi) va 2x Bonus (keyingi bajaradigan
+  // vazifangizning tanga mukofoti ikki barobar bo'ladi). Bo'shagan
+  // og'irlik shu ikkitasiga va "Omadsiz" ulushiga qayta taqsimlandi —
+  // jami boshqa (tanga) sovg'alarning nisbati o'zgarmadi.
   return [
-    {label:noLuck, coins:0,  color:'#374151', weight:400},
-    {label:noLuck, coins:0,  color:'#2D2D3A', weight:400},
-    {label:noLuck, coins:0,  color:'#3F3F52', weight:400},
-    {label:noLuck, coins:0,  color:'#4B4B5E', weight:400},
-    {label:noLuck, coins:0,  color:'#2A2A38', weight:400},
-    {label:'1'+unit, coins:1, color:'#7C5CFC', weight:2324},
-    {label:'2'+unit, coins:2, color:'#7C5CFC', weight:1048},
-    {label:'3'+unit, coins:3, color:'#7C5CFC', weight:657},
-    {label:'4'+unit, coins:4, color:'#7C5CFC', weight:472},
-    {label:'5'+unit, coins:5, color:'#7C5CFC', weight:365},
-    {label:'6'+unit, coins:6, color:'#3B82F6', weight:296},
-    {label:'7'+unit, coins:7, color:'#3B82F6', weight:248},
-    {label:'8'+unit, coins:8, color:'#3B82F6', weight:213},
-    {label:'9'+unit, coins:9, color:'#3B82F6', weight:186},
-    {label:'10'+unit, coins:10, color:'#3B82F6', weight:165},
-    {label:'11'+unit, coins:11, color:'#3B82F6', weight:148},
-    {label:'12'+unit, coins:12, color:'#3B82F6', weight:133},
-    {label:'13'+unit, coins:13, color:'#3B82F6', weight:122},
-    {label:'14'+unit, coins:14, color:'#3B82F6', weight:112},
-    {label:'15'+unit, coins:15, color:'#3B82F6', weight:103},
-    {label:'16'+unit, coins:16, color:'#10B981', weight:96},
-    {label:'17'+unit, coins:17, color:'#10B981', weight:89},
-    {label:'18'+unit, coins:18, color:'#10B981', weight:84},
-    {label:'19'+unit, coins:19, color:'#10B981', weight:79},
-    {label:'20'+unit, coins:20, color:'#10B981', weight:74},
-    {label:'22'+unit, coins:22, color:'#10B981', weight:66},
-    {label:'23'+unit, coins:23, color:'#10B981', weight:63},
-    {label:'24'+unit, coins:24, color:'#10B981', weight:60},
-    {label:'26'+unit, coins:26, color:'#10B981', weight:55},
-    {label:'27'+unit, coins:27, color:'#10B981', weight:53},
-    {label:'28'+unit, coins:28, color:'#10B981', weight:50},
-    {label:'30'+unit, coins:30, color:'#10B981', weight:47},
-    {label:'31'+unit, coins:31, color:'#F59E0B', weight:45},
-    {label:'33'+unit, coins:33, color:'#F59E0B', weight:42},
-    {label:'36'+unit, coins:36, color:'#F59E0B', weight:38},
-    {label:'37'+unit, coins:37, color:'#F59E0B', weight:37},
-    {label:'39'+unit, coins:39, color:'#F59E0B', weight:34},
-    {label:'42'+unit, coins:42, color:'#F59E0B', weight:32},
-    {label:'44'+unit, coins:44, color:'#F59E0B', weight:30},
-    {label:'45'+unit, coins:45, color:'#F59E0B', weight:29},
-    {label:'48'+unit, coins:48, color:'#F59E0B', weight:27},
-    {label:'52'+unit, coins:52, color:'#F59E0B', weight:25},
-    {label:'56'+unit, coins:56, color:'#F59E0B', weight:23},
-    {label:'58'+unit, coins:58, color:'#F59E0B', weight:22},
-    {label:'60'+unit, coins:60, color:'#F59E0B', weight:21},
-    {label:'65'+unit, coins:65, color:'#EF4444', weight:19},
-    {label:'70'+unit, coins:70, color:'#EF4444', weight:18},
-    {label:'72'+unit, coins:72, color:'#EF4444', weight:17},
-    {label:'75'+unit, coins:75, color:'#EF4444', weight:16},
-    {label:'80'+unit, coins:80, color:'#EF4444', weight:15},
-    {label:'85'+unit, coins:85, color:'#EF4444', weight:14},
-    {label:'88'+unit, coins:88, color:'#EF4444', weight:13},
-    {label:'90'+unit, coins:90, color:'#EF4444', weight:13},
-    {label:'95'+unit, coins:95, color:'#F5A623', weight:12},
-    {label:'100'+unit, coins:100, color:'#F5A623', weight:10},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:494},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
+    {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
+    {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
+    {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
+    {label:'2'+unit, type:'coins', coins:2, color:'#7C5CFC', weight:424},
+    {label:'2'+unit, type:'coins', coins:2, color:'#7C5CFC', weight:424},
+    {label:'2'+unit, type:'coins', coins:2, color:'#7C5CFC', weight:424},
+    {label:'3'+unit, type:'coins', coins:3, color:'#7C5CFC', weight:323},
+    {label:'3'+unit, type:'coins', coins:3, color:'#7C5CFC', weight:323},
+    {label:'3'+unit, type:'coins', coins:3, color:'#7C5CFC', weight:323},
+    {label:'5'+unit, type:'coins', coins:5, color:'#3B82F6', weight:335},
+    {label:'5'+unit, type:'coins', coins:5, color:'#3B82F6', weight:335},
+    {label:'7'+unit, type:'coins', coins:7, color:'#3B82F6', weight:234},
+    {label:'7'+unit, type:'coins', coins:7, color:'#3B82F6', weight:234},
+    {label:'10'+unit, type:'coins', coins:10, color:'#3B82F6', weight:167},
+    {label:'10'+unit, type:'coins', coins:10, color:'#3B82F6', weight:167},
+    {label:'12'+unit, type:'coins', coins:12, color:'#10B981', weight:112},
+    {label:'12'+unit, type:'coins', coins:12, color:'#10B981', weight:112},
+    {label:'15'+unit, type:'coins', coins:15, color:'#10B981', weight:78},
+    {label:'15'+unit, type:'coins', coins:15, color:'#10B981', weight:78},
+    {label:'20'+unit, type:'coins', coins:20, color:'#10B981', weight:89},
+    {label:'25'+unit, type:'coins', coins:25, color:'#F59E0B', weight:56},
+    {label:'30'+unit, type:'coins', coins:30, color:'#F59E0B', weight:33},
+    {label:'40'+unit, type:'coins', coins:40, color:'#EF4444', weight:17},
+    {label:'50'+unit, type:'coins', coins:50, color:'#EF4444', weight:9},
+    {label:'70'+unit, type:'coins', coins:70, color:'#EF4444', weight:4},
+    {label:'100'+unit, type:'coins', coins:100, color:'#F5A623', weight:2},
+    {label:freezeLbl, type:'freeze', coins:0, color:'#38BDF8', weight:100},
+    {label:freezeLbl, type:'freeze', coins:0, color:'#38BDF8', weight:100},
+    {label:rewardLbl, type:'reward', coins:0, color:'#EC4899', weight:89},
+    {label:rewardLbl, type:'reward', coins:0, color:'#EC4899', weight:89},
+    {label:rewardLbl, type:'reward', coins:0, color:'#EC4899', weight:89},
+    {label:respinLbl, type:'respin', coins:0, color:'#A78BFA', weight:112},
+    {label:respinLbl, type:'respin', coins:0, color:'#A78BFA', weight:112},
+    {label:respinLbl, type:'respin', coins:0, color:'#A78BFA', weight:112},
+    {label:xpLbl, type:'xp', coins:0, color:'#22D3EE', weight:70},
+    {label:xpLbl, type:'xp', coins:0, color:'#22D3EE', weight:70},
+    {label:xpLbl, type:'xp', coins:0, color:'#22D3EE', weight:70},
+    {label:doubleLbl, type:'double', coins:0, color:'#FB923C', weight:60},
+    {label:doubleLbl, type:'double', coins:0, color:'#FB923C', weight:60},
   ];
 }
 var SPIN_PRIZES = getSpinPrizes();
@@ -19587,13 +19889,63 @@ function doSpin() {
         cards[landIndex].style.transform = 'scale(1.1)';
         cards[landIndex].style.zIndex = '5';
       }
-      if(prize.coins > 0){
+      if(prize.type === 'coins' && prize.coins > 0){
         S.coins += prize.coins;
         if(!S.totalCoins) S.totalCoins = 0; S.totalCoins += prize.coins;
         addTarixLog('in', t('spin_log').replace('{label}', prize.label), prize.coins);
         save(); render();
         SFX.spinWin();
         setTimeout(function(){ toast('+' + prize.coins + t('spin_prize_toast') + prize.label + '!'); confetti(); renderSpin(); }, 300);
+      } else if (prize.type === 'freeze') {
+        // ❄️ +1 Freeze — tanga o'rniga muzlatish imkoniyati beriladi.
+        if (typeof S.freezeCount !== 'number' || isNaN(S.freezeCount)) S.freezeCount = 0;
+        S.freezeCount++;
+        addTarixLog('in', t('spin_log').replace('{label}', prize.label), 0);
+        save(); render();
+        SFX.spinWin();
+        setTimeout(function(){ toast(t('spin_prize_freeze_toast')); confetti(); renderSpin(); }, 300);
+      } else if (prize.type === 'reward') {
+        // 🎁 Rewards bo'limidan tasodifiy bitta sovg'a — tanga sarflanmasdan,
+        // xuddi sotib olingandek beriladi (claimReward bilan bir xil
+        // hisoblagichlarga yoziladi, lekin S.coins'dan HECH narsa yechilmaydi).
+        var _wonReward = (S.rewards && S.rewards.length) ? S.rewards[Math.floor(Math.random() * S.rewards.length)] : null;
+        if (_wonReward) {
+          if (!S.rewardClaims) S.rewardClaims = {};
+          var _addCount = (_wonReward.amount > 0) ? _wonReward.amount : 1;
+          S.rewardClaims[_wonReward.id] = (S.rewardClaims[_wonReward.id] || 0) + _addCount;
+          addTarixLog('in', '🎰 ' + (_wonReward.icon||'') + ' ' + _wonReward.name + ' (Spin)', 0);
+          save(); render();
+          if (typeof renderRewards === 'function') renderRewards();
+          SFX.spinWin();
+          setTimeout(function(){ toast(t('spin_prize_reward_toast').replace('{name}', (_wonReward.icon||'')+' '+_wonReward.name)); confetti(); renderSpin(); }, 300);
+        } else {
+          // Foydalanuvchida hali birorta ham sovg'a qo'shilmagan bo'lsa —
+          // tanga ham, hech narsa ham yo'qotilmaydi, faqat xabar beriladi.
+          SFX.spinWin();
+          setTimeout(function(){ toast(t('spin_prize_reward_fallback_toast')); renderSpin(); }, 300);
+        }
+      } else if (prize.type === 'respin') {
+        // 🔄 Yana bir marta Spin qilish imkoni — bugungi "ishlatildi"
+        // bayrog'i bekor qilinadi, tugma darhol qayta faollashadi.
+        if (S.spinDone) delete S.spinDone[today()];
+        save();
+        SFX.spinWin();
+        setTimeout(function(){ toast(t('spin_prize_respin_toast')); confetti(); renderSpin(); }, 300);
+      } else if (prize.type === 'xp') {
+        // ⭐ Darhol XP beradi (level darajasiga yaqinlashtiradi).
+        var _xpAmt = 15;
+        addXP(_xpAmt, 'Spin');
+        save(); render();
+        SFX.spinWin();
+        setTimeout(function(){ toast(t('spin_prize_xp_toast').replace('{amt}', _xpAmt)); confetti(); renderSpin(); }, 300);
+      } else if (prize.type === 'double') {
+        // 🔥 Keyingi bajarilgan vazifaning tanga mukofoti 2x bo'ladi —
+        // haqiqiy 2x qo'llash grantTaskReward() ichida amalga oshadi
+        // (qarang: S.spinDoubleNextTaskActive).
+        S.spinDoubleNextTaskActive = true;
+        save();
+        SFX.spinWin();
+        setTimeout(function(){ toast(t('spin_prize_double_toast')); confetti(); renderSpin(); }, 300);
       } else {
         SFX.delete();
         setTimeout(function(){ toast(t('spin_unlucky_toast')); renderSpin(); }, 300);
@@ -19636,7 +19988,13 @@ function showSpinOddsModal() {
   var rowsHtml = rows.map(function(r){
     var pct = (r.weight / totalW * 100);
     var pctStr = pct < 1 ? pct.toFixed(2) : (pct < 10 ? pct.toFixed(1) : Math.round(pct));
-    var dotStyle = r.coins > 0 ? 'background:' + r.color : 'background:transparent;border:2px solid var(--text-dim)';
+    // 🐛 TUZATILDI: ilgari dot rangi faqat `coins>0` bo'lsa ko'rsatilardi —
+    // yangi ❄️/🎁/🔄 (tanga bermaydigan, lekin haqiqiy) sovg'alar ham
+    // coins:0 bo'lgani uchun "Omadsiz" bilan bir xil bo'sh doira bo'lib
+    // ko'rinardi. Endi faqat HAQIQATAN "Omadsiz" qatori bo'sh doira,
+    // qolgan barcha turdagi sovg'alar (tanga bo'lsin, bo'lmasin) o'z rangida.
+    var isEmptyRow = (r.coins === 0 && r.label === t('spin_no_luck'));
+    var dotStyle = isEmptyRow ? 'background:transparent;border:2px solid var(--text-dim)' : 'background:' + r.color;
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border)">' +
       '<div style="display:flex;align-items:center;gap:9px;min-width:0">' +
         '<span style="width:14px;height:14px;border-radius:50%;flex-shrink:0;' + dotStyle + '"></span>' +
@@ -24443,9 +24801,23 @@ function clearExamDateData(examType) {
 // asosida, berilgan turdagi imtihon tanlangan-tanlanmaganini tekshiradi.
 // Eski (bitta qiymatli) 'prep' maydoni bilan ham orqaga moslik saqlanadi.
 function hasExamSubject(code) {
+  // 🆕 SOZLAMA: "Natija kiritish" funksiyasi Settings orqali butunlay
+  // o'chirilgan bo'lsa (hamma ham IELTS/SAT natijalarini kiritib yurmaydi),
+  // profilda qanday tanlov turgan bo'lishidan qat'i nazar, IELTS/SAT/CEFR
+  // bilan bog'liq HAMMA joy (tab, countdown karta, forecast, profil
+  // widget-i) ko'rinmay qoladi — chunki ular barchasi shu funksiya orqali
+  // tekshiradi.
+  if (!examResultsFeatureEnabled()) return false;
   var arr = (S.profile && Array.isArray(S.profile.targetSubjects)) ? S.profile.targetSubjects : null;
   if (arr) return arr.indexOf(code) !== -1;
   return getExamType() === code;
+}
+
+// "Natija kiritish" (IELTS/SAT/CEFR) funksiyasining umumiy yoqilgan/o'chirilgan
+// holati — Settings bo'limidagi tugma bilan boshqariladi. Standart: yoqilgan
+// (mavjud foydalanuvchilar xatti-harakati o'zgarmasligi uchun).
+function examResultsFeatureEnabled() {
+  return S.examResultsEnabled !== false;
 }
 
 function updateIeltsTabVisibility() {
@@ -24900,13 +25272,42 @@ function _dsMove(el, target) {
 // bosh sahifadagi sana ustiga ketma-ket 5 marta bosish orqaligina
 // kirish mumkin (qarang: _secretTaps hodisasi).
 function renderDsShortcuts() {
+  var showQuickAccess = !!(S.personalCheckEnabled && !S.pcHiddenFromQuickAccess);
+
+  // Desktop (Notebook) rejimidagi yon panel — faqat desktop shell
+  // qurilgan bo'lsa mavjud bo'ladi.
   var shortcuts = document.getElementById('ds-shortcuts');
-  if (!shortcuts) return;
-  var html = '';
-  if (S.personalCheckEnabled && !S.pcHiddenFromQuickAccess) {
-    html += '<button type="button" class="ds-shortcut-btn" onclick="showTab(\'secret\')">🕵️ Focus</button>';
+  if (shortcuts) {
+    shortcuts.innerHTML = showQuickAccess
+      ? '<button type="button" class="ds-shortcut-btn" onclick="showTab(\'secret\')">' + esc(t('pc_quickaccess_btn')) + '</button>'
+      : '';
   }
-  shortcuts.innerHTML = html;
+
+  // 🆕 KOMPAKT (mobil) rejim uchun: xuddi shu tezkor kirish tugmasi endi
+  // asosiy sarlavhadagi Spin/Do'stlar/Tanga qatoriga ("header-actions-right")
+  // ham qo'shiladi — eng OLDIGA joylashtiriladi. Faqat kompakt rejimda
+  // ko'rsatiladi (desktopda bu qator butunlay yon panelga ko'chib ketadi
+  // va yuqoridagi ds-shortcuts allaqachon bor, shu sabab ikkalanishning
+  // hojati yo'q).
+  var headerContainer = document.getElementById('header-actions-right');
+  var existingHeaderBtn = document.getElementById('header-secret-btn');
+  var isDesktop = document.documentElement.classList.contains('layout-desktop');
+  if (headerContainer && !isDesktop && showQuickAccess) {
+    if (!existingHeaderBtn) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'header-secret-btn';
+      btn.title = t('pc_info_title');
+      btn.onclick = function(){ showTab('secret'); };
+      btn.style.cssText = "height:36px;padding:0 12px;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--theme-toggle-bg);cursor:pointer;display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);font-weight:600;color:var(--text);transition:all 0.2s;flex-shrink:0;font-family:'DM Sans',sans-serif";
+      btn.textContent = t('pc_quickaccess_btn');
+      headerContainer.insertBefore(btn, headerContainer.firstChild);
+    } else {
+      existingHeaderBtn.textContent = t('pc_quickaccess_btn');
+    }
+  } else if (existingHeaderBtn) {
+    existingHeaderBtn.remove();
+  }
 }
 function buildDesktopShell() {
   if (document.getElementById('ds-sidebar')) { document.body.classList.add('layout-shell-ready'); return; }
@@ -25188,6 +25589,9 @@ function applyAppLayout(mode, persist) {
   }
   updateLayoutSettingUI(mode);
   if (isDesktop) buildDesktopShell(); else teardownDesktopShell();
+  // Kompakt↔Desktop almashganda "🕵️ Focus" tezkor kirish tugmasi ham
+  // to'g'ri joyga (yon panel yoki asosiy sarlavha) qayta chiziladi.
+  try { if (typeof renderDsShortcuts === 'function') renderDsShortcuts(); } catch (e) {}
 }
 
 // Sozlamalardagi "Kompakt"/"Notebook" tugmalari orqali chaqiriladi — bu
@@ -29504,7 +29908,11 @@ function getOnboardingTourSteps() {
       }
     },
     // 10. Export / Import — ma'lumotlarni zaxiralash va qayta tiklash
-    { tab: 'profile', target: '#data-backup-section',placement: 'top',    icon: '💾', title: t('onb_step_export_title'),      desc: t('onb_step_export_desc'),      advanced: t('onb_step_export_advanced')    }
+    { tab: 'profile', target: '#data-backup-section',placement: 'top',    icon: '💾', title: t('onb_step_export_title'),      desc: t('onb_step_export_desc'),      advanced: t('onb_step_export_advanced')    },
+    // 11. Pomodoro — diqqatni jamlash uchun ish/tanaffus taymeri (yuqoridagi nav tugmasi orqali modal ochiladi)
+    { tab: 'tasks',   target: '#tab-pomo',             placement: 'bottom', icon: '⏱️', title: t('onb_step_pomodoro_title'),   desc: t('onb_step_pomodoro_desc'),    advanced: t('onb_step_pomodoro_advanced')  },
+    // 12. Friends — do'st qo'shish, Challenge va Party (sarlavhadagi tugma orqali modal ochiladi)
+    { tab: 'tasks',   target: '#header-friends-btn',   placement: 'bottom', icon: '👥', title: t('onb_step_friends_title'),    desc: t('onb_step_friends_desc'),     advanced: t('onb_step_friends_advanced')   }
   ];
   return steps;
 }
@@ -30510,6 +30918,19 @@ function wsFinish(method, toastKey) {
 
   closeWelcomeSurvey();
   if (typeof toast === 'function') toast(t(toastKey || 'onb_finish_toast'));
+
+  // 🆕 "Ilovani o'rgatib chiqaylikmi?" so'rovi — ro'yxatdan o'tish/kirish/
+  // mehmon sifatida davom etish yakunlangach (ya'ni shu funksiya har safar
+  // chaqirilganda) so'raladi. OK bosilsa — xuddi Profilni tahrirlash
+  // oynasidagi "i" tugmasi bosilgandagi bilan bir xil Spotlight tur
+  // (startOnboardingTour, Pomodoro va Do'stlarni ham qamrab oladi) ochiladi.
+  setTimeout(function () {
+    if (typeof showConfirmModal === 'function' && typeof startOnboardingTour === 'function') {
+      showConfirmModal(t('onb_teach_prompt_msg'), function () {
+        startOnboardingTour();
+      }, { icon: '🧭', confirmLabel: t('onb_teach_prompt_yes') });
+    }
+  }, 450);
 
   // Agar bu Profilni tahrirlash oynasi ortidan (miniMode) ochilgan bo'lsa,
   // orqada qolgan profil oynasini yangi (endi "Chiqish" tugmasi bilan)
@@ -33711,45 +34132,40 @@ function ensureFriendsDefaults() {
   if (!F.nextChallengeId) F.nextChallengeId = 1;
   if (!F.nextPartyId) F.nextPartyId = 1;
   if (!F.nextWorldPartyId) F.nextWorldPartyId = 1;
-  // Demo: birinchi marta ochilganda bitta "namuna" do'st, bitta kelgan
-  // do'stlik so'rovi, bitta kelgan CHORLOV, bitta kelgan PARTIYA TAKLIFI va
-  // ikkita jonli PUBLIC (World) party qo'shib qo'yamiz — shu orqali
-  // interfeys bo'sh ko'rinmaydi va foydalanuvchi barcha oqimlarni
-  // (Accept/Decline, qidirish, filtr, qo'shilish) darhol sinab ko'rishi mumkin.
-  if (!F.seeded) {
-    F.list.push({ id: 'AZIZ-1004', name: 'Aziz', icon: '🌟', level: 3, addedAt: Date.now() });
-    F.incoming.push({ id: 'DILNOZA-6621', name: 'Dilnoza', icon: '🎨', sentAt: Date.now() });
-    F.challengesIncoming.push({
-      id: 'C' + (F.nextChallengeId++), fromId: 'AZIZ-1004', fromName: 'Aziz', fromIcon: '🌟',
-      criteria: 'percent', stake: 15, durationDays: 7, sentAt: Date.now()
-    });
-    F.partyInvitesIncoming.push({
-      id: 'PI' + Date.now(), partyId: 'PDEMO1', partyName: 'Kuchli Jamoa',
-      fromId: 'DILNOZA-6621', fromName: 'Dilnoza', fromIcon: '🎨', sentAt: Date.now(),
-      partyCreatedAt: Date.now() - 2 * 86400000, memberCount: 3,
-      challenge: { title: 'Kunlik vazifalar', target: 25, reward: 15 }
-    });
-    var wp1 = {
-      id: 'W' + (F.nextWorldPartyId++), name: '100 kunlik marafon 🏃',
-      creatorId: 'AZIZ-1004', creatorName: 'Aziz', creatorIcon: '🌟',
-      goalType: 'percent', target: null, durationDays: 14, maxMembers: 30, prize: 150,
-      members: [{ id: 'AZIZ-1004', name: 'Aziz', icon: '🌟', isMe: false, dailyLog: {}, totalCoinsEarned: 0, _seed: Math.random(), joinedAt: Date.now() }],
-      status: 'active', createdAt: Date.now() - 3 * 86400000, startAt: Date.now() - 3 * 86400000,
-      endAt: Date.now() - 3 * 86400000 + 14 * 86400000
-    };
-    F.worldParties.push(wp1);
-    worldPartySpawnNpc(wp1, 6, false);
-    var wp2 = {
-      id: 'W' + (F.nextWorldPartyId++), name: 'Birinchi 100 tangaga! 🏁',
-      creatorId: 'DILNOZA-6621', creatorName: 'Dilnoza', creatorIcon: '🎨',
-      goalType: 'race_coins', target: 100, durationDays: 7, maxMembers: 10, prize: 80,
-      members: [{ id: 'DILNOZA-6621', name: 'Dilnoza', icon: '🎨', isMe: false, dailyLog: {}, totalCoinsEarned: 0, _seed: Math.random(), joinedAt: Date.now() }],
-      status: 'active', createdAt: Date.now() - 1 * 86400000, startAt: Date.now() - 1 * 86400000,
-      endAt: Date.now() - 1 * 86400000 + 7 * 86400000
-    };
-    F.worldParties.push(wp2);
-    worldPartySpawnNpc(wp2, 3, false);
-    F.seeded = true;
+  // 🔴 SOXTA DO'STLAR BUTUNLAY OLIB TASHLANDI: ilgari shu yerda birinchi
+  // ochilganda (yoki "Ma'lumotlarni tozalash" dan keyin F.seeded qayta
+  // false bo'lganda) avtomatik ravishda soxta do'st ("Aziz"), soxta kelgan
+  // do'stlik so'rovi ("Dilnoza"), soxta chorlov, soxta partiya taklifi va
+  // ikkita soxta NPC to'la "World Party" majburan qo'shib qo'yilardi — foydalanuvchi
+  // hech narsa qilmasa ham "so'rov kelib turgani" aynan shu yerdan edi.
+  // Endi Do'stlar bo'limi har doim TOZA holatda boshlanadi: hech qanday
+  // soxta do'st, so'rov, chorlov, taklif yoki NPC avtomatik qo'shilmaydi.
+  if (!F.seeded) { F.seeded = true; }
+
+  // 🔴 ESKI SAQLANGAN SOXTA MA'LUMOTLARNI BIR MARTALIK TOZALASH: yuqoridagi
+  // tuzatish faqat BUNDAN KEYIN yaratiladigan yangi hisoblarga tegishli —
+  // agar sizda ilgari (eski versiyada) avtomatik qo'shilgan soxta do'st
+  // ("Aziz"), soxta kelgan so'rov ("Dilnoza"), soxta chorlov/partiya taklifi
+  // yoki ikkita soxta World Party allaqachon save() qilinib saqlangan bo'lsa,
+  // ular hali ham ko'rinishda davom etardi. Shu sabab bu yerda ularni ANIQ
+  // demo ID'lari bo'yicha (AZIZ-1004 / DILNOZA-6621) topib, butunlay olib
+  // tashlaymiz — foydalanuvchi o'zi yaratgan haqiqiy World Party'lar va u
+  // yerdagi NPC a'zolarga tegilmaydi. F.cleanedFakeDemo bayrog'i tufayli
+  // faqat bir marta ishlaydi.
+  if (!F.cleanedFakeDemo) {
+    var _FAKE_DEMO_IDS = ['AZIZ-1004', 'DILNOZA-6621'];
+    F.list = (F.list || []).filter(function (u) { return _FAKE_DEMO_IDS.indexOf(u.id) === -1; });
+    F.incoming = (F.incoming || []).filter(function (u) { return _FAKE_DEMO_IDS.indexOf(u.id) === -1; });
+    F.outgoing = (F.outgoing || []).filter(function (u) { return _FAKE_DEMO_IDS.indexOf(u.id) === -1; });
+    F.challengesIncoming = (F.challengesIncoming || []).filter(function (c) { return _FAKE_DEMO_IDS.indexOf(c.fromId) === -1; });
+    F.challengesOutgoing = (F.challengesOutgoing || []).filter(function (c) { return _FAKE_DEMO_IDS.indexOf(c.opponentId) === -1; });
+    F.partyInvitesIncoming = (F.partyInvitesIncoming || []).filter(function (inv) { return _FAKE_DEMO_IDS.indexOf(inv.fromId) === -1; });
+    F.partyInvitesOutgoing = (F.partyInvitesOutgoing || []).filter(function (inv) { return _FAKE_DEMO_IDS.indexOf(inv.toId) === -1; });
+    F.worldParties = (F.worldParties || []).filter(function (p) { return _FAKE_DEMO_IDS.indexOf(p.creatorId) === -1; });
+    if (F.myWorldPartyId && !F.worldParties.some(function (p) { return p.id === F.myWorldPartyId; })) {
+      F.myWorldPartyId = null;
+    }
+    F.cleanedFakeDemo = true;
   }
   // 🆕 TUZATILDI: ilova yopilib qayta ochilganda (yoki sahifa yangilanganda)
   // yo'qolgan setTimeout'lar tufayli abadiy "kutilmoqda"da qolib ketgan
@@ -34014,10 +34430,14 @@ function friendsRenderSearch() {
   // ko'rsatiladi — shu orqali ikkala taraf bir vaqtda so'rov yuborgan
   // holat ham to'g'ri hal qilinadi.
   var incomingIds = (S.friends.incoming || []).map(function (r) { return r.id; });
-  var results = FRIENDS_DEMO_DIRECTORY.filter(function (u) {
-    if (existingIds.indexOf(u.id) !== -1) return false;
-    return u.id.indexOf(q) !== -1 || u.name.toUpperCase().indexOf(q) !== -1;
-  });
+  // 🔴 SOXTA DO'STLAR QIDIRUV NATIJALARIDAN HAM OLIB TASHLANDI: ilgari
+  // bu yerda demo katalogdagi (FRIENDS_DEMO_DIRECTORY) soxta odamlar
+  // qidiruv natijasida chiqib turardi — foydalanuvchi "haqiqiy odam
+  // qidiryapman" deb o'ylab, aslida hech qachon mavjud bo'lmagan soxta
+  // profilga so'rov yuborishi mumkin edi. Haqiqiy backend ulanmagani
+  // uchun, endi qidiruv HECH QACHON soxta natija ko'rsatmaydi — har doim
+  // bo'sh (hech kim topilmadi) qaytadi.
+  var results = [];
   if (!results.length) {
     box.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-xs);text-align:center;padding:10px 0">' + t('friends_search_none') + '</div>';
     return;
@@ -35947,6 +36367,38 @@ function toggleFriendsAcceptRequests() {
 }
 document.addEventListener('DOMContentLoaded', function () {
   try { ensureFriendsDefaults(); updateFriendsAcceptReqSwitchUI(); } catch (e) {}
+});
+
+// ---------------- SOZLAMA: IELTS/SAT/CEFR "NATIJA KIRITISH" ON/OFF ----------------
+// Hamma ham imtihon natijalarini kiritib yurmaydi — shu tugma orqali butun
+// funksiyani (IELTS/SAT/CEFR tab, countdown karta, forecast, profil widget-i)
+// bir joydan yoqish/o'chirish mumkin. Haqiqiy manba — hasExamSubject() ichidagi
+// examResultsFeatureEnabled() tekshiruvi; bu yerda faqat UI va qayta-chizishlar.
+function updateExamResultsSwitchUI() {
+  var sw = document.getElementById('exam-results-switch');
+  var knob = document.getElementById('exam-results-knob');
+  if (!sw || !knob) return;
+  var on = examResultsFeatureEnabled();
+  sw.style.background = on ? 'var(--accent)' : 'var(--surface2)';
+  sw.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
+  knob.style.left = on ? '22px' : '2px';
+  knob.style.background = on ? '#fff' : 'var(--text-dim)';
+}
+function toggleExamResultsEnabled() {
+  S.examResultsEnabled = !examResultsFeatureEnabled();
+  save();
+  updateExamResultsSwitchUI();
+  // hasExamSubject() ga tayanadigan barcha joylarni darhol qayta chizamiz —
+  // shunda tugma bosilishi bilan tab/karta/widget'lar ko'rinmay/ko'rinib qoladi.
+  try { updateIeltsTabVisibility(); } catch (e) {}
+  try { renderIeltsCountdown(); } catch (e) {}
+  try { renderProfileGoalWidget(); } catch (e) {}
+  try { renderExamForecastCard(); } catch (e) {}
+  try { SFX.click(); } catch (e) {}
+  toast(examResultsFeatureEnabled() ? t('exam_results_on_toast') : t('exam_results_off_toast'));
+}
+document.addEventListener('DOMContentLoaded', function () {
+  try { updateExamResultsSwitchUI(); } catch (e) {}
 });
 
 // ---------------- OLIB TASHLANDI: soxta/bot do'stlik so'rovlari ----------------
