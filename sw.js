@@ -1,21 +1,24 @@
 // ============================================================
-// ToDoList PWA — Service Worker (v18 — ilovaga moslab yangilandi:
-// worldtimeapi.org orqali olinadigan server vaqti endi hech qachon
-// SW keshidan qaytarilmaydi, chunki bu "soat firibgarligi" (clock
-// tamper) tekshiruvi uchun ishlatiladi va eskirgan/kesh javob soat
-// tekshiruvini butunlay buzib qo'yishi mumkin edi.)
+// ToDoList PWA — Service Worker (v19 — index.html endi 3 ta faylga
+// bo'lingani sababli yangilandi: styles.css va script.js endi
+// alohida fayllar bo'lgani uchun PRECACHE_URLS ro'yxatiga qo'shildi.
+// Aks holda ular birinchi ochilishda darhol keshlanmay, faqat
+// keyingi "cache-first" oqimi orqali keshlanardi — offline holatda
+// ilova birinchi marta ochilganda CSS/JS yo'qolib qolishi mumkin edi.)
 // ============================================================
 
-// MUHIM: har safar index.html (yoki boshqa kod)ni yangilab qayta
-// joylashtirganingizda, bu raqamni oshiring (v18 -> v19 -> ...).
+// MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
+// yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v18';
+const CACHE_VERSION = 'v19';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 
 // Pre-cache qilinadigan asosiy fayllar
 const PRECACHE_URLS = [
   '/ToDoList/',
   '/ToDoList/index.html',
+  '/ToDoList/styles.css',
+  '/ToDoList/script.js',
   '/ToDoList/manifest.json',
   '/ToDoList/icon-180.png',
   '/ToDoList/icon-192.png',
