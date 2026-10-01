@@ -1,7 +1,13 @@
 // ============================================================
 // script.js — ToDoList ilovasining barcha funksionalligi
+// Har bir blok try/catch bilan o'ralgan: bittasida xatolik chiqsa ham,
+// qolgan barcha bloklar baribir ishga tushaveradi. Blok ichidagi
+// top-level let/const->var ga aylantirilgan, aks holda try{} blok
+// chegarasi ularni boshqa bloklardan ko'rinmas qilib qo'yardi.
 // ============================================================
 
+// ---------- Blok 1/8 ----------
+try {
 
 (function() {
   var manifest = {
@@ -23,7 +29,12 @@
   } catch (e) { /* eski brauzerlarda manifest shunchaki ishlamaydi, ilova o'zi baribir ishlayveradi */ }
 })();
 
+} catch (_blockErr1) {
+  console.error('[script.js] Blok 1 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr1);
+}
 
+// ---------- Blok 2/8 ----------
+try {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
@@ -42,9 +53,14 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+} catch (_blockErr2) {
+  console.error('[script.js] Blok 2 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr2);
+}
 
+// ---------- Blok 3/8 ----------
+try {
 
-const I18N = {
+var I18N = {
   uz: {
     // 🆕 Pomodoro bo'limi qo'shimcha kalitlari (uz)
     pomo_act_break_word: "tanaffus qoldi",
@@ -4863,7 +4879,7 @@ const I18N = {
 
 // ============================================================
 
-const COUNTRIES_LIST = [
+var COUNTRIES_LIST = [
   {c:'AF',n:'Afghanistan',f:'🇦🇫'},
   {c:'AL',n:'Albania',f:'🇦🇱'},
   {c:'DZ',n:'Algeria',f:'🇩🇿'},
@@ -6402,24 +6418,24 @@ function applyLanguage() {
 document.addEventListener('DOMContentLoaded', applyLanguage);
 // ============================================================
 
-const KEY_BASE = 'mytasks_v5';
+var KEY_BASE = 'mytasks_v5';
 var KEY = KEY_BASE;
-const DAYS_UZ = ['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'];
-const MONTHS_UZ = ['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentabr','oktabr','noyabr','dekabr'];
-const SHORT_DAYS = ['Ya','Du','Se','Ch','Pa','Ju','Sh'];
-const DAYS_EN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const SHORT_DAYS_EN = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-const DAYS_RU = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
-const MONTHS_RU = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
-const MONTHS_RU_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const SHORT_DAYS_RU = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+var DAYS_UZ = ['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'];
+var MONTHS_UZ = ['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentabr','oktabr','noyabr','dekabr'];
+var SHORT_DAYS = ['Ya','Du','Se','Ch','Pa','Ju','Sh'];
+var DAYS_EN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var SHORT_DAYS_EN = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+var DAYS_RU = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+var MONTHS_RU = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+var MONTHS_RU_FULL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+var SHORT_DAYS_RU = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 function getDaysArr() { var l=getLang(); return l==='en' ? DAYS_EN : l==='ru' ? DAYS_RU : DAYS_UZ; }
 function getMonthsArr() { var l=getLang(); return l==='en' ? MONTHS_EN : l==='ru' ? MONTHS_RU : MONTHS_UZ; }
 function getMonthsFullArr() { var l=getLang(); return l==='en' ? MONTHS_EN : l==='ru' ? MONTHS_RU_FULL : ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr']; }
 function getShortDaysArr() { var l=getLang(); return l==='en' ? SHORT_DAYS_EN : l==='ru' ? SHORT_DAYS_RU : SHORT_DAYS; }
 
-const defaultRewards = [
+var defaultRewards = [
   {id:1,name:'Instagram 10 daqiqa',icon:'📱',cost:5,rtype:'time',amount:10},
   {id:2,name:"O'yin 15 daqiqa",icon:'🎮',cost:6,rtype:'time',amount:15},
   {id:3,name:'YouTube 15 daqiqa',icon:'📺',cost:6,rtype:'time',amount:15},
@@ -6433,7 +6449,7 @@ const defaultRewards = [
 
 // Level tizimi (XP asosida, tangadan alohida)
 // Kuniga ~15 vazifa (~175 XP/kun), Lv2 uchun ~3 kun
-const LEVELS = [
+var LEVELS = [
   {min:0,    max:524,  level:1, name:"Yangi boshlagan",  icon:'🌱', reward:0},
   {min:525,  max:1574, level:2, name:"Harakat qiluvchi", icon:'🔥', reward:50},
   {min:1575, max:3674, level:3, name:"Izchil o'quvchi",  icon:'📚', reward:100},
@@ -6443,11 +6459,11 @@ const LEVELS = [
   {min:33075,max:999999,level:7,name:"Legenda",           icon:'👑', reward:1500},
 ];
 // XP manbalari — kuniga ~15 vazifa + 100% bonus = ~175 XP/kun
-const XP_PER_TASK_EASY = 3;
-const XP_PER_TASK_MED  = 6;
-const XP_PER_TASK_HARD = 9;
-const XP_DAILY_100 = 25;
-const XP_STREAK_BONUS = {3:20, 5:35, 7:50, 10:80, 15:120, 20:180, 25:250, 30:350};
+var XP_PER_TASK_EASY = 3;
+var XP_PER_TASK_MED  = 6;
+var XP_PER_TASK_HARD = 9;
+var XP_DAILY_100 = 25;
+var XP_STREAK_BONUS = {3:20, 5:35, 7:50, 10:80, 15:120, 20:180, 25:250, 30:350};
 
 // ============ O'YIN QIYINLIGI (Game Difficulty) — Coin/XP ko'paytiruvchisi ============
 // coinXp — vazifa bajarilganda/bajarilmaganda beriladigan Coin va XP miqdoriga ko'paytiruvchi.
@@ -6513,12 +6529,12 @@ function showLevelUpModal(lv) {
   ov.addEventListener('click', function(e){ if(e.target === ov) ov.remove(); });
 }
 // Streak bonus milestones: {streak: coins}
-const STREAK_BONUSES = {3:3, 5:5, 7:7, 10:10, 15:15, 20:20, 25:25, 30:30};
+var STREAK_BONUSES = {3:3, 5:5, 7:7, 10:10, 15:15, 20:20, 25:25, 30:30};
 function getStreakBonus(streak) {
   return STREAK_BONUSES[streak] || 0;
 }
 
-let S = {
+var S = {
   tasks:[], taskOrder:[], rewards:JSON.parse(JSON.stringify(defaultRewards)),
   coins:0, totalCoins:0, streak:0, lastDate:null, nextId:200, nextRid:20,
   hp:100, hpLastCoins:0, isDead:false, deathAt:null,
@@ -6551,8 +6567,8 @@ let S = {
 };
 
 // Modal state
-let mDiff = 1, mRepeat = 'daily', mDays = [], mInterval = 4, mLabel = '', mEmoji = '';
-let stDiff = 1, stRepeat = 'daily', stDays = [], stLabel = '';
+var mDiff = 1, mRepeat = 'daily', mDays = [], mInterval = 4, mLabel = '', mEmoji = '';
+var stDiff = 1, stRepeat = 'daily', stDays = [], stLabel = '';
 
 function setTaskEmoji(e) {
   mEmoji = e;
@@ -6829,8 +6845,8 @@ function _buildIntervalDueDateSet(t, doneSet, skipSet, windowStartStr, windowEnd
 }
 
 
-const LOCAL_TASKS_KEY = 'todolist_tasks';       // vazifalar ro'yxati shu kalit ostida saqlanadi
-const LOCAL_STATE_KEY = 'todolist_app_state';   // qolgan umumiy holat (tanga, mukofotlar va h.k.)
+var LOCAL_TASKS_KEY = 'todolist_tasks';       // vazifalar ro'yxati shu kalit ostida saqlanadi
+var LOCAL_STATE_KEY = 'todolist_app_state';   // qolgan umumiy holat (tanga, mukofotlar va h.k.)
 (function requestPersistentStorage() {
   try {
     if (navigator.storage && navigator.storage.persist) {
@@ -6860,10 +6876,10 @@ function esc(s){ return escapeHtml(s); }
 // ---------------- AUTH olib tashlandi ----------------
 // Bitta umumiy (shared) akkaunt arxitekturasida login/parol ekrani shart emas.
 
-const LOCAL_TASKS_BACKUP_KEY = 'todolist_tasks_backup'; // asosiy kalit bo'shab/shikastlanib qolsa shu yerdan tiklanadi
-const PLAIN_TASKS_KEY = 'tasks';
-const SECURE_TASKS_KEY_LEGACY = 'todolist_tasks_secure';
-const LOCAL_TASKS_UPDATED_KEY = 'todolist_tasks_updated_at';
+var LOCAL_TASKS_BACKUP_KEY = 'todolist_tasks_backup'; // asosiy kalit bo'shab/shikastlanib qolsa shu yerdan tiklanadi
+var PLAIN_TASKS_KEY = 'tasks';
+var SECURE_TASKS_KEY_LEGACY = 'todolist_tasks_secure';
+var LOCAL_TASKS_UPDATED_KEY = 'todolist_tasks_updated_at';
 var _lastAcceptedTasksWriteAt = 0; // joriy oynada hozir ushlab turilgan tasklar nusxasining vaqt tamg'asi
 
 function readLocalTasks() {
@@ -9589,7 +9605,7 @@ function showTab(tab) {
   if(tab==='calendar') { showTab('profile'); return; }
 }
 
-let toastTimer;
+var toastTimer;
 function toast(msg) {
   const el=document.getElementById('toast'); el.textContent=msg;
   el.classList.add('show'); clearTimeout(toastTimer);
@@ -10761,7 +10777,7 @@ function renderClaimSummary() {
   panel.innerHTML = html;
 }
 
-const PURCHASE_HISTORY_KEY = 'todolist_purchase_history';
+var PURCHASE_HISTORY_KEY = 'todolist_purchase_history';
 
 function loadPurchaseHistory() {
   try {
@@ -10782,7 +10798,7 @@ function savePurchaseHistory(history) {
   }
 }
 
-const USAGE_HISTORY_KEY = 'todolist_usage_history';
+var USAGE_HISTORY_KEY = 'todolist_usage_history';
 
 function loadUsageHistory() {
   try {
@@ -19861,7 +19877,12 @@ function deleteMoodEntry(dateKey) {
 setTimeout(function(){ updateMoodBtn(); }, 100);
 
 
+} catch (_blockErr3) {
+  console.error('[script.js] Blok 3 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr3);
+}
 
+// ---------- Blok 4/8 ----------
+try {
 
 function openTaskSheet(id, future) {
   const t = S.tasks.find(x=>x.id===id);
@@ -21630,7 +21651,12 @@ function renderSatDetailContent(sec) {
 }
 
 
+} catch (_blockErr4) {
+  console.error('[script.js] Blok 4 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr4);
+}
 
+// ---------- Blok 5/8 ----------
+try {
 
 
 function getOnboardingTourSteps() {
@@ -22749,7 +22775,12 @@ function wsFinish(method, toastKey) {
 // Eslatma: Google OAuth hali ulanmagan (faqat email+parol ishlaydi).
 // Google keyinroq alohida bosqichda qo'shiladi.
 
+} catch (_blockErr5) {
+  console.error('[script.js] Blok 5 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr5);
+}
 
+// ---------- Blok 6/8 ----------
+try {
 
 /* ============================================================
    🍅 POMODORO / ISH VAQTINI HISOBLASH — floating timer moduli
@@ -25456,7 +25487,12 @@ function wsFinish(method, toastKey) {
 
 })();
 
+} catch (_blockErr6) {
+  console.error('[script.js] Blok 6 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr6);
+}
 
+// ---------- Blok 7/8 ----------
+try {
 
 
 // Eslatma: FRIENDS_DEMO_DIRECTORY (soxta demo foydalanuvchilar ro'yxati)
@@ -27734,12 +27770,21 @@ function _checkAdminHash() { if (location.hash === '#admin') openAdminPanel(); }
 window.addEventListener('hashchange', _checkAdminHash);
 window.addEventListener('load', _checkAdminHash);
 
+} catch (_blockErr7) {
+  console.error('[script.js] Blok 7 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr7);
+}
 
+// ---------- Blok 8/8 ----------
+try {
 
-const supabase = window.supabase.createClient(
+var supabase = window.supabase.createClient(
   'https://zzcvpenkevxlurgpjltz.supabase.co',
   'sb_publishable_KbjJQoICYY8BoIqeBw_OKQ_xTTk_yu8'
 );
 // supabase client shu yerda yaratilgach, saqlangan sessiya bor-yo'qligini
 // tekshiramiz (wsCheckSupabaseSession — welcome-survey skriptida yozilgan).
 try { if (typeof wsCheckSupabaseSession === 'function') wsCheckSupabaseSession(); } catch (e) {}
+
+} catch (_blockErr8) {
+  console.error('[script.js] Blok 8 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr8);
+}
