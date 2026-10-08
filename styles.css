@@ -3023,3 +3023,80 @@ body.light .undo-toast { background: #fff; }
 .kb-help-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-sm); color: var(--text-muted); }
 .kb-help-row kbd { min-width: 72px; text-align: center; padding: 3px 8px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border-hover); color: var(--text); font-family: ui-monospace, monospace; font-size: var(--fs-xs); }
 .kb-help-close { width: 100%; margin-top: 14px; padding: 10px; border: none; border-radius: var(--radius-md); background: var(--accent); color: #fff; font-weight: 700; cursor: pointer; }
+
+/* 🎯 Kvestlar */
+.quests-card { margin-bottom: 12px; border-radius: var(--radius-lg); border: 1px solid rgba(124,92,252,0.3); background: linear-gradient(135deg, rgba(124,92,252,0.12), rgba(56,189,248,0.05)); padding: 4px 12px 8px; }
+.quests-card:empty { display: none; }
+.mq-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 2px; background: none; border: none; cursor: pointer; color: var(--text); text-align: left; }
+.mq-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: var(--fs-base); }
+.mq-sum { flex: 1; font-size: var(--fs-xs); color: var(--text-muted); }
+.mq-sum b { color: var(--green); }
+.mq-caret { color: var(--text-muted); }
+.mq-group-title { font-size: var(--fs-3xs, 10px); color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; margin: 6px 2px 6px; }
+.mq-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--border); margin-bottom: 6px; }
+.mq-row.is-done { border-color: rgba(52,211,153,0.5); }
+.mq-row.is-claimed { opacity: 0.6; }
+.mq-icon { font-size: 18px; width: 26px; text-align: center; flex-shrink: 0; }
+.mq-body { flex: 1; min-width: 0; }
+.mq-text { font-size: var(--fs-sm); color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.mq-bar { height: 5px; border-radius: 99px; background: var(--surface2); overflow: hidden; margin-top: 5px; }
+.mq-bar > div { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), #38BDF8); }
+.mq-row.is-done .mq-bar > div { background: var(--green); }
+.mq-prog { font-size: var(--fs-3xs, 10px); color: var(--text-muted); margin-top: 3px; }
+.mq-reward { font-size: var(--fs-2xs); font-weight: 700; color: #38BDF8; white-space: nowrap; }
+.mq-claim { border: none; cursor: pointer; padding: 7px 12px; border-radius: var(--radius-full); background: var(--green); color: #06251A; font-weight: 800; font-size: var(--fs-xs); white-space: nowrap; animation: mqPulse 1.6s ease-in-out infinite; }
+@keyframes mqPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.5); } 50% { box-shadow: 0 0 0 6px rgba(52,211,153,0); } }
+.mq-claimed { color: var(--green); font-weight: 800; }
+
+/* ❄️ Freeze sotib olish */
+.freeze-buy-btn { width: 100%; margin-bottom: 8px; padding: 10px; border-radius: var(--radius-md); cursor: pointer; font-weight: 700; border: 1px solid rgba(56,189,248,0.4); background: rgba(56,189,248,0.1); color: #38BDF8; }
+.gems-freeze { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: var(--radius-md); margin-bottom: 10px; border: 1px solid rgba(56,189,248,0.3); background: rgba(56,189,248,0.06); }
+.gems-freeze .rw-btn { flex-shrink: 0; }
+.gems-freeze .rw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* 🏅 Ligalar */
+.rk-seg { grid-template-columns: repeat(3, 1fr) !important; }
+.rk-league-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+.rk-league-badge { padding: 5px 12px; border-radius: var(--radius-full); font-weight: 800; font-size: var(--fs-xs); background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(245,166,35,0.35); }
+.rk-league-next { font-size: var(--fs-2xs); color: var(--text-muted); }
+
+/* 📅 Haftalik hisobot */
+.wr-open-btn { width: 100%; margin-bottom: 10px; padding: 11px; border-radius: var(--radius-md); cursor: pointer; font-weight: 700; color: var(--text); background: linear-gradient(135deg, rgba(124,92,252,0.18), rgba(56,189,248,0.08)); border: 1px solid rgba(124,92,252,0.35); }
+.wr-overlay { position: fixed; inset: 0; z-index: 2500; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; padding: 18px; }
+.wr-box { width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border-hover); border-radius: var(--radius-xl); padding: 20px; }
+.wr-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: var(--fs-lg); color: var(--text); }
+.wr-sub { font-size: var(--fs-xs); color: var(--text-muted); margin: 2px 0 14px; }
+.wr-bars { display: flex; align-items: flex-end; gap: 6px; height: 110px; padding: 6px 4px; border-radius: var(--radius-md); background: var(--surface2); margin-bottom: 12px; }
+.wr-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.wr-bar-v { font-size: 10px; color: var(--text-muted); min-height: 13px; }
+.wr-bar-fill { width: 70%; border-radius: 4px 4px 0 0; background: var(--accent); }
+.wr-bar.best .wr-bar-fill { background: var(--gold); }
+.wr-bar-l { font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+.wr-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.wr-tile { padding: 10px 6px; border-radius: var(--radius-md); background: var(--surface2); text-align: center; }
+.wr-tile-v { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--text); }
+.wr-tile-l { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.wr-msg { font-size: var(--fs-sm); color: var(--text); text-align: center; margin-bottom: 14px; line-height: 1.5; }
+.wr-ok { width: 100%; padding: 12px; border: none; border-radius: var(--radius-md); background: var(--accent); color: #fff; font-weight: 700; cursor: pointer; }
+
+/* 🌳 Pomodoro daraxti */
+.pomo-tree { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: -14px 0 22px; position: relative; z-index: 1; }
+.pomo-tree-plant { font-size: calc(26px * var(--g, 1)); line-height: 1; transition: font-size 0.6s ease; }
+.pomo-tree-plant.growing { animation: pomoTreeSway 3s ease-in-out infinite; display: inline-block; transform-origin: bottom center; }
+@keyframes pomoTreeSway { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+.pomo-tree-text { font-size: var(--fs-xs); color: rgba(255,255,255,0.7); }
+.pomo-forest { font-size: 14px; letter-spacing: 1px; padding: 3px 10px; border-radius: var(--radius-full); background: rgba(52,211,153,0.15); color: #fff; }
+
+/* 💾 Avtomatik nusxalar */
+.auto-snapshots { margin-top: 12px; }
+.snap-title { font-size: var(--fs-2xs); color: var(--text-dim); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; }
+.snap-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: var(--radius-sm); background: var(--surface2); margin-bottom: 5px; font-size: var(--fs-xs); color: var(--text); }
+.snap-row button { padding: 5px 12px; border-radius: var(--radius-full); border: 1px solid var(--border-hover); background: transparent; color: var(--text); cursor: pointer; font-size: var(--fs-2xs); font-weight: 700; }
+.snap-empty { font-size: var(--fs-xs); color: var(--text-dim); }
+
+/* ☁️ Sinxronizatsiya belgisi */
+.sync-pill { display: inline-flex; align-items: center; margin-top: 4px; padding: 2px 9px; border-radius: var(--radius-full); font-size: 10.5px; font-weight: 600; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+.sync-pill:empty { display: none; }
+.sync-ok { color: var(--green); border-color: rgba(52,211,153,0.35); }
+.sync-pending { color: var(--gold); border-color: rgba(245,166,35,0.35); }
+.sync-offline { color: var(--red); border-color: rgba(248,113,113,0.35); }
