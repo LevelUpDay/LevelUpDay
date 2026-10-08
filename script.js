@@ -9916,7 +9916,7 @@ function selRewardType(type) {
   document.getElementById('r-amount').value = '';
   presets.querySelectorAll('.ramount-chip').forEach(function(b){ b.className='ramount-chip'; });
   if(type === 'time') {
-    label.innerHTML = '<span class="rstep-num">4</span> ' + t('reward_time_label');
+    label.innerHTML = '<span class="rstep-num"></span> ' + t('reward_time_label');
     presets.innerHTML =
       '<button class="ramount-chip" onclick="setAmount(5)">5 min</button>'+
       '<button class="ramount-chip" onclick="setAmount(10)">10 min</button>'+
@@ -9929,7 +9929,7 @@ function selRewardType(type) {
       '<button class="ramount-chip" onclick="setAmount(120)">2 '+t('time_hour_unit')+'</button>';
     document.getElementById('r-amount').placeholder = t('reward_time_ph');
   } else {
-    label.innerHTML = '<span class="rstep-num">4</span> ' + t('reward_count_label');
+    label.innerHTML = '<span class="rstep-num"></span> ' + t('reward_count_label');
     presets.innerHTML =
       '<button class="ramount-chip" onclick="setAmount(1)">1 '+t('count_unit')+'</button>'+
       '<button class="ramount-chip" onclick="setAmount(2)">2 '+t('count_unit')+'</button>'+
@@ -10067,6 +10067,8 @@ function claimReward(id) {
       toast(getDebtTier() === 2 ? t('debt_tier2_toast') : t('reward_blocked_toast'));
       return;
     }
+    var safeCost = Math.max(0, parseInt(r.cost, 10) || 0);
+    if ((S.coins || 0) < safeCost) { toast(t('reward_not_enough')); return; }
     S.coins=(S.coins||0)-safeCost;
     if(!S.rewardClaims)S.rewardClaims={};
     var addCount = (r.amount>0) ? r.amount : 1;
@@ -10085,11 +10087,32 @@ function deleteReward(id) {
     toast('🚫 ' + t('reward_delete_blocked_debt_toast'));
     return;
   }
-  S.rewards=S.rewards.filter(x=>x.id!==id);
-  if (S.rewardClaims && (id in S.rewardClaims)) delete S.rewardClaims[id];
-  if (S.usageLog && (id in S.usageLog)) delete S.usageLog[id];
-  save();
-  renderRewards();
+  var r = (S.rewards || []).find(function(x){ return x.id === id; });
+  if (!r) return;
+  var doDelete = function() {
+    S.rewards=S.rewards.filter(x=>x.id!==id);
+    if (S.rewardClaims && (id in S.rewardClaims)) delete S.rewardClaims[id];
+    if (S.usageLog && (id in S.usageLog)) delete S.usageLog[id];
+    save();
+    renderRewards();
+  };
+  if (typeof showConfirmModal === 'function') {
+    showConfirmModal(
+      _cl('«' + esc(r.name) + '» mukofotini o\'chirasizmi?', 'Delete reward «' + esc(r.name) + '»?', 'Удалить награду «' + esc(r.name) + '»?'),
+      doDelete, { icon: '🗑️' }
+    );
+  } else {
+    doDelete();
+  }
+}
+
+// Balans kartasidagi "+" — qo'shish formasini ochib, unga aylantiradi
+function openAddRewardForm() {
+  var body = document.getElementById('add-reward-body');
+  if (body && body.style.display === 'none') toggleAddReward();
+  var sec = document.getElementById('add-reward-section');
+  if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(function(){ var n = document.getElementById('r-name'); if (n) n.focus({ preventScroll: true }); }, 350);
 }
 
 function showProfileSubtab(name) {
@@ -11137,42 +11160,68 @@ function makeTaskEl(t, future) {
   return d;
 }
 
+function renderRewardsHero() {
+  var coinsEl = document.getElementById('rw-hero-coins');
+  if (coinsEl) coinsEl.textContent = S.coins || 0;
+  var lbl = document.getElementById('rw-hero-label');
+  if (lbl) lbl.textContent = _cl('Balansingiz', 'Your balance', 'Ваш баланс');
+  var add = document.getElementById('rw-hero-add');
+  if (add) {
+    add.textContent = _cl('+ Yangi', '+ New', '+ Новая');
+    add.title = t('add_reward_toggle');
+  }
+  var title = document.getElementById('rw-list-title');
+  if (title) {
+    var list = S.rewards || [];
+    var affordable = list.filter(function(r){ return (S.coins || 0) >= r.cost; }).length;
+    title.innerHTML = list.length
+      ? '<span>' + _cl('🎁 Mukofotlar', '🎁 Rewards', '🎁 Награды') + '</span><span class="rw-section-meta">' +
+          _cl(affordable + ' / ' + list.length + ' tasi olish mumkin', affordable + ' / ' + list.length + ' affordable', 'Доступно: ' + affordable + ' / ' + list.length) + '</span>'
+      : '';
+  }
+}
+
 function renderRewards() {
   renderDebtBanner();
+  renderRewardsHero();
   const grid=document.getElementById('rewards-grid'); grid.innerHTML='';
-  if(S.rewards.length===0){grid.innerHTML='<p style="color:var(--text-muted);font-size:var(--fs-base)">'+t('rewards_empty')+'</p>';renderClaimSummary();renderRewardStats();return;}
+  if(S.rewards.length===0){
+    grid.innerHTML='<div class="rw-empty"><div class="rw-empty-icon">🎁</div><div class="rw-empty-title">'+t('rewards_empty')+'</div>'+
+      '<div class="rw-empty-sub">'+_cl("O'zingizga yoqadigan narsani mukofot qilib qo'shing — masalan, 15 daqiqa YouTube.", 'Add something you enjoy as a reward — e.g. 15 minutes of YouTube.', 'Добавьте то, что вам нравится, — например, 15 минут YouTube.')+'</div>'+
+      '<button type="button" class="rw-btn rw-btn-buy rw-empty-btn" onclick="openAddRewardForm()">'+t('add_reward_toggle')+'</button></div>';
+    renderClaimSummary();renderRewardStats();return;
+  }
   const debtTier = getDebtTier();
   const problematicRewardId = debtTier === 1 ? getMostProblematicRewardId() : null;
+  const coinsNow = S.coins || 0;
   S.rewards.forEach(function(r){
-    const cant=S.coins<r.cost;
+    const cant=coinsNow<r.cost;
     const isNegativeBlocked = debtTier === 2 || (debtTier === 1 && problematicRewardId !== null && r.id === problematicRewardId);
     const div=document.createElement('div');
-    div.className='reward-card'+(cant?' cant-afford':'')+(isNegativeBlocked?' reward-negative-blocked':'');
+    div.className='rw-card'+(cant?' cant-afford':'')+(isNegativeBlocked?' is-blocked':'');
     div.draggable=true;
     div.dataset.id=r.id;
-    // Drag events
+    // Drag events (tartibni o'zgartirish)
     div.addEventListener('dragstart',function(e){
       e.dataTransfer.effectAllowed='move';
       e.dataTransfer.setData('text/plain',r.id);
-      div.style.opacity='0.4';
-      div.style.transform='scale(0.97)';
+      div.classList.add('is-dragging');
     });
     div.addEventListener('dragend',function(){
-      div.style.opacity='';
-      div.style.transform='';
-      document.querySelectorAll('.reward-card').forEach(function(c){c.style.border='';});
+      div.classList.remove('is-dragging');
+      document.querySelectorAll('.rw-card').forEach(function(c){c.classList.remove('is-drop-target');});
     });
     div.addEventListener('dragover',function(e){
       e.preventDefault();
       e.dataTransfer.dropEffect='move';
-      div.style.border='2px solid var(--accent)';
+      div.classList.add('is-drop-target');
     });
     div.addEventListener('dragleave',function(){
-      div.style.border='';
+      div.classList.remove('is-drop-target');
     });
     div.addEventListener('drop',function(e){
       e.preventDefault();
-      div.style.border='';
+      div.classList.remove('is-drop-target');
       var fromId=parseInt(e.dataTransfer.getData('text/plain'));
       var toId=r.id;
       if(fromId===toId) return;
@@ -11189,58 +11238,57 @@ function renderRewards() {
     const usedLog=(S.usageLog||{})[r.id]||[];
     const totalUsedMins=usedLog.reduce(function(a,x){return a+(x.mins||0);},0);
     const totalUsedCount=usedLog.reduce(function(a,x){return a+(x.count||1);},0);
-    const totalBoughtMins=isTimeReward?claims:null;
 
-    let statsHtml='';
-    if(!isTimeReward){
-      if(claims>0||totalUsedCount>0){
-        var rem=claims-totalUsedCount;
-        statsHtml='<div style="margin-top:8px;background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px;font-size:var(--fs-2xs);text-align:left;line-height:1.8">';
-        statsHtml+='<div style="color:var(--text-muted)">'+t('reward_bought_label')+' <b style="color:var(--accent)">'+claims+' '+t('reward_unit_count')+'</b></div>';
-        statsHtml+='<div style="color:var(--text-muted)">'+t('reward_used_label')+' <b style="color:#60A5FA">'+totalUsedCount+' '+t('reward_unit_count')+'</b></div>';
-        statsHtml+='<div style="color:var(--text-muted)">'+t('reward_remaining_label')+' <b style="color:#34D399">'+Math.max(0,rem)+' '+t('reward_unit_count')+'</b></div>';
-        statsHtml+='</div>';
-      }
-    } else if(claims>0 || totalUsedMins>0){
-      var remMins = totalBoughtMins!=null ? totalBoughtMins - totalUsedMins : null;
-      statsHtml+='<div style="margin-top:8px;background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px;font-size:var(--fs-2xs);text-align:left;line-height:1.7">';
-      if(totalBoughtMins){
-        statsHtml+='<div style="color:var(--text-muted)">'+t('reward_bought_label')+' <b style="color:var(--gold)">'+formatMinutes(totalBoughtMins)+'</b></div>';
-      }
-      if(totalUsedMins>0){
-        statsHtml+='<div style="color:var(--text-muted)">'+t('reward_used_label')+' <b style="color:#60A5FA">'+formatMinutes(totalUsedMins)+'</b></div>';
-      }
-      if(remMins!=null && remMins>0){
-        statsHtml+='<div style="color:var(--text-muted)">'+t('reward_remaining_label')+' <b style="color:#34D399">'+formatMinutes(remMins)+'</b></div>';
-      }
-      statsHtml+='</div>';
+    // Qolgan miqdor (chip ko'rinishida)
+    var chips = '<span class="rw-chip rw-chip-cost">' + r.cost + ' 🪙</span>';
+    if (isTimeReward) {
+      var remMins = claims - totalUsedMins;
+      if (remMins > 0) chips += '<span class="rw-chip rw-chip-own">' + t('reward_remaining_label') + ' ' + formatMinutes(remMins) + '</span>';
+    } else {
+      var remCount = claims - totalUsedCount;
+      if (remCount > 0) chips += '<span class="rw-chip rw-chip-own">' + t('reward_remaining_label') + ' ' + remCount + ' ' + t('reward_unit_count') + '</span>';
+    }
+    if (claims > 0) {
+      chips += '<span class="rw-chip rw-chip-muted">' + t('reward_bought_label') + ' ' + (isTimeReward ? formatMinutes(claims) : claims + ' ' + t('reward_unit_count')) + '</span>';
+    }
+
+    // Tanga yetmasa — qancha qolganini ko'rsatuvchi progress
+    var progressHtml = '';
+    if (cant && !isNegativeBlocked && r.cost > 0) {
+      var pct = Math.max(0, Math.min(100, Math.round(Math.max(0, coinsNow) / r.cost * 100)));
+      var need = r.cost - coinsNow;
+      progressHtml = '<div class="rw-need"><div class="rw-need-bar"><div class="rw-need-fill" style="width:' + pct + '%"></div></div>' +
+        '<span class="rw-need-label">' + _cl('Yana ' + need + ' 🪙 kerak', need + ' 🪙 more needed', 'Нужно ещё ' + need + ' 🪙') + '</span></div>';
     }
 
     var buyBtn;
     if (isNegativeBlocked) {
-      buyBtn = '<button onclick="claimReward('+r.id+')" title="'+t('reward_blocked_title')+'" style="width:100%;padding:7px;border-radius:var(--radius-sm);border:1px solid var(--red);background:rgba(248,113,113,0.12);color:var(--red);font-size:var(--fs-xs);cursor:pointer;font-family:DM Sans,sans-serif;font-weight:600">🔒 '+t('reward_blocked_btn')+'</button>';
+      buyBtn = '<button type="button" class="rw-btn rw-btn-blocked" onclick="claimReward('+r.id+')" title="'+t('reward_blocked_title')+'">🔒 '+t('reward_blocked_btn')+'</button>';
     } else if (cant) {
-      buyBtn = '<button style="width:100%;padding:7px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:var(--fs-xs);cursor:not-allowed;font-family:DM Sans,sans-serif">'+t('reward_not_enough')+'</button>';
+      buyBtn = '<button type="button" class="rw-btn rw-btn-disabled" disabled>'+t('reward_not_enough')+'</button>';
     } else {
-      buyBtn = '<button onclick="claimReward('+r.id+')" style="width:100%;padding:7px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-size:var(--fs-xs);cursor:pointer;font-family:DM Sans,sans-serif;box-shadow:0 2px 10px var(--accent-glow)">'+t('reward_buy_btn')+'</button>';
+      buyBtn = '<button type="button" class="rw-btn rw-btn-buy" onclick="claimReward('+r.id+')">'+t('reward_buy_btn')+' · '+r.cost+' 🪙</button>';
     }
-
-    var useBtnLabel = t('reward_use_btn');
     var useBtn = isNegativeBlocked
-      ? '<button disabled title="'+t('reward_blocked_title')+'" style="width:100%;padding:7px;border-radius:var(--radius-sm);border:1px solid var(--red);background:rgba(248,113,113,0.08);color:var(--red);font-size:var(--fs-xs);cursor:not-allowed;margin-top:6px;font-family:DM Sans,sans-serif;opacity:0.75">🔒 '+t('reward_blocked_btn')+'</button>'
-      : '<button onclick="logUsage('+r.id+')" style="width:100%;padding:7px;border-radius:var(--radius-sm);border:1px solid rgba(96,165,250,0.35);background:rgba(96,165,250,0.08);color:#60A5FA;font-size:var(--fs-xs);cursor:pointer;margin-top:6px;font-family:DM Sans,sans-serif">'+useBtnLabel+'</button>';
+      ? '<button type="button" class="rw-btn rw-btn-use" disabled title="'+t('reward_blocked_title')+'">🔒</button>'
+      : '<button type="button" class="rw-btn rw-btn-use" onclick="logUsage('+r.id+')">'+t('reward_use_btn')+'</button>';
 
     div.innerHTML=
-      '<div style="display:flex;justify-content:space-between;margin-bottom:-6px">'+
-        (isNegativeBlocked
-          ? '<button onclick="openRewardEditModal('+r.id+')" title="'+t('reward_blocked_title')+'" style="background:none;border:none;cursor:not-allowed;color:var(--red);font-size:var(--fs-sm);padding:2px 4px;line-height:1;opacity:0.6">🔒</button>'
-          : '<button onclick="openRewardEditModal('+r.id+')" style="background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:var(--fs-sm);padding:2px 4px;line-height:1" title="'+t('reward_edit_title')+'">✏️</button>')+
-        '<button onclick="deleteReward('+r.id+')" style="background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:var(--fs-sm);padding:2px 4px;line-height:1" title="'+t('reward_delete_title')+'">🗑️</button>'+
+      '<div class="rw-card-top">'+
+        '<div class="rw-icon">'+esc(r.icon)+'</div>'+
+        '<div class="rw-body">'+
+          '<div class="rw-name">'+esc(r.name)+'</div>'+
+          '<div class="rw-chips">'+chips+'</div>'+
+        '</div>'+
+        '<div class="rw-tools">'+
+          (isNegativeBlocked
+            ? '<button type="button" class="rw-icon-btn" onclick="openRewardEditModal('+r.id+')" title="'+t('reward_blocked_title')+'" aria-label="'+t('reward_edit_title')+'">🔒</button>'
+            : '<button type="button" class="rw-icon-btn" onclick="openRewardEditModal('+r.id+')" title="'+t('reward_edit_title')+'" aria-label="'+t('reward_edit_title')+'">✏️</button>')+
+          '<button type="button" class="rw-icon-btn is-danger" onclick="deleteReward('+r.id+')" title="'+t('reward_delete_title')+'" aria-label="'+t('reward_delete_title')+'">🗑️</button>'+
+        '</div>'+
       '</div>'+
-      '<div class="r-icon">'+esc(r.icon)+'</div>'+
-      '<div class="r-name">'+esc(r.name)+'</div>'+
-      '<div class="r-cost">'+r.cost+' 🪙</div>'+
-      buyBtn+useBtn+statsHtml;
+      progressHtml+
+      '<div class="rw-actions">'+buyBtn+useBtn+'</div>';
 
     grid.appendChild(div);
   });
@@ -11285,8 +11333,9 @@ function renderClaimSummary() {
   if (!panel) return;
   if (entries.length === 0) { panel.style.display='none'; return; }
   panel.style.display='';
-  let html = '<div style="font-size:var(--fs-2xs);color:var(--text-dim);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px">'+t('claim_summary_title')+'</div>';
-  html += '<div style="display:flex;flex-direction:column;gap:8px">';
+  let html = '<div class="rw-owned-title">'+t('claim_summary_title')+'</div>';
+  html += '<div class="rw-owned-list">';
+  let ownedRows = 0;
   entries.forEach(([id, count]) => {
     const r = S.rewards.find(x=>x.id==id); if(!r) return;
     const isTimeReward = r.rtype === 'time';
@@ -11298,22 +11347,28 @@ function renderClaimSummary() {
       const totalBoughtMins = count;
       const remMins = totalBoughtMins - totalUsedMins;
       if(remMins <= 0) return; // listdan o'chir
-      html += `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px">
-        <span style="font-size:var(--fs-base)">${esc(r.icon)} ${esc(r.name)}</span>
-        <span style="font-size:var(--fs-xs);color:#34D399;font-weight:600">${formatMinutes(remMins)}</span>
+      ownedRows++;
+      html += `<div class="rw-owned-row">
+        <span class="rw-owned-name">${esc(r.icon)} ${esc(r.name)}</span>
+        <span class="rw-owned-left">${formatMinutes(remMins)}</span>
+        <button type="button" class="rw-owned-use" onclick="logUsage(${r.id})">${t('reward_use_btn')}</button>
       </div>`;
     } else {
       // Donali mukofot — 0 ta qolsa listdan chiqib ketsin
       const usedCount = usedLog.reduce((a,x)=>a+(x.count||1),0);
       const rem = count - usedCount;
       if(rem <= 0) return; // listdan o'chir
-      html += `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px">
-        <span style="font-size:var(--fs-base)">${esc(r.icon)} ${esc(r.name)}</span>
-        <span style="font-size:var(--fs-xs);color:#34D399;font-weight:600">${rem} ${t('reward_unit_count')}</span>
+      ownedRows++;
+      html += `<div class="rw-owned-row">
+        <span class="rw-owned-name">${esc(r.icon)} ${esc(r.name)}</span>
+        <span class="rw-owned-left">${rem} ${t('reward_unit_count')}</span>
+        <button type="button" class="rw-owned-use" onclick="logUsage(${r.id})">${t('reward_use_btn')}</button>
       </div>`;
     }
   });
   html += '</div>';
+  // Hamma narsa ishlatib bo'lingan bo'lsa — bo'sh panelni ko'rsatmaymiz
+  if (ownedRows === 0) { panel.style.display='none'; panel.innerHTML=''; return; }
   panel.innerHTML = html;
 }
 

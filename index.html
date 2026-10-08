@@ -1617,12 +1617,21 @@
   </div>
 
   <div id="view-rewards" style="display:none">
-    <p class="rewards-intro" data-i18n="rewards_intro">Vazifalarni bajarsangiz tanga topasiz. Tangalarni mukofotlarga almashtirasiz!</p>
+    <!-- Balans kartasi -->
+    <div class="rw-hero">
+      <div class="rw-hero-main">
+        <div class="rw-hero-label" id="rw-hero-label">Balans</div>
+        <div class="rw-hero-coins"><span id="rw-hero-coins">0</span> <span class="rw-hero-coin-icon">🪙</span></div>
+        <div class="rw-hero-sub" data-i18n="rewards_intro">Vazifalarni bajarsangiz tanga topasiz. Tangalarni mukofotlarga almashtirasiz!</div>
+      </div>
+      <button type="button" class="rw-hero-add" id="rw-hero-add" onclick="openAddRewardForm()">+</button>
+    </div>
     <div id="debt-banner" style="display:none;border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px"></div>
-    <div id="claim-summary" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px"></div>
-    <div class="rewards-grid" id="rewards-grid"></div>
-    <div class="add-reward-section">
-      <button onclick="toggleAddReward()" style="width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:0;font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:600;color:var(--text)">
+    <div id="claim-summary" class="rw-owned" style="display:none"></div>
+    <div class="rw-section-title" id="rw-list-title"></div>
+    <div class="rw-list" id="rewards-grid"></div>
+    <div class="add-reward-section" id="add-reward-section">
+      <button type="button" class="rw-add-toggle" onclick="toggleAddReward()">
         <span data-i18n="add_reward_toggle">➕ Yangi mukofot qo'shish</span>
         <span id="add-reward-arrow" style="font-size:var(--fs-lg);color:var(--text-muted);transition:transform 0.25s">&#8249;</span>
       </button>
@@ -1631,13 +1640,13 @@
 
       <!-- Step 1: Nom -->
       <div class="reward-step" id="rstep-1">
-        <div class="rstep-label"><span class="rstep-num">1</span> <span data-i18n="rstep1_label">Mukofot nomi</span></div>
+        <div class="rstep-label"><span class="rstep-num"></span> <span data-i18n="rstep1_label">Mukofot nomi</span></div>
         <input type="text" id="r-name" placeholder="Masalan: Instagram, Muzqaymoq, Choy..." data-i18n-ph="rstep1_ph" oninput="rewardStepCheck()" />
       </div>
 
       <!-- Step 2: Narxi -->
       <div class="reward-step" id="rstep-2">
-        <div class="rstep-label"><span class="rstep-num">2</span> <span data-i18n="rstep2_label">Narxi (necha tanga?)</span></div>
+        <div class="rstep-label"><span class="rstep-num"></span> <span data-i18n="rstep2_label">Narxi (necha tanga?)</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap" id="r-cost-presets">
           <button class="rcost-chip" onclick="setCost(3)">3 🪙</button>
           <button class="rcost-chip" onclick="setCost(5)">5 🪙</button>
@@ -1652,7 +1661,7 @@
 
       <!-- Step 3: Tur (daqiqa yoki miqdor) -->
       <div class="reward-step" id="rstep-3">
-        <div class="rstep-label"><span class="rstep-num">3</span> <span data-i18n="rstep3_label">Qanday o'lchanadi?</span></div>
+        <div class="rstep-label"><span class="rstep-num"></span> <span data-i18n="rstep3_label">Qanday o'lchanadi?</span></div>
         <div style="display:flex;gap:8px">
           <button class="rtype-btn" id="rtype-time" onclick="selRewardType('time')" data-i18n="rtype_time">⏱️ Vaqt (daqiqa)</button>
           <button class="rtype-btn" id="rtype-count" onclick="selRewardType('count')" data-i18n="rtype_count">🔢 Miqdor (dona)</button>
@@ -1661,14 +1670,14 @@
 
       <!-- Step 4: Qiymat (daqiqa yoki miqdor) -->
       <div class="reward-step" id="rstep-4" style="display:none">
-        <div class="rstep-label" id="rstep-4-label"><span class="rstep-num">4</span> <span data-i18n="rstep4_label">Qancha?</span></div>
+        <div class="rstep-label" id="rstep-4-label"><span class="rstep-num"></span> <span data-i18n="rstep4_label">Qancha?</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap" id="r-amount-presets"></div>
         <input type="number" id="r-amount" inputmode="numeric" pattern="[0-9]*" placeholder="Yoki o'zingiz kiriting..." data-i18n-ph="rstep4_ph" min="1" style="margin-top:8px" oninput="syncAmountChips()" />
       </div>
 
       <!-- Emoji -->
       <div class="reward-step" id="rstep-5">
-        <div class="rstep-label"><span class="rstep-num">5</span> <span data-i18n="rstep5_label">Emoji (ixtiyoriy)</span></div>
+        <div class="rstep-label"><span class="rstep-num"></span> <span data-i18n="rstep5_label">Emoji (ixtiyoriy)</span></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="r-emoji-presets">
           <button class="remoji-chip" onclick="setEmoji('📱')">📱</button>
           <button class="remoji-chip" onclick="setEmoji('📺')">📺</button>
