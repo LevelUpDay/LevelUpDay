@@ -27923,6 +27923,7 @@ function friendsOpenReyting() {
   showTab('reyting');
 }
 function friendsShowTab(tab) {
+  try { renderFriendsStats(); } catch (e) {}
   ensureFriendsDefaults();
   _friendsActiveTab = tab;
   if (tab === 'add') { (S.friends.incoming || []).forEach(function (r) { S.friends.seenRequestIds[r.id] = true; }); }
@@ -27995,7 +27996,7 @@ function friendCardHtml(f, actionsHtml, viewable, showStatus) {
   var mutualChip = (f._mutualCount) ? ' <span class="friend-mutual-chip">' + t('friends_mutual_chip').replace('{n}', f._mutualCount) + '</span>' : '';
   var infoBlock = '<div style="min-width:0;flex:1">'
     + '<div class="friend-name">' + esc(f.name) + mutualChip + '</div>'
-    + '<div class="friend-sub">' + esc(f.id) + (f.reason ? ' · 💬 ' + esc(f.reason.length > 40 ? f.reason.slice(0, 40) + '…' : f.reason) : '') + '</div>'
+    + '<div class="friend-sub">' + (f.level ? '⭐ Lv ' + esc(String(f.level)) : '') + (showStatus ? ((f.level ? ' · ' : '') + (friendsIsOnline(f.id) ? '<span class="fr-on">' + _cl("onlayn", "online", "онлайн") + '</span>' : '<span class="fr-off">' + _cl("oflayn", "offline", "офлайн") + '</span>')) : '') + (f.reason ? ((f.level || showStatus) ? ' · ' : '') + '💬 ' + esc(f.reason.length > 40 ? f.reason.slice(0, 40) + '…' : f.reason) : '') + '</div>'
     + '</div>';
   // ✅ TUZATILDI: rasm/emoji yo'q holat uchun endi bo'sh doira o'rniga
   // barqaror gradient + bosh harflar (Avatar Fallback) chiqadi.
@@ -28051,9 +28052,31 @@ function renderFriendsList() {
   }
   if (filterEmpty) filterEmpty.style.display = 'none';
   box.innerHTML = filtered.map(function (f) {
-    var actions = '<button class="friend-req-btn decline" onclick="friendsRemoveFriend(\'' + f.id + '\')" data-i18n="friends_remove_btn">' + t('friends_remove_btn') + '</button>';
+    // O'chirish endi profil oynasi ichida — ro'yxatda tez amallar: chorlov va profil
+    var actions = '<button type="button" class="fr-act fr-act-duel" onclick="friendsChallengeFriend(\'' + f.id + '\')" title="' + esc(t('friends_tab_challenge')) + '">⚔️</button>'
+      + '<button type="button" class="fr-act" onclick="showFriendProfileModal(\'' + f.id + '\')" title="' + esc(t('friends_view_profile_title')) + '">👤</button>';
     return friendCardHtml(f, actions, true, true);
   }).join('');
+}
+// Ro'yxatdan to'g'ridan-to'g'ri chorlov yuborish — do'st oldindan tanlanadi
+function friendsChallengeFriend(id) {
+  try { friendsShowTab('challenge'); } catch (e) {}
+  friendsOpenNewChallenge();
+  var sel = document.getElementById('fnc-friend-select');
+  if (sel) sel.value = id;
+}
+// Tepadagi qisqa statistika: do'stlar, onlayn, faol chorlovlar, olmos
+function renderFriendsStats() {
+  var el = document.getElementById('fr-stats');
+  if (!el || !S.friends) return;
+  var F = S.friends, list = F.list || [];
+  var online = list.filter(function (f) { try { return friendsIsOnline(f.id); } catch (e) { return false; } }).length;
+  var duels = (F.challenges || []).length;
+  var cell = function (icon, val, label, cls) { return '<div class="fr-stat ' + (cls || '') + '"><div class="fr-stat-val">' + icon + ' ' + val + '</div><div class="fr-stat-label">' + label + '</div></div>'; };
+  el.innerHTML = cell('👥', list.length, _cl("Do'stlar", "Friends", "Друзья")) +
+    cell('🟢', online, _cl("Onlayn", "Online", "Онлайн")) +
+    cell('⚔️', duels, _cl("Faol chorlov", "Active duels", "Активные дуэли")) +
+    cell('💎', (typeof gemsAvailable === 'function' ? gemsAvailable() : (S.gems || 0)), _cl("Tikish uchun", "To wager", "Для ставок"), 'fr-stat-gems');
 }
 function friendsRemoveFriend(userId) {
   showConfirmModal(esc(t('friends_remove_confirm')), function () {
