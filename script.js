@@ -10931,6 +10931,82 @@ document.addEventListener('keydown', function(e) {
 // Task ro'yxati sudrab-tashlanganda (drag boshlanganda) ochiq menyularni yopamiz
 document.addEventListener('scroll', function(){ closeAllTaskDropdowns(); closeAllSubtaskDropdowns(); }, true);
 
+// ⌨️ Klaviatura yorliqlari (kompyuter uchun)
+var _kbFocusIdx = -1;
+function kbVisibleTaskCards() {
+  return Array.prototype.filter.call(document.querySelectorAll('#view-tasks .task-card'), function (el) { return el.offsetParent !== null; });
+}
+function kbSetFocus(i) {
+  var cards = kbVisibleTaskCards();
+  document.querySelectorAll('.task-card.kb-focus').forEach(function (c) { c.classList.remove('kb-focus'); });
+  if (!cards.length) { _kbFocusIdx = -1; return null; }
+  _kbFocusIdx = Math.max(0, Math.min(cards.length - 1, i));
+  var c = cards[_kbFocusIdx];
+  c.classList.add('kb-focus');
+  c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  return c;
+}
+function kbFocusedTaskId() {
+  var c = document.querySelector('.task-card.kb-focus');
+  return c ? Number(c.dataset.id) : null;
+}
+function kbCloseTopOverlay() {
+  var open = Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.open'));
+  if (open.length) { var o = open[open.length - 1]; o.classList.remove('open'); return true; }
+  var ts = document.getElementById('task-action-sheet');
+  if (ts && ts.classList.contains('open')) { closeTaskSheet(); return true; }
+  return false;
+}
+function showShortcutsHelp() {
+  var old = document.getElementById('kb-help'); if (old) { old.remove(); return; }
+  var rows = [
+    ['N', _cl("Yangi vazifa", "New task", "Новая задача")], ['/', _cl("Qidiruv", "Search", "Поиск")],
+    ['1–7', _cl("Bo'limlar (Vazifalar, Mukofotlar, Maqsadlar, Chest, Pomodoro, Reyting, Profil)", "Sections (Tasks, Rewards, Goals, Chest, Pomodoro, Leaderboard, Profile)", "Разделы (Задачи, Награды, Цели, Сундук, Помодоро, Рейтинг, Профиль)")],
+    ['J / K', _cl("Keyingi / oldingi vazifa", "Next / previous task", "Следующая / предыдущая задача")], ['X / Enter', _cl("Bajarildi", "Mark done", "Выполнено")],
+    ['E', _cl("Tahrirlash", "Edit", "Изменить")], ['S', _cl("O'tkazish (ertaga)", "Skip (to tomorrow)", "Пропустить (на завтра)")], ['Del', _cl("O'chirish", "Delete", "Удалить")],
+    ['P', 'Pomodoro'], ['Esc', _cl("Oynani yopish", "Close window", "Закрыть окно")], ['?', _cl("Shu yordam", "This help", "Эта справка")]
+  ];
+  var ov = document.createElement('div');
+  ov.id = 'kb-help'; ov.className = 'kb-help-overlay';
+  ov.innerHTML = '<div class="kb-help-box"><div class="kb-help-title">⌨️ ' + _cl("Klaviatura yorliqlari", "Keyboard shortcuts", "Горячие клавиши") + '</div>' +
+    rows.map(function (r) { return '<div class="kb-help-row"><kbd>' + r[0] + '</kbd><span>' + r[1] + '</span></div>'; }).join('') +
+    '<button type="button" class="kb-help-close" onclick="document.getElementById(\'kb-help\').remove()">OK</button></div>';
+  ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+document.addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  var tg = e.target, tag = (tg && tg.tagName) || '';
+  var typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (tg && tg.isContentEditable);
+  // Yopilgan oynadagi yashirin maydonda fokus qolib ketgan bo'lsa — yozish deb hisoblamaymiz
+  if (typing && tg.offsetParent === null) { try { tg.blur(); } catch (er) {} typing = false; }
+  if (e.key === 'Escape') {
+    var help = document.getElementById('kb-help'); if (help) { help.remove(); return; }
+    if (!typing) kbCloseTopOverlay();
+    return;
+  }
+  if (typing) return;
+  var anyModal = document.querySelector('.modal-overlay.open, #kb-help');
+  var k = e.key;
+  if (k === '?') { e.preventDefault(); showShortcutsHelp(); return; }
+  if (anyModal) return;
+  var tabs = ['tasks', 'rewards', 'goals', 'chest', 'pomo', 'reyting', 'profile'];
+  if (/^[1-7]$/.test(k)) { e.preventDefault(); var tb = tabs[+k - 1]; if (tb === 'pomo') pomoOpenModal(); else showTab(tb); return; }
+  if (k === 'n' || k === 'N') { e.preventDefault(); showTab('tasks'); openModal(); return; }
+  if (k === '/') { e.preventDefault(); showTab('tasks'); var si = document.getElementById('task-search'); if (si) si.focus(); return; }
+  if (k === 'p' || k === 'P') { e.preventDefault(); pomoOpenModal(); return; }
+  var tasksView = document.getElementById('view-tasks');
+  if (!tasksView || tasksView.style.display === 'none') return;
+  if (k === 'j' || k === 'J' || k === 'ArrowDown' && e.shiftKey) { e.preventDefault(); kbSetFocus(_kbFocusIdx + 1); return; }
+  if (k === 'k' || k === 'K' || k === 'ArrowUp' && e.shiftKey) { e.preventDefault(); kbSetFocus(_kbFocusIdx < 0 ? 0 : _kbFocusIdx - 1); return; }
+  var id = kbFocusedTaskId();
+  if (id === null) return;
+  if (k === 'x' || k === 'X' || k === 'Enter') { e.preventDefault(); toggleTask(id); setTimeout(function () { kbSetFocus(_kbFocusIdx); }, 50); return; }
+  if (k === 'e' || k === 'E') { e.preventDefault(); editTask(id); return; }
+  if (k === 's' || k === 'S') { e.preventDefault(); skipTask(id); return; }
+  if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); deleteTask(id); return; }
+});
+
 function closeAllSubtaskDropdowns() {
   document.querySelectorAll('.subtask-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
   document.querySelectorAll('.subtask-dots-btn.active').forEach(function(b){ b.classList.remove('active'); });
