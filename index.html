@@ -194,26 +194,43 @@
 
 
   <!-- CHEST VIEW -->
-  <div id="view-chest" style="display:none;padding:8px 0">
+  <div id="view-chest" class="chest-view" style="display:none">
 
-    <!-- Chest statistikasi — boshqa bo'limlardagi (Vazifalar tabi) qatorga o'xshab -->
-    <div class="stats">
+    <!-- Chest holati: yopiq / ochiq / faol vazifa / bugun tugadi -->
+    <div class="chest-hero" id="chest-hero" data-state="locked">
+      <div class="chest-hero-top">
+        <div class="chest-hero-icon" id="chest-hero-icon">&#127873;</div>
+        <div class="chest-hero-text">
+          <div class="chest-hero-title" id="chest-hero-title"></div>
+          <div class="chest-hero-sub" id="chest-hero-sub"></div>
+        </div>
+      </div>
+      <div class="chest-progress"><div class="chest-progress-fill" id="chest-progress-fill"></div></div>
+      <div class="chest-hero-foot">
+        <span class="chest-progress-label" id="chest-progress-label"></span>
+        <button type="button" class="chest-hero-btn" id="chest-hero-btn" style="display:none"></button>
+      </div>
+    </div>
+
+    <!-- Chest statistikasi -->
+    <div class="stats chest-stats">
       <div class="stat"><div class="stat-label" data-i18n="chest_stat_today">Bugun</div><div class="stat-val" id="chest-stat-today">0</div></div>
       <div class="stat"><div class="stat-label" data-i18n="chest_stat_total">Jami ochilgan</div><div class="stat-val" id="chest-stat-total">0</div></div>
       <div class="stat"><div class="stat-label" data-i18n="chest_stat_coins">Jami tanga 🪙</div><div class="stat-val" id="chest-stat-coins">0</div></div>
     </div>
 
     <!-- Chest vazifalar ro'yxati -->
-    <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:var(--fs-2xs);color:var(--text-dim);letter-spacing:0.06em;text-transform:uppercase" data-i18n="chest_tasks_title">&#127922; Chest Vazifalar</div>
-        <button onclick="openAddChestTask()" style="padding:6px 14px;border-radius:var(--radius-full);border:none;background:var(--accent);color:#fff;font-size:var(--fs-xs);font-weight:600;cursor:pointer;font-family:DM Sans,sans-serif" data-i18n="chest_add_btn">+ Qo&#39;shish</button>
+    <div class="chest-section">
+      <div class="chest-section-head">
+        <div class="chest-section-title" data-i18n="chest_tasks_title">&#127922; Chest Vazifalar</div>
+        <button type="button" class="chest-add-btn" onclick="openAddChestTask()" data-i18n="chest_add_btn">+ Qo&#39;shish</button>
       </div>
-      <div id="chest-tasks-list" style="display:flex;flex-direction:column;gap:7px"></div>
-      <div id="chest-tasks-empty" style="text-align:center;padding:32px 16px;color:var(--text-dim);font-size:var(--fs-base);line-height:1.7">
-        <div style="font-size:var(--fs-4xl);margin-bottom:8px;opacity:0.5">&#127922;</div>
-        <span data-i18n="chest_tasks_empty_title">Hali chest vazifalar yo&#39;q.</span><br>
-        <span style="font-size:var(--fs-sm)" data-i18n="chest_tasks_empty_sub">+ tugmasi bilan qo&#39;shing</span>
+      <div id="chest-tasks-list" class="chest-list"></div>
+      <div id="chest-tasks-empty" class="chest-empty">
+        <div class="chest-empty-icon">&#127922;</div>
+        <div class="chest-empty-title" data-i18n="chest_tasks_empty_title">Hali chest vazifalar yo&#39;q.</div>
+        <div class="chest-empty-sub" data-i18n="chest_tasks_empty_sub">+ tugmasi bilan qo&#39;shing</div>
+        <button type="button" class="chest-add-btn chest-add-btn-lg" onclick="openAddChestTask()" data-i18n="chest_add_btn">+ Qo&#39;shish</button>
       </div>
     </div>
 

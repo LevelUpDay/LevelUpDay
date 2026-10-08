@@ -19968,32 +19968,48 @@ function openAddChestTask(editId) {
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;display:flex;align-items:flex-end;justify-content:center;padding:0';
   ov.className = 'ct-modal-overlay';
   ov.innerHTML =
-    '<div style="background:var(--surface);border:1px solid var(--border-hover);border-radius:var(--radius-xl) 20px 0 0;padding:24px 20px 32px;width:100%;max-width:560px;animation:modalIn 0.22s ease">' +
-      '<div style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;margin-bottom:16px">' + (_ex ? _cl('✏️ Chest vazifani tahrirlash','✏️ Edit chest task','✏️ Изменить задачу') : t('ct_modal_title')) + '</div>' +
-      '<div style="margin-bottom:12px">' +
-        '<label style="font-size:var(--fs-2xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;display:block;margin-bottom:6px">' + t('ct_name_label') + '</label>' +
-        '<input id="ct-name" type="text" placeholder="' + t('ct_name_ph') + '" style="width:100%;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;outline:none" />' +
+    '<div class="ct-sheet" role="dialog" aria-modal="true">' +
+      '<div class="ct-sheet-handle"></div>' +
+      '<div class="ct-sheet-title">' + (_ex ? _cl('✏️ Chest vazifani tahrirlash','✏️ Edit chest task','✏️ Изменить задачу') : t('ct_modal_title')) + '</div>' +
+      '<div class="ct-field">' +
+        '<label class="ct-label" for="ct-name">' + t('ct_name_label') + '</label>' +
+        '<input id="ct-name" class="ct-input" type="text" maxlength="120" autocomplete="off" placeholder="' + t('ct_name_ph') + '" />' +
       '</div>' +
-      '<div style="margin-bottom:18px">' +
-        '<label style="font-size:var(--fs-2xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;display:block;margin-bottom:8px">' + _cl('Mukofot tangasi (0–100)','Reward coins (0–100)','Награда (0–100)') + '</label>' +
-        '<input id="ct-coins" type="number" min="0" max="100" step="1" inputmode="numeric" value="' + _ctCoinsInit + '" oninput="ctCoinsClamp()" style="width:100%;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" />' +
-        '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' +
-          [2,5,10,20,50].map(function(v){ return '<button type="button" onclick="document.getElementById(\'ct-coins\').value=' + v + '" style="padding:6px 12px;border-radius:var(--radius-full);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-xs);cursor:pointer">' + v + ' \u{1FA99}</button>'; }).join('') +
+      '<div class="ct-field">' +
+        '<label class="ct-label" for="ct-coins">' + _cl('Mukofot tangasi (0–100)','Reward coins (0–100)','Награда (0–100)') + '</label>' +
+        '<input id="ct-coins" class="ct-input" type="number" min="0" max="100" step="1" inputmode="numeric" value="' + _ctCoinsInit + '" oninput="ctCoinsClamp();ctSyncPresets()" />' +
+        '<div class="ct-presets">' +
+          [2,5,10,20,50].map(function(v){ return '<button type="button" class="ct-preset" data-v="' + v + '" onclick="ctPickCoins(' + v + ')">' + v + ' \u{1FA99}</button>'; }).join('') +
         '</div>' +
       '</div>' +
-      '<div style="display:flex;gap:10px">' +
-        '<button onclick="closeAddChestTask()" style="flex:1;padding:13px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer;font-family:DM Sans,sans-serif">' + t('btn_cancel') + '</button>' +
-        '<button onclick="saveChestTask()" style="flex:2;padding:13px;border-radius:var(--radius-md);border:none;background:var(--accent);color:#fff;font-size:var(--fs-base);font-weight:600;cursor:pointer;font-family:DM Sans,sans-serif;box-shadow:0 4px 16px var(--accent-glow)">' + t('btn_save_check') + '</button>' +
+      '<div class="ct-actions">' +
+        '<button type="button" class="ct-btn ct-btn-cancel" onclick="closeAddChestTask()">' + t('btn_cancel') + '</button>' +
+        '<button type="button" class="ct-btn ct-btn-save" onclick="saveChestTask()">' + t('btn_save_check') + '</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(ov);
+  ctSyncPresets();
   setTimeout(function() { var inp = document.getElementById('ct-name'); if(inp) { if (_ex) inp.value = _ex.name; inp.focus(); } }, 150);
   ov.addEventListener('click', function(e) { if(e.target === ov) ov.remove(); });
   // enter key
   setTimeout(function() {
     var inp = document.getElementById('ct-name');
     if(inp) inp.addEventListener('keydown', function(e){ if(e.key==='Enter') saveChestTask(); });
+    if(inp) inp.addEventListener('input', function(){ inp.classList.remove('is-invalid'); });
   }, 200);
+}
+
+// Tanga tez tanlash tugmalari — tanlangani ajralib turadi
+function ctPickCoins(v) {
+  var e = document.getElementById('ct-coins'); if (!e) return;
+  e.value = v; ctSyncPresets();
+}
+function ctSyncPresets() {
+  var e = document.getElementById('ct-coins');
+  var v = e ? Number(e.value) : NaN;
+  document.querySelectorAll('.ct-preset').forEach(function(b){
+    b.classList.toggle('is-sel', Number(b.dataset.v) === v);
+  });
 }
 
 var _ctDiff = 1;
@@ -20016,7 +20032,7 @@ function saveChestTask() {
   var inp = document.getElementById('ct-name');
   if (!inp) return;
   var name = inp.value.trim();
-  if (!name) { inp.style.borderColor = 'var(--red)'; inp.focus(); return; }
+  if (!name) { inp.classList.add('is-invalid'); inp.focus(); return; }
   if (!S.chestTasks) S.chestTasks = [];
   if (!S.nextCtId) S.nextCtId = 1000;
   ctCoinsClamp();
@@ -20035,9 +20051,22 @@ function saveChestTask() {
 
 function deleteChestTask(id) {
   if (!S.chestTasks) return;
-  S.chestTasks = S.chestTasks.filter(function(t) { return t.id !== id; });
-  save();
-  renderChest();
+  var tk = S.chestTasks.find(function(x){ return x.id === id; });
+  if (!tk) return;
+  var doDelete = function() {
+    S.chestTasks = S.chestTasks.filter(function(t) { return t.id !== id; });
+    save();
+    renderChest();
+    if (typeof render === 'function') render();
+  };
+  if (typeof showConfirmModal === 'function') {
+    showConfirmModal(
+      _cl('«' + esc(tk.name) + '» chest vazifasini o\'chirasizmi?', 'Delete chest task «' + esc(tk.name) + '»?', 'Удалить задачу «' + esc(tk.name) + '»?'),
+      doDelete, { icon: '🗑️' }
+    );
+  } else {
+    doDelete();
+  }
 }
 
 function openChestInline() {
@@ -20180,6 +20209,7 @@ function claimChestTask(btn, bonusCoins, uid) {
   save();
   render();
   renderTarix();
+  renderChest();
   confetti();
   SFX.coin();
   toast('+' + bonusCoins + ' \u{1FA99}' + t('chest_coins_earned_toast'));
@@ -20270,7 +20300,7 @@ function showChestResult(taskName, diffLabel, coins) {
     if (!S.chestHistory) S.chestHistory = [];
     S.chestHistory.unshift({ date: today(), taskName: taskName, coins: coins });
     if (S.chestHistory.length > 50) S.chestHistory = S.chestHistory.slice(0, 50);
-    save(); render(); renderChestHistory(); renderChestTasksList();
+    save(); render(); renderChestHistory(); renderChest();
     confetti(); SFX.coin(); toast('+' + coins + ' \u{1FA99}' + t('chest_coins_earned_toast'));
   };
   ov.addEventListener('click', function(e) { if(e.target === ov) ov.remove(); });
@@ -20281,28 +20311,117 @@ function renderChestHistory() {
   if (!panel) return; // hozircha markupda bunday panel yo'q — atayin no-op
 }
 
+function _chestDoneTodayNames() {
+  var td = today();
+  return (S.chestDoneHistory || []).filter(function(h){ return h.date === td; }).map(function(h){ return h.name; });
+}
+
 function renderChestTasksList() {
   var list = document.getElementById('chest-tasks-list');
   var empty = document.getElementById('chest-tasks-empty');
   if (!list) return;
   var tasks = S.chestTasks || [];
+  var doneNames = _chestDoneTodayNames();
+  var activeName = (S.isChestQuestActive && S.chestQuest) ? S.chestQuest.name : null;
   list.innerHTML = '';
-  empty.style.display = tasks.length === 0 ? '' : 'none';
+  if (empty) empty.style.display = tasks.length === 0 ? '' : 'none';
   list.style.display = tasks.length === 0 ? 'none' : '';
-  tasks.forEach(function(t) {
-    var diff = t.diff || 1;
-    var dot = diff === 1 ? '\u{1F7E2}' : diff === 2 ? '\u{1F7E1}' : '\u{1F534}';
-    var coins = ctCoinsOf(t);
+  tasks.forEach(function(tk) {
+    var diff = tk.diff || 1;
+    var coins = ctCoinsOf(tk);
+    var isDone = doneNames.indexOf(tk.name) !== -1;
+    var isActive = !isDone && activeName === tk.name;
     var el = document.createElement('div');
-    el.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 14px;display:flex;align-items:center;gap:10px';
+    el.className = 'chest-item' + (isDone ? ' is-done' : '') + (isActive ? ' is-active' : '');
     el.innerHTML =
-      '<span style="font-size:var(--fs-md)">' + dot + '</span>' +
-      '<span style="flex:1;font-size:var(--fs-base);color:var(--text)">' + esc(t.name) + '</span>' +
-      '<span style="font-size:var(--fs-xs);color:var(--gold);font-weight:600;margin-right:4px">+' + coins + ' \u{1FA99}</span>' +
-      '<button onclick="openAddChestTask(' + t.id + ')" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:var(--fs-2xs);padding:4px 8px;cursor:pointer;margin-right:4px">✏️</button>' +
-      '<button onclick="deleteChestTask(' + t.id + ')" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:var(--fs-2xs);padding:4px 8px;cursor:pointer;font-family:DM Sans,sans-serif">&#128465;</button>';
+      '<span class="chest-item-dot d' + diff + '"></span>' +
+      '<div class="chest-item-body">' +
+        '<div class="chest-item-name">' + esc(tk.name) + '</div>' +
+        '<div class="chest-item-meta">' +
+          '<span class="chest-chip chest-chip-coins">+' + coins + ' \u{1FA99}</span>' +
+          (isDone ? '<span class="chest-chip chest-chip-done">✓ ' + _cl('Bugun bajarildi','Done today','Выполнено сегодня') + '</span>' : '') +
+          (isActive ? '<span class="chest-chip chest-chip-active">⏳ ' + _cl('Faol vazifa','Active task','Активная задача') + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="chest-item-actions">' +
+        '<button type="button" class="chest-icon-btn" onclick="openAddChestTask(' + tk.id + ')" title="' + _cl('Tahrirlash','Edit','Изменить') + '" aria-label="' + _cl('Tahrirlash','Edit','Изменить') + '">✏️</button>' +
+        '<button type="button" class="chest-icon-btn is-danger" onclick="deleteChestTask(' + tk.id + ')" title="' + _cl("O'chirish",'Delete','Удалить') + '" aria-label="' + _cl("O'chirish",'Delete','Удалить') + '">&#128465;</button>' +
+      '</div>';
     list.appendChild(el);
   });
+}
+
+// Chest bo'limi tepasidagi holat kartasi
+function renderChestHero() {
+  var hero = document.getElementById('chest-hero');
+  if (!hero) return;
+  var titleEl = document.getElementById('chest-hero-title');
+  var subEl = document.getElementById('chest-hero-sub');
+  var iconEl = document.getElementById('chest-hero-icon');
+  var fillEl = document.getElementById('chest-progress-fill');
+  var labelEl = document.getElementById('chest-progress-label');
+  var btn = document.getElementById('chest-hero-btn');
+
+  var tasks = S.chestTasks || [];
+  var doneNames = _chestDoneTodayNames();
+  var doneCount = tasks.filter(function(tk){ return doneNames.indexOf(tk.name) !== -1; }).length;
+  var total = tasks.length;
+  var active = !!(S.isChestQuestActive && S.chestQuest);
+  var state, title, sub, icon, btnText = '', btnAction = null, btnSecondary = false;
+
+  if (total === 0) {
+    state = 'empty'; icon = '📦';
+    title = _cl("Chest bo'sh", 'Chest is empty', 'Сундук пуст');
+    sub = _cl("Chestga bonus vazifalar qo'shing. Bugungi barcha vazifalarni tugatsangiz, ulardan biri tasodifiy tanlanadi va qo'shimcha tanga beradi.",
+              'Add bonus tasks to the chest. When you finish all of today\'s tasks, one of them is picked at random for extra coins.',
+              'Добавьте бонусные задачи. Когда выполните все задачи на сегодня, одна из них выпадет случайно и даст дополнительные монеты.');
+  } else if (active) {
+    state = 'active'; icon = '🎲';
+    title = esc(S.chestQuest.name);
+    sub = _cl("Faol chest vazifasi. Bajargach, Vazifalar bo'limida ✓ ni bosing — +" + S.chestQuest.coins + ' 🪙',
+              'Active chest task. When done, tap ✓ in the Tasks tab — +' + S.chestQuest.coins + ' 🪙',
+              'Активная задача. Когда выполните, нажмите ✓ во вкладке Задачи — +' + S.chestQuest.coins + ' 🪙');
+    btnText = _cl("Vazifalarga o'tish →", 'Go to tasks →', 'К задачам →');
+    btnAction = function(){ showTab('tasks'); renderChestQuestBox(); };
+  } else if (doneCount >= total) {
+    state = 'done'; icon = '🎉';
+    title = _cl('Bugungi chest tugadi!', "Today's chest is complete!", 'Сундук на сегодня пройден!');
+    sub = _cl('Barcha chest vazifalarini bajardingiz. Ertaga yana ochiladi.', 'You finished every chest task. It refills tomorrow.', 'Все задачи сундука выполнены. Завтра он снова откроется.');
+  } else if (typeof allDailyDone === 'function' && allDailyDone()) {
+    state = 'ready'; icon = '🎁';
+    title = t('chest_open_title');
+    sub = _cl('Bugungi vazifalar bajarildi — chestni ochib, bonus vazifa oling.', "Today's tasks are done — open the chest for a bonus task.", 'Задачи на сегодня выполнены — откройте сундук и получите бонусную задачу.');
+    btnText = t('chest_open_btn');
+    btnAction = function(){ showTab('tasks'); openChestInline(); };
+  } else {
+    state = 'locked'; icon = '🔒';
+    title = _cl('Chest hali yopiq', 'Chest is locked', 'Сундук закрыт');
+    sub = _cl('Bugungi barcha vazifalarni bajaring — chest ochiladi.', "Finish all of today's tasks to unlock it.", 'Выполните все задачи на сегодня, чтобы открыть его.');
+    btnText = _cl('Vazifalarga →', 'To tasks →', 'К задачам →'); btnSecondary = true;
+    btnAction = function(){ showTab('tasks'); };
+  }
+
+  hero.setAttribute('data-state', state);
+  if (iconEl) iconEl.textContent = icon;
+  if (titleEl) titleEl.innerHTML = title;
+  if (subEl) subEl.textContent = sub;
+  var pct = total ? Math.round(doneCount / total * 100) : 0;
+  if (fillEl) fillEl.style.width = pct + '%';
+  if (fillEl && fillEl.parentNode) fillEl.parentNode.style.display = total ? '' : 'none';
+  if (labelEl) labelEl.textContent = total
+    ? _cl('Bugun: ' + doneCount + ' / ' + total + ' bajarildi', 'Today: ' + doneCount + ' / ' + total + ' done', 'Сегодня: ' + doneCount + ' / ' + total)
+    : '';
+  if (btn) {
+    if (btnAction) {
+      btn.style.display = '';
+      btn.textContent = btnText;
+      btn.classList.toggle('is-secondary', btnSecondary);
+      btn.onclick = function(){ try { SFX.click(); } catch (e) {} btnAction(); };
+    } else {
+      btn.style.display = 'none';
+      btn.onclick = null;
+    }
+  }
 }
 
 function renderChestStats() {
@@ -20320,6 +20439,7 @@ function renderChestStats() {
 }
 
 function renderChest() {
+  renderChestHero();
   renderChestTasksList();
   renderChestStats();
   // Sahifa yangilansa ham aktiv questni tiklash
