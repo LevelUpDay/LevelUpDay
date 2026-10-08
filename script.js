@@ -5550,6 +5550,8 @@ var I18N = {
 (function () {
   var extra = {
     uz: {
+      task_remind_label: "⏰ Eslatma vaqti (ixtiyoriy)",
+      task_remind_hint: "Vazifa bajarilmagan bo'lsa, shu vaqtda eslatamiz (ilova ochiq yoki fonda bo'lsa).",
       pf_kpi_gems: "💎 Olmoslar",
       pf_kpi_best_streak: "🔥 Rekord streak",
       badge_earned_toast: "🏅 Yangi yutuq qo'lga kiritildi! +2 💎",
@@ -5579,6 +5581,8 @@ var I18N = {
       ph_eg_650: "masalan: 650"
     },
     en: {
+      task_remind_label: "⏰ Reminder time (optional)",
+      task_remind_hint: "If the task isn't done yet, we'll remind you at this time (while the app is open or in the background).",
       pf_kpi_gems: "💎 Gems",
       pf_kpi_best_streak: "🔥 Best streak",
       badge_earned_toast: "🏅 New achievement earned! +2 💎",
@@ -5608,6 +5612,8 @@ var I18N = {
       ph_eg_650: "e.g. 650"
     },
     ru: {
+      task_remind_label: "⏰ Время напоминания (необязательно)",
+      task_remind_hint: "Если задача не выполнена, напомним в это время (пока приложение открыто или в фоне).",
       pf_kpi_gems: "💎 Алмазы",
       pf_kpi_best_streak: "🔥 Рекорд серии",
       badge_earned_toast: "🏅 Новое достижение! +2 💎",
@@ -9239,6 +9245,7 @@ function openModal(e) {
   document.getElementById('m-name').value='';
   document.getElementById('m-note').value='';
   document.getElementById('m-duedate').value='';
+  var _mr = document.getElementById('m-remind'); if (_mr) _mr.value = '';
   setTaskEmoji('');
   document.getElementById('m-interval').value='4';
   selLabel('');
@@ -9263,6 +9270,7 @@ function editTask(id) {
   document.getElementById('m-name').value = tk.name;
   document.getElementById('m-note').value = tk.note || '';
   document.getElementById('m-duedate').value = tk.dueDate || '';
+  var _mr2 = document.getElementById('m-remind'); if (_mr2) _mr2.value = tk.remindAt || '';
   document.getElementById('m-interval').value = tk.interval || 4;
   document.getElementById('m-startdate').value = tk.nextDate || today();
   document.getElementById('m-strict-schedule').checked = !!tk.strictSchedule;
@@ -9449,6 +9457,8 @@ function saveTask() {
   const startDate = document.getElementById('m-startdate').value || today();
   const strictSchedule = mRepeat==='interval' ? !!document.getElementById('m-strict-schedule').checked : false;
   const dueDate = document.getElementById('m-duedate').value || null;
+  const remindAt = ((document.getElementById('m-remind') || {}).value || '').trim() || null;
+  if (remindAt) tkEnsureNotifyPermission();
 
   if (_editingTaskId !== null) {
     // Tahrirlash rejimi — mavjud vazifani yangilaymiz
@@ -9473,6 +9483,8 @@ function saveTask() {
       tk.label = mLabel || null;
       tk.note = document.getElementById('m-note').value.trim() || null;
       tk.dueDate = dueDate;
+      if (tk.remindAt !== remindAt && S.remindSent) delete S.remindSent[tk.id];
+      tk.remindAt = remindAt;
       tk.emoji = mEmoji || null;
       try { refreshStalePenaltyAmts(S.taskDayFlags && S.taskDayFlags[tk.id], tk); } catch (e) {}
     }
@@ -9495,6 +9507,7 @@ function saveTask() {
     nextDate: mRepeat==='interval'?startDate:null,
     strictSchedule: strictSchedule,
     dueDate: dueDate,
+    remindAt: remindAt,
     pinned: false,
     done:false, doneDate:null, skipped:false, skippedDate:null, lastDoneDate:null,
     createdAt: mRepeat==='interval' ? startDate : today(),
@@ -9663,6 +9676,7 @@ function toggleTask(id) {
 function toggleTaskInternal(id) {
   const tsk = S.tasks.find(x=>x.id===id); if(!tsk) return;
   tsk.done = !tsk.done;
+  if (tsk.done && !_undoRunning) { var _uid = id; setTimeout(function () { showUndoToast('✅ ' + tsk.name, function () { var x = S.tasks.find(function (q) { return q.id === _uid; }); if (x && x.done) toggleTaskInternal(_uid); }); }, 0); }
   if (tsk.done) {
     SFX.taskCheck();
     tsk.doneDate = today(); tsk.skipped=false; tsk.skippedDate=null;
@@ -9802,7 +9816,7 @@ function skipTask(id) {
     tk._ovBak = { from: tk.overdueFrom || null, on: tk.overdueOn || null };
     markTaskPostponed(tk); // ertaga ko'chadi va bajarilmaguncha Overdue bo'lib turadi
     spendCoins(1); addTarixLog('out',tk.name+' '+_skipLogSuffix,-1);
-    toast(_skipToast);
+    showUndoToast(_skipToast, function () { unskipTask(tk.id); });
     save(); render();
   };
   ov.addEventListener('mousedown',function(e){if(e.target===ov)ov.remove();});
@@ -9923,7 +9937,7 @@ function deleteTask(id) {
     SFX.delete();
     ov.remove();
     moveTaskToTrash(id);
-    toast(_delToast);
+    showUndoToast(_delToast, function () { restoreTask(id); });
   };
   ov.addEventListener('mousedown', function(e){ if(e.target===ov) ov.remove(); });
   ov.addEventListener('touchend', function(e){ if(e.target===ov) ov.remove(); });
@@ -10225,7 +10239,7 @@ function initTaskSortable() {
     if (!el) return;
     Sortable.create(el, {
       draggable: '.task-card',
-      filter: '.check-btn, .act-btn, .task-menu-btn, .subtask-skip-chip, .subtask-dots-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
+      filter: '.check-btn, .act-btn, .task-menu-btn, .subtask-item, .subtask-skip-chip, .subtask-dots-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
       preventOnFilter: false,
       delay: 160,             // bosib turish kerak bo'lgan vaqt (ms)
       delayOnTouchOnly: true, // sichqonchada (desktop) darhol, mobil ekranda ushlab turish talab qilinadi
@@ -10632,6 +10646,91 @@ function showTab(tab) {
 }
 
 var toastTimer;
+// ↩ Undo toast — amaldan keyin 5 soniya ichida bekor qilish imkoni
+var _undoTimer = null, _undoFn = null, _undoRunning = false;
+function showUndoToast(msg, undoFn) {
+  var el = document.getElementById('undo-toast');
+  if (!el) { toast(msg); return; }
+  document.getElementById('undo-toast-msg').textContent = msg;
+  var btn = document.getElementById('undo-toast-btn');
+  btn.textContent = '↩ ' + _cl("Qaytarish", "Undo", "Отменить");
+  _undoFn = undoFn;
+  btn.onclick = function () {
+    var fn = _undoFn; _undoFn = null;
+    el.classList.remove('show'); clearTimeout(_undoTimer);
+    if (typeof fn === 'function') { _undoRunning = true; try { fn(); } finally { _undoRunning = false; } save(); render(); }
+  };
+  try { var tEl = document.getElementById('toast'); if (tEl) tEl.classList.remove('show'); } catch (e) {}
+  el.classList.add('show');
+  clearTimeout(_undoTimer);
+  _undoTimer = setTimeout(function () { el.classList.remove('show'); _undoFn = null; }, 5000);
+}
+
+// ⏰ Aniq vaqtli eslatmalar
+function tkEnsureNotifyPermission() {
+  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
+}
+function tkShowNotification(title, body) {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (reg && reg.showNotification) reg.showNotification(title, { body: body, tag: 'task-' + body });
+        else new Notification(title, { body: body });
+      }).catch(function () { try { new Notification(title, { body: body }); } catch (e) {} });
+    } else { new Notification(title, { body: body }); }
+  } catch (e) {}
+}
+function tkCheckReminders() {
+  if (typeof S === 'undefined' || !S || !Array.isArray(S.tasks)) return;
+  var now = new Date(), td = today();
+  var hm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  if (!S.remindSent) S.remindSent = {};
+  var changed = false;
+  S.tasks.forEach(function (tk) {
+    if (!tk.remindAt || tk.done || tk.skipped || tk.isFrozen) return;
+    if (S.remindSent[tk.id] === td) return;
+    if (!taskDueToday(tk) || (tk.postponedTo && tk.postponedTo > td)) return;
+    if (hm < tk.remindAt) return;
+    S.remindSent[tk.id] = td; changed = true;
+    // 2 soatdan ko'p kechikkan eslatma jimgina o'tkazib yuboriladi (ilova yopiq bo'lgan)
+    var p = tk.remindAt.split(':'), due = new Date(); due.setHours(+p[0], +p[1], 0, 0);
+    if (now - due > 2 * 3600000) return;
+    var title = '⏰ ' + _cl("Eslatma", "Reminder", "Напоминание");
+    tkShowNotification(title, (tk.emoji ? tk.emoji + ' ' : '') + tk.name);
+    try { toast(title + ': ' + tk.name); SFX.click(); } catch (e) {}
+  });
+  if (changed) save();
+}
+setInterval(tkCheckReminders, 20000);
+setTimeout(tkCheckReminders, 4000);
+
+// ↕️ Sub-tasklarni sudrab tartiblash
+function initSubtaskSortables() {
+  if (typeof Sortable === 'undefined') return;
+  document.querySelectorAll('.task-card .subtask-list[data-tid]:not(.subtask-list-done)').forEach(function (el) {
+    if (el._sortable) return;
+    var tid = Number(el.getAttribute('data-tid'));
+    el._sortable = Sortable.create(el, {
+      draggable: '.subtask-item',
+      filter: '.subtask-check, .subtask-dots-btn, .subtask-skip-chip, .task-dropdown-menu, .task-dropdown-item',
+      preventOnFilter: false,
+      delay: 160, delayOnTouchOnly: true, touchStartThreshold: 6, animation: 160,
+      ghostClass: 'drag-over', chosenClass: 'dragging',
+      onEnd: function () {
+        var tk = S.tasks.find(function (x) { return x.id === tid; });
+        if (!tk) return;
+        var ids = Array.prototype.map.call(el.querySelectorAll('.subtask-item[data-sid]'), function (n) { return Number(n.getAttribute('data-sid')); });
+        var subs = ensureSubtasks(tk);
+        var moved = ids.map(function (id) { return subs.find(function (s) { return s.id === id; }); }).filter(Boolean);
+        var rest = subs.filter(function (s) { return ids.indexOf(s.id) === -1; });
+        tk.subtasks = moved.concat(rest);
+        save();
+      }
+    });
+  });
+}
+
 function toast(msg) {
   const el=document.getElementById('toast'); el.textContent=msg;
   el.classList.add('show'); clearTimeout(toastTimer);
@@ -10888,7 +10987,7 @@ function subtaskItemHtml(t, s, ctx, dateStr) {
   const ddId = 'subtask-dd-' + ctx + t.id + '-' + s.id;
   const coinDisplay = taskCoinValue(s);
   return `
-      <div class="subtask-item${isDoneOnDate?' done':''}${(s.skipped&&!isDoneOnDate)?' skipped':''}" style="${tintStyle}">
+      <div class="subtask-item${isDoneOnDate?' done':''}${(s.skipped&&!isDoneOnDate)?' skipped':''}" data-sid="${s.id}" style="${tintStyle}">
         <button class="subtask-check${isDoneOnDate?' checked':''}" onclick="event.stopPropagation();toggleSubtask(${t.id},${s.id},'${dateStr}')">
           ${isDoneOnDate?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}
         </button>
@@ -10932,7 +11031,7 @@ function renderSubtasksHtml(t, ctx, dateStr) {
   const done = subs.filter(function(s){ return subtaskDoneOnDate(t.id, s.id, dateStr); });
   let html = '';
   if (pending.length) {
-    html += '<div class="subtask-list">';
+    html += '<div class="subtask-list" data-tid="' + t.id + '">';
     pending.forEach(function(s){ html += subtaskItemHtml(t, s, ctx, dateStr); });
     html += '</div>';
   }
@@ -11212,6 +11311,7 @@ function toggleSubtask(taskId, subId, dateStr, silent) {
   if (!S.subtaskDoneLog[logKey]) S.subtaskDoneLog[logKey] = [];
   const logIdx = S.subtaskDoneLog[logKey].indexOf(dateStr);
   const willBeDone = logIdx === -1; // hozir shu sanada belgilanmagan — demak endi belgilanadi
+  if (willBeDone && !silent && !_undoRunning) { setTimeout(function () { showUndoToast('✅ ' + sub.name, function () { if (subtaskDoneOnDate(taskId, subId, dateStr)) toggleSubtask(taskId, subId, dateStr); }); }, 0); }
 
   const amt = taskCoinValue(sub);
   // Asosiy vazifalar kabi (taskXPValue), sub-taskning o'z qiyinlik
@@ -11342,7 +11442,10 @@ function deleteSubtask(taskId, subId) {
     SFX.delete();
     ov.remove();
     moveSubtaskToTrash(taskId, subId);
-    toast(_toastMsg);
+    showUndoToast(_toastMsg, function () {
+      var i = (S.deletedSubtasks || []).findIndex(function (e) { return e && e.subtask && e.subtask.id === subId && e.parentId === taskId; });
+      if (i !== -1) restoreSubtask(i);
+    });
   };
   ov.addEventListener('mousedown', function(e){ if(e.target===ov) ov.remove(); });
   ov.addEventListener('touchend', function(e){ if(e.target===ov) ov.remove(); });
@@ -11626,6 +11729,7 @@ function makeTaskEl(t, future) {
           <span class="tk-chip tk-chip-rep">🔁 ${rl.text}</span>
           <span class="tk-chip tk-chip-diff d${diffV}">${diffTxt}</span>
           ${coinsV ? `<span class="tk-chip tk-chip-coin">+${coinsV} 🪙</span>` : ''}
+          ${t.remindAt ? `<span class="tk-chip tk-chip-remind">⏰ ${esc(t.remindAt)}</span>` : ''}
           ${subsDueOrDone.length ? `<span class="tk-chip tk-chip-subs${subsDoneN === subsDueOrDone.length ? ' all' : ''}">☑ ${subsDoneN}/${subsDueOrDone.length}</span>` : ''}
         </div>
       </div>
@@ -12223,6 +12327,7 @@ function render() {
   document.getElementById('coins-display').textContent=S.coins;
   renderGemsPill();
   try { renderProfileQuick(); } catch (e) {}
+  setTimeout(function () { try { initSubtaskSortables(); } catch (e) {} }, 0);
   checkDebtTransition();
   (function(){
     var pill = document.getElementById('header-coins-pill');
