@@ -1980,13 +1980,17 @@
     </div>
 
     <div id="pomo-manage-panel">
+      <div id="pomo-now-bar" onclick="var h=document.getElementById('pomo-hero'); if(h&&h.scrollIntoView&&event.target.tagName!=='BUTTON') h.scrollIntoView({behavior:'smooth'})"></div>
       <div id="pomo-activity-list"></div>
 
       <!-- 🆕 "+ Yangi amaliylik qo'shish" tugmasi shu yerdan olib tashlandi —
            bu funksiya endi pastki navigatsiyadagi katta 🟣 "+" tugmasi
            orqali ishlaydi (qarang: window.pomoNavAdd, u ham xuddi shu
            #pomo-new-form blokini ochadi). -->
-      <div id="pomo-new-form">
+      <div id="pomo-new-backdrop" onclick="pomoToggleNewForm(false)"></div>
+      <div id="pomo-new-form" role="dialog" aria-modal="true">
+        <div class="ct-sheet-handle"></div>
+        <div class="pomo-new-title" data-i18n="pomo_new_title">➕ Yangi faoliyat</div>
         <input type="text" id="pomo-new-name" placeholder="Masalan: O'yin o'ynash, Dars qilish..." maxlength="40" data-i18n-ph="pomo_activity_name_ph" />
         <div class="pomo-picker-label" data-i18n="pomo_emoji_label">Belgi (ixtiyoriy)</div>
         <div class="pomo-emoji-picker" id="pomo-new-emoji-picker"></div>
@@ -2093,16 +2097,16 @@
   <div class="modal" id="pomo-settings-modal-box" style="max-width:640px;width:100%;padding:0;overflow:hidden;position:relative">
     <button type="button" onclick="pomoCloseSettingsModal()" data-i18n-title="btn_close" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);font-size:var(--fs-base);cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center">✕</button>
 
-    <div style="display:flex;min-height:380px">
+    <div class="pomo-set-layout" style="display:flex;min-height:380px">
       <!-- Chap tomon: bo'limlar -->
-      <div style="width:150px;flex-shrink:0;padding:26px 10px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
+      <div class="pomo-set-tabs" style="width:150px;flex-shrink:0;padding:26px 10px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
         <button type="button" class="pomo-settings-tab-btn" id="pomo-settings-tab-general" onclick="pomoSettingsShowTab('general')" style="text-align:left;padding:9px 10px;border-radius:var(--radius-sm);border:none;background:none;color:var(--text);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">⚙️ <span data-i18n="pomo_set_tab_general">General</span></button>
         <button type="button" class="pomo-settings-tab-btn" id="pomo-settings-tab-timers" onclick="pomoSettingsShowTab('timers')" style="text-align:left;padding:9px 10px;border-radius:var(--radius-sm);border:none;background:none;color:var(--text-muted);font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">⏱️ <span data-i18n="pomo_set_tab_timers">Timers</span></button>
         <button type="button" class="pomo-settings-tab-btn" id="pomo-settings-tab-sounds" onclick="pomoSettingsShowTab('sounds')" style="text-align:left;padding:9px 10px;border-radius:var(--radius-sm);border:none;background:none;color:var(--text-muted);font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🔔 <span data-i18n="pomo_set_tab_sounds">Sounds</span></button>
       </div>
 
       <!-- O'ng tomon: joriy bo'lim tarkibi -->
-      <div style="flex:1;padding:26px 24px;overflow-y:auto">
+      <div class="pomo-set-content" style="flex:1;padding:26px 24px;overflow-y:auto">
 
         <!-- GENERAL PANEL -->
         <div id="pomo-settings-panel-general">
@@ -2203,7 +2207,7 @@
     </div>
 
     <!-- Pastki tugmalar -->
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-top:1px solid var(--border)">
+    <div class="pomo-set-footer" style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-top:1px solid var(--border)">
       <button type="button" onclick="pomoResetSettings()" style="padding:10px 16px;border-radius:var(--radius-full);border:1px solid var(--red);background:transparent;color:var(--red);font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif" data-i18n="pomo_set_reset_all">Reset all</button>
       <div style="display:flex;gap:10px">
         <button type="button" class="btn-cancel" style="width:auto;padding:10px 20px" onclick="pomoCloseSettingsModal()" data-i18n="btn_close">Close</button>

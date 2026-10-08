@@ -2595,3 +2595,87 @@ body.light .gems-pill { color: #0284C7; background: rgba(2,132,199,0.1); border-
   .gems-pill { padding: 6px 8px; }
   #header-coins-pill { padding: 6px 9px; gap: 4px; }
 }
+
+/* ============================================================
+   🍅 POMODORO — qayta ishlangan, qulayroq dizayn
+   ============================================================ */
+/* Kartalar: katta ▶/⏸ tugmasi, bitta holat belgisi, asboblar pastda */
+.pomo-act-card { padding: 14px 14px 10px; }
+.pomo-act-card.is-running { border-color: color-mix(in srgb, var(--green) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 35%, transparent), 0 8px 22px rgba(52,211,153,0.12); }
+.pomo-act-card.is-over .pomo-act-elapsed { color: var(--red); }
+.pomo-act-top { display: flex; align-items: center; gap: 12px; }
+.pomo-act-top .pomo-act-avatar { flex-shrink: 0; }
+.pomo-act-top .pomo-act-info { flex: 1; min-width: 0; }
+.pomo-act-top .pomo-act-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pomo-act-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
+.pomo-act-meta .pomo-act-status-inline { margin: 0; }
+.pomo-act-meta .pomo-act-limit { margin: 0; }
+.pomo-act-play {
+  width: 48px; height: 48px; flex-shrink: 0; border-radius: 50%; border: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-card, var(--accent)); color: #fff;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent-card, var(--accent)) 40%, transparent);
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.pomo-act-play:hover { transform: scale(1.05); }
+.pomo-act-play:active { transform: scale(0.94); }
+.pomo-act-play svg { margin-left: 2px; }
+.pomo-act-play.on { background: var(--surface2); color: var(--text); border: 1px solid var(--border-hover); box-shadow: none; }
+.pomo-act-play.on svg { margin-left: 0; }
+.pomo-act-progress-track { margin-top: 12px; }
+.pomo-act-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.pomo-act-bottom .pomo-act-elapsed-row { justify-content: flex-start; margin: 0; align-items: baseline; }
+.pomo-act-bottom .pomo-act-overflow-text { margin: 0; font-size: var(--fs-2xs); }
+.pomo-act-card .pomo-act-icons { position: static; gap: 4px; flex-shrink: 0; }
+.pomo-act-card .pomo-act-icon-btn { width: 34px; height: 34px; border-radius: var(--radius-sm); font-size: 14px; }
+.pomo-act-main, .pomo-act-controls, .pomo-act-resume-bar { display: none !important; }
+
+/* Ro'yxat pastga aylantirilganda tepada turuvchi "hozir ishlayapti" paneli */
+#pomo-now-bar {
+  position: sticky; top: 8px; z-index: 5; display: none; align-items: center; gap: 10px;
+  margin: -6px 0 12px; padding: 8px 8px 8px 12px; border-radius: var(--radius-full); cursor: pointer;
+  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--green) 45%, transparent); box-shadow: 0 8px 22px rgba(0,0,0,0.3);
+}
+#pomo-now-bar.show { display: flex; }
+.pomo-now-emoji { font-size: 18px; }
+.pomo-now-name { flex: 1; min-width: 0; font-weight: 600; color: var(--text); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pomo-now-time { font-family: Syne, sans-serif; font-weight: 800; color: var(--green); font-variant-numeric: tabular-nums; }
+.pomo-now-time.break { color: #FFD580; }
+.pomo-now-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--accent); color: #fff; cursor: pointer; font-size: 14px; }
+
+/* Yangi faoliyat — pastdan chiqadigan oyna */
+#pomo-new-backdrop { position: fixed; inset: 0; z-index: 1190; background: rgba(0,0,0,0.6); display: none; }
+#pomo-new-backdrop.open { display: block; }
+#pomo-new-form.open {
+  display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1200;
+  width: 100%; max-width: 560px; margin: 0 auto; max-height: 86vh; overflow-y: auto;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0; border-bottom: none;
+  padding: 10px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface); box-shadow: 0 -10px 40px rgba(0,0,0,0.45);
+  animation: pomoSheetUp 0.22s ease;
+}
+@keyframes pomoSheetUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.pomo-new-title { font-family: Syne, sans-serif; font-weight: 700; font-size: var(--fs-md); color: var(--text); margin-bottom: 12px; }
+#pomo-new-form .pomo-emoji-picker button, #pomo-new-form .pomo-emoji-opt { min-width: 40px; min-height: 40px; }
+
+/* Ambient pleyer nomi kesilmasin */
+#pomo-ambient-bubble-title { max-width: 150px; }
+@media (max-width: 480px) {
+  #pomo-ambient-bubble { max-width: calc(100% - 90px); }
+  #pomo-ambient-bubble-title { max-width: 110px; }
+}
+
+/* Sozlamalar oynasi telefonda: tablar tepada, tugmalar sig'adi */
+@media (max-width: 560px) {
+  #pomo-settings-modal-box .pomo-set-layout { flex-direction: column; min-height: 0 !important; }
+  #pomo-settings-modal-box .pomo-set-tabs {
+    width: auto !important; flex-direction: row !important; overflow-x: auto; gap: 6px !important;
+    padding: 50px 14px 10px !important; border-right: none !important; border-bottom: 1px solid var(--border);
+  }
+  #pomo-settings-modal-box .pomo-set-tabs .pomo-settings-tab-btn { white-space: nowrap; flex-shrink: 0; }
+  #pomo-settings-modal-box .pomo-set-content { padding: 18px 16px !important; max-height: 58vh; }
+  #pomo-settings-modal-box .pomo-set-footer { flex-wrap: wrap; gap: 10px; padding: 12px 14px !important; }
+  #pomo-settings-modal-box .pomo-set-footer > div { flex: 1; justify-content: flex-end; }
+  #pomo-settings-modal-box .pomo-set-footer button { white-space: nowrap; }
+}
