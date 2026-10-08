@@ -2,7 +2,6 @@
    styles.css — ToDoList ilovasining barcha uslublari
    ============================================================ */
 
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     /* ===== DESIGN TOKENS: RADIUS SCALE ===== */
@@ -635,17 +634,18 @@
      dagi break-inside:avoid tufayli bitta maydon ikki ustun orasida bo'linib
      qolmaydi. */
   .modal-fields-columns { column-count:1; }
+  .gm-page .modal-field { break-inside:avoid; }
   @media (min-width:620px) {
     .modal-fields-columns { column-count:2; column-gap:32px; }
   }
   .modal-field label { display:block; font-size:var(--fs-xs); color:var(--text-muted); letter-spacing:0.05em; text-transform:uppercase; margin-bottom:6px; }
-  .modal-field input[type="text"], .modal-field select, .modal-field input[type="date"] {
+  .modal-field input[type="text"], .modal-field select, .modal-field input[type="date"], #goal-modal-box .modal-field input[type="number"], #goal-modal-box .modal-field input[type="time"], #modal-box .modal-field input[type="number"] {
     width:100%; padding:11px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
     color:var(--text); font-size:var(--fs-base); font-family:'DM Sans',sans-serif; outline:none; transition:border-color 0.2s;
   }
   .modal-field input:focus, .modal-field select:focus { border-color:var(--accent); }
   .modal-field input::placeholder { color:var(--text-dim); }
-  .modal-field input[type="date"]::-webkit-calendar-picker-indicator { filter:invert(1) opacity(0.4); cursor:pointer; }
+  #goal-modal-box input[type="time"]::-webkit-calendar-picker-indicator, .modal-field input[type="date"]::-webkit-calendar-picker-indicator { filter:invert(1) opacity(0.4); cursor:pointer; }
 
   /* Day picker */
   .day-picker { display:flex; gap:6px; flex-wrap:wrap; }
@@ -1627,7 +1627,8 @@
   html.layout-desktop #ds-aside #all-levels-list > div { padding: 4px 7px !important; gap: 6px !important; }
   html.layout-desktop #ds-aside #all-levels-list > div span:first-child { font-size:var(--fs-sm) !important; }
   html.layout-desktop #ds-aside #all-levels-list > div span:nth-child(2) { font-size:var(--fs-2xs) !important; }
-  html.layout-desktop #ds-aside #all-levels-list > div span:not(:first-child):not(:nth-child(2)) { font-size:var(--fs-3xs) !important; }
+  html.layout-desktop #ds-aside #all-levels-list > div .lv-xp { font-size:var(--fs-3xs) !important; }
+  html.layout-desktop #ds-aside #all-levels-list > div .lv-sub { font-size:var(--fs-3xs) !important; }
   html.layout-desktop #ds-aside-title {
     font-size:var(--fs-3xs); color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase;
     padding: 0 4px; margin-top: 2px;
@@ -1869,7 +1870,6 @@
   .reason-chip.sel { border-color:var(--accent); background:var(--accent-glow); color:var(--accent); }
 
 
-
   .mood-modal-inner { background:var(--surface);border-radius:var(--radius-xl) 28px 0 0;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;padding:0 0 40px;animation:slideUp 0.35s cubic-bezier(0.32,0.72,0,1); }
   .mood-modal-handle { width:40px;height:4px;border-radius:var(--radius-2xs);background:var(--border-hover);margin:12px auto 0; }
   .mood-modal-header { display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0; }
@@ -1896,7 +1896,6 @@
   .mood-save-btn:hover { transform:translateY(-1px);box-shadow:0 6px 24px rgba(124,92,252,0.45); }
   .mood-save-btn:active { transform:translateY(0); }
   .mood-divider { height:1px;background:var(--border);margin:16px 20px; }
-
 
 
   /* Butun ekranni bosishlardan bloklaydigan shaffof qatlam.
@@ -2197,3 +2196,303 @@
     outline-offset: 2px !important;
     border-radius: var(--radius-2xs);
   }
+
+/* ============================================================
+   🎁 CHEST BO'LIMI — qayta ishlangan dizayn
+   ============================================================ */
+.chest-view { padding: 8px 0 24px; }
+
+.chest-hero {
+  position: relative; overflow: hidden;
+  border-radius: var(--radius-lg); padding: 18px 18px 16px; margin-bottom: 14px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--surface2), var(--surface));
+}
+.chest-hero[data-state="ready"],
+.chest-hero[data-state="active"] {
+  border-color: rgba(245,166,35,0.45);
+  background: linear-gradient(135deg, rgba(245,166,35,0.16), rgba(245,166,35,0.04));
+}
+.chest-hero[data-state="done"] {
+  border-color: rgba(52,211,153,0.35);
+  background: linear-gradient(135deg, rgba(52,211,153,0.12), rgba(52,211,153,0.03));
+}
+.chest-hero-top { display: flex; align-items: center; gap: 14px; }
+.chest-hero-icon {
+  width: 56px; height: 56px; flex-shrink: 0; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; background: var(--surface); border: 1px solid var(--border);
+}
+.chest-hero[data-state="locked"] .chest-hero-icon { filter: grayscale(0.6); opacity: 0.85; }
+.chest-hero[data-state="ready"] .chest-hero-icon { animation: chestWiggle 2.4s ease-in-out infinite; }
+@keyframes chestWiggle {
+  0%, 80%, 100% { transform: rotate(0); }
+  85% { transform: rotate(-10deg) scale(1.06); }
+  90% { transform: rotate(8deg) scale(1.06); }
+  95% { transform: rotate(-4deg); }
+}
+@media (prefers-reduced-motion: reduce) { .chest-hero-icon { animation: none !important; } }
+.chest-hero-text { flex: 1; min-width: 0; }
+.chest-hero-title {
+  font-family: Syne, sans-serif; font-size: var(--fs-md); font-weight: 700;
+  color: var(--text); margin-bottom: 3px; overflow-wrap: anywhere;
+}
+.chest-hero[data-state="ready"] .chest-hero-title,
+.chest-hero[data-state="active"] .chest-hero-title { color: var(--gold); }
+.chest-hero[data-state="done"] .chest-hero-title { color: var(--green); }
+.chest-hero-sub { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5; overflow-wrap: anywhere; }
+
+.chest-progress {
+  height: 8px; margin-top: 14px; border-radius: var(--radius-full);
+  background: var(--surface); border: 1px solid var(--border); overflow: hidden;
+}
+.chest-progress-fill {
+  height: 100%; width: 0%; border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--gold), #FFD580);
+  transition: width 0.5s ease;
+}
+.chest-hero[data-state="done"] .chest-progress-fill { background: var(--green); }
+.chest-hero-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-top: 10px; flex-wrap: wrap;
+}
+.chest-progress-label { font-size: var(--fs-xs); color: var(--text-muted); }
+.chest-hero-btn {
+  min-height: 40px; padding: 9px 18px; border: none; border-radius: var(--radius-md);
+  background: var(--gold); color: #111; cursor: pointer;
+  font-family: Syne, sans-serif; font-size: var(--fs-sm); font-weight: 700;
+  box-shadow: 0 4px 14px rgba(245,166,35,0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.chest-hero-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(245,166,35,0.4); }
+.chest-hero-btn:active { transform: scale(0.97); }
+.chest-hero-btn.is-secondary {
+  background: var(--surface); color: var(--text); border: 1px solid var(--border-hover); box-shadow: none;
+}
+
+.chest-stats { margin-bottom: 18px; }
+
+.chest-section-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;
+}
+.chest-section-title {
+  font-size: var(--fs-2xs); color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+}
+.chest-add-btn {
+  min-height: 36px; padding: 7px 16px; border: none; border-radius: var(--radius-full);
+  background: var(--accent); color: #fff; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: var(--fs-sm); font-weight: 600;
+  box-shadow: 0 3px 12px var(--accent-glow); transition: transform 0.15s;
+}
+.chest-add-btn:active { transform: scale(0.96); }
+.chest-add-btn-lg { margin-top: 14px; min-height: 42px; padding: 10px 22px; }
+
+.chest-list { display: flex; flex-direction: column; gap: 8px; }
+.chest-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 10px 14px; border-radius: var(--radius-md);
+  background: var(--surface); border: 1px solid var(--border);
+  transition: border-color 0.15s, opacity 0.2s;
+}
+.chest-item:hover { border-color: var(--border-hover); }
+.chest-item-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.chest-item-dot.d1 { background: var(--green); }
+.chest-item-dot.d2 { background: var(--gold); }
+.chest-item-dot.d3 { background: var(--red); }
+.chest-item-body { flex: 1; min-width: 0; }
+.chest-item-name { font-size: var(--fs-base); color: var(--text); overflow-wrap: anywhere; line-height: 1.35; }
+.chest-item-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.chest-chip {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px;
+  border-radius: var(--radius-full); font-size: var(--fs-2xs); font-weight: 600; white-space: nowrap;
+}
+.chest-chip-coins { background: var(--gold-dim); color: var(--gold); }
+.chest-chip-done { background: rgba(52,211,153,0.14); color: var(--green); }
+.chest-chip-active { background: rgba(245,166,35,0.18); color: var(--gold); }
+.chest-item.is-done { opacity: 0.6; }
+.chest-item.is-done .chest-item-name { text-decoration: line-through; text-decoration-color: var(--text-dim); }
+.chest-item.is-active { border-color: rgba(245,166,35,0.5); }
+.chest-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.chest-icon-btn {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted);
+  cursor: pointer; font-size: var(--fs-sm); transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.chest-icon-btn:hover { border-color: var(--accent); color: var(--text); }
+.chest-icon-btn.is-danger:hover { border-color: var(--red); background: rgba(248,113,113,0.1); }
+
+.chest-empty {
+  text-align: center; padding: 32px 16px; border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-hover); background: var(--surface);
+}
+.chest-empty-icon { font-size: 40px; margin-bottom: 8px; }
+.chest-empty-title { font-size: var(--fs-base); color: var(--text); font-weight: 600; margin-bottom: 4px; }
+.chest-empty-sub { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.5; }
+
+/* Chest vazifa qo'shish / tahrirlash oynasi */
+.ct-sheet {
+  background: var(--surface); border: 1px solid var(--border-hover); border-bottom: none;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  width: 100%; max-width: 560px; animation: modalIn 0.22s ease;
+}
+.ct-sheet-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--border-hover); margin: 0 auto 14px; }
+.ct-sheet-title { font-family: Syne, sans-serif; font-size: var(--fs-md); font-weight: 700; margin-bottom: 16px; color: var(--text); }
+.ct-field { margin-bottom: 16px; }
+.ct-label {
+  display: block; margin-bottom: 7px; font-size: var(--fs-2xs); color: var(--text-muted);
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.ct-input {
+  width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  font-size: var(--fs-base); font-family: 'DM Sans', sans-serif; transition: border-color 0.15s;
+}
+.ct-input:focus { border-color: var(--accent); outline: none; }
+.ct-input.is-invalid { border-color: var(--red); }
+.ct-presets { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.ct-preset {
+  min-height: 34px; padding: 6px 14px; border-radius: var(--radius-full);
+  border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+  font-size: var(--fs-xs); font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.ct-preset.is-sel { border-color: var(--gold); background: var(--gold-dim); color: var(--gold); }
+.ct-actions { display: flex; gap: 10px; margin-top: 6px; }
+.ct-btn {
+  min-height: 46px; padding: 12px; border-radius: var(--radius-md); cursor: pointer;
+  font-size: var(--fs-base); font-family: 'DM Sans', sans-serif;
+}
+.ct-btn-cancel { flex: 1; border: 1px solid var(--border); background: transparent; color: var(--text-muted); }
+.ct-btn-save { flex: 2; border: none; background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 4px 16px var(--accent-glow); }
+
+/* ============================================================
+   🎁 REWARDS BO'LIMI — qayta ishlangan dizayn
+   ============================================================ */
+.rw-hero {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px; margin-bottom: 14px; border-radius: var(--radius-lg);
+  border: 1px solid rgba(245,166,35,0.35);
+  background: linear-gradient(135deg, rgba(245,166,35,0.14), rgba(124,92,252,0.08));
+}
+.rw-hero-main { flex: 1; min-width: 0; }
+.rw-hero-label { font-size: var(--fs-2xs); color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.rw-hero-coins {
+  font-family: Syne, sans-serif; font-size: 30px; font-weight: 800; color: var(--gold);
+  line-height: 1.15; margin: 2px 0 6px;
+}
+.rw-hero-coin-icon { font-size: 24px; }
+.rw-hero-sub { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
+.rw-hero-add {
+  flex-shrink: 0; min-height: 42px; padding: 10px 16px; border: none; border-radius: var(--radius-md);
+  background: var(--accent); color: #fff; cursor: pointer; white-space: nowrap;
+  font-family: 'DM Sans', sans-serif; font-size: var(--fs-sm); font-weight: 700;
+  box-shadow: 0 4px 14px var(--accent-glow); transition: transform 0.15s;
+}
+.rw-hero-add:active { transform: scale(0.96); }
+
+/* Sotib olinganlar */
+.rw-owned {
+  padding: 14px; margin-bottom: 16px; border-radius: var(--radius-lg);
+  background: var(--surface); border: 1px solid rgba(52,211,153,0.3);
+}
+.rw-owned-title { font-size: var(--fs-2xs); color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; margin-bottom: 10px; }
+.rw-owned-list { display: flex; flex-direction: column; gap: 8px; }
+.rw-owned-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px;
+  border-radius: var(--radius-sm); background: var(--surface2);
+}
+.rw-owned-name { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--text); overflow-wrap: anywhere; }
+.rw-owned-left { font-size: var(--fs-xs); font-weight: 700; color: var(--green); white-space: nowrap; }
+.rw-owned-use {
+  min-height: 32px; padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap;
+  border: 1px solid rgba(96,165,250,0.35); background: rgba(96,165,250,0.08); color: var(--info);
+  font-size: var(--fs-2xs); font-weight: 600; font-family: 'DM Sans', sans-serif;
+}
+
+/* Ro'yxat */
+.rw-section-title {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 4px 0 10px;
+  font-size: var(--fs-2xs); color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+}
+.rw-section-title:empty { display: none; }
+.rw-section-meta { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--text-muted); }
+.rw-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+
+.rw-card {
+  padding: 12px; border-radius: var(--radius-md);
+  background: var(--surface); border: 1px solid var(--border);
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
+}
+.rw-card:not(.cant-afford):not(.is-blocked):hover { border-color: var(--accent); box-shadow: 0 0 18px var(--accent-glow); }
+.rw-card.is-blocked { border-color: var(--red); box-shadow: 0 0 16px rgba(248,113,113,0.3); }
+.rw-card.is-dragging { opacity: 0.45; transform: scale(0.98); }
+.rw-card.is-drop-target { border-color: var(--accent); border-style: dashed; }
+.rw-card-top { display: flex; align-items: flex-start; gap: 12px; }
+.rw-icon {
+  width: 48px; height: 48px; flex-shrink: 0; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center; font-size: 26px;
+  background: var(--surface2); border: 1px solid var(--border);
+}
+.rw-card.cant-afford .rw-icon { filter: grayscale(0.7); opacity: 0.75; }
+.rw-body { flex: 1; min-width: 0; padding-top: 2px; }
+.rw-name { font-size: var(--fs-base); font-weight: 600; color: var(--text); line-height: 1.35; overflow-wrap: anywhere; }
+.rw-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.rw-chip {
+  display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: var(--fs-2xs); font-weight: 600; white-space: nowrap;
+}
+.rw-chip-cost { background: var(--gold-dim); color: var(--gold); }
+.rw-chip-own { background: rgba(52,211,153,0.14); color: var(--green); }
+.rw-chip-muted { background: var(--surface2); color: var(--text-muted); font-weight: 500; }
+.rw-tools { display: flex; gap: 6px; flex-shrink: 0; }
+.rw-icon-btn {
+  width: 34px; height: 34px; border-radius: var(--radius-sm); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-sm);
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted);
+  transition: border-color 0.15s, background 0.15s;
+}
+.rw-icon-btn:hover { border-color: var(--accent); }
+.rw-icon-btn.is-danger:hover { border-color: var(--red); background: rgba(248,113,113,0.1); }
+
+.rw-need { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.rw-need-bar { flex: 1; height: 6px; border-radius: var(--radius-full); background: var(--surface2); overflow: hidden; }
+.rw-need-fill { height: 100%; border-radius: var(--radius-full); background: linear-gradient(90deg, var(--gold), #FFD580); }
+.rw-need-label { font-size: var(--fs-2xs); color: var(--text-muted); white-space: nowrap; }
+
+.rw-actions { display: flex; gap: 8px; margin-top: 12px; }
+.rw-btn {
+  min-height: 40px; padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer;
+  font-size: var(--fs-sm); font-weight: 600; font-family: 'DM Sans', sans-serif;
+  transition: transform 0.12s, opacity 0.15s;
+}
+.rw-btn:active:not(:disabled) { transform: scale(0.97); }
+.rw-actions .rw-btn:first-child { flex: 3; }
+.rw-actions .rw-btn-use { flex: 2; }
+.rw-btn-buy { border: none; background: var(--accent); color: #fff; box-shadow: 0 3px 12px var(--accent-glow); }
+.rw-btn-disabled { border: 1px dashed var(--border-hover); background: transparent; color: var(--text-dim); cursor: not-allowed; }
+.rw-btn-blocked { border: 1px solid var(--red); background: rgba(248,113,113,0.12); color: var(--red); }
+.rw-btn-use { border: 1px solid rgba(96,165,250,0.35); background: rgba(96,165,250,0.08); color: var(--info); }
+.rw-btn-use:disabled { border-color: var(--red); color: var(--red); background: rgba(248,113,113,0.08); cursor: not-allowed; opacity: 0.75; }
+
+.rw-empty {
+  text-align: center; padding: 30px 18px; border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-hover); background: var(--surface);
+}
+.rw-empty-icon { font-size: 40px; margin-bottom: 8px; }
+.rw-empty-title { font-size: var(--fs-base); font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.rw-empty-sub { font-size: var(--fs-sm); color: var(--text-dim); line-height: 1.5; }
+.rw-empty-btn { margin-top: 14px; padding: 10px 20px; }
+
+/* Qo'shish formasi */
+.rw-add-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 0; min-height: 32px; background: none; border: none; cursor: pointer;
+  font-family: Syne, sans-serif; font-size: var(--fs-base); font-weight: 600; color: var(--text);
+}
+#add-reward-section { scroll-margin-top: 16px; }
+#add-reward-body { counter-reset: rstep; }
+.reward-step { counter-increment: rstep; }
+.rstep-num::before { content: counter(rstep); }
+.remoji-chip { width: 38px; height: 38px; }
+#r-icon { max-width: 200px !important; }
