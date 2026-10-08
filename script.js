@@ -5550,6 +5550,9 @@ var I18N = {
 (function () {
   var extra = {
     uz: {
+      pf_kpi_gems: "💎 Olmoslar",
+      pf_kpi_best_streak: "🔥 Rekord streak",
+      badge_earned_toast: "🏅 Yangi yutuq qo'lga kiritildi! +2 💎",
       reyting_info_note: "⚠️ Mukofot faqat Dunyo (Worldwide) bo'yicha «Tanga — shu oy» reytingiga qarab, har oyning 1-sanasida beriladi. Mukofot miqdori shu oyda tanga topgan faol ishtirokchilar soniga bog'liq — odam qancha ko'p bo'lsa, 1-o'rin shuncha qadrli. Yangi oyda faqat oylik tanga hisobi 0 dan boshlanadi; HP, Streak va 💎 olmos saqlanib qoladi.",
       tab_reyting: "🏆 Reyting",
       reyting_metric_gems: "💎 Olmos",
@@ -5576,6 +5579,9 @@ var I18N = {
       ph_eg_650: "masalan: 650"
     },
     en: {
+      pf_kpi_gems: "💎 Gems",
+      pf_kpi_best_streak: "🔥 Best streak",
+      badge_earned_toast: "🏅 New achievement earned! +2 💎",
       reyting_info_note: "⚠️ The prize is given only for the Worldwide «Coins — this month» ranking, on the 1st of every month. Its size depends on how many active players earned coins this month — the more players, the more 1st place is worth. Each new month only the monthly coin score resets to 0; HP, Streak and 💎 gems carry over.",
       tab_reyting: "🏆 Leaderboard",
       reyting_metric_gems: "💎 Gems",
@@ -5602,6 +5608,9 @@ var I18N = {
       ph_eg_650: "e.g. 650"
     },
     ru: {
+      pf_kpi_gems: "💎 Алмазы",
+      pf_kpi_best_streak: "🔥 Рекорд серии",
+      badge_earned_toast: "🏅 Новое достижение! +2 💎",
       reyting_info_note: "⚠️ Награда выдаётся только по мировому рейтингу «Монеты — этот месяц», 1-го числа каждого месяца. Её размер зависит от числа активных участников, заработавших монеты в этом месяце — чем больше участников, тем ценнее 1-е место. В новом месяце обнуляется только месячный счёт монет; HP, серия и 💎 алмазы сохраняются.",
       tab_reyting: "🏆 Рейтинг",
       reyting_metric_gems: "💎 Алмазы",
@@ -7511,6 +7520,7 @@ function _gemSourceLabel(src) {
   if (src === 'friends') return '👥 ' + _cl("Do'stlar", 'Friends', 'Друзья');
   if (src === 'exchange') return '🔁 ' + _cl('Almashtirish', 'Exchange', 'Обмен');
   if (src === 'spin') return '🎰 Spin';
+  if (src === 'badge') return '🏅 ' + _cl('Yutuq', 'Achievement', 'Достижение');
   return src || '';
 }
 function gemsAdd(amount, source, note, silent) {
@@ -7543,6 +7553,7 @@ function renderGemsPill() {
   if (pill) pill.title = _cl('Olmoslar', 'Gems', 'Алмазы');
   var suf = document.getElementById('gems-suffix');
   if (suf) suf.textContent = ' ' + _cl('olmos', 'gems', 'алмазов');
+  try { if (typeof renderProfileQuick === 'function') renderProfileQuick(); } catch (e) {}
 }
 
 // 🔥 Streak bosqichlari. Har bosqich ko'pi bilan har N kunda bir marta
@@ -9069,11 +9080,9 @@ function checkReset() {
             // Streak bonus — S.streak recalcStreakFromLog dan keyin to'g'ri bo'ladi,
             // lekin u hali chaqirilmagan. Kechagi streakni log dan hisoblaymiz.
             var streakForBonus = (S.streak || 0) + 1; // checkReset dan oldin +1 (kecha bajarildi)
-            var bonus = getStreakBonus(streakForBonus);
-            if (bonus > 0) {
-              S.coins = (S.coins || 0) + bonus;
-              S.totalCoins = (S.totalCoins || 0) + bonus;
-              S.pendingStreakMsg = '🔥 ' + streakForBonus + ' ' + t('streak_bonus_msg').replace('{bonus}', bonus);
+            // Streak bosqichlari endi tanga emas, 💎 olmos beradi (gemsCheckStreak)
+            if (GEM_STREAK_MILESTONES[streakForBonus]) {
+              S.pendingStreakMsg = '🔥 ' + streakForBonus + ' ' + _cl('kunlik streak! +{n} 💎', '-day streak! +{n} 💎', 'дней серии! +{n} 💎').replace('{n}', GEM_STREAK_MILESTONES[streakForBonus]);
             }
             var xpBonus = XP_STREAK_BONUS[streakForBonus] || 0;
             if (xpBonus > 0) {
@@ -10216,7 +10225,7 @@ function initTaskSortable() {
     if (!el) return;
     Sortable.create(el, {
       draggable: '.task-card',
-      filter: '.check-btn, .act-btn, .task-menu-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
+      filter: '.check-btn, .act-btn, .task-menu-btn, .subtask-skip-chip, .subtask-dots-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
       preventOnFilter: false,
       delay: 160,             // bosib turish kerak bo'lgan vaqt (ms)
       delayOnTouchOnly: true, // sichqonchada (desktop) darhol, mobil ekranda ushlab turish talab qilinadi
@@ -10557,6 +10566,26 @@ function openAddRewardForm() {
   setTimeout(function(){ var n = document.getElementById('r-name'); if (n) n.focus({ preventScroll: true }); }, 350);
 }
 
+// 👤 Profil tepasidagi tez ko'rsatkichlar (tanga, olmos, streak, daraja)
+function renderProfileQuick() {
+  var box = document.getElementById('pf-quick');
+  if (!box) return;
+  var lv = getLevel(S.xp || 0);
+  var span = Math.max(1, (lv.max || 1) - (lv.min || 0) + 1);
+  var pct = Math.max(0, Math.min(100, Math.round(((S.xp || 0) - (lv.min || 0)) / span * 100)));
+  var tile = function (cls, icon, val, label) {
+    return '<div class="pf-q ' + cls + '"><div class="pf-q-icon">' + icon + '</div><div class="pf-q-val">' + val + '</div><div class="pf-q-label">' + label + '</div></div>';
+  };
+  box.innerHTML =
+    tile('pf-q-coins', '🪙', S.coins || 0, _cl('Tanga', 'Coins', 'Монеты')) +
+    tile('pf-q-gems', '💎', S.gems || 0, _cl('Olmos', 'Gems', 'Алмазы')) +
+    tile('pf-q-streak', '🔥', (S.streak || 0) + '<small> / ' + (S.bestStreak || S.streak || 0) + '</small>', _cl('Streak / rekord', 'Streak / best', 'Серия / рекорд')) +
+    '<div class="pf-q pf-q-level"><div class="pf-q-icon">' + lv.icon + '</div><div class="pf-q-val">Lv ' + lv.level + '</div>' +
+      '<div class="pf-q-bar"><div style="width:' + pct + '%"></div></div><div class="pf-q-label">' + (S.xp || 0) + ' XP</div></div>';
+  var g = document.getElementById('stats-gems'); if (g) g.textContent = (S.gems || 0) + ' 💎';
+  var bs = document.getElementById('stats-best-streak'); if (bs) bs.textContent = (S.bestStreak || S.streak || 0) + ' ' + t('reyting_days_unit');
+}
+
 function showProfileSubtab(name) {
   ['overview','stats','badges','settings'].forEach(function(n){
     var panel = document.getElementById('profile-subtab-'+n);
@@ -10864,6 +10893,7 @@ function subtaskItemHtml(t, s, ctx, dateStr) {
           ${isDoneOnDate?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}
         </button>
         ${labelDot}<span class="subtask-name">${esc(s.name)}</span>
+        ${(s.skipped&&!isDoneOnDate) ? `<button type="button" class="subtask-skip-chip" onclick="event.stopPropagation();unskipSubtask(${t.id},${s.id})" title="${tr('unskip_dd_item')}">⏭ ${_cl("O'tkazildi", 'Skipped', 'Пропущено')} · ↩</button>` : ''}
         ${coinDisplay ? `<span class="badge badge-coins">+${coinDisplay}🪙</span>` : ''}
         <div class="task-dots-wrap subtask-dots-wrap">
           <button class="task-dots-btn subtask-dots-btn" onclick="event.stopPropagation();toggleSubtaskDropdown(${t.id},${s.id},this,event,'${ctx}')" title="${tr('task_actions_title')}">⋮</button>
@@ -11514,6 +11544,18 @@ function removeTaskNote(taskId) {
   };
 }
 
+function tkShortDate(ds) {
+  if (!ds) return '';
+  var td = today();
+  if (ds === td) return _cl('Bugun', 'Today', 'Сегодня');
+  if (ds === addDays(td, 1)) return _cl('Ertaga', 'Tomorrow', 'Завтра');
+  if (ds === addDays(td, -1)) return _cl('Kecha', 'Yesterday', 'Вчера');
+  try {
+    var d = new Date(ds + 'T00:00:00');
+    var m = (getMonthsArr ? getMonthsArr() : [])[d.getMonth()] || '';
+    return d.getDate() + ' ' + String(m).slice(0, 3).toLowerCase() + (d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '');
+  } catch (e) { return ds; }
+}
 function makeTaskEl(t, future) {
   ensureSubtasks(t);
   const d = document.createElement('div');
@@ -11533,7 +11575,7 @@ function makeTaskEl(t, future) {
     subText = tr('task_overdue_label') + ': ' + t.overdueFrom;
     subOverdue = true;
   } else if (!future && t.skipped && t.overdueOn) {
-    subText = '⏩ ' + _cl('Ertaga qoldirildi', 'Moved to tomorrow', 'Перенесено на завтра') + ': ' + t.overdueOn;
+    subText = '⏩ ' + _cl("Ko'chirildi", 'Moved to', 'Перенесено') + ': ' + t.overdueOn;
   } else if (t.repeat==='interval' && t.nextDate) {
     subText = tr('task_next_label') + ': ' + t.nextDate;
   }
@@ -11556,47 +11598,40 @@ function makeTaskEl(t, future) {
   const hasSubtasks = subs.length > 0;
   const subtaskDoneCount = subs.filter(function(s){ return s.done; }).length;
 
+  // 🗓 Sanalarni qisqa va tushunarli ko'rinishga keltirish (Bugun / Ertaga / Kecha / 7-okt)
+  const _fmtD = function (ds) { return tkShortDate(ds); };
+  const subTextF = subText ? subText.replace(/\d{4}-\d{2}-\d{2}/g, _fmtD) : '';
+  const dueLineF = dueLine ? dueLine.replace(/\d{4}-\d{2}-\d{2}/g, _fmtD) : '';
+  const coinsV = taskCoinValue(t);
+  const diffV = taskDiffOrDefault(t);
+  const diffTxt = diffV === 0 ? _cl('Bepul', 'Free', 'Бесплатно') : diffV === 3 ? _cl('Qiyin', 'Hard', 'Сложно') : diffV === 2 ? _cl("O'rtacha", 'Medium', 'Средне') : _cl('Oson', 'Easy', 'Легко');
+  const subsDueOrDone = subs.filter(function (s) { return subtaskDoneOnDate(t.id, s.id, today()) || subtaskDueToday(s, today()); });
+  const subsDoneN = subs.filter(function (s) { return subtaskDoneOnDate(t.id, s.id, today()); }).length;
+  if (t.label) d.style.setProperty('--tk-label', t.label);
+  if (t.label) d.classList.add('has-label');
+
   d.innerHTML=`
-    <div class="task-card-top">
+    <div class="task-card-top tk-row">
       ${(_bulkMode && !future) ? `<input type="checkbox" class="bulk-select-checkbox" style="width:18px;height:18px;flex-shrink:0;margin-right:2px" ${_bulkSelected[t.id]?'checked':''} onclick="event.stopPropagation();toggleBulkSelect(${t.id}, this.checked)" />` : ''}
-      ${t.label ? `<span class="task-label-dot" style="background:${t.label}"></span>` : ''}
-      <button class="check-btn ${t.done?'checked':''}" ${future?'disabled title="'+_cl("Hali muddati kelmagan — kunida belgilanadi", "Not due yet — mark it on its day", "Срок ещё не наступил — отметьте в свой день")+'" style="opacity:0.4;cursor:not-allowed"':`onclick="toggleTask(${t.id})"`}>
+      <button class="check-btn ${t.done?'checked':''}" aria-label="${esc(t.name)}" ${future?'disabled title="'+_cl("Hali muddati kelmagan — kunida belgilanadi", "Not due yet — mark it on its day", "Срок ещё не наступил — отметьте в свой день")+'" style="opacity:0.4;cursor:not-allowed"':`onclick="toggleTask(${t.id})"`}>
         ${t.done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}
       </button>
       <div class="task-info">
-        <div class="task-name">${t.pinned ? '<span title="' + esc(tr('task_pinned_badge')) + '" style="margin-right:4px">📌</span>' : ''}${t.fromParentName ? `<span class="task-parent-badge">${esc(t.fromParentName)} ›</span> ` : ''}${t.emoji ? `<span style="margin-right:5px;font-size:var(--fs-md)">${t.emoji}</span>` : ''}${esc(t.name)}</div>
+        <div class="task-name">${t.pinned ? '<span class="tk-pin" title="' + esc(tr('task_pinned_badge')) + '">📌</span>' : ''}${t.fromParentName ? `<span class="task-parent-badge">${esc(t.fromParentName)} ›</span> ` : ''}${t.emoji ? `<span class="tk-emoji">${t.emoji}</span>` : ''}${esc(t.name)}</div>
         ${t.note ? `<div class="task-note task-note-collapsed" id="note-${t.id}">📝 ${esc(t.note)}</div><button class="task-note-toggle" onclick="event.stopPropagation();toggleNote(${t.id},this)">${tr('note_more_btn')}</button>` : ''}
-        ${subText?`<div class="task-sub${subOverdue?' overdue':''}">${subText}</div>`:''}
-        ${dueLine?`<div class="task-sub${dueOverdue?' overdue':''}">${dueLine}</div>`:''}
-        <div class="task-info-badges" style="display:none">
-          <span class="badge ${rl.cls}">${rl.text}</span>
-          ${diffBadge(taskDiffOrDefault(t))}
-          <span class="badge badge-coins">+${t.coins}🪙</span>
+        <div class="tk-meta">
+          ${t.skipped && !t.done ? `<span class="tk-chip tk-chip-skip">⏭ ${_cl("O'tkazildi", 'Skipped', 'Пропущено')}</span>` : ''}
+          ${subTextF ? `<span class="tk-chip ${subOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${subOverdue ? '⏰ ' : ''}${subTextF}</span>` : ''}
+          ${dueLineF ? `<span class="tk-chip ${dueOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${dueOverdue ? '' : '📅 '}${dueLineF}</span>` : ''}
+          <span class="tk-chip tk-chip-rep">🔁 ${rl.text}</span>
+          <span class="tk-chip tk-chip-diff d${diffV}">${diffTxt}</span>
+          ${coinsV ? `<span class="tk-chip tk-chip-coin">+${coinsV} 🪙</span>` : ''}
+          ${subsDueOrDone.length ? `<span class="tk-chip tk-chip-subs${subsDoneN === subsDueOrDone.length ? ' all' : ''}">☑ ${subsDoneN}/${subsDueOrDone.length}</span>` : ''}
         </div>
       </div>
-      <div class="task-badges">
-        <span class="badge ${rl.cls}">${rl.text}</span>
-        ${diffBadge(taskDiffOrDefault(t))}
-        <span class="badge badge-coins">+${t.coins}🪙</span>
-      </div>
-      <button class="subtask-add-quick-btn" onclick="openSubtaskModal(${t.id})" title="${tr('subtask_add_quick_title')}">➕</button>
-      ${(!future&&!t.done&&!t.skipped)?`<button class="task-quick-btn" onclick="skipTask(${t.id})" title="${tr('skip_dd_item')}">⏩</button>`:''}
-      ${(!future&&t.skipped&&!t.done)?`<button class="task-quick-btn skipped-active" onclick="unskipTask(${t.id})" title="${tr('unskip_dd_item')}">↩️</button>`:''}
-      <button class="task-quick-btn qb-edit" onclick="editTask(${t.id})" title="${tr('edit_dd_item')}">✏️</button>
-      <div class="task-dots-wrap">
-        <button class="task-dots-btn" onclick="toggleTaskDropdown(${t.id}, this, event)" title="${tr('task_actions_title')}">⋮</button>
-        <div class="task-dropdown-menu" id="task-dd-${t.id}">
-          ${(!future&&!t.done&&!t.skipped)?`<button class="task-dropdown-item dd-item-skip" onclick="closeAllTaskDropdowns();skipTask(${t.id})"><span class="tdi-icon">⏩</span>${tr('skip_dd_item')}</button>`:''}
-          ${(!future&&t.skipped&&!t.done)?`<button class="task-dropdown-item dd-item-unskip" onclick="closeAllTaskDropdowns();unskipTask(${t.id})"><span class="tdi-icon">↩️</span>${tr('unskip_dd_item')}</button>`:''}
-          <button class="task-dropdown-item" onclick="closeAllTaskDropdowns();togglePinTask(${t.id})"><span class="tdi-icon">📌</span>${t.pinned?tr('task_unpin_btn'):tr('task_pin_btn')}</button>
-          <button class="task-dropdown-item" onclick="closeAllTaskDropdowns();freezeTask(${t.id})"><span class="tdi-icon">🧊</span>${tr('freeze_dd_item')}</button>
-          <button class="task-dropdown-item dd-item-edit" onclick="closeAllTaskDropdowns();editTask(${t.id})"><span class="tdi-icon">✏️</span>${tr('edit_dd_item')}</button>
-          <button class="task-dropdown-item danger" onclick="closeAllTaskDropdowns();deleteTask(${t.id})"><span class="tdi-icon">🗑</span>${tr('delete_dd_item')}</button>
-        </div>
-      </div>
-      <button class="task-menu-btn" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
+      <button class="task-menu-btn tk-more" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="${_cl("Amallar", "Actions", "Действия")}" aria-label="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
     </div>
-    ${hasSubtasks?`<div class="task-card-bottom"><div class="task-card-bottom-spacer"></div><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
+    ${hasSubtasks?`<div class="task-card-bottom"><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
   `;
 
 
@@ -12187,6 +12222,7 @@ function render() {
   recalcStreakFromLog();
   document.getElementById('coins-display').textContent=S.coins;
   renderGemsPill();
+  try { renderProfileQuick(); } catch (e) {}
   checkDebtTransition();
   (function(){
     var pill = document.getElementById('header-coins-pill');
@@ -12253,16 +12289,16 @@ function render() {
 
   // Streak milestones (don't change display, just update content)
   const curStreak = S.streak||0;
-  const allMilestones = [3,5,7,10,15,20,25,30];
+  const allMilestones = Object.keys(GEM_STREAK_MILESTONES).map(Number);
   const mList = document.getElementById('milestone-list');
   mList.innerHTML = '';
   allMilestones.forEach(m => {
-    const bonus = STREAK_BONUSES[m]||0;
+    const bonus = GEM_STREAK_MILESTONES[m]||0;
     const done = curStreak >= m;
     const next = !done && allMilestones.filter(x=>x>curStreak)[0]===m;
     const el = document.createElement('div');
     el.style.cssText=`padding:5px 10px;border-radius:var(--radius-full);font-size:var(--fs-xs);border:1px solid ${done?'rgba(245,166,35,0.4)':next?'rgba(124,92,252,0.4)':'var(--border)'};background:${done?'var(--gold-dim)':next?'rgba(124,92,252,0.1)':'transparent'};color:${done?'var(--gold)':next?'#B48EFF':'var(--text-dim)'};white-space:nowrap`;
-    el.textContent = (done?'✓ ':'')+(next?'→ ':'')+m+' '+t('goal_days_unit')+' +'+bonus+'🪙';
+    el.textContent = (done?'✓ ':'')+(next?'→ ':'')+m+' '+t('goal_days_unit')+' +'+bonus+' 💎';
     mList.appendChild(el);
   });
   const now=new Date();
@@ -12318,12 +12354,15 @@ function render() {
     });
 
     var lbCoinsPossible = 0, lbCoinsEarned = 0;
+    // Manbalar bo'yicha: [imkoniyat, to'plangan]
+    var lbSrc = { tasks: [0, 0], subs: [0, 0], goals: [0, 0], chest: [0, 0] };
     var _lbToday = today();
     lbSourceTasks.forEach(function(tk){
-      lbCoinsPossible += taskCoinValue(tk);
+      lbCoinsPossible += taskCoinValue(tk); lbSrc.tasks[0] += taskCoinValue(tk);
       if (tk.done) {
         var flag = getTaskDayFlag(tk.id, _lbToday);
-        lbCoinsEarned += flag.rewardGiven ? flag.rewardAmt : taskCoinValue(tk);
+        var _tAmt = flag.rewardGiven ? flag.rewardAmt : taskCoinValue(tk);
+        lbCoinsEarned += _tAmt; lbSrc.tasks[1] += _tAmt;
       }
       ensureSubtasks(tk).forEach(function(sub){
         var subDone = subtaskDoneOnDate(tk.id, sub.id, _lbToday);
@@ -12332,8 +12371,8 @@ function render() {
         if (!subDone && !subtaskDueToday(sub, _lbToday)) return;
         var _given = S.subRewardGiven && S.subRewardGiven[tk.id + '_' + sub.id + '|' + _lbToday];
         var subAmt = (subDone && _given) ? _given.c : taskCoinValue(sub);
-        lbCoinsPossible += subAmt;
-        if (subDone) lbCoinsEarned += subAmt;
+        lbCoinsPossible += subAmt; lbSrc.subs[0] += subAmt;
+        if (subDone) { lbCoinsEarned += subAmt; lbSrc.subs[1] += subAmt; }
       });
     });
     // 🎯 Maqsadlar (odatlar): belgilanadigan kun (trackDate) bo'yicha navbatdagi odatlar
@@ -12348,16 +12387,34 @@ function render() {
       }
       var gBase = (typeof g.coins === 'number') ? g.coins : 1;
       var gAmt = (gChecked && g.daysCoinsGiven && g.daysCoinsGiven[_gDay] != null) ? g.daysCoinsGiven[_gDay] : gBase;
-      lbCoinsPossible += gAmt;
-      if (gChecked) lbCoinsEarned += gAmt;
+      lbCoinsPossible += gAmt; lbSrc.goals[0] += gAmt;
+      if (gChecked) { lbCoinsEarned += gAmt; lbSrc.goals[1] += gAmt; }
     });
+    // 🎲 Chest: bugun topilgani + bugun hali ochilmagan chest vazifalari
+    var _chestEarned = 0;
     (S.chestHistory || []).forEach(function(h){
-      if (h.date === today()) lbCoinsEarned += (h.coins || 0);
+      if (h.date === today()) _chestEarned += (h.coins || 0);
     });
+    var _chestLeft = 0;
+    if ((S.chestTasks || []).length && typeof ctCoinsOf === 'function') {
+      var _chDone = (S.chestDoneHistory || []).filter(function(h){ return h.date === today(); }).map(function(h){ return h.name; });
+      S.chestTasks.forEach(function(ct){ if (_chDone.indexOf(ct.name) === -1) _chestLeft += ctCoinsOf(ct); });
+    }
+    lbCoinsEarned += _chestEarned; lbSrc.chest[1] += _chestEarned;
+    lbCoinsPossible += _chestEarned + _chestLeft; lbSrc.chest[0] += _chestEarned + _chestLeft;
     var lbPossibleEl = document.getElementById('lb-coins-possible');
     var lbEarnedEl = document.getElementById('lb-coins-earned');
     if (lbPossibleEl) lbPossibleEl.textContent = lbCoinsPossible + ' 🪙';
     if (lbEarnedEl) lbEarnedEl.textContent = lbCoinsEarned + ' 🪙';
+    var _srcLbl = { tasks: '📋 ' + _cl('Vazifalar', 'Tasks', 'Задачи'), subs: '↳ ' + _cl('Sub-tasklar', 'Subtasks', 'Подзадачи'), goals: '🎯 ' + _cl('Maqsadlar', 'Goals', 'Цели'), chest: '🎲 Chest' };
+    var _srcHtml = function (i) {
+      return Object.keys(lbSrc).map(function (k) {
+        return '<span class="lb-src' + (lbSrc[k][i] ? '' : ' zero') + '">' + _srcLbl[k] + ' <b>' + lbSrc[k][i] + '</b></span>';
+      }).join('');
+    };
+    var _pb = document.getElementById('lb-coins-possible-src'), _eb = document.getElementById('lb-coins-earned-src');
+    if (_pb) _pb.innerHTML = _srcHtml(0);
+    if (_eb) _eb.innerHTML = _srcHtml(1);
     lbListEl.innerHTML = orderedColors.map(function(c){
       var cnt = lbCounts[c.key] || 0;
       var dotStyle = c.key
@@ -20445,6 +20502,7 @@ function getBadgeGroupMeta() {
   };
 }
 
+var BADGE_GEM_REWARD = 2;
 function renderBadges() {
   var grid = document.getElementById('badges-grid');
   var prog = document.getElementById('badges-progress');
@@ -20459,9 +20517,9 @@ function renderBadges() {
     var earned = b.check(S);
     if (earned && !S.badgesUnlocked[b.id]) {
       S.badgesUnlocked[b.id] = true;
-      S.coins      = (S.coins||0)      + 25;
-      S.totalCoins = (S.totalCoins||0) + 25;
-      addTarixLog('in', b.icon + ' ' + b.label + ' — ' + t('badge_earned_toast').replace('🏅 ', '').replace(' +25 🪙',''), 25, 'badge_reward_'+b.id);
+      // 🏅 Har bir yutuq uchun 2 💎 (avval 25 🪙 edi)
+      gemsAdd(BADGE_GEM_REWARD, 'badge', '🏅 ' + b.icon + ' ' + b.label, true);
+      addTarixLog('in', '🏅 ' + b.icon + ' ' + b.label + ' (+' + BADGE_GEM_REWARD + ' 💎)', 0, 'badge_reward_'+b.id);
       newlyEarned.push(b);
     }
   });
@@ -21214,7 +21272,7 @@ function openTaskSheet(id, future) {
   const rl = repeatLabel(t);
   document.getElementById('sheet-task-name').textContent = (t.emoji ? t.emoji+' ' : '') + t.name;
   document.getElementById('sheet-badge-row').innerHTML =
-    `<span class="badge ${rl.cls}">${rl.text}</span>${diffBadge(taskDiffOrDefault(t))}<span class="badge badge-coins">+${t.coins}🪙</span>`;
+    `<span class="badge ${rl.cls}">${rl.text}</span>${diffBadge(taskDiffOrDefault(t))}<span class="badge badge-coins">+${taskCoinValue(t)}🪙</span>`;
   let btns = '';
   if (future) {
     btns += `<div class="sheet-btn" style="opacity:0.55;pointer-events:none">⏳ ${_cl("Hali muddati kelmagan — o'sha kunida belgilanadi", "Not due yet — mark it on its day", "Срок ещё не наступил — отметьте в свой день")}</div>`;
@@ -21232,7 +21290,8 @@ function openTaskSheet(id, future) {
   }
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();openSubtaskModal(${id})">➕ ${_cl("Sub-task qo'shish", "Add subtask", "Добавить подзадачу")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();freezeTask(${id})">🧊 ${tr('freeze_task_sheet_btn')}</button>`;
-  btns += `<button class="sheet-btn" onclick="closeTaskSheet();editTask(${id})">✏️ Tahrirlash</button>`;
+  btns += `<button class="sheet-btn" onclick="closeTaskSheet();editTask(${id})">✏️ ${_cl('Tahrirlash', 'Edit', 'Изменить')}</button>`;
+  btns += `<button class="sheet-btn" onclick="closeTaskSheet();togglePinTask(${id})">📌 ${t.pinned ? tr('task_unpin_btn') : tr('task_pin_btn')}</button>`;
   btns += `<button class="sheet-btn danger" onclick="closeTaskSheet();deleteTask(${id})">🗑 ${_cl("O'chirish", "Delete", "Удалить")}</button>`;
   document.getElementById('sheet-btns').innerHTML = btns;
   document.getElementById('task-action-sheet').classList.add('open');

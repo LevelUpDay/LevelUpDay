@@ -102,10 +102,12 @@
       <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;text-align:center">
         <div style="font-size:var(--fs-2xs);color:var(--text-dim);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px" data-i18n="lb_coins_possible_label">Bugungi imkoniyat</div>
         <div id="lb-coins-possible" style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:800;color:var(--gold)">0 🪙</div>
+        <div class="lb-src-list" id="lb-coins-possible-src"></div>
       </div>
       <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;text-align:center">
         <div style="font-size:var(--fs-2xs);color:var(--text-dim);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px" data-i18n="lb_coins_earned_label">Bugun to'plangan</div>
         <div id="lb-coins-earned" style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:800;color:var(--green)">0 🪙</div>
+        <div class="lb-src-list" id="lb-coins-earned-src"></div>
       </div>
     </div>
     <div style="font-size:var(--fs-2xs);color:var(--text-dim);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:10px" data-i18n="label_breakdown_title">🎨 Bugungi vazifalar — ranglar bo'yicha</div>
@@ -295,6 +297,7 @@
            avatar ostida to'liq enli karta sifatida chiqadi. -->
       <div id="profile-header-goal-widget" style="display:none"></div>
     </div>
+    <div id="pf-quick" class="pf-quick"></div>
 
 
     <!-- ================= PROFIL ICHKI TABLARI =================
@@ -306,8 +309,6 @@
          bo'lindi, shu sababli renderProfile/renderStats/renderCalendar
          va h.k. funksiyalar hech qanday o'zgarishsiz ishlayveradi. -->
     <div id="profile-subtabs" style="display:flex;align-items:center;gap:6px;margin:0 0 14px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;mask-image:linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);-webkit-mask-image:linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%)">
-      <button type="button" class="tab profile-subtab-btn" onclick="showTab('reyting')" style="flex-shrink:0;border-color:rgba(245,166,35,0.4);background:rgba(245,166,35,0.1);color:var(--gold);font-weight:600" data-i18n="profile_reyting_btn">🏆 Reyting</button>
-      <span style="flex-shrink:0;width:1px;align-self:stretch;background:var(--border);margin:2px 4px"></span>
       <button type="button" class="tab profile-subtab-btn active" data-subtab="overview" onclick="showProfileSubtab('overview')" data-i18n="profile_subtab_overview" style="flex-shrink:0">👤 Umumiy</button>
       <button type="button" class="tab profile-subtab-btn" data-subtab="stats" onclick="showProfileSubtab('stats')" data-i18n="profile_subtab_stats" style="flex-shrink:0">📊 Statistika</button>
       <button type="button" class="tab profile-subtab-btn" data-subtab="badges" onclick="showProfileSubtab('badges')" data-i18n="profile_subtab_badges" style="flex-shrink:0">🏅 Yutuqlar</button>
@@ -527,7 +528,7 @@
     <div id="profile-subtab-stats" class="profile-subtab-panel" style="display:none">
 
     <!-- 2. Bu hafta statistika -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+    <div class="pf-kpis" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);border-radius:var(--radius-md);padding:14px 16px">
         <div style="font-size:var(--fs-2xs);color:#34D399;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px" data-i18n="week_done_label">Bu hafta bajarildi</div>
         <div id="stats-week-done" style="font-size:var(--fs-3xl);font-weight:700;color:#34D399;font-family:Syne,sans-serif">0</div>
@@ -535,6 +536,14 @@
       <div style="background:rgba(124,92,252,0.1);border:1px solid rgba(124,92,252,0.25);border-radius:var(--radius-md);padding:14px 16px">
         <div style="font-size:var(--fs-2xs);color:#B48EFF;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px" data-i18n="week_coins_label">Bu hafta tanga</div>
         <div id="stats-week-coins" style="font-size:var(--fs-3xl);font-weight:700;color:#B48EFF;font-family:Syne,sans-serif">0</div>
+      </div>
+      <div class="pf-kpi pf-kpi-gems">
+        <div class="pf-kpi-label" data-i18n="pf_kpi_gems">💎 Olmoslar</div>
+        <div id="stats-gems" class="pf-kpi-val">0</div>
+      </div>
+      <div class="pf-kpi pf-kpi-streak">
+        <div class="pf-kpi-label" data-i18n="pf_kpi_best_streak">🔥 Rekord streak</div>
+        <div id="stats-best-streak" class="pf-kpi-val">0</div>
       </div>
     </div>
 
