@@ -5618,6 +5618,64 @@ var I18N = {
   Object.keys(extra).forEach(function (l) { if (I18N[l]) Object.keys(extra[l]).forEach(function (k) { if (l !== 'uz' || I18N.uz[k] === undefined) I18N[l][k] = extra[l][k]; }); });
 })();
 
+// 💎 Friends endi olmos bilan o'ynaladi — tanga haqidagi matnlar almashtirildi
+(function () {
+  var ov = {
+    uz: {
+      friends_reward_label: "Mukofot (💎, har a'zoga, 3 tagacha)",
+      friends_stake_label: "Tikilayotgan olmos 💎",
+      friends_not_enough_coins: "Tikish uchun olmos yetarli emas 💎",
+      friends_you_won_toast: "Siz yutdingiz! +{amount} 💎",
+      friends_you_lost_toast: "Siz yutqazdingiz. -{amount} 💎",
+      friends_crit_hint_combo: "G'olib — vazifa foizi va bajarilgan vazifalar soni o'rtachasi bo'yicha aniqlanadi.",
+      friends_challenge_draw_toast: "🤝 Durrang! Hech kim olmos yo'qotmadi",
+      wp_goal_race_btn: "🏁 Birinchi N vazifaga",
+      wp_target_label: "Nechta vazifaga birinchi yetish",
+      wp_prize_label: "Mukofot (💎)",
+      wp_host_fee_toast: "🎉 G'olib: {winner}. Sizga xost ulushi sifatida +{amount} 💎 qaytdi",
+      wp_goal_race_desc: "Birinchi {target} ta vazifani bajargan g'olib bo'ladi",
+      friends_stake_max_hint: "Bir chorlovga maksimal 20 💎 tikish mumkin",
+      friends_stake_capped_toast: "Tikilma {max} 💎 gacha cheklandi",
+      friends_surrender_confirm: "Faol chorlovni bekor qilish — TASLIM BO'LISH hisoblanadi: tikilgan olmosingiz raqibga o'tadi va u g'olib deb belgilanadi. Davom etasizmi?"
+    },
+    en: {
+      friends_reward_label: "Reward (💎 per member, up to 3)",
+      friends_stake_label: "Gems wagered 💎",
+      friends_not_enough_coins: "Not enough gems to wager 💎",
+      friends_you_won_toast: "You won! +{amount} 💎",
+      friends_you_lost_toast: "You lost. -{amount} 💎",
+      friends_crit_hint_combo: "Winner — decided by the average of task completion % and number of tasks done.",
+      friends_challenge_draw_toast: "🤝 Draw! Nobody lost any gems",
+      wp_goal_race_btn: "🏁 First to N tasks",
+      wp_target_label: "Tasks to reach first",
+      wp_prize_label: "Prize (💎)",
+      wp_host_fee_toast: "🎉 Winner: {winner}. You got +{amount} 💎 as hosting fee",
+      wp_goal_race_desc: "First to complete {target} tasks wins",
+      friends_stake_max_hint: "You can wager up to 20 💎 per challenge",
+      friends_stake_capped_toast: "Wager capped at {max} 💎",
+      friends_surrender_confirm: "Cancelling an active challenge counts as SURRENDER: your wagered gems go to your opponent and they win. Continue?"
+    },
+    ru: {
+      friends_reward_label: "Награда (💎 каждому, до 3)",
+      friends_stake_label: "Ставка алмазов 💎",
+      friends_not_enough_coins: "Недостаточно алмазов для ставки 💎",
+      friends_you_won_toast: "Вы выиграли! +{amount} 💎",
+      friends_you_lost_toast: "Вы проиграли. -{amount} 💎",
+      friends_crit_hint_combo: "Победитель определяется по среднему % выполнения и количеству выполненных задач.",
+      friends_challenge_draw_toast: "🤝 Ничья! Никто не потерял алмазы",
+      wp_goal_race_btn: "🏁 Первым до N задач",
+      wp_target_label: "Сколько задач выполнить первым",
+      wp_prize_label: "Приз (💎)",
+      wp_host_fee_toast: "🎉 Победитель: {winner}. Вам вернулось +{amount} 💎 как доля хоста",
+      wp_goal_race_desc: "Побеждает тот, кто первым выполнит {target} задач",
+      friends_stake_max_hint: "Максимум 20 💎 за один вызов",
+      friends_stake_capped_toast: "Ставка ограничена до {max} 💎",
+      friends_surrender_confirm: "Отмена активного вызова — это СДАЧА: ваши алмазы уходят сопернику, и он побеждает. Продолжить?"
+    }
+  };
+  Object.keys(ov).forEach(function (l) { if (I18N[l]) Object.keys(ov[l]).forEach(function (k) { I18N[l][k] = ov[l][k]; }); });
+})();
+
 // ============================================================
 
 var COUNTRIES_LIST = [
@@ -7411,6 +7469,249 @@ function checkClockIntegrity() {
 // bloklangan bo'lsa jim o'tkaziladi va null qaytaradi — lokal soatga tayanamiz).
 /* fetchServerTimeSafe: blok boshiga (global var sifatida) ko'chirildi */
 
+// ============ 💎 OLMOS (GEMS) ============
+// Olmosni SOTIB OLIB BO'LMAYDI — u faqat foydalanuvchi o'zi narx qo'ya
+// olmaydigan manbalardan keladi: streak bosqichlari, Pomodoro fokus vaqti
+// va Friends (duel/party/World Party). Friends'da tikish va mukofotlar
+// tanga emas, olmos bilan bo'ladi. 💎 → 🪙 almashtirish mumkin (kurs —
+// foydalanuvchining 1 kunlik o'rtacha tangasi), 🪙 → 💎 esa YO'Q.
+var GEM_STREAK_MILESTONES = { 3: 1, 7: 2, 14: 3, 30: 5, 60: 8, 100: 12 };
+var GEM_POMO_BLOCK_MIN = 25;      // har 25 daqiqa haqiqiy fokus = 1 💎
+var GEM_POMO_DAILY_CAP = 4;       // kuniga Pomodoro'dan ko'pi bilan 4 💎
+var GEM_FRIENDS_DAILY_CAP = 3;    // Friends'dan yangi (bonus) olmos — kuniga ko'pi bilan 3 💎
+var GEM_DUEL_WIN_BONUS = 1;       // duelda g'alaba uchun qo'shimcha bonus
+var GEM_PARTY_REWARD_MAX = 3;     // party challenge mukofoti (har a'zoga) maksimal
+var GEM_EXCHANGE_MIN_RATE = 5;    // 1 💎 kamida 5 🪙
+var GEM_LOG_MAX = 200;
+
+function gemsEnsure() {
+  if (typeof S.gems !== 'number' || isNaN(S.gems)) S.gems = 0;
+  if (!Array.isArray(S.gemLog)) S.gemLog = [];
+  if (!S.gemStreak) S.gemStreak = { last: 0, awarded: {}, lastAwardDate: {} };
+  if (!S.gemPomoDaily) S.gemPomoDaily = {};
+  if (!S.gemFriendsDaily) S.gemFriendsDaily = {};
+  if (!S.gemSettled) S.gemSettled = {};
+}
+function _gemSourceLabel(src) {
+  if (src === 'streak') return '🔥 ' + _cl('Streak', 'Streak', 'Серия');
+  if (src === 'pomodoro') return '🍅 Pomodoro';
+  if (src === 'friends') return '👥 ' + _cl("Do'stlar", 'Friends', 'Друзья');
+  if (src === 'exchange') return '🔁 ' + _cl('Almashtirish', 'Exchange', 'Обмен');
+  return src || '';
+}
+function gemsAdd(amount, source, note, silent) {
+  gemsEnsure();
+  amount = Math.round(Number(amount) || 0);
+  if (!amount) return 0;
+  if (amount < 0 && S.gems + amount < 0) amount = -S.gems;
+  if (!amount) return 0;
+  S.gems += amount;
+  S.gemLog.unshift({ ts: Date.now(), date: today(), amount: amount, source: source, note: note || '' });
+  if (S.gemLog.length > GEM_LOG_MAX) S.gemLog.length = GEM_LOG_MAX;
+  if (!silent) { try { toast((amount > 0 ? '+' : '') + amount + ' 💎 · ' + (note || _gemSourceLabel(source))); } catch (e) {} }
+  renderGemsPill();
+  return amount;
+}
+// Friends'dan yangi (bonus) olmos — kunlik limit bilan
+function gemsMintFriends(amount, note) {
+  gemsEnsure();
+  var td = today();
+  var used = S.gemFriendsDaily[td] || 0;
+  var give = Math.max(0, Math.min(amount, GEM_FRIENDS_DAILY_CAP - used));
+  if (!give) return 0;
+  S.gemFriendsDaily[td] = used + give;
+  return gemsAdd(give, 'friends', note);
+}
+function renderGemsPill() {
+  var el = document.getElementById('gems-display');
+  if (el) el.textContent = (S && S.gems) || 0;
+  var pill = document.getElementById('header-gems-pill');
+  if (pill) pill.title = _cl('Olmoslar', 'Gems', 'Алмазы');
+}
+
+// 🔥 Streak bosqichlari. Har bosqich ko'pi bilan har N kunda bir marta
+// beriladi (N = bosqich) — kalendarda kunni bekor qilib/qayta belgilab
+// streakni "qayta yig'ish" orqali olmos ko'paytirib bo'lmaydi.
+function gemsCheckStreak() {
+  if (typeof S === 'undefined' || !S) return;
+  gemsEnsure();
+  var st = S.streak || 0, G = S.gemStreak;
+  if (st < (G.last || 0) - 1) G.awarded = {}; // streak haqiqatan uzildi — yangi seriya
+  G.last = st;
+  var td = today(), changed = false;
+  Object.keys(GEM_STREAK_MILESTONES).forEach(function (k) {
+    var m = Number(k);
+    if (st < m || G.awarded[m]) return;
+    var lastD = G.lastAwardDate[m];
+    if (lastD) {
+      var days = Math.round((new Date(td + 'T00:00:00') - new Date(lastD + 'T00:00:00')) / 86400000);
+      if (days < m) { G.awarded[m] = true; return; }
+    }
+    G.awarded[m] = true; G.lastAwardDate[m] = td; changed = true;
+    gemsAdd(GEM_STREAK_MILESTONES[m], 'streak', '🔥 ' + _cl(m + ' kunlik streak', m + '-day streak', 'Серия ' + m + ' дн.'));
+  });
+  return changed;
+}
+
+// 🍅 Pomodoro: bugungi haqiqiy fokus (qo'lda kiritilgan va fon/oflayn
+// vaqtsiz), har 25 daqiqa = 1 💎, kuniga ko'pi bilan GEM_POMO_DAILY_CAP.
+function gemsSyncPomodoro(logs) {
+  if (typeof S === 'undefined' || !S || !Array.isArray(logs)) return;
+  gemsEnsure();
+  var td = today(), ms = 0;
+  logs.forEach(function (l) {
+    if (!l || l.date !== td || l.manual) return;
+    var d = (Number(l.durationMs) || 0) - (Number(l.catchUpMs) || 0);
+    if (d > 0) ms += Math.min(d, 3 * 3600000); // bitta seans 3 soatdan ortiq hisoblanmaydi
+  });
+  var blocks = Math.min(GEM_POMO_DAILY_CAP, Math.floor(ms / 60000 / GEM_POMO_BLOCK_MIN));
+  var got = S.gemPomoDaily[td] || 0;
+  if (blocks > got) {
+    S.gemPomoDaily[td] = blocks;
+    gemsAdd(blocks - got, 'pomodoro', '🍅 ' + _cl('Fokus vaqti', 'Focus time', 'Время фокуса'));
+    // eski kunlar yozuvini tozalash
+    Object.keys(S.gemPomoDaily).forEach(function (k) { if (k < addDays(td, -30)) delete S.gemPomoDaily[k]; });
+    save();
+  }
+}
+function gemsPomoTodayMinutes() {
+  var raw = []; try { raw = JSON.parse(localStorage.getItem('pomoLogs') || '[]'); } catch (e) {}
+  var td = today(), ms = 0;
+  (raw || []).forEach(function (l) { if (l && l.date === td && !l.manual) { var d = (Number(l.durationMs) || 0) - (Number(l.catchUpMs) || 0); if (d > 0) ms += Math.min(d, 3 * 3600000); } });
+  return Math.floor(ms / 60000);
+}
+
+// 👥 Friends natijalarini server tarixidan hisoblash (har yozuv bir marta).
+// Duel: g'olib +tikilma (+bonus), mag'lub −tikilma, durrang 0.
+// Party challenge bajarilsa: har a'zoga mukofot (kunlik limit bilan).
+// World Party: xost prizni yaratganda to'laydi; g'olib(lar) oladi.
+function gemsSettleFriends() {
+  if (typeof S === 'undefined' || !S || !S.friends) return;
+  gemsEnsure();
+  var F = S.friends, done = S.gemSettled, first = !S.gemSettleInit, changed = false;
+  function once(key, fn) { if (done[key]) return; done[key] = Date.now(); changed = true; if (!first) fn(); }
+  (F.challengesHistory || []).forEach(function (c) {
+    if (!c || !c.id) return;
+    once('duel:' + c.id, function () {
+      var st = Math.max(0, Number(c.stake) || 0);
+      if (c.winner === 'me') { gemsAdd(st, 'friends', '⚔️ ' + _cl('Duel g\'alabasi', 'Duel won', 'Победа в дуэли') + (c.opponentName ? ' — ' + c.opponentName : '')); gemsMintFriends(GEM_DUEL_WIN_BONUS, '⚔️ ' + _cl('G\'alaba bonusi', 'Win bonus', 'Бонус за победу')); }
+      else if (c.winner === 'opponent') gemsAdd(-st, 'friends', '⚔️ ' + _cl('Duel yutqazildi', 'Duel lost', 'Дуэль проиграна') + (c.opponentName ? ' — ' + c.opponentName : ''), false);
+    });
+  });
+  (F.partyChallengesHistory || []).forEach(function (h) {
+    if (!h) return;
+    once('party:' + (h.partyName || '') + '|' + (h.title || '') + '|' + (h.finishedAt || ''), function () {
+      if (h.result === 'done') gemsMintFriends(Math.min(GEM_PARTY_REWARD_MAX, Math.max(0, Number(h.reward) || 0)), '🎉 ' + _cl('Party challenge bajarildi', 'Party challenge completed', 'Party challenge выполнен'));
+    });
+  });
+  (F.worldPartiesHistory || []).forEach(function (p) {
+    if (!p || !p.id) return;
+    once('wp:' + p.id, function () {
+      var prize = Math.max(0, Number(p.prize) || 0);
+      var amCreator = p.creatorId === S.cloudUserId;
+      var winners = p.result === 'won' ? [{ id: p.winnerId }] : (p.winners || []);
+      var meWin = winners.some(function (w) { return w && w.id === S.cloudUserId; });
+      if (p.cancelled || !winners.length) { if (amCreator && prize) gemsAdd(prize, 'friends', '🌍 ' + _cl('World Party: prize qaytarildi', 'World Party: prize refunded', 'World Party: приз возвращён')); return; }
+      var hostCut = Math.round(prize * 0.10), pool = prize - hostCut;
+      if (amCreator && meWin && winners.length === 1) gemsAdd(prize, 'friends', '🌍 World Party 🏆');
+      else {
+        if (amCreator && hostCut) gemsAdd(hostCut, 'friends', '🌍 ' + _cl('Xost ulushi', 'Host share', 'Доля хоста'));
+        if (meWin) gemsAdd(Math.floor(pool / winners.length), 'friends', '🌍 World Party 🏆');
+      }
+    });
+  });
+  if (first) S.gemSettleInit = true; // eski (tanga davri) tarix olmos bermaydi
+  if (changed) save();
+}
+// Faol/kutilayotgan duellarda "band" bo'lgan olmos — yangi tikish uchun ishlatib bo'lmaydi
+function gemsLocked() {
+  var F = (S && S.friends) || {}, sum = 0;
+  (F.challenges || []).forEach(function (c) { if (c && c.status === 'active') sum += Number(c.stake) || 0; });
+  (F.challengesOutgoing || []).forEach(function (c) { sum += Number(c && c.stake) || 0; });
+  return sum;
+}
+function gemsAvailable() { gemsEnsure(); return Math.max(0, S.gems - gemsLocked()); }
+
+// 🔁 💎 → 🪙 kursi: so'nggi 14 kunda topilgan tangalar o'rtachasi (almashtirishsiz)
+function gemsExchangeRate() {
+  var td = today(), from = addDays(td, -13), sum = 0;
+  (S.tarix || []).forEach(function (r) {
+    if (!r || r.type !== 'in' || !(r.amount > 0) || !r.date || r.date < from || r.date > td) return;
+    if (r.uniqueKey && String(r.uniqueKey).indexOf('gemx_') === 0) return;
+    sum += r.amount;
+  });
+  return Math.max(GEM_EXCHANGE_MIN_RATE, Math.round(sum / 14));
+}
+function gemsExchange(n) {
+  gemsEnsure();
+  n = Math.max(1, Math.floor(Number(n) || 0));
+  if (gemsAvailable() < n) { toast(_cl('Olmos yetarli emas', 'Not enough gems', 'Недостаточно алмазов')); return; }
+  var rate = gemsExchangeRate(), coins = n * rate;
+  gemsAdd(-n, 'exchange', '🔁 ' + n + ' 💎 → ' + coins + ' 🪙', true);
+  S.coins = (S.coins || 0) + coins;
+  S.totalCoins = (S.totalCoins || 0) + coins;
+  addTarixLog('in', '💎 → 🪙 ' + _cl('almashtirish', 'exchange', 'обмен') + ' (' + n + ' 💎)', coins, 'gemx_' + Date.now());
+  save(); render();
+  toast('+' + coins + ' 🪙');
+  renderGemsModal();
+}
+
+function openGemsModal() {
+  gemsEnsure();
+  var ov = document.getElementById('gems-modal-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'gems-modal-overlay';
+    ov.className = 'gems-overlay';
+    ov.innerHTML = '<div class="gems-sheet" role="dialog" aria-modal="true"><div class="ct-sheet-handle"></div><div id="gems-modal-body"></div></div>';
+    ov.addEventListener('click', function (e) { if (e.target === ov) closeGemsModal(); });
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  renderGemsModal();
+  try { SFX.click(); } catch (e) {}
+}
+function closeGemsModal() { var ov = document.getElementById('gems-modal-overlay'); if (ov) ov.style.display = 'none'; }
+function renderGemsModal() {
+  var body = document.getElementById('gems-modal-body');
+  if (!body) return;
+  gemsEnsure();
+  var td = today(), rate = gemsExchangeRate(), avail = gemsAvailable(), locked = gemsLocked();
+  var pomoMin = gemsPomoTodayMinutes(), pomoGot = S.gemPomoDaily[td] || 0;
+  var frGot = S.gemFriendsDaily[td] || 0, st = S.streak || 0;
+  var nextM = Object.keys(GEM_STREAK_MILESTONES).map(Number).filter(function (m) { return m > st; })[0];
+  var rows = (S.gemLog || []).slice(0, 30).map(function (g) {
+    return '<div class="gems-log-row"><span class="gems-log-note">' + esc(g.note || _gemSourceLabel(g.source)) + '<span class="gems-log-date">' + esc(g.date || '') + '</span></span>' +
+      '<span class="gems-log-amt ' + (g.amount > 0 ? 'up' : 'down') + '">' + (g.amount > 0 ? '+' : '') + g.amount + ' 💎</span></div>';
+  }).join('');
+  body.innerHTML =
+    '<div class="gems-head"><div class="gems-head-icon">💎</div><div>' +
+      '<div class="gems-head-label">' + _cl('Olmoslaringiz', 'Your gems', 'Ваши алмазы') + '</div>' +
+      '<div class="gems-head-val">' + S.gems + '</div>' +
+      (locked ? '<div class="gems-head-sub">🔒 ' + _cl(locked + ' tasi duellarda band', locked + ' locked in duels', 'В дуэлях: ' + locked) + '</div>' : '') +
+    '</div><button type="button" class="gems-close" onclick="closeGemsModal()" aria-label="✕">✕</button></div>' +
+    '<div class="gems-note">' + _cl("Olmosni sotib olib bo'lmaydi — uni faqat harakat bilan topasiz. Friends'dagi chorlov va partylar olmos bilan o'ynaladi.",
+                                   "Gems can't be bought — you only earn them by doing. Friends challenges and parties are played with gems.",
+                                   "Алмазы нельзя купить — их можно только заработать. Вызовы и пати в «Друзьях» играются на алмазы.") + '</div>' +
+    '<div class="gems-ways">' +
+      '<div class="gems-way"><div class="gems-way-icon">🔥</div><div class="gems-way-body"><div class="gems-way-title">' + _cl('Streak', 'Streak', 'Серия') + '</div>' +
+        '<div class="gems-way-sub">' + _cl('3 · 7 · 14 · 30 · 60 · 100 kunlik bosqichlar', 'Milestones at 3 · 7 · 14 · 30 · 60 · 100 days', 'Этапы 3 · 7 · 14 · 30 · 60 · 100 дней') + '</div></div>' +
+        '<div class="gems-way-val">' + (nextM ? ('🔥 ' + st + ' / ' + nextM + '<small>+' + GEM_STREAK_MILESTONES[nextM] + ' 💎</small>') : '🏆') + '</div></div>' +
+      '<div class="gems-way"><div class="gems-way-icon">🍅</div><div class="gems-way-body"><div class="gems-way-title">Pomodoro</div>' +
+        '<div class="gems-way-sub">' + _cl('Har 25 daqiqa fokus = 1 💎 (kuniga 4 tagacha)', 'Every 25 min of focus = 1 💎 (up to 4 a day)', 'Каждые 25 мин фокуса = 1 💎 (до 4 в день)') + '</div></div>' +
+        '<div class="gems-way-val">' + pomoGot + ' / ' + GEM_POMO_DAILY_CAP + '<small>' + pomoMin + ' ' + _cl('daq', 'min', 'мин') + '</small></div></div>' +
+      '<div class="gems-way"><div class="gems-way-icon">👥</div><div class="gems-way-body"><div class="gems-way-title">' + _cl("Do'stlar", 'Friends', 'Друзья') + '</div>' +
+        '<div class="gems-way-sub">' + _cl('Duel va partylarda g\'alaba (bonus kuniga 3 tagacha)', 'Win duels and parties (bonus up to 3 a day)', 'Побеждайте в дуэлях и пати (бонус до 3 в день)') + '</div></div>' +
+        '<div class="gems-way-val">' + frGot + ' / ' + GEM_FRIENDS_DAILY_CAP + '</div></div>' +
+    '</div>' +
+    '<div class="gems-exchange"><div class="gems-ex-title">🔁 💎 → 🪙</div>' +
+      '<div class="gems-ex-sub">' + _cl('1 💎 = {r} 🪙 (so\'nggi 14 kundagi kunlik o\'rtacha tangangiz). Tangani olmosga almashtirib bo\'lmaydi.', '1 💎 = {r} 🪙 (your daily coin average over the last 14 days). Coins can\'t be turned into gems.', '1 💎 = {r} 🪙 (ваш средний доход монет в день за 14 дней). Монеты нельзя обменять на алмазы.').replace('{r}', rate) + '</div>' +
+      '<div class="gems-ex-row"><button type="button" class="rw-btn rw-btn-use" onclick="gemsExchange(1)"' + (avail < 1 ? ' disabled' : '') + '>1 💎 → ' + rate + ' 🪙</button>' +
+      '<button type="button" class="rw-btn rw-btn-use" onclick="gemsExchange(5)"' + (avail < 5 ? ' disabled' : '') + '>5 💎 → ' + (rate * 5) + ' 🪙</button></div></div>' +
+    '<div class="gems-log-title">' + _cl('Tarix', 'History', 'История') + '</div>' +
+    (rows ? '<div class="gems-log">' + rows + '</div>' : '<div class="gems-empty">' + _cl("Hali olmos yo'q — streakni davom ettiring yoki Pomodoro boshlang 🍅", 'No gems yet — keep your streak or start a Pomodoro 🍅', 'Алмазов пока нет — держите серию или запустите Помодоро 🍅') + '</div>');
+}
+
 // ============ ⏩ ERTAGA QOLDIRISH → OVERDUE ============
 // Vazifa faqat foydalanuvchi uni ⏩ bilan ertaga qoldirganda "Muddati o'tgan"
 // bo'ladi: overdueFrom — qoldirilgan kun, overdueOn — ko'chirilgan kun.
@@ -7583,6 +7884,7 @@ function recalcStreakFromLog() {
   }
   S.streak = streak;
   if (streak > (S.bestStreak||0)) S.bestStreak = streak;
+  try { gemsCheckStreak(); } catch (e) { console.warn('[gems streak]', e); }
 }
 
 function _buildIntervalDueDateSet(t, doneSet, skipSet, windowStartStr, windowEndStr) {
@@ -11868,6 +12170,7 @@ function render() {
   recordIntervalDueLog(today());
   recalcStreakFromLog();
   document.getElementById('coins-display').textContent=S.coins;
+  renderGemsPill();
   checkDebtTransition();
   (function(){
     var pill = document.getElementById('header-coins-pill');
@@ -24111,6 +24414,7 @@ try {
       if (pomoLogs.length > POMO_LOGS_MAX) pomoLogs = pomoLogs.slice(pomoLogs.length - POMO_LOGS_MAX);
       localStorage.setItem(POMO_LOGS_KEY, JSON.stringify(pomoLogs));
     } catch (e) {}
+    try { if (typeof gemsSyncPomodoro === 'function') gemsSyncPomodoro(pomoLogs); } catch (e) {}
   }
   // ============================================================
   // ☁️ POMODORO CLOUD SYNC — faqat tugallangan seanslar tarixi
@@ -26689,6 +26993,7 @@ var partySyncFromCloud = async function() {
       return { partyName: h.partyName, title: h.title, target: h.target, reward: h.reward, result: h.result, finishedAt: h.finishedAt ? new Date(h.finishedAt).getTime() : Date.now() };
     });
 
+    try { gemsSettleFriends(); } catch (e) { console.warn('[gems settle]', e); }
     save();
     var overlay = document.getElementById('friends-modal-overlay');
     if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
@@ -26741,6 +27046,7 @@ var duelsSyncFromCloud = async function() {
       return { id: x.id, opponentName: x.opponentName, criteria: x.criteria, stake: x.stake, winner: x.result === 'won' ? 'me' : (x.result === 'lost' ? 'opponent' : 'draw'), forfeited: !!x.forfeited, finishedAt: x.finishedAt ? new Date(x.finishedAt).getTime() : Date.now() };
     });
 
+    try { gemsSettleFriends(); } catch (e) { console.warn('[gems settle]', e); }
     save();
     var overlay = document.getElementById('friends-modal-overlay');
     if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
@@ -26831,6 +27137,7 @@ var worldPartySyncFromCloud = async function() {
       };
     });
 
+    try { gemsSettleFriends(); } catch (e) { console.warn('[gems settle]', e); }
     save();
     var overlay = document.getElementById('friends-modal-overlay');
     if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
@@ -26924,7 +27231,7 @@ var friendsStartPartyChallenge = async function() {
   var title = (titleEl && titleEl.value || '').trim() || t('friends_default_challenge_title');
   var target = Math.max(1, parseInt(targetEl && targetEl.value, 10) || 20);
   var reward = Math.max(0, parseInt(rewardEl && rewardEl.value, 10) || 10);
-  if (reward > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
+  reward = Math.min(GEM_PARTY_REWARD_MAX, reward);
   var res = await supabase.rpc('start_party_challenge', { p_title: title, p_target: target, p_reward: reward });
   if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
   await partySyncFromCloud();
@@ -26985,8 +27292,8 @@ var worldPartyCreate = async function() {
   if (!name) { toast(t('friends_party_name_required')); return; }
   var maxMembers = Math.min(cap, Math.max(2, parseInt((document.getElementById('wp-max-input') || {}).value, 10) || cap));
   var prize = Math.max(1, parseInt((document.getElementById('wp-prize-input') || {}).value, 10) || 10);
-  if (prize > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
-  var target = _wpGoalType === 'race_coins' ? Math.max(1, parseInt((document.getElementById('wp-target-input') || {}).value, 10) || 100) : null;
+  if (prize > gemsAvailable()) { toast(t('friends_not_enough_coins')); return; }
+  var target = _wpGoalType === 'race_tasks' ? Math.max(1, parseInt((document.getElementById('wp-target-input') || {}).value, 10) || 30) : null;
 
   var res = await supabase.rpc('create_world_party', {
     p_name: name, p_goal_type: _wpGoalType, p_target: target,
@@ -26996,6 +27303,8 @@ var worldPartyCreate = async function() {
     toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error)));
     return;
   }
+  gemsAdd(-prize, 'friends', '🌍 ' + _cl('World Party prizi', 'World Party prize', 'Приз World Party') + ' — ' + name);
+  save();
   if (nameEl) nameEl.value = '';
   closeCreateWorldPartyModal();
   await worldPartySyncFromCloud();
@@ -27036,7 +27345,7 @@ var friendsSendChallenge = async function() {
     stake = FRIENDS_MAX_STAKE;
     toast(t('friends_stake_capped_toast').replace('{max}', FRIENDS_MAX_STAKE));
   }
-  if (stake > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
+  if (stake > gemsAvailable()) { toast(t('friends_not_enough_coins')); return; }
   closeNewChallengeModal();
   var res = await supabase.rpc('send_duel_challenge', {
     p_target_id: friendId, p_criteria: _fncCriteria, p_stake: stake, p_duration_days: _fncDuration
@@ -27053,7 +27362,7 @@ var friendsSendChallenge = async function() {
 var friendsAcceptChallengeIncoming = async function(id) {
   var c = (S.friends.challengesIncoming || []).find(function (c) { return c.id === id; });
   if (!c) return;
-  if (c.stake > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
+  if (c.stake > gemsAvailable()) { toast(t('friends_not_enough_coins')); return; }
   var res = await supabase.rpc('respond_duel_challenge', { p_duel_id: id, p_accept: true });
   if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
   await duelsSyncFromCloud();
@@ -27444,12 +27753,10 @@ function friendsPurgeRelatedRecords(userId) {
   if (!F) return;
   F.challenges = (F.challenges || []).filter(function (c) {
     if (c.opponentId !== userId) return true;
-    if (c.status === 'active') S.coins = (S.coins || 0) + c.stake;
     return false;
   });
   F.challengesOutgoing = (F.challengesOutgoing || []).filter(function (c) {
     if (c.opponentId !== userId) return true;
-    S.coins = (S.coins || 0) + c.stake;
     return false;
   });
   F.challengesIncoming = (F.challengesIncoming || []).filter(function (c) { return c.fromId !== userId; });
@@ -27573,7 +27880,7 @@ function renderFriendsParty() {
         challengeHtml = '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-top:14px">'
           + '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);margin-bottom:8px">🎯 ' + esc(party.challenge.title) + '</div>'
           + '<div class="party-progress-track"><div class="party-progress-fill" style="width:' + pct + '%"></div></div>'
-          + '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:var(--fs-2xs);color:var(--text-muted)"><span>' + party.challenge.progress + ' / ' + party.challenge.target + '</span><span style="color:var(--gold)">+' + party.challenge.reward + ' 🪙 ' + t('friends_each_member') + '</span></div>'
+          + '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:var(--fs-2xs);color:var(--text-muted)"><span>' + party.challenge.progress + ' / ' + party.challenge.target + '</span><span style="color:var(--gold)">+' + party.challenge.reward + ' 💎 ' + t('friends_each_member') + '</span></div>'
           + (party.leaderIsMe ? '<button class="friend-req-btn decline" style="margin-top:10px;width:100%" onclick="friendsCancelPartyChallenge()" data-i18n="friends_cancel_challenge_btn">' + t('friends_cancel_challenge_btn') + '</button>' : '')
           + '</div>';
       } else if (party.leaderIsMe) {
@@ -27581,7 +27888,7 @@ function renderFriendsParty() {
           + '<div class="modal-field"><label data-i18n="friends_party_challenge_title_label">' + t('friends_party_challenge_title_label') + '</label><input type="text" id="fpc-title" placeholder="' + t('friends_party_challenge_title_ph') + '" data-i18n-ph="friends_party_challenge_title_ph" /></div>'
           + '<div style="display:flex;gap:8px">'
           + '<div class="modal-field" style="flex:1"><label data-i18n="friends_target_label">' + t('friends_target_label') + '</label><input type="number" id="fpc-target" min="1" value="20" /></div>'
-          + '<div class="modal-field" style="flex:1"><label data-i18n="friends_reward_label">' + t('friends_reward_label') + '</label><input type="number" id="fpc-reward" min="1" value="10" /></div>'
+          + '<div class="modal-field" style="flex:1"><label data-i18n="friends_reward_label">' + t('friends_reward_label') + '</label><input type="number" id="fpc-reward" min="1" max="3" value="2" /></div>'
           + '</div>'
           + '<button class="btn-save" style="width:100%" onclick="friendsStartPartyChallenge()" data-i18n="friends_start_challenge_btn">' + t('friends_start_challenge_btn') + '</button>'
           + '</div>';
@@ -27652,7 +27959,7 @@ function openPartyInviteDetailsModal(id) {
   rows += '<div class="pid-row"><span class="pid-label">' + esc(t('party_invite_members_label')) + '</span><span class="pid-value">👥 ' + (inv.memberCount != null ? inv.memberCount : 1) + '</span></div>';
   if (inv.challenge) {
     rows += '<div class="pid-row"><span class="pid-label">' + esc(t('party_invite_goal_label')) + '</span><span class="pid-value">' + esc(inv.challenge.title || t('friends_default_challenge_title')) + (inv.challenge.target ? (' — ' + inv.challenge.target + '%') : '') + '</span></div>';
-    rows += '<div class="pid-row"><span class="pid-label">' + esc(t('party_invite_reward_label')) + '</span><span class="pid-value">🪙 ' + inv.challenge.reward + '</span></div>';
+    rows += '<div class="pid-row"><span class="pid-label">' + esc(t('party_invite_reward_label')) + '</span><span class="pid-value">💎 ' + inv.challenge.reward + '</span></div>';
   } else {
     rows += '<div class="pid-row"><span class="pid-label">' + esc(t('party_invite_goal_label')) + '</span><span class="pid-value" style="color:var(--text-dim)">' + esc(t('party_invite_no_challenge')) + '</span></div>';
   }
@@ -27801,7 +28108,7 @@ function openPartyChallengeHistoryModal() {
     return '<div class="friend-card" style="align-items:flex-start;flex-direction:column">'
       + '<div style="display:flex;width:100%;align-items:center;gap:10px">'
       + '<div class="friend-avatar">🎯</div>'
-      + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(h.title) + '</div><div class="friend-sub">' + esc(h.partyName) + ' · 🪙 ' + h.reward + '</div></div>'
+      + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(h.title) + '</div><div class="friend-sub">' + esc(h.partyName) + ' · 💎 ' + h.reward + '</div></div>'
       + '<span style="font-size:var(--fs-2xs);font-weight:700;color:' + resultColor + '">' + resultLabel + '</span>'
       + '</div></div>';
   }).join('');
@@ -27870,12 +28177,12 @@ function wpToggleFilters() {
 }
 function wpSetGoalType(g) {
   _wpGoalType = g;
-  ['percent', 'race_coins'].forEach(function (k) {
+  ['percent', 'race_tasks'].forEach(function (k) {
     var btn = document.getElementById('wp-goal-' + k);
     if (btn) btn.classList.toggle('sel', k === g);
   });
   var targetField = document.getElementById('wp-target-field');
-  if (targetField) targetField.style.display = g === 'race_coins' ? '' : 'none';
+  if (targetField) targetField.style.display = g === 'race_tasks' ? '' : 'none';
 }
 function wpSetDuration(days) {
   _wpDuration = days;
@@ -27913,7 +28220,7 @@ function closeCreateWorldPartyModal() {
 /* worldPartyCreate: blok boshiga (global var sifatida) ko'chirildi */
 
 function worldPartyGoalDesc(p) {
-  if (p.goalType === 'race_coins') return '🏁 ' + t('wp_goal_race_desc').replace('{target}', p.target);
+  if (p.goalType === 'race_tasks' || p.goalType === 'race_coins') return '🏁 ' + t('wp_goal_race_desc').replace('{target}', p.target);
   return '📊 ' + friendsDurationLabel(p.durationDays) + ' ' + t('wp_goal_percent_desc');
 }
 function worldMemberScore(member) {
@@ -27929,7 +28236,8 @@ function worldMemberScore(member) {
 }
 function worldPartyMemberValue(party, member) {
   var s = worldMemberScore(member);
-  return party.goalType === 'race_coins' ? s.coins : s.percent;
+  if (party.goalType === 'race_tasks') return s.totalDone;
+  return party.goalType === 'race_coins' ? s.coins : s.percent; // race_coins — eski (tanga davri) partiyalar
 }
 
 function worldPartyEnsureSim(party) {
@@ -27973,7 +28281,7 @@ function worldPartyFinish(party) {
   if (!winners.length) {
     party.winnerId = null; party.winnerName = null; party.winners = []; party.isDraw = false;
     if (amCreator) {
-      S.coins = (S.coins || 0) + party.prize;
+      /* 💎 gemsSettleFriends hisoblaydi */
       toast(t('wp_no_activity_refund_toast'));
     }
     if (S.friends.myWorldPartyId === party.id) S.friends.myWorldPartyId = null;
@@ -27993,13 +28301,13 @@ function worldPartyFinish(party) {
     if (amCreator) {
       // xost o'zi yutmadi — mukofotning 10%i "xost ulushi" sifatida qaytadi
       var hostCut2 = Math.round(party.prize * 0.10);
-      S.coins = (S.coins || 0) + hostCut2;
+      /* 💎 gemsSettleFriends hisoblaydi */
       toast(t('wp_host_fee_toast').replace('{amount}', hostCut2).replace('{winner}', party.winnerName));
     } else if ((party.members || []).some(function (m) { return m.isMe; })) {
       toast(t('wp_you_lost_toast').replace('{winner}', party.winnerName));
     }
   } else if (amCreator) {
-    S.coins = (S.coins || 0) + party.prize;
+    /* 💎 gemsSettleFriends hisoblaydi */
     toast('🏆 ' + t('friends_you_won_toast').replace('{amount}', party.prize));
     try { confetti(); } catch (e) {}
   } else {
@@ -28008,7 +28316,7 @@ function worldPartyFinish(party) {
     var hostCut3 = Math.round(party.prize * 0.10);
     var sharedPool = party.prize - hostCut3;
     var myShare2 = Math.floor(sharedPool / winners.length);
-    S.coins = (S.coins || 0) + myShare2;
+    /* 💎 gemsSettleFriends hisoblaydi */
     toast('🏆 ' + t('friends_you_won_toast').replace('{amount}', myShare2));
     try { confetti(); } catch (e) {}
   }
@@ -28120,7 +28428,7 @@ function renderWorldPartyList() {
     return '<div class="friend-card" style="align-items:flex-start;flex-direction:column">'
       + '<div style="display:flex;width:100%;align-items:center;gap:10px">'
       + '<div class="friend-avatar">🌍</div>'
-      + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(p.name) + (amCreator ? ' 👑' : '') + '</div><div class="friend-sub">' + worldPartyGoalDesc(p) + ' · 🪙 ' + p.prize + ' · 👥 ' + (p.members || []).length + '/' + p.maxMembers + '</div></div>'
+      + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(p.name) + (amCreator ? ' 👑' : '') + '</div><div class="friend-sub">' + worldPartyGoalDesc(p) + ' · 💎 ' + p.prize + ' · 👥 ' + (p.members || []).length + '/' + p.maxMembers + '</div></div>'
       + statusChip
       + '</div>'
       + '<div style="display:flex;gap:8px;width:100%;margin-top:8px">'
@@ -28135,7 +28443,7 @@ function worldPartyShowStats(id) {
   var p = findWorldPartyById(id);
   if (!p) return;
   var ranked = (p.members || []).map(function (m) { return { m: m, val: worldPartyMemberValue(p, m) }; }).sort(function (a, b) { return b.val - a.val; });
-  var unit = p.goalType === 'race_coins' ? ' 🪙' : '%';
+  var unit = p.goalType === 'race_tasks' ? ' ' + t('friends_unit_tasks') : (p.goalType === 'race_coins' ? ' 🪙' : '%');
   var rows = ranked.map(function (r, i) {
     return '<tr>'
       + '<td style="padding:6px 4px;border-bottom:1px solid var(--border);color:var(--text-muted)">#' + (i + 1) + '</td>'
@@ -28146,7 +28454,7 @@ function worldPartyShowStats(id) {
   var titleEl = document.getElementById('wp-stats-title');
   if (titleEl) titleEl.textContent = '🌍 ' + p.name;
   var summaryEl = document.getElementById('wp-stats-summary');
-  if (summaryEl) summaryEl.innerHTML = '<div style="font-size:var(--fs-2xs);color:var(--text-dim)">' + worldPartyGoalDesc(p) + ' · 🪙 ' + p.prize + ' · 👥 ' + (p.members || []).length + '/' + p.maxMembers + '</div>';
+  if (summaryEl) summaryEl.innerHTML = '<div style="font-size:var(--fs-2xs);color:var(--text-dim)">' + worldPartyGoalDesc(p) + ' · 💎 ' + p.prize + ' · 👥 ' + (p.members || []).length + '/' + p.maxMembers + '</div>';
   var rowsEl = document.getElementById('wp-stats-rows');
   if (rowsEl) rowsEl.innerHTML = rows;
   document.getElementById('wp-stats-overlay').classList.add('open');
@@ -28200,7 +28508,7 @@ function renderWorldPartyHistoryModalBody() {
     return '<div class="friend-card" style="align-items:flex-start;flex-direction:column">'
       + '<div style="display:flex;width:100%;align-items:center;gap:10px">'
       + '<div class="friend-avatar">🌍</div>'
-      + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(p.name) + (amCreator ? ' 👑' : '') + '</div><div class="friend-sub">' + worldPartyGoalDesc(p) + ' · 🪙 ' + p.prize + '</div></div>'
+      + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(p.name) + (amCreator ? ' 👑' : '') + '</div><div class="friend-sub">' + worldPartyGoalDesc(p) + ' · 💎 ' + p.prize + '</div></div>'
       + '<span style="font-size:var(--fs-2xs);font-weight:700;color:var(--text-muted)">' + resultLabel + '</span>'
       + '</div>'
       + '<button class="friend-req-btn" style="width:100%;margin-top:8px" onclick="worldPartyShowStats(\'' + p.id + '\')" data-i18n="wp_view_ranking_btn">' + t('wp_view_ranking_btn') + '</button>'
@@ -28213,7 +28521,7 @@ var _fncCriteria = 'percent';
 var _fncDuration = 7;
 // 🆕 QO'SHILDI: bitta chorlovga tikilishi mumkin bo'lgan maksimal tanga —
 // ilgari bunday chegara umuman yo'q edi (butun balansni tikish mumkin edi).
-var FRIENDS_MAX_STAKE = 500;
+var FRIENDS_MAX_STAKE = 20; // 💎 olmosda
 var FRIENDS_CRITERIA_HINTS = {
   percent: 'friends_crit_hint_percent',
   coins: 'friends_crit_hint_coins',
@@ -28235,7 +28543,8 @@ function closeNewChallengeModal() {
 }
 function fncSetCriteria(criteria) {
   _fncCriteria = criteria;
-  ['percent', 'coins', 'combo', 'tasks'].forEach(function (k) {
+  if (criteria === 'coins') criteria = _fncCriteria = 'percent'; // tanga mezoni olib tashlangan
+  ['percent', 'combo', 'tasks'].forEach(function (k) {
     var btn = document.getElementById('fnc-crit-' + k);
     if (btn) btn.classList.toggle('sel', k === criteria);
   });
@@ -28283,7 +28592,7 @@ function renderFriendsChallengeIncoming() {
   if (!list.length) { box.innerHTML = ''; if (empty) empty.style.display = ''; return; }
   if (empty) empty.style.display = 'none';
   box.innerHTML = list.map(function (c) {
-    var sub = friendsCriteriaLabel(c.criteria) + ' · 🪙 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
+    var sub = friendsCriteriaLabel(c.criteria) + ' · 💎 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
     var actions = '<div style="display:flex;gap:6px">'
       + '<button class="friend-req-btn accept" onclick="friendsAcceptChallengeIncoming(\'' + c.id + '\')" data-i18n="friends_accept_btn">' + t('friends_accept_btn') + '</button>'
       + '<button class="friend-req-btn decline" onclick="friendsDeclineChallengeIncoming(\'' + c.id + '\')" data-i18n="friends_decline_btn">' + t('friends_decline_btn') + '</button>'
@@ -28420,12 +28729,12 @@ function friendsCompareChallenge(c) {
   } else if (c.criteria === 'tasks') {
     // 🆕 QO'SHILDI: xom (foizsiz) bajarilgan vazifalar soni bo'yicha g'olibni aniqlash
     meVal = meS.totalDone; oppVal = oppS.totalDone;
-  } else { // combo — % va tanga 0-100 shkalasida o'rtachalashtiriladi
-    var maxCoins = Math.max(meS.coins, oppS.coins, 1);
-    var meCoinNorm = Math.round(meS.coins / maxCoins * 100);
-    var oppCoinNorm = Math.round(oppS.coins / maxCoins * 100);
-    meVal = Math.round((meS.percent + meCoinNorm) / 2);
-    oppVal = Math.round((oppS.percent + oppCoinNorm) / 2);
+  } else { // combo — % va bajarilgan vazifalar soni 0-100 shkalasida o'rtachalashtiriladi (tangasiz)
+    var maxDone = Math.max(meS.totalDone, oppS.totalDone, 1);
+    var meDoneNorm = Math.round(meS.totalDone / maxDone * 100);
+    var oppDoneNorm = Math.round(oppS.totalDone / maxDone * 100);
+    meVal = Math.round((meS.percent + meDoneNorm) / 2);
+    oppVal = Math.round((oppS.percent + oppDoneNorm) / 2);
   }
   return { meS: meS, oppS: oppS, meVal: meVal, oppVal: oppVal };
 }
@@ -28454,7 +28763,7 @@ function friendsFinishChallenge(c) {
   c.finishedAt = Date.now();
   if (cmp.meVal > cmp.oppVal) {
     c.winner = 'me';
-    S.coins = (S.coins || 0) + c.stake * 2;
+    /* 💎 gemsSettleFriends hisoblaydi */
     toast('🏆 ' + t('friends_you_won_toast').replace('{amount}', c.stake * 2));
     try { confetti(); } catch (e) {}
   } else if (cmp.meVal < cmp.oppVal) {
@@ -28462,7 +28771,7 @@ function friendsFinishChallenge(c) {
     toast('😔 ' + t('friends_you_lost_challenge_toast'));
   } else {
     c.winner = 'draw';
-    S.coins = (S.coins || 0) + c.stake; // tikilma qaytariladi
+    /* 💎 gemsSettleFriends hisoblaydi */ // tikilma qaytariladi
     toast(t('friends_challenge_draw_toast'));
   }
   friendsPushToHistory(c);
@@ -28500,7 +28809,7 @@ function renderChallengeHistoryModalBody() {
   box.innerHTML = list.map(function (c) {
     var resultColor = c.winner === 'me' ? 'var(--green)' : c.winner === 'draw' ? 'var(--text-muted)' : 'var(--red)';
     var resultLabel = c.winner === 'me' ? t('friends_you_won') : c.winner === 'draw' ? t('friends_draw_label') : (c.forfeited ? t('friends_surrendered_label') : t('friends_you_lost'));
-    var sub = friendsCriteriaLabel(c.criteria) + ' · 🪙 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
+    var sub = friendsCriteriaLabel(c.criteria) + ' · 💎 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
     return '<div class="friend-card" style="align-items:flex-start;flex-direction:column">'
       + '<div style="display:flex;width:100%;align-items:center;gap:10px">'
       + '<div class="friend-avatar">' + (c.opponentIcon || '⚔️') + '</div>'
@@ -28524,7 +28833,7 @@ function renderFriendsChallenges() {
   if (empty) empty.style.display = 'none';
 
   var pendingHtml = pending.map(function (c) {
-    var sub = friendsCriteriaLabel(c.criteria) + ' · 🪙 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
+    var sub = friendsCriteriaLabel(c.criteria) + ' · 💎 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
     return '<div class="friend-card" style="align-items:flex-start;flex-direction:column">'
       + '<div style="display:flex;width:100%;align-items:center;gap:10px">'
       + '<div class="friend-avatar">' + (c.opponentIcon || '⚔️') + '</div>'
@@ -28538,7 +28847,7 @@ function renderFriendsChallenges() {
   var mainHtml = main.map(function (c) {
     var cmp = friendsCompareChallenge(c);
     var unit = c.criteria === 'coins' ? ' 🪙' : (c.criteria === 'tasks' ? ' ' + t('friends_unit_tasks') : '%');
-    var sub = friendsCriteriaLabel(c.criteria) + ' · 🪙 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
+    var sub = friendsCriteriaLabel(c.criteria) + ' · 💎 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
     var statusChip = c.status === 'finished'
       ? '<span style="font-size:var(--fs-2xs);font-weight:700;color:' + (c.winner === 'me' ? 'var(--green)' : c.winner === 'draw' ? 'var(--text-muted)' : 'var(--red)') + '">' + (c.winner === 'me' ? t('friends_you_won') : c.winner === 'draw' ? t('friends_draw_label') : t('friends_you_lost')) + '</span>'
       : '<span style="font-size:var(--fs-2xs);font-weight:700;color:var(--info)">' + friendsTimeLeftLabel(c) + '</span>';
@@ -28590,7 +28899,7 @@ function friendsShowChallengeStats(id) {
   var summaryEl = document.getElementById('friends-challenge-stats-summary');
   if (summaryEl) {
     summaryEl.innerHTML =
-      '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:8px">' + friendsCriteriaLabel(c.criteria) + ' · 🪙 ' + c.stake + ' · ' + (c.status === 'finished' ? '' : friendsTimeLeftLabel(c)) + '</div>'
+      '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:8px">' + friendsCriteriaLabel(c.criteria) + ' · 💎 ' + c.stake + ' · ' + (c.status === 'finished' ? '' : friendsTimeLeftLabel(c)) + '</div>'
       + '<div class="duel-vs-bar" style="margin-bottom:6px"><span style="width:60px;font-size:var(--fs-2xs);color:var(--text-muted)">' + t('friends_you_label') + '</span><div class="duel-progress-track"><div class="duel-progress-fill" style="width:' + Math.min(100, Math.max(0, cmp.meVal)) + '%;background:var(--accent)"></div></div><span style="font-size:var(--fs-2xs)">' + cmp.meVal + unit + '</span></div>'
       + '<div class="duel-vs-bar"><span style="width:60px;font-size:var(--fs-2xs);color:var(--text-muted)">' + esc(c.opponentName) + '</span><div class="duel-progress-track"><div class="duel-progress-fill" style="width:' + Math.min(100, Math.max(0, cmp.oppVal)) + '%;background:var(--gold)"></div></div><span style="font-size:var(--fs-2xs)">' + cmp.oppVal + unit + '</span></div>';
   }

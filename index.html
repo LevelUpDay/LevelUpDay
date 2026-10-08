@@ -50,6 +50,9 @@
           👥 <span data-i18n="friends_label">Do'stlar</span>
           <span id="friends-req-badge" class="friend-badge-count" style="display:none">0</span>
         </button>
+        <button type="button" class="gems-pill" id="header-gems-pill" onclick="openGemsModal()" title="💎">
+          <span class="gems-pill-icon">💎</span><span id="gems-display">0</span>
+        </button>
         <div class="coins-pill" id="header-coins-pill" onclick="showTab('tarix')" style="cursor:pointer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a1.5 1.5 0 010 3H9m0 3h4.5"/></svg>
           <span id="coins-display">0</span><span class="coins-text" id="coins-suffix" data-i18n="coins_suffix"> tanga</span>
@@ -2776,7 +2779,6 @@
       <label data-i18n="friends_challenge_type_label">Chorlov mezoni</label>
       <div class="diff-opts" style="margin-bottom:8px">
         <button type="button" class="diff-opt sel" id="fnc-crit-percent" onclick="fncSetCriteria('percent')"><span data-i18n="friends_type_percent">📊 % Vazifa</span></button>
-        <button type="button" class="diff-opt" id="fnc-crit-coins" onclick="fncSetCriteria('coins')"><span data-i18n="friends_type_coins">🪙 Tanga</span></button>
         <button type="button" class="diff-opt" id="fnc-crit-combo" onclick="fncSetCriteria('combo')"><span data-i18n="friends_type_combo">🔥 Aralash</span></button>
         <!-- 🆕 QO'SHILDI: yangi chorlov mezoni — jami bajarilgan vazifalar soni (foizsiz, xom son) -->
         <button type="button" class="diff-opt" id="fnc-crit-tasks" onclick="fncSetCriteria('tasks')"><span data-i18n="friends_type_tasks">🎯 Vazifa soni</span></button>
@@ -2797,7 +2799,7 @@
       <!-- 🔧 TUZATILDI: endi "max" chegara qo'yildi (FRIENDS_MAX_STAKE) — avval
            istalgan miqdorni (hattoki butun balansni) bittagina chorlovga
            tikish mumkin edi, xato bosilsa katta zarar keltirardi. -->
-      <input type="number" id="fnc-stake" min="1" max="500" value="10" />
+      <input type="number" id="fnc-stake" min="1" max="20" value="3" />
       <div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px" id="fnc-stake-hint" data-i18n="friends_stake_max_hint">Bir chorlovga maksimal 500 🪙 tikish mumkin</div>
     </div>
     <div class="modal-actions">
@@ -2866,12 +2868,12 @@
       <label data-i18n="wp_goal_label">Maqsad turi</label>
       <div class="diff-opts" style="margin-bottom:8px">
         <button type="button" class="diff-opt sel" id="wp-goal-percent" onclick="wpSetGoalType('percent')"><span data-i18n="wp_goal_percent_btn">📊 Eng yaxshi %</span></button>
-        <button type="button" class="diff-opt" id="wp-goal-race_coins" onclick="wpSetGoalType('race_coins')"><span data-i18n="wp_goal_race_btn">🏁 Birinchi tangaga</span></button>
+        <button type="button" class="diff-opt" id="wp-goal-race_tasks" onclick="wpSetGoalType('race_tasks')"><span data-i18n="wp_goal_race_btn">🏁 Birinchi tangaga</span></button>
       </div>
     </div>
     <div class="modal-field" id="wp-target-field" style="display:none">
       <label data-i18n="wp_target_label">Nechta tangaga birinchi yetish</label>
-      <input type="number" id="wp-target-input" min="1" value="100" />
+      <input type="number" id="wp-target-input" min="1" value="30" />
     </div>
     <div class="modal-field">
       <label data-i18n="friends_duration_label">Muddat</label>
@@ -2889,7 +2891,7 @@
       </div>
       <div class="modal-field" style="flex:1">
         <label data-i18n="wp_prize_label">Mukofot (🪙)</label>
-        <input type="number" id="wp-prize-input" min="1" value="50" />
+        <input type="number" id="wp-prize-input" min="1" value="5" />
       </div>
     </div>
     <div style="font-size:var(--fs-2xs);color:var(--text-dim);line-height:1.5;margin-bottom:6px" data-i18n="wp_host_hint">💡 G'olibga mukofotning 90%i beriladi, 10%i sizga "xost ulushi" sifatida qaytadi. Agar o'zingiz yutsangiz — mukofotning barchasi qaytadi. Bundan tashqari, har bir qo'shilgan ishtirokchi uchun XP olasiz.</div>
