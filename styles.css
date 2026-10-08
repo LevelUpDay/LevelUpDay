@@ -2496,3 +2496,102 @@
 .rstep-num::before { content: counter(rstep); }
 .remoji-chip { width: 38px; height: 38px; }
 #r-icon { max-width: 200px !important; }
+
+/* ============================================================
+   💎 OLMOS (GEMS) — header belgisi va hamyon oynasi
+   ============================================================ */
+.gems-pill {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0; cursor: pointer;
+  padding: 8px 14px; border-radius: var(--radius-full);
+  background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.35);
+  color: #38BDF8; font-family: 'Syne', sans-serif; font-size: var(--fs-base); font-weight: 600;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.gems-pill:hover { box-shadow: 0 0 14px rgba(56,189,248,0.3); }
+.gems-pill:active { transform: scale(0.96); }
+.gems-pill-icon { font-size: 15px; line-height: 1; }
+body.light .gems-pill { color: #0284C7; background: rgba(2,132,199,0.1); border-color: rgba(2,132,199,0.3); }
+
+.gems-overlay {
+  position: fixed; inset: 0; z-index: 600; display: none;
+  align-items: flex-end; justify-content: center; background: rgba(0,0,0,0.72);
+}
+.gems-sheet {
+  width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border-hover); border-bottom: none;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 10px 18px calc(22px + env(safe-area-inset-bottom, 0px));
+  animation: modalIn 0.22s ease;
+}
+.gems-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; position: relative; }
+.gems-head-icon {
+  width: 56px; height: 56px; border-radius: var(--radius-md); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 30px;
+  background: linear-gradient(135deg, rgba(56,189,248,0.22), rgba(124,92,252,0.18));
+  border: 1px solid rgba(56,189,248,0.35);
+}
+.gems-head-label { font-size: var(--fs-2xs); color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.gems-head-val { font-family: Syne, sans-serif; font-size: 30px; font-weight: 800; color: #38BDF8; line-height: 1.1; }
+.gems-head-sub { font-size: var(--fs-2xs); color: var(--text-muted); margin-top: 2px; }
+.gems-close {
+  position: absolute; top: 0; right: 0; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); cursor: pointer;
+}
+.gems-note {
+  font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5;
+  padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface2); margin-bottom: 12px;
+}
+.gems-ways { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.gems-way {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
+}
+.gems-way-icon { font-size: 22px; width: 32px; text-align: center; flex-shrink: 0; }
+.gems-way-body { flex: 1; min-width: 0; }
+.gems-way-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.gems-way-sub { font-size: var(--fs-2xs); color: var(--text-dim); line-height: 1.4; margin-top: 2px; }
+.gems-way-val {
+  text-align: right; font-family: Syne, sans-serif; font-weight: 700; font-size: var(--fs-sm);
+  color: #38BDF8; white-space: nowrap; display: flex; flex-direction: column; align-items: flex-end;
+}
+.gems-way-val small { font-family: 'DM Sans', sans-serif; font-size: var(--fs-2xs); color: var(--text-dim); font-weight: 500; }
+.gems-exchange {
+  padding: 12px; border-radius: var(--radius-md); margin-bottom: 14px;
+  border: 1px solid rgba(245,166,35,0.3); background: linear-gradient(135deg, rgba(245,166,35,0.08), transparent);
+}
+.gems-ex-title { font-family: Syne, sans-serif; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.gems-ex-sub { font-size: var(--fs-2xs); color: var(--text-muted); line-height: 1.5; margin-bottom: 10px; }
+.gems-ex-row { display: flex; gap: 8px; }
+.gems-ex-row .rw-btn { flex: 1; }
+.gems-ex-row .rw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.gems-log-title { font-size: var(--fs-2xs); color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; margin-bottom: 8px; }
+.gems-log { display: flex; flex-direction: column; gap: 6px; }
+.gems-log-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface2);
+}
+.gems-log-note { font-size: var(--fs-sm); color: var(--text); min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; }
+.gems-log-date { font-size: var(--fs-3xs, 10px); color: var(--text-dim); margin-top: 2px; }
+.gems-log-amt { font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; }
+.gems-log-amt.up { color: var(--green); }
+.gems-log-amt.down { color: var(--red); }
+.gems-empty { text-align: center; color: var(--text-dim); font-size: var(--fs-sm); padding: 16px 8px; }
+@media (max-width: 520px) {
+  .gems-pill { padding: 6px 10px; gap: 4px; font-size: var(--fs-sm); }
+  #header-friends-btn > span[data-i18n="friends_label"] { display: none; }
+  #header-friends-btn { padding: 0 10px !important; }
+  #header-coins-pill { padding: 6px 12px; }
+}
+@media (max-width: 400px) {
+  #header-spin-label, #coins-suffix { display: none; }
+  #header-spin-btn { padding: 0 9px !important; }
+}
+@media (max-width: 400px) {
+  .header { gap: 6px; }
+  .header-left { min-width: 0; flex: 1 1 auto; }
+  .header-left #user-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70px; display: inline-block; vertical-align: middle; }
+  .header-left #profile-nav-btn { display: none !important; }
+  #header-right-wrap, #header-actions-right { gap: 5px !important; }
+  .gems-pill { padding: 6px 8px; }
+  #header-coins-pill { padding: 6px 9px; gap: 4px; }
+}

@@ -50,6 +50,9 @@
           👥 <span data-i18n="friends_label">Do'stlar</span>
           <span id="friends-req-badge" class="friend-badge-count" style="display:none">0</span>
         </button>
+        <button type="button" class="gems-pill" id="header-gems-pill" onclick="openGemsModal()" title="💎">
+          <span class="gems-pill-icon">💎</span><span id="gems-display">0</span>
+        </button>
         <div class="coins-pill" id="header-coins-pill" onclick="showTab('tarix')" style="cursor:pointer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a1.5 1.5 0 010 3H9m0 3h4.5"/></svg>
           <span id="coins-display">0</span><span class="coins-text" id="coins-suffix" data-i18n="coins_suffix"> tanga</span>
@@ -76,9 +79,9 @@
   </div>
 
   <div class="stats">
-    <div class="stat" onclick="toggleDonePanel()" style="cursor:pointer;user-select:none" title="Bajarilgan vazifalarni ko'rish"><div class="stat-label" data-i18n="stat_done">Bajarildi ✅</div><div class="stat-val" id="done-count">0</div></div>
-    <div class="stat" onclick="toggleLabelBreakdown()" style="cursor:pointer;user-select:none" title="Ranglar bo'yicha taqsimotni ko'rish"><div class="stat-label" data-i18n="stat_total">Jami</div><div class="stat-val" id="total-count">0</div></div>
-    <div class="stat" id="streak-stat" onclick="toggleMilestones()" style="cursor:pointer;user-select:none" title="Streak mukofotlarini ko'rish"><div class="stat-label" data-i18n="stat_streak">Streak 🔥</div><div class="stat-val" id="streak-display">0</div></div>
+    <div class="stat" onclick="toggleDonePanel()" style="cursor:pointer;user-select:none" title="Bajarilgan vazifalarni ko'rish" data-i18n-title="stat_done_title"><div class="stat-label" data-i18n="stat_done">Bajarildi ✅</div><div class="stat-val" id="done-count">0</div></div>
+    <div class="stat" onclick="toggleLabelBreakdown()" style="cursor:pointer;user-select:none" title="Ranglar bo'yicha taqsimotni ko'rish" data-i18n-title="stat_total_title"><div class="stat-label" data-i18n="stat_total">Jami</div><div class="stat-val" id="total-count">0</div></div>
+    <div class="stat" id="streak-stat" onclick="toggleMilestones()" style="cursor:pointer;user-select:none" title="Streak mukofotlarini ko'rish" data-i18n-title="stat_streak_title"><div class="stat-label" data-i18n="stat_streak">Streak 🔥</div><div class="stat-val" id="streak-display">0</div></div>
   </div>
 
   <!-- Done tasks panel (hidden, toggled) -->
@@ -500,7 +503,7 @@
         </div>
         <div id="ielts-target-numeric-row" style="margin-bottom:20px">
           <label id="ielts-target-label" style="display:block;font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Maqsad ball (ixtiyoriy)</label>
-          <input type="text" id="ielts-target-input" placeholder="masalan: 7.0" style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box" />
+          <input type="text" id="ielts-target-input" placeholder="masalan: 7.0" data-i18n-ph="ph_eg_70" style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box" />
         </div>
         <!-- CEFR uchun maqsad — ball emas, DARAJA (A1-C2) tanlanadi -->
         <div id="ielts-target-cefr-row" style="display:none;margin-bottom:20px">
@@ -1384,7 +1387,7 @@
   <!-- CHANGE PIN MODAL -->
   <div id="change-pin-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;align-items:center;justify-content:center;padding:20px">
     <div style="background:var(--surface);border:1px solid var(--border-hover);border-radius:var(--radius-xl);padding:24px;width:100%;max-width:340px;animation:modalIn 0.2s ease">
-      <div style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:600;margin-bottom:6px;color:var(--text)">🔑 PIN ni o'zgartirish</div>
+      <div style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:600;margin-bottom:6px;color:var(--text)" data-i18n="pin_change_title">🔑 PIN ni o'zgartirish</div>
       <div id="chpin-step-label" style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:20px">Eski PIN ni kiriting</div>
       <div style="display:flex;gap:12px;justify-content:center;margin-bottom:8px" id="chpin-dots">
         <div id="cpd0" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all 0.15s"></div>
@@ -2233,7 +2236,7 @@
 
     <!-- 📈 So'nggi 7 kunlik faollik grafigi -->
     <div class="pomo-stats-section">
-      <div class="pomo-stats-section-title">📈 So'nggi 7 kunlik faollik</div>
+      <div class="pomo-stats-section-title" data-i18n="pomo_st_7days">📈 So'nggi 7 kunlik faollik</div>
       <div id="pomo-stats-week-chart" class="pomo-stats-chart-box"></div>
     </div>
 
@@ -2246,25 +2249,25 @@
     <div class="pomo-stats-section">
       <div class="pomo-stats-section-title">🔥 Produktivlik tahlili</div>
       <div class="pomo-stats-chart-box">
-        <div class="pomo-stats-subtitle">📅 Haftaning qaysi kunida eng faol</div>
+        <div class="pomo-stats-subtitle" data-i18n="pomo_st_weekday">📅 Haftaning qaysi kunida eng faol</div>
         <div id="pomo-stats-weekday-box"></div>
-        <div class="pomo-stats-subtitle" style="margin-top:14px">⏰ Kunning qaysi soatida eng faol</div>
+        <div class="pomo-stats-subtitle" style="margin-top:14px" data-i18n="pomo_st_hour">⏰ Kunning qaysi soatida eng faol</div>
         <div id="pomo-stats-hour-box"></div>
-        <div class="pomo-stats-subtitle" style="margin-top:14px">🌗 Kunning qaysi qismida eng unumli</div>
+        <div class="pomo-stats-subtitle" style="margin-top:14px" data-i18n="pomo_st_daypart">🌗 Kunning qaysi qismida eng unumli</div>
         <div id="pomo-stats-daypart-box"></div>
       </div>
     </div>
 
     <!-- 🗂️ Vazifalar bo'yicha taqsimot — donut + reyting (medal, foiz, marta) -->
     <div class="pomo-stats-section">
-      <div class="pomo-stats-section-title">🗂️ Vazifalar bo'yicha taqsimot</div>
+      <div class="pomo-stats-section-title" data-i18n="pomo_st_bytask">🗂️ Vazifalar bo'yicha taqsimot</div>
       <div id="pomo-stats-category-box" class="pomo-stats-chart-box"></div>
       <div id="pomo-stats-rank-box" style="margin-top:10px"></div>
     </div>
 
     <!-- 📊 Haftalik va oylik solishtirish -->
     <div class="pomo-stats-section">
-      <div class="pomo-stats-section-title">📊 Haftalik va oylik solishtirish</div>
+      <div class="pomo-stats-section-title" data-i18n="pomo_st_compare">📊 Haftalik va oylik solishtirish</div>
       <div id="pomo-stats-compare-box"></div>
     </div>
   </div>
@@ -2776,7 +2779,6 @@
       <label data-i18n="friends_challenge_type_label">Chorlov mezoni</label>
       <div class="diff-opts" style="margin-bottom:8px">
         <button type="button" class="diff-opt sel" id="fnc-crit-percent" onclick="fncSetCriteria('percent')"><span data-i18n="friends_type_percent">📊 % Vazifa</span></button>
-        <button type="button" class="diff-opt" id="fnc-crit-coins" onclick="fncSetCriteria('coins')"><span data-i18n="friends_type_coins">🪙 Tanga</span></button>
         <button type="button" class="diff-opt" id="fnc-crit-combo" onclick="fncSetCriteria('combo')"><span data-i18n="friends_type_combo">🔥 Aralash</span></button>
         <!-- 🆕 QO'SHILDI: yangi chorlov mezoni — jami bajarilgan vazifalar soni (foizsiz, xom son) -->
         <button type="button" class="diff-opt" id="fnc-crit-tasks" onclick="fncSetCriteria('tasks')"><span data-i18n="friends_type_tasks">🎯 Vazifa soni</span></button>
@@ -2797,7 +2799,7 @@
       <!-- 🔧 TUZATILDI: endi "max" chegara qo'yildi (FRIENDS_MAX_STAKE) — avval
            istalgan miqdorni (hattoki butun balansni) bittagina chorlovga
            tikish mumkin edi, xato bosilsa katta zarar keltirardi. -->
-      <input type="number" id="fnc-stake" min="1" max="500" value="10" />
+      <input type="number" id="fnc-stake" min="1" max="20" value="3" />
       <div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px" id="fnc-stake-hint" data-i18n="friends_stake_max_hint">Bir chorlovga maksimal 500 🪙 tikish mumkin</div>
     </div>
     <div class="modal-actions">
@@ -2866,12 +2868,12 @@
       <label data-i18n="wp_goal_label">Maqsad turi</label>
       <div class="diff-opts" style="margin-bottom:8px">
         <button type="button" class="diff-opt sel" id="wp-goal-percent" onclick="wpSetGoalType('percent')"><span data-i18n="wp_goal_percent_btn">📊 Eng yaxshi %</span></button>
-        <button type="button" class="diff-opt" id="wp-goal-race_coins" onclick="wpSetGoalType('race_coins')"><span data-i18n="wp_goal_race_btn">🏁 Birinchi tangaga</span></button>
+        <button type="button" class="diff-opt" id="wp-goal-race_tasks" onclick="wpSetGoalType('race_tasks')"><span data-i18n="wp_goal_race_btn">🏁 Birinchi tangaga</span></button>
       </div>
     </div>
     <div class="modal-field" id="wp-target-field" style="display:none">
       <label data-i18n="wp_target_label">Nechta tangaga birinchi yetish</label>
-      <input type="number" id="wp-target-input" min="1" value="100" />
+      <input type="number" id="wp-target-input" min="1" value="30" />
     </div>
     <div class="modal-field">
       <label data-i18n="friends_duration_label">Muddat</label>
@@ -2889,7 +2891,7 @@
       </div>
       <div class="modal-field" style="flex:1">
         <label data-i18n="wp_prize_label">Mukofot (🪙)</label>
-        <input type="number" id="wp-prize-input" min="1" value="50" />
+        <input type="number" id="wp-prize-input" min="1" value="5" />
       </div>
     </div>
     <div style="font-size:var(--fs-2xs);color:var(--text-dim);line-height:1.5;margin-bottom:6px" data-i18n="wp_host_hint">💡 G'olibga mukofotning 90%i beriladi, 10%i sizga "xost ulushi" sifatida qaytadi. Agar o'zingiz yutsangiz — mukofotning barchasi qaytadi. Bundan tashqari, har bir qo'shilgan ishtirokchi uchun XP olasiz.</div>
@@ -3004,13 +3006,13 @@
           <button id="ielts-sec-w" onclick="selectIeltsSection('writing')"   style="padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:#F5A623;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s" data-i18n="ielts_sec_writing">✍️ Writing</button>
           <button id="ielts-sec-s" onclick="selectIeltsSection('speaking')"  style="padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.06);color:#F87171;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s" data-i18n="ielts_sec_speaking">🗣️ Speaking</button>
         </div>
-        <button id="ielts-sec-f" onclick="selectIeltsFull()" style="width:100%;margin-top:8px;padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(124,92,252,0.3);background:rgba(124,92,252,0.06);color:#B48EFF;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s">🧩 Full Mock (hammasi bir yo'la)</button>
+        <button id="ielts-sec-f" data-i18n="ielts_full_mock_btn" onclick="selectIeltsFull()" style="width:100%;margin-top:8px;padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(124,92,252,0.3);background:rgba(124,92,252,0.06);color:#B48EFF;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s">🧩 Full Mock (hammasi bir yo'la)</button>
       </div>
 
 
       <!-- Full Mock: barcha 4 section bir yo'la -->
       <div id="ielts-full-row" style="display:none;margin-bottom:14px">
-        <div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:10px">Bo'sh qoldirilgan section saqlanmaydi (kamida bittasini kiriting)</div>
+        <div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:10px" data-i18n="exam_full_empty_hint">Bo'sh qoldirilgan section saqlanmaydi (kamida bittasini kiriting)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div><label style="font-size:var(--fs-2xs);color:#60A5FA;display:block;margin-bottom:5px">🎧 Listening (0-40)</label><input type="number" id="ielts-full-l" min="0" max="40" step="1" inputmode="numeric" placeholder="raw" oninput="ieltsFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
           <div><label style="font-size:var(--fs-2xs);color:#34D399;display:block;margin-bottom:5px">📖 Reading (0-40)</label><input type="number" id="ielts-full-r" min="0" max="40" step="1" inputmode="numeric" placeholder="raw" oninput="ieltsFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
@@ -3036,7 +3038,7 @@
       <div id="ielts-raw-row" style="display:none;margin-bottom:14px">
         <label style="font-size:var(--fs-xs);color:var(--text-muted);display:block;margin-bottom:6px" id="ielts-raw-label">Raw score (0-40)</label>
         <div style="display:flex;gap:10px;align-items:center">
-          <input type="number" id="ielts-res-raw" min="0" max="40" placeholder="masalan: 19"
+          <input type="number" id="ielts-res-raw" min="0" max="40" placeholder="masalan: 19" data-i18n-ph="ph_eg_19"
             oninput="calcIeltsBandLive()"
             style="flex:1;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;outline:none" />
           <div style="font-size:var(--fs-sm);color:var(--text-muted)">&#8594;</div>
@@ -3048,7 +3050,7 @@
       <!-- Band score (Writing / Speaking) -->
       <div id="ielts-band-row" style="display:none;margin-bottom:14px">
         <label style="font-size:var(--fs-xs);color:var(--text-muted);display:block;margin-bottom:6px" data-i18n="ielts_band_label">Band score (0-9, masalan: 6.5)</label>
-        <input type="number" id="ielts-res-band" min="0" max="9" step="0.5" placeholder="masalan: 6.5"
+        <input type="number" id="ielts-res-band" min="0" max="9" step="0.5" placeholder="masalan: 6.5" data-i18n-ph="ph_eg_65"
           style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;outline:none;box-sizing:border-box" />
       </div>
 
@@ -3167,11 +3169,11 @@
             <span data-i18n="sat_sec_math">Math</span>
           </button>
         </div>
-        <button id="sat-sec-full" onclick="selectSatSection('full')" style="width:100%;margin-top:10px;padding:12px;border-radius:var(--radius-md);border:2px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:#F5A623;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s">🧩 Full Mock (RW + Math bir yo'la)</button>
+        <button id="sat-sec-full" data-i18n="sat_full_mock_btn" onclick="selectSatSection('full')" style="width:100%;margin-top:10px;padding:12px;border-radius:var(--radius-md);border:2px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:#F5A623;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s">🧩 Full Mock (RW + Math bir yo'la)</button>
       </div>
 
       <div id="sat-full-row" style="display:none;margin-bottom:14px">
-        <div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:10px">Bo'sh qoldirilgan section saqlanmaydi (kamida bittasini kiriting)</div>
+        <div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:10px" data-i18n="exam_full_empty_hint">Bo'sh qoldirilgan section saqlanmaydi (kamida bittasini kiriting)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div><label style="font-size:var(--fs-2xs);color:#B48EFF;display:block;margin-bottom:5px">📚 Reading &amp; Writing</label><input type="number" id="sat-full-rw" min="200" max="800" step="10" inputmode="numeric" placeholder="200-800" oninput="satFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
           <div><label style="font-size:var(--fs-2xs);color:#34D399;display:block;margin-bottom:5px">🧮 Math</label><input type="number" id="sat-full-math" min="200" max="800" step="10" inputmode="numeric" placeholder="200-800" oninput="satFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
@@ -3181,7 +3183,7 @@
 
       <div id="sat-single-row" style="margin-bottom:14px">
         <label style="font-size:var(--fs-xs);color:var(--text-muted);display:block;margin-bottom:6px" data-i18n="sat_score_label">Ballni kiriting (200 - 800)</label>
-        <input type="number" id="sat-res-score" min="200" max="800" step="10" placeholder="masalan: 650" style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;outline:none;box-sizing:border-box" />
+        <input type="number" id="sat-res-score" min="200" max="800" step="10" placeholder="masalan: 650" data-i18n-ph="ph_eg_650" style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;outline:none;box-sizing:border-box" />
       </div>
 
       <div style="margin-bottom:18px">
@@ -3211,7 +3213,7 @@
           <button id="cefr-sec-writing" onclick="selectCefrSection('writing')" style="padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:#F5A623;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s" data-i18n="ielts_sec_writing">✍️ Writing</button>
           <button id="cefr-sec-speaking" onclick="selectCefrSection('speaking')" style="padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.06);color:#F87171;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s" data-i18n="ielts_sec_speaking">🗣️ Speaking</button>
         </div>
-        <button id="cefr-sec-full" onclick="selectCefrSection('full')" style="width:100%;margin-top:8px;padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(124,92,252,0.3);background:rgba(124,92,252,0.06);color:#B48EFF;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s">🧩 Full Mock (to'liq test)</button>
+        <button id="cefr-sec-full" data-i18n="cefr_full_mock_btn" onclick="selectCefrSection('full')" style="width:100%;margin-top:8px;padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(124,92,252,0.3);background:rgba(124,92,252,0.06);color:#B48EFF;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s">🧩 Full Mock (to'liq test)</button>
       </div>
 
       <!-- Sana -->
