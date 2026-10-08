@@ -2,7 +2,6 @@
    styles.css — ToDoList ilovasining barcha uslublari
    ============================================================ */
 
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     /* ===== DESIGN TOKENS: RADIUS SCALE ===== */
@@ -635,17 +634,18 @@
      dagi break-inside:avoid tufayli bitta maydon ikki ustun orasida bo'linib
      qolmaydi. */
   .modal-fields-columns { column-count:1; }
+  .gm-page .modal-field { break-inside:avoid; }
   @media (min-width:620px) {
     .modal-fields-columns { column-count:2; column-gap:32px; }
   }
   .modal-field label { display:block; font-size:var(--fs-xs); color:var(--text-muted); letter-spacing:0.05em; text-transform:uppercase; margin-bottom:6px; }
-  .modal-field input[type="text"], .modal-field select, .modal-field input[type="date"] {
+  .modal-field input[type="text"], .modal-field select, .modal-field input[type="date"], #goal-modal-box .modal-field input[type="number"], #goal-modal-box .modal-field input[type="time"], #modal-box .modal-field input[type="number"] {
     width:100%; padding:11px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
     color:var(--text); font-size:var(--fs-base); font-family:'DM Sans',sans-serif; outline:none; transition:border-color 0.2s;
   }
   .modal-field input:focus, .modal-field select:focus { border-color:var(--accent); }
   .modal-field input::placeholder { color:var(--text-dim); }
-  .modal-field input[type="date"]::-webkit-calendar-picker-indicator { filter:invert(1) opacity(0.4); cursor:pointer; }
+  #goal-modal-box input[type="time"]::-webkit-calendar-picker-indicator, .modal-field input[type="date"]::-webkit-calendar-picker-indicator { filter:invert(1) opacity(0.4); cursor:pointer; }
 
   /* Day picker */
   .day-picker { display:flex; gap:6px; flex-wrap:wrap; }
@@ -1627,7 +1627,8 @@
   html.layout-desktop #ds-aside #all-levels-list > div { padding: 4px 7px !important; gap: 6px !important; }
   html.layout-desktop #ds-aside #all-levels-list > div span:first-child { font-size:var(--fs-sm) !important; }
   html.layout-desktop #ds-aside #all-levels-list > div span:nth-child(2) { font-size:var(--fs-2xs) !important; }
-  html.layout-desktop #ds-aside #all-levels-list > div span:not(:first-child):not(:nth-child(2)) { font-size:var(--fs-3xs) !important; }
+  html.layout-desktop #ds-aside #all-levels-list > div .lv-xp { font-size:var(--fs-3xs) !important; }
+  html.layout-desktop #ds-aside #all-levels-list > div .lv-sub { font-size:var(--fs-3xs) !important; }
   html.layout-desktop #ds-aside-title {
     font-size:var(--fs-3xs); color: var(--text-dim); letter-spacing: 0.06em; text-transform: uppercase;
     padding: 0 4px; margin-top: 2px;
@@ -1869,7 +1870,6 @@
   .reason-chip.sel { border-color:var(--accent); background:var(--accent-glow); color:var(--accent); }
 
 
-
   .mood-modal-inner { background:var(--surface);border-radius:var(--radius-xl) 28px 0 0;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;padding:0 0 40px;animation:slideUp 0.35s cubic-bezier(0.32,0.72,0,1); }
   .mood-modal-handle { width:40px;height:4px;border-radius:var(--radius-2xs);background:var(--border-hover);margin:12px auto 0; }
   .mood-modal-header { display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0; }
@@ -1896,7 +1896,6 @@
   .mood-save-btn:hover { transform:translateY(-1px);box-shadow:0 6px 24px rgba(124,92,252,0.45); }
   .mood-save-btn:active { transform:translateY(0); }
   .mood-divider { height:1px;background:var(--border);margin:16px 20px; }
-
 
 
   /* Butun ekranni bosishlardan bloklaydigan shaffof qatlam.

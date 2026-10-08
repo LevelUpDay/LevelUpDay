@@ -239,61 +239,13 @@
       <div class="stat"><div class="stat-label" data-i18n="goals_stat_today">Bugun belgilandi</div><div class="stat-val" id="goals-stat-today">0</div></div>
     </div>
 
+    <div id="goals-filter-bar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
     <div id="goals-list" style="display:flex;flex-direction:column;gap:10px"></div>
     <div id="goals-empty" style="text-align:center;padding:48px 20px;color:var(--text-dim);font-size:var(--fs-base);line-height:1.7;display:none">
       <div style="font-size:var(--fs-5xl);margin-bottom:12px;opacity:0.6">🎯</div>
       <span data-i18n-html="goals_empty">Hali maqsad yo'q.<br>Yangi maqsad qo'shing!</span>
     </div>
 
-    <!-- 🆕 MAQSADLAR KALENDARI — vazifalar bo'limidagi kalendar (calendar-section)
-         bilan bir xil naqsh: oy ko'rinishi, har bir kun barcha maqsadlar bo'yicha
-         umumiy holatga qarab rangga bo'yaladi, va kunni bosganda o'sha kunga
-         tegishli (jadvalga mos) BARCHA maqsadlar ro'yxati ochilib, har birini
-         ✅/⬜ bosib bajarilgan/bajarilmagan deb belgilash mumkin — shu jumladan
-         o'tgan kunlar uchun ham. Funksiyalar: renderGoalsCalendar, showGoalsDayDetail,
-         gcalToggleGoal, goalsCalPrevMonth/NextMonth/GoToday. Bitta yagona manba —
-         isGoalDueOnDate/_goalToggleDateCore — xuddi kartochkadagi "Bugun bajardim"
-         tugmasi va yuqoridagi bitta-maqsad modal-kalendari (openGoalCalendar) bilan
-         bir xil, shu sababli barcha joyda natija izchil bo'ladi.
-         🔁 KO'CHIRILDI: foydalanuvchi so'rovi bo'yicha eng pastga tushirildi —
-         bu bo'limda asosan MAQSADLAR RO'YXATI muhim, kalendar esa yordamchi
-         (ikkinchi darajali) ma'lumot, shu sabab pastroqda turishi kerak. -->
-    <div id="goals-calendar-section" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:16px">
-      <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px" data-i18n="goals_calendar_title">📅 Maqsadlar kalendari</div>
-      <!-- Month nav -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:6px">
-        <button onclick="goalsCalPrevMonth()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">‹</button>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;min-width:0">
-          <div id="gcal-month-label" style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);padding:2px 8px"></div>
-          <button type="button" id="gcal-today-btn" onclick="goalsCalGoToday()" data-i18n="cal_today_btn" style="font-size:var(--fs-3xs);color:var(--accent);background:none;border:none;cursor:pointer;padding:0;line-height:1.4">Bugun</button>
-        </div>
-        <button onclick="goalsCalNextMonth()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">›</button>
-      </div>
-      <!-- Day headers -->
-      <div id="gcal-day-headers" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px"></div>
-      <!-- Calendar grid -->
-      <div id="gcal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:14px;max-width:100%"></div>
-      <!-- Legend -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-        <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:#34D399;display:inline-block"></span><span data-i18n="cal_legend_all">Hammasi</span></span>
-        <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:#F5A623;display:inline-block"></span><span data-i18n="cal_legend_partial">Qisman</span></span>
-        <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:#F87171;display:inline-block"></span><span data-i18n="cal_legend_none">Bajarilmadi</span></span>
-        <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:var(--surface2);border:1px solid var(--border);display:inline-block"></span><span data-i18n="cal_legend_empty">Vazifa yo'q</span></span>
-      </div>
-      <!-- Day detail -->
-      <div id="gcal-detail" style="display:none;border-top:1px solid var(--border);margin-top:10px">
-        <div id="gcal-detail-header" onclick="toggleGoalsCalDetail()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 2px;cursor:pointer;user-select:none">
-          <div id="gcal-detail-title" style="font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase"></div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span id="gcal-detail-progress" style="font-size:var(--fs-xs);font-weight:700;color:var(--text-dim)"></span>
-            <span id="gcal-detail-arrow" style="font-size:var(--fs-sm);color:var(--text-dim);transition:transform 0.2s">›</span>
-          </div>
-        </div>
-        <div id="gcal-detail-body" style="display:none;padding-bottom:10px">
-          <div id="gcal-detail-list" style="display:flex;flex-direction:column;gap:6px"></div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- view-stats removed — merged into view-profile -->
@@ -381,6 +333,44 @@
         </div>
         <div id="cal-detail-body" style="display:none;padding-bottom:10px">
           <div id="cal-detail-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Maqsadlar kalendari (Goals bo'limidan ko'chirildi) -->
+    <div id="goals-calendar-section" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:12px">
+      <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px" data-i18n="goals_calendar_title">📅 Maqsadlar kalendari</div>
+      <!-- Month nav -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:6px">
+        <button onclick="goalsCalPrevMonth()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">‹</button>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;min-width:0">
+          <div id="gcal-month-label" style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);padding:2px 8px"></div>
+          <button type="button" id="gcal-today-btn" onclick="goalsCalGoToday()" data-i18n="cal_today_btn" style="font-size:var(--fs-3xs);color:var(--accent);background:none;border:none;cursor:pointer;padding:0;line-height:1.4">Bugun</button>
+        </div>
+        <button onclick="goalsCalNextMonth()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">›</button>
+      </div>
+      <!-- Day headers -->
+      <div id="gcal-day-headers" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px"></div>
+      <!-- Calendar grid -->
+      <div id="gcal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:14px;max-width:100%"></div>
+      <!-- Legend -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:#34D399;display:inline-block"></span><span data-i18n="cal_legend_all">Hammasi</span></span>
+        <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:#F5A623;display:inline-block"></span><span data-i18n="cal_legend_partial">Qisman</span></span>
+        <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:#F87171;display:inline-block"></span><span data-i18n="cal_legend_none">Bajarilmadi</span></span>
+        <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:var(--surface2);border:1px solid var(--border);display:inline-block"></span><span data-i18n="cal_legend_empty">Vazifa yo'q</span></span>
+      </div>
+      <!-- Day detail -->
+      <div id="gcal-detail" style="display:none;border-top:1px solid var(--border);margin-top:10px">
+        <div id="gcal-detail-header" onclick="toggleGoalsCalDetail()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 2px;cursor:pointer;user-select:none">
+          <div id="gcal-detail-title" style="font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase"></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="gcal-detail-progress" style="font-size:var(--fs-xs);font-weight:700;color:var(--text-dim)"></span>
+            <span id="gcal-detail-arrow" style="font-size:var(--fs-sm);color:var(--text-dim);transition:transform 0.2s">›</span>
+          </div>
+        </div>
+        <div id="gcal-detail-body" style="display:none;padding-bottom:10px">
+          <div id="gcal-detail-list" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
       </div>
     </div>
@@ -1070,6 +1060,24 @@
         </div>
       </div>
 
+      <!-- 💬 Fikr va takliflar -->
+      <div id="feedback-settings-card" class="settings-sub-card">
+        <button type="button" class="settings-sub-header" onclick="toggleSettingsSubCard('feedback-settings-card')">
+          <span class="settings-sub-header-left">
+            <span class="settings-sub-icon icon-pink">💬</span>
+            <span style="min-width:0">
+              <span class="settings-sub-title" id="fb-card-title">💬 Fikr va takliflar</span>
+              <span class="settings-sub-subtitle" id="fb-card-desc">Shikoyat, xato yoki yangi funksiya yozing</span>
+            </span>
+          </span>
+          <span class="settings-sub-arrow-wrap"><span class="settings-sub-arrow">▾</span></span>
+        </button>
+        <div class="settings-sub-body" style="display:none">
+          <div id="fb-card-text" style="font-size:var(--fs-xs);color:var(--text-muted);line-height:1.5;margin-bottom:10px"></div>
+          <button type="button" id="fb-card-btn" onclick="openFeedbackModal()" style="width:100%;padding:11px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-size:var(--fs-sm);font-weight:600;cursor:pointer">✍️ Fikr yozish</button>
+        </div>
+      </div>
+
       <!-- 0d. Imtihon natijalari (IELTS/SAT/CEFR) yoqish/o'chirish -->
       <div id="exam-results-settings-card" class="settings-sub-card">
         <button type="button" class="settings-sub-header" onclick="toggleSettingsSubCard('exam-results-settings-card')">
@@ -1540,16 +1548,10 @@
       <!-- Tanga mukofotlari jadvali -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:14px">
         <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px" data-i18n="sec_coin_system_title">🪙 Tanga tizimi</div>
-        <div style="display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm);color:var(--text-muted)">
-          <div style="display:flex;justify-content:space-between"><span data-i18n="sec_daily_clean">✅ Har kun (qilmadim)</span><span style="color:#34D399;font-weight:600">+3 🪙</span></div>
-          <div style="display:flex;justify-content:space-between"><span data-i18n="sec_streak_5">🥉 Daraja 1 (5 kun)</span><span style="color:#34D399;font-weight:600">+8 🪙</span></div>
-          <div style="display:flex;justify-content:space-between"><span data-i18n="sec_streak_10">🥈 Daraja 2 (10 kun)</span><span style="color:#34D399;font-weight:600">+20 🪙</span></div>
-          <div style="display:flex;justify-content:space-between"><span data-i18n="sec_streak_20">🥇 Daraja 3 (20 kun)</span><span style="color:#34D399;font-weight:600">+45 🪙</span></div>
-          <div style="display:flex;justify-content:space-between"><span data-i18n="sec_streak_40">🏅 Daraja 4 (40 kun)</span><span style="color:#34D399;font-weight:600">+90 🪙</span></div>
-          <div style="display:flex;justify-content:space-between"><span data-i18n="sec_streak_75">👑 Daraja 5 (75 kun)</span><span style="color:#34D399;font-weight:600">+180 🪙</span></div>
-          <div style="height:1px;background:var(--border);margin:4px 0"></div>
-          <div style="display:flex;justify-content:space-between"><span data-i18n="sec_fail_penalty">❌ Yiqilsa (jazo)</span><span style="color:#F87171;font-weight:600">-5 🪙</span></div>
-          <div style="display:flex;justify-content:space-between"><span data-i18n="sec_fail_2x_penalty">⚠️ 3 kun ketma-ket (2x jazo)</span><span style="color:#F87171;font-weight:600">-10 🪙</span></div>
+        <div id="sec-coin-table" style="display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm);color:var(--text-muted)"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="sec-cfg-edit-btn" type="button" onclick="secCfgToggleEdit()" style="flex:1;padding:9px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text);font-size:var(--fs-xs);cursor:pointer">✏️</button>
+          <button id="sec-cfg-reset-btn" type="button" onclick="secCfgReset()" style="display:none;padding:9px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-xs);cursor:pointer">↺</button>
         </div>
       </div>
 
@@ -1815,13 +1817,14 @@
     </div>
 
     <div class="modal-field">
-      <label data-i18n="task_diff_label">Qiyinlik darajasi</label>
-      <div class="diff-opts">
-        <button class="diff-opt" data-diff="0" onclick="selDiff(0)"><span data-i18n="task_diff_free">⚪ Bepul</span><br><small style="font-size:var(--fs-3xs);opacity:0.6">0 <span data-i18n="task_coin_unit">tanga</span></small></button>
-        <button class="diff-opt sel" data-diff="1" onclick="selDiff(1)"><span data-i18n="task_diff_easy">🟢 Oson</span><br><small style="font-size:var(--fs-3xs);opacity:0.6">1 <span data-i18n="task_coin_unit">tanga</span></small></button>
-        <button class="diff-opt" data-diff="2" onclick="selDiff(2)"><span data-i18n="task_diff_medium">🟡 O'rtacha</span><br><small style="font-size:var(--fs-3xs);opacity:0.6">2 <span data-i18n="task_coin_unit">tanga</span></small></button>
-        <button class="diff-opt" data-diff="3" onclick="selDiff(3)"><span data-i18n="task_diff_hard">🔴 Qiyin</span><br><small style="font-size:var(--fs-3xs);opacity:0.6">3 <span data-i18n="task_coin_unit">tanga</span></small></button>
-      </div>
+      <label id="m-coins-label">Tanga mukofoti</label>
+      <input type="number" id="m-coins" min="0" max="30" step="1" value="1" inputmode="numeric" oninput="tmCoinsInput()" />
+      <div id="m-coins-hint" style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">0 – 30 🪙</div>
+    </div>
+    <div class="modal-field">
+      <label id="m-penalty-label">Jarima (bajarilmasa)</label>
+      <input type="number" id="m-penalty" min="0" max="30" step="1" value="1" inputmode="numeric" oninput="tmPenaltyInput()" />
+      <div id="m-penalty-hint" style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">0 – 30 🪙</div>
     </div>
 
     <div class="modal-field">
@@ -2266,8 +2269,17 @@
 
 <!-- GOAL MODAL -->
 <div class="modal-overlay" id="goal-modal-overlay">
-  <div class="modal" id="goal-modal-box">
-    <h2 id="goal-modal-title" data-i18n="gm_title_new">Yangi maqsad</h2>
+  <div class="modal" id="goal-modal-box" style="max-width:680px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+      <h2 id="goal-modal-title" data-i18n="gm_title_new">Yangi maqsad</h2>
+      <span id="gm-step-label" style="font-size:var(--fs-xs);color:var(--text-muted);white-space:nowrap">1 / 2</span>
+    </div>
+    <div style="display:flex;gap:6px;margin:4px 0 16px">
+      <span id="gm-dot-1" style="flex:1;height:4px;border-radius:4px;background:var(--accent)"></span>
+      <span id="gm-dot-2" style="flex:1;height:4px;border-radius:4px;background:var(--surface2)"></span>
+    </div>
+    <div class="gm-page" data-page="1">
+      <div class="modal-fields-columns">
     <div class="modal-field">
       <label data-i18n="gm_name_label">Maqsad nomi</label>
       <input type="text" id="gm-name" placeholder="Masalan: Kitob o'qish, Sport..." data-i18n-ph="gm_name_ph" />
@@ -2276,6 +2288,39 @@
       <label data-i18n="gm_desc_label">Tavsif (ixtiyoriy)</label>
       <input type="text" id="gm-desc" placeholder="Qisqacha izoh..." data-i18n-ph="gm_desc_ph" />
     </div>
+    <div class="modal-field">
+      <label data-i18n="gm_emoji_label">Emoji (ixtiyoriy)</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="remoji-chip" onclick="setGoalEmoji('🎯')">🎯</button>
+        <button class="remoji-chip" onclick="setGoalEmoji('📚')">📚</button>
+        <button class="remoji-chip" onclick="setGoalEmoji('💪')">💪</button>
+        <button class="remoji-chip" onclick="setGoalEmoji('🏃')">🏃</button>
+        <button class="remoji-chip" onclick="setGoalEmoji('🧘')">🧘</button>
+        <button class="remoji-chip" onclick="setGoalEmoji('💰')">💰</button>
+        <button class="remoji-chip" onclick="setGoalEmoji('🎨')">🎨</button>
+        <button class="remoji-chip" onclick="setGoalEmoji('🌱')">🌱</button>
+      </div>
+      <input type="text" id="gm-emoji" placeholder="🎯" maxlength="4" style="max-width:80px" />
+    </div>
+    <div class="modal-field">
+      <label data-i18n="gm_coin_label">Kunlik tanga mukofoti</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="gm-coin-opts">
+        <button type="button" class="rcost-chip" data-v="0" onclick="setGoalCoins(0)">0</button>
+        <button type="button" class="rcost-chip" data-v="1" onclick="setGoalCoins(1)">1</button>
+        <button type="button" class="rcost-chip" data-v="2" onclick="setGoalCoins(2)">2</button>
+        <button type="button" class="rcost-chip" data-v="3" onclick="setGoalCoins(3)">3</button>
+        <button type="button" class="rcost-chip" data-v="5" onclick="setGoalCoins(5)">5</button>
+        <button type="button" class="rcost-chip" data-v="10" onclick="setGoalCoins(10)">10</button>
+        <button type="button" class="rcost-chip" data-v="20" onclick="setGoalCoins(20)">20</button>
+        <button type="button" class="rcost-chip" data-v="30" onclick="setGoalCoins(30)">30</button>
+      </div>
+      <input type="number" id="gm-coins" min="0" max="30" step="1" value="1" inputmode="numeric" oninput="gmCoinsInput()" style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:'DM Sans',sans-serif" />
+      <div id="gm-coins-hint" style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">0 – 30 🪙</div>
+    </div>
+    </div>
+    </div>
+    <div class="gm-page" data-page="2" style="display:none">
+      <div class="modal-fields-columns">
     <div class="modal-field" id="gm-field-duration">
       <label data-i18n="gm_duration_label">Muddat (kun)</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="gm-duration-presets">
@@ -2285,6 +2330,7 @@
         <button class="rcost-chip" onclick="setGoalDur(30)">30</button>
         <button class="rcost-chip" onclick="setGoalDur(60)">60</button>
         <button class="rcost-chip" onclick="setGoalDur(90)">90</button>
+        <button class="rcost-chip" id="gm-dur-inf" onclick="gmToggleOngoing()">♾</button>
       </div>
       <input type="number" id="gm-duration" placeholder="Yoki kunlar sonini kiriting..." data-i18n-ph="gm_duration_ph" min="1" oninput="syncGoalDurChips()" />
     </div>
@@ -2330,32 +2376,20 @@
       <input type="date" id="gm-startdate" />
     </div>
     <div class="modal-field">
-      <label data-i18n="gm_emoji_label">Emoji (ixtiyoriy)</label>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-        <button class="remoji-chip" onclick="setGoalEmoji('🎯')">🎯</button>
-        <button class="remoji-chip" onclick="setGoalEmoji('📚')">📚</button>
-        <button class="remoji-chip" onclick="setGoalEmoji('💪')">💪</button>
-        <button class="remoji-chip" onclick="setGoalEmoji('🏃')">🏃</button>
-        <button class="remoji-chip" onclick="setGoalEmoji('🧘')">🧘</button>
-        <button class="remoji-chip" onclick="setGoalEmoji('💰')">💰</button>
-        <button class="remoji-chip" onclick="setGoalEmoji('🎨')">🎨</button>
-        <button class="remoji-chip" onclick="setGoalEmoji('🌱')">🌱</button>
-      </div>
-      <input type="text" id="gm-emoji" placeholder="🎯" maxlength="4" style="max-width:80px" />
+      <label id="gm-penalty-label">Jarima</label>
+      <input type="number" id="gm-penalty" min="0" max="30" step="1" value="0" inputmode="numeric" oninput="var v=parseInt(this.value); if(v>30)this.value=30; else if(v<0)this.value=0;" />
     </div>
     <div class="modal-field">
-      <label data-i18n="gm_coin_label">Kunlik tanga mukofoti</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap" id="gm-coin-opts">
-        <button class="diff-opt"     id="gm-coin-0" onclick="setGoalCoins(0)"><span data-i18n="gm_coin_free">🆓 Bepul</span><br><span style="font-size:var(--fs-xs);color:var(--text-muted)">+0 🪙</span></button>
-        <button class="diff-opt sel" id="gm-coin-1" onclick="setGoalCoins(1)"><span data-i18n="gm_coin_easy">🥉 Oddiy</span><br><span style="font-size:var(--fs-xs);color:var(--gold)">+1 🪙</span></button>
-        <button class="diff-opt"     id="gm-coin-2" onclick="setGoalCoins(2)"><span data-i18n="gm_coin_medium">🥈 O'rta</span><br><span style="font-size:var(--fs-xs);color:var(--gold)">+2 🪙</span></button>
-        <button class="diff-opt"     id="gm-coin-3" onclick="setGoalCoins(3)"><span data-i18n="gm_coin_hard">🥇 Qiyin</span><br><span style="font-size:var(--fs-xs);color:var(--gold)">+3 🪙</span></button>
-      </div>
-      <input type="hidden" id="gm-coins" value="1" />
+      <label id="gm-remind-label">Eslatma</label>
+      <input type="time" id="gm-remind" />
+    </div>
+    </div>
     </div>
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeGoalModal()" data-i18n="btn_cancel">Bekor</button>
-      <button class="btn-save" onclick="saveGoal()" data-i18n="btn_save_check">Saqlash ✓</button>
+      <button type="button" class="btn-cancel" id="gm-btn-cancel" onclick="closeGoalModal()" data-i18n="btn_cancel">Bekor</button>
+      <button type="button" class="btn-cancel" id="gm-btn-back" onclick="gmShowPage(1)" style="display:none">←</button>
+      <button type="button" class="btn-save" id="gm-btn-next" onclick="gmNext()">→</button>
+      <button type="button" class="btn-save" id="gm-btn-save" onclick="saveGoal()" style="display:none" data-i18n="btn_save_check">Saqlash ✓</button>
     </div>
   </div>
 </div>
@@ -2944,6 +2978,20 @@
           <button id="ielts-sec-w" onclick="selectIeltsSection('writing')"   style="padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:#F5A623;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s" data-i18n="ielts_sec_writing">✍️ Writing</button>
           <button id="ielts-sec-s" onclick="selectIeltsSection('speaking')"  style="padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.06);color:#F87171;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s" data-i18n="ielts_sec_speaking">🗣️ Speaking</button>
         </div>
+        <button id="ielts-sec-f" onclick="selectIeltsFull()" style="width:100%;margin-top:8px;padding:10px;border-radius:var(--radius-sm);border:2px solid rgba(124,92,252,0.3);background:rgba(124,92,252,0.06);color:#B48EFF;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s">🧩 Full Mock (hammasi bir yo'la)</button>
+      </div>
+
+
+      <!-- Full Mock: barcha 4 section bir yo'la -->
+      <div id="ielts-full-row" style="display:none;margin-bottom:14px">
+        <div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:10px">Bo'sh qoldirilgan section saqlanmaydi (kamida bittasini kiriting)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label style="font-size:var(--fs-2xs);color:#60A5FA;display:block;margin-bottom:5px">🎧 Listening (0-40)</label><input type="number" id="ielts-full-l" min="0" max="40" step="1" inputmode="numeric" placeholder="raw" oninput="ieltsFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
+          <div><label style="font-size:var(--fs-2xs);color:#34D399;display:block;margin-bottom:5px">📖 Reading (0-40)</label><input type="number" id="ielts-full-r" min="0" max="40" step="1" inputmode="numeric" placeholder="raw" oninput="ieltsFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
+          <div><label style="font-size:var(--fs-2xs);color:#F5A623;display:block;margin-bottom:5px">✍️ Writing (band 0-9)</label><input type="number" id="ielts-full-w" min="0" max="9" step="0.5" inputmode="decimal" placeholder="6.5" oninput="ieltsFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
+          <div><label style="font-size:var(--fs-2xs);color:#F87171;display:block;margin-bottom:5px">🗣️ Speaking (band 0-9)</label><input type="number" id="ielts-full-s" min="0" max="9" step="0.5" inputmode="decimal" placeholder="6.5" oninput="ieltsFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
+        </div>
+        <div id="ielts-full-preview" style="margin-top:10px;font-size:var(--fs-xs);color:var(--text-muted);text-align:center"></div>
       </div>
 
       <!-- STEP 2: Sub-section (Listening yoki Reading uchun) -->
@@ -3093,9 +3141,19 @@
             <span data-i18n="sat_sec_math">Math</span>
           </button>
         </div>
+        <button id="sat-sec-full" onclick="selectSatSection('full')" style="width:100%;margin-top:10px;padding:12px;border-radius:var(--radius-md);border:2px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:#F5A623;font-size:var(--fs-sm);font-weight:600;cursor:pointer;transition:all 0.2s">🧩 Full Mock (RW + Math bir yo'la)</button>
       </div>
 
-      <div style="margin-bottom:14px">
+      <div id="sat-full-row" style="display:none;margin-bottom:14px">
+        <div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:10px">Bo'sh qoldirilgan section saqlanmaydi (kamida bittasini kiriting)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label style="font-size:var(--fs-2xs);color:#B48EFF;display:block;margin-bottom:5px">📚 Reading &amp; Writing</label><input type="number" id="sat-full-rw" min="200" max="800" step="10" inputmode="numeric" placeholder="200-800" oninput="satFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
+          <div><label style="font-size:var(--fs-2xs);color:#34D399;display:block;margin-bottom:5px">🧮 Math</label><input type="number" id="sat-full-math" min="200" max="800" step="10" inputmode="numeric" placeholder="200-800" oninput="satFullPreview()" style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" /></div>
+        </div>
+        <div id="sat-full-preview" style="margin-top:10px;font-size:var(--fs-xs);color:var(--text-muted);text-align:center"></div>
+      </div>
+
+      <div id="sat-single-row" style="margin-bottom:14px">
         <label style="font-size:var(--fs-xs);color:var(--text-muted);display:block;margin-bottom:6px" data-i18n="sat_score_label">Ballni kiriting (200 - 800)</label>
         <input type="number" id="sat-res-score" min="200" max="800" step="10" placeholder="masalan: 650" style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;outline:none;box-sizing:border-box" />
       </div>
@@ -3274,6 +3332,8 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+
 
 
   <script src="script.js"></script>

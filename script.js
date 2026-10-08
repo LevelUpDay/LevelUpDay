@@ -6,7 +6,7 @@
 // chegarasi ularni boshqa bloklardan ko'rinmas qilib qo'yardi.
 // ============================================================
 
-// ---------- Blok 1/8 ----------
+// ---------- Blok 1/10 ----------
 try {
 
 (function() {
@@ -33,7 +33,7 @@ try {
   console.error('[script.js] Blok 1 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr1);
 }
 
-// ---------- Blok 2/8 ----------
+// ---------- Blok 2/10 ----------
 try {
 
 if ('serviceWorker' in navigator) {
@@ -57,8 +57,676 @@ if ('serviceWorker' in navigator) {
   console.error('[script.js] Blok 2 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr2);
 }
 
-// ---------- Blok 3/8 ----------
+// ---------- Blok 3/10 ----------
 try {
+// async funksiyalar try{} ichida block-scoped bo'lib qolmasligi uchun global var qilib, blok boshiga ko'chirildi
+var fetchServerTimeSafe = async function() {
+  try {
+    var res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC', { cache: 'no-store' });
+    var data = await res.json();
+    if (data && data.unixtime) return data.unixtime * 1000;
+  } catch (e) { /* tarmoq yo'q/bloklangan — jim o'tkazamiz */ }
+  return null;
+};
+
+var upsertTodoRow = async function(task, orderIndex) {
+  // LocalStorage'da alohida qatorlar yo'q — faqat ichki keshni yangilaymiz,
+  // haqiqiy yozish syncTasksToLocalStorage() ichida bitta martada bajariladi.
+  const json = JSON.stringify(task);
+  const changed = _lastSyncedTasks[task.id] !== json;
+  _lastSyncedTasks[task.id] = json;
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (changed) {
+    _pendingTodoUpserts[task.id] = { task: task, orderIndex: orderIndex };
+    delete _pendingTodoDeletes[task.id];
+    scheduleTodosCloudSync();
+  } else if (_pendingTodoUpserts[task.id]) {
+    _pendingTodoUpserts[task.id].orderIndex = orderIndex;
+  }
+};
+
+var deleteTodoRow = async function(id) {
+  delete _lastSyncedTasks[id];
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  delete _pendingTodoUpserts[id];
+  _pendingTodoDeletes[id] = true;
+  scheduleTodosCloudSync();
+};
+
+var loadAllTodos = async function() {
+  const tasks = readLocalTasks();
+  return tasks.map(function(task, idx) {
+    return { id: task.id, task: task, order_index: idx };
+  });
+};
+
+var syncTasksToLocalStorage = async function() {
+  const currentIds = {};
+  (S.tasks || []).forEach(function(task, idx) {
+    currentIds[task.id] = true;
+    upsertTodoRow(task, idx);
+  });
+  Object.keys(_lastSyncedTasks).forEach(function(idStr) {
+    const id = Number(idStr);
+    if (!currentIds[id]) deleteTodoRow(id);
+  });
+  writeLocalTasks(S.tasks || []);
+};
+
+var saveToLocalStorage = async function(state) {
+  try {
+    const clone = Object.assign({}, state);
+    delete clone.tasks;      // tasks alohida 'todolist_tasks' kalitida saqlanadi
+    clone._lastTaskCount = (state.tasks || []).length;
+    const updatedAt = new Date().toISOString();
+    localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify({ data: clone, updated_at: updatedAt }));
+    S._serverSavedAt = updatedAt;
+  } catch(e) {
+    console.warn('app_state saqlash xatosi:', e);
+  }
+  // Vazifalar ro'yxatini ham 'todolist_tasks' kalitiga yozamiz
+  syncTasksToLocalStorage();
+};
+
+var loadFromLocalStorage = async function() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STATE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.data) {
+        return { data: parsed.data, updatedAt: parsed.updated_at };
+      }
+    }
+  } catch(e) {
+    console.warn('app_state yuklash xatosi:', e);
+  }
+  return null;
+};
+
+var performExport = async function(exportTypes, pin) {
+  try {
+    if (!Array.isArray(exportTypes)) exportTypes = [exportTypes];
+    exportTypes = exportTypes.filter(Boolean);
+    if (exportTypes.length === 0) exportTypes = ['all'];
+
+    var isAll = exportTypes.indexOf('all') !== -1;
+    var needState = isAll || exportTypes.indexOf('stats') !== -1;
+    var needExams = isAll || exportTypes.indexOf('ielts') !== -1;
+    var needTasks = isAll || exportTypes.indexOf('tasks') !== -1;
+
+    var backup = {
+      type: 'todolist_export',
+      version: 3,
+      app: 'ToDoList',
+      exported_at: new Date().toISOString(),
+      exportType: exportTypes, // array — kelajakda ham bir nechta turni birga saqlaydi
+      secretEncrypted: false,
+      data: {}
+    };
+
+    // LocalStorage-dan ma'lumotlarni olish
+    var allKeys = {};
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf(BACKUP_KEY_PREFIX) === 0) {
+        allKeys[k] = localStorage.getItem(k);
+      }
+    }
+
+    // 🔐 "Focus"ni backup faylida shifrlash — faqat PIN berilgan va
+    // haqiqatan ham saqlangan secretHabit ma'lumoti bo'lsa amalga oshadi.
+    if (pin && allKeys[LOCAL_STATE_KEY]) {
+      try {
+        var stateWrapForEnc = JSON.parse(allKeys[LOCAL_STATE_KEY]);
+        if (stateWrapForEnc && stateWrapForEnc.data && stateWrapForEnc.data.secretHabit) {
+          var encResult = await pcEncryptWithPin(pin, stateWrapForEnc.data.secretHabit);
+          stateWrapForEnc.data.secretHabit = { __pcEncrypted: true, enc: encResult };
+          allKeys[LOCAL_STATE_KEY] = JSON.stringify(stateWrapForEnc);
+          backup.secretEncrypted = true;
+        }
+      } catch (encErr) {
+        console.warn('Focusni shifrlash xatosi:', encErr);
+      }
+    }
+
+    if (allKeys[LOCAL_STATE_KEY]) {
+      try {
+        var stateForStrip = JSON.parse(allKeys[LOCAL_STATE_KEY]);
+        if (stateForStrip && stateForStrip.data && stateForStrip.data.profile) {
+          var pStrip = stateForStrip.data.profile;
+          delete pStrip.name;
+          delete pStrip.photo;
+          delete pStrip.country;
+          delete pStrip.language;
+          allKeys[LOCAL_STATE_KEY] = JSON.stringify(stateForStrip);
+        }
+      } catch (stripErr) {
+        console.warn('Profilni eksportdan olib tashlashda xatolik:', stripErr);
+      }
+    }
+
+    var taskCount = 0, coinCount = 0;
+    try { taskCount = (JSON.parse(allKeys[LOCAL_TASKS_KEY] || '[]') || []).length; } catch(e) {}
+    try {
+      var stParsed = JSON.parse(allKeys[LOCAL_STATE_KEY] || 'null');
+      coinCount = (stParsed && stParsed.data) ? (stParsed.data.coins || 0) : 0;
+    } catch(e) {}
+
+    var examsPayload = null, examCount = 0;
+    if (needExams && !isAll) {
+      try {
+        var stateForExams = JSON.parse(allKeys[LOCAL_STATE_KEY] || 'null');
+        var dExams = stateForExams && stateForExams.data;
+        if (dExams) {
+          examsPayload = {
+            ieltsResults: dExams.ieltsResults || [],
+            satResults: dExams.satResults || [],
+            examDates: dExams.examDates || {},
+            ieltsData: dExams.ieltsData || null, // eski (migratsiyadan oldingi) format uchun
+            targetSubjects: (dExams.profile && dExams.profile.targetSubjects) || [],
+            prep: (dExams.profile && dExams.profile.prep) || null
+          };
+          examCount = examsPayload.ieltsResults.length + examsPayload.satResults.length;
+        }
+      } catch (exErr) {
+        console.warn('Imtihon ma\u2019lumotlarini ajratib olishda xatolik:', exErr);
+      }
+    }
+
+    if (isAll) {
+      // Barchasi — 'todolist_' bilan boshlanuvchi HAMMA kalitlar (sozlamalar,
+      // streaklar, kalendar loglari va h.k. ham kiradi).
+      backup.data = allKeys;
+    } else {
+      // Tanlangan qismlar bo'yicha faqat kerakli kalitlarni qo'shamiz.
+      if (needState && allKeys[LOCAL_STATE_KEY]) backup.data.state = allKeys[LOCAL_STATE_KEY];
+      if (needTasks && allKeys[LOCAL_TASKS_KEY]) backup.data.tasks = allKeys[LOCAL_TASKS_KEY];
+      if (examsPayload) backup.data.exams = JSON.stringify(examsPayload);
+    }
+
+    var labels = exportTypes.map(function(tId){ return EXPORT_TYPE_LABELS[tId] || tId; });
+    backup.meta = {
+      type: labels.join(' + '),
+      taskCount: needTasks ? taskCount : undefined,
+      coins: needState ? (coinCount || 0) : undefined,
+      examCount: examsPayload ? examCount : undefined
+    };
+
+    // JSON faylga yozish
+    var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'todolist_' + exportTypes.join('-') + '_' + new Date().getTime() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+
+    toast(t('data_export_success'));
+  } catch(e) {
+    console.warn('Eksport xatosi:', e);
+    toast(t('data_export_error'));
+  }
+};
+
+var bootSharedApp = async function() {
+  try { await loadUserDataAndInit(); } finally { window._appBooted = true; }
+};
+
+var pushRewardLogToCloud = async function(kind, reward, extra) {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  try {
+    await supabase.from('reward_log').insert({
+      user_id: S.cloudUserId,
+      kind: kind,
+      reward_id: reward && reward.id != null ? String(reward.id) : null,
+      reward_title: (reward && reward.name) || '',
+      rtype: (reward && reward.rtype) || 'count',
+      amount: (extra && extra.amount > 0) ? extra.amount : ((reward && reward.amount > 0) ? reward.amount : 1),
+      icon: (reward && reward.icon) || '🎁',
+      coins_spent: extra && extra.coinsSpent != null ? extra.coinsSpent : null,
+      penalty_coins: extra && extra.penaltyCoins != null ? extra.penaltyCoins : null
+    });
+  } catch (e) { console.warn('[reward_log] yozish xatosi:', e.message); }
+};
+
+var rewardLogSyncFromCloud = async function() {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (_rewardLogCloudSyncing) return;
+  _rewardLogCloudSyncing = true;
+  try {
+    var res = await supabase.from('reward_log').select('*').eq('user_id', S.cloudUserId).order('created_at', { ascending: false }).limit(1000);
+    if (res.error) { console.warn('[reward_log] o\'qish xatosi:', res.error.message); return; }
+    var rows = res.data || [];
+
+    function mergeByCloudId(localList, cloudRows, mapFn) {
+      var byKey = {};
+      localList.forEach(function (x) { byKey[x._cloudId || x.id] = x; });
+      cloudRows.forEach(function (r) {
+        var mapped = mapFn(r);
+        byKey[r.id] = mapped; // bulutdagi versiya ustunlik qiladi
+      });
+      var merged = Object.keys(byKey).map(function (k) { return byKey[k]; });
+      merged.sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+      return merged.slice(0, MAX_HISTORY_ENTRIES);
+    }
+
+    var purchases = rows.filter(function (r) { return r.kind === 'purchase'; }).map(function (r) {
+      return { id: r.id, _cloudId: r.id, rewardId: r.reward_id, rewardTitle: r.reward_title, coinsSpent: r.coins_spent, timestamp: r.created_at, rtype: r.rtype, amount: r.amount, icon: r.icon };
+    });
+    var usages = rows.filter(function (r) { return r.kind === 'usage'; }).map(function (r) {
+      return { id: r.id, _cloudId: r.id, rewardId: r.reward_id, rewardTitle: r.reward_title, timestamp: r.created_at, rtype: r.rtype, amount: r.amount, penaltyCoins: r.penalty_coins, icon: r.icon };
+    });
+
+    savePurchaseHistory(mergeByCloudId(loadPurchaseHistory(), rows.filter(function (r) { return r.kind === 'purchase'; }), function (r) {
+      return { id: r.id, _cloudId: r.id, rewardId: r.reward_id, rewardTitle: r.reward_title, coinsSpent: r.coins_spent, timestamp: r.created_at, rtype: r.rtype, amount: r.amount, icon: r.icon };
+    }));
+    saveUsageHistory(mergeByCloudId(loadUsageHistory(), rows.filter(function (r) { return r.kind === 'usage'; }), function (r) {
+      return { id: r.id, _cloudId: r.id, rewardId: r.reward_id, rewardTitle: r.reward_title, timestamp: r.created_at, rtype: r.rtype, amount: r.amount, penaltyCoins: r.penalty_coins, icon: r.icon };
+    }));
+  } catch (e) {
+    console.warn('[reward_log] sinxronizatsiya xatosi:', e.message);
+  } finally {
+    _rewardLogCloudSyncing = false;
+  }
+};
+
+var loadUserDataAndInit = async function() {
+  load(); // moslik uchun (hech narsa qilmaydi)
+
+  const remote = await loadFromLocalStorage();
+  const todoRows = await loadAllTodos();
+
+  if (remote) {
+    const remoteState = remote.data;
+    const remoteUpdatedAt = remote.updatedAt || '1970-01-01';
+    S = Object.assign({}, S, remoteState);
+    S._serverSavedAt = remoteUpdatedAt;
+    S._localUpdatedAt = remoteUpdatedAt;
+    (S.goals||[]).forEach(function(g) {
+      if (!g.daysCoinsGiven) {
+        g.daysCoinsGiven = {};
+        Object.keys(g.daysChecked||{}).forEach(function(d) { g.daysCoinsGiven[d] = 1; });
+      }
+    });
+    ensureCefrDefaults(); // eski (CEFR qo'shilishidan oldingi) foydalanuvchilar uchun xavfsiz standart qiymat
+  } else {
+    var exStart = today();
+    var exEnd = addDays(exStart, 7 - 1);
+    S.goals = [{
+      id: Date.now(),
+      name: t('goal_example_name'),
+      desc: t('goal_example_desc'),
+      duration: 7,
+      emoji: '📚',
+      startDate: exStart,
+      endDate: exEnd,
+      done: false,
+      daysChecked: {},
+      daysCoinsGiven: {},
+      coins: 1
+    }];
+    S.nextCtId = 1001;
+    S.chestTasks = [{ id: 1000, name: t('chest_example_task_name'), diff: 1 }];
+    // 🎉 Yangi foydalanuvchi — birinchi marta ochilganda "Xush kelibsiz"
+    // so'rovnomasini ko'rsatish uchun bayroq o'rnatamiz (render() dan keyin ishlatiladi).
+    S.showWelcomeSurveyPending = true;
+    ensureCefrDefaults();
+    saveToLocalStorage(S);
+  }
+
+  var lastKnownTaskCount = (remote && remote.data && typeof remote.data._lastTaskCount === 'number') ? remote.data._lastTaskCount : 0;
+  if (todoRows && todoRows.length) {
+    S.tasks = todoRows.map(function(r){ return r.task; });
+    if (!Array.isArray(S.taskOrder) || !S.taskOrder.length) {
+      S.taskOrder = todoRows.map(function(r){ return r.id; });
+    } else {
+      ensureFullTaskOrder();
+    }
+    todoRows.forEach(function(r){ _lastSyncedTasks[r.id] = JSON.stringify(r.task); });
+  } else if (S.tasks && S.tasks.length) {
+    // 'todolist_tasks' kaliti hali bo'sh, lekin holat ichida eski uslubdagi tasks bor —
+    // ularni bir martalik migratsiya sifatida LocalStorage'ga yozamiz.
+    syncTasksToLocalStorage();
+  } else if (lastKnownTaskCount > 0) {
+    // Oldin vazifalar bor edi, lekin hozir na asosiy, na zaxira kalitda
+    // topilmadi — bu haqiqiy "bo'sh ro'yxat" emas, ma'lumot yo'qolishi belgisi.
+    console.warn('Ogohlantirish: oldin', lastKnownTaskCount, 'ta vazifa bor edi, lekin hech qanday manbada topilmadi.');
+    setTimeout(function(){ toast(t('tasks_not_found_toast')); }, 500);
+  }
+
+  if (remote) {
+    ensureFreezeGrants();
+    recalcStreakFromLog();
+    checkReset();
+  }
+
+  migrateLegacyRewards();
+  fixInflatedTaskDoneCounts();
+  // 🆕 Qabristonni sozlangan muddat bo'yicha avtomatik tozalash (agar
+  // foydalanuvchi bu funksiyani yoqqan bo'lsa).
+  try { cleanupOldTrash(); } catch (e) {}
+
+  // Reyting — oylik mavsum almashganmi, tekshiramiz (faqat LOCAL "shu oy"
+  // ko'rsatkichini reset qilish uchun).
+  checkReytingMonthlySeason();
+
+  render();
+  refreshAllModulesFromState();
+  removeTestDataForJuly1();
+
+  // 🎉 Yangi foydalanuvchi bo'lsa — "Xush kelibsiz" so'rovnoma oynasini ochamiz
+  if (S.showWelcomeSurveyPending) {
+    S.showWelcomeSurveyPending = false;
+    save();
+    setTimeout(function(){ if (typeof showWelcomeSurvey === 'function') showWelcomeSurvey(); }, 500);
+  }
+
+  if (S.pendingStreakMsg) {
+    setTimeout(()=>{ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 600);
+  }
+  if (S.pendingMissedMsg) {
+    setTimeout(function(){ toast(S.pendingMissedMsg); S.pendingMissedMsg=null; save(); }, 1200);
+  }
+  if (S.pendingSubtaskPenaltyMsg) {
+    setTimeout(function(){ toast(S.pendingSubtaskPenaltyMsg); S.pendingSubtaskPenaltyMsg=null; save(); }, 1400);
+  }
+  if (S.pendingFreezeGrantMsg) {
+    setTimeout(function(){ toast(S.pendingFreezeGrantMsg); S.pendingFreezeGrantMsg=null; save(); renderProfile(); }, 1600);
+  }
+  if (S.pendingLevelUp) {
+    setTimeout(function(){ showLevelUpModal(getLevel(S.pendingLevelUp)); S.pendingLevelUp=null; save(); }, 1800);
+  }
+  if (S.pendingReytingReward) {
+    setTimeout(function(){ showReytingMonthlyRewardModal(S.pendingReytingReward.rank, S.pendingReytingReward.reward); S.pendingReytingReward=null; save(); }, 2200);
+  }
+};
+
+var fetchReytingList = async function(scope, metric, subjectFilter) {
+  var me = getRealUserEntry();
+  if (scope === 'local' && !me.country) {
+    return { list: [], noCountry: true };
+  }
+  var canQuery = typeof window.fbFetchLeaderboard === 'function' && navigator.onLine;
+  if (!canQuery) {
+    var onlyMe = [me];
+    onlyMe[0].rank = 1;
+    return { list: onlyMe, noCountry: false, offline: true };
+  }
+  var res;
+  try {
+    res = await window.fbFetchLeaderboard(scope, metric, subjectFilter);
+  } catch (e) {
+    console.warn('[Reyting] Supabase so\'rovida xatolik:', e);
+    res = null;
+  }
+  if (!res) {
+    var onlyMe2 = [me];
+    onlyMe2[0].rank = 1;
+    return { list: onlyMe2, noCountry: false, offline: true, error: true };
+  }
+  if (res.noCountry) return res;
+  var all = res.list.slice();
+  var idx = me.id ? all.findIndex(function(p){ return p.id === me.id; }) : -1;
+  if (idx !== -1) all[idx] = Object.assign({}, all[idx], me, { id: all[idx].id });
+  else all.push(me);
+  all.sort(function(a, b){ return reytingMetricValue(b, metric) - reytingMetricValue(a, metric); });
+  all.forEach(function(p, i){ p.rank = i + 1; });
+  _reytingLastList = all;
+  return { list: all, noCountry: false };
+};
+
+var sha256Hex = async function(str) {
+  var enc = new TextEncoder().encode(String(str));
+  var buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.prototype.map.call(new Uint8Array(buf), function(b){
+    return b.toString(16).padStart(2, '0');
+  }).join('');
+};
+
+var _pcDeriveAesKey = async function(pin, saltBytes) {
+  var baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), { name: 'PBKDF2' }, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+};
+
+var pcEncryptWithPin = async function(pin, plainObj) {
+  var salt = crypto.getRandomValues(new Uint8Array(16));
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var key = await _pcDeriveAesKey(pin, salt);
+  var data = new TextEncoder().encode(JSON.stringify(plainObj));
+  var cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, data);
+  return { salt: _bufToB64(salt), iv: _bufToB64(iv), ciphertext: _bufToB64(new Uint8Array(cipherBuf)) };
+};
+
+var pcDecryptWithPin = async function(pin, enc) {
+  var key = await _pcDeriveAesKey(pin, _b64ToBuf(enc.salt));
+  var plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: _b64ToBuf(enc.iv) }, key, _b64ToBuf(enc.ciphertext));
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+};
+
+var pcVerifyPinBuffer = async function(buf) {
+  var lockedMs = pcLockRemainingMs();
+  if (lockedMs > 0) return { ok: false, locked: true, remainingSec: Math.ceil(lockedMs / 1000) };
+  var d = getSecretData();
+  if (!d.pinHash) return { ok: false, noPinSet: true };
+  var hash = await sha256Hex(buf);
+  if (hash === d.pinHash) {
+    pcRegisterPinSuccess();
+    return { ok: true };
+  }
+  var until = pcRegisterPinFail();
+  var remMs = until - Date.now();
+  if (remMs > 0) return { ok: false, locked: true, remainingSec: Math.ceil(remMs / 1000) };
+  return { ok: false };
+};
+
+var pinKey = async function(k) {
+  if(k === 'del') {
+    _pinBuffer = _pinBuffer.slice(0,-1);
+  } else if(k === 'ok') {
+    var lockedMs = pcLockRemainingMs();
+    if (lockedMs > 0) {
+      showPinLockout('pin-error', 'secret-pin-keypad', Math.ceil(lockedMs / 1000));
+      _pinBuffer = ''; updatePinDots(); return;
+    }
+    var res = await pcVerifyPinBuffer(_pinBuffer);
+    if (res.ok) {
+      pcSetSessionPin(_pinBuffer); // cloud sinxronlash uchun sessiyada keshlaymiz
+      _secretUnlocked = true;
+      document.getElementById('secret-pin-overlay').style.display = 'none';
+      document.getElementById('secret-content').style.display = '';
+      renderSecretContent();
+      _pcResetAutoLockTimer();
+    } else if (res.locked) {
+      showPinLockout('pin-error', 'secret-pin-keypad', res.remainingSec);
+      _pinBuffer = '';
+    } else {
+      document.getElementById('pin-error').textContent = t('pin_wrong_error');
+      _pinBuffer = '';
+      // shake dots
+      var dots = document.getElementById('pin-dots');
+      dots.style.animation = 'none';
+      setTimeout(function(){ dots.style.animation=''; }, 10);
+    }
+    updatePinDots(); return;
+  } else {
+    if(_pinBuffer.length >= 4) return;
+    _pinBuffer += k;
+    // auto-check when 4 digits entered
+    if(_pinBuffer.length === 4) {
+      setTimeout(function(){ pinKey('ok'); }, 150);
+    }
+  }
+  document.getElementById('pin-error').textContent = '';
+  updatePinDots();
+};
+
+var chpinKey = async function(k) {
+  if (k === 'del') {
+    _chpinBuf = _chpinBuf.slice(0, -1);
+    document.getElementById('chpin-error').textContent = '';
+    updateChpinDots(); return;
+  }
+  if (k !== 'ok') {
+    if (_chpinBuf.length >= 4) return;
+    _chpinBuf += k;
+    updateChpinDots();
+    if (_chpinBuf.length === 4) setTimeout(function(){ chpinKey('ok'); }, 150);
+    return;
+  }
+  var d = getSecretData();
+  if (_chpinStep === 'old') {
+    var lockedMs = pcLockRemainingMs();
+    if (lockedMs > 0) {
+      showPinLockout('chpin-error', 'chpin-keypad', Math.ceil(lockedMs / 1000));
+      _chpinBuf = ''; updateChpinDots(); return;
+    }
+    var res = await pcVerifyPinBuffer(_chpinBuf);
+    if (res.ok) {
+      _chpinStep = 'new'; _chpinBuf = '';
+      document.getElementById('chpin-step-label').textContent = t('chpin_enter_new');
+      document.getElementById('chpin-error').textContent = '';
+    } else if (res.locked) {
+      showPinLockout('chpin-error', 'chpin-keypad', res.remainingSec);
+      _chpinBuf = '';
+    } else {
+      document.getElementById('chpin-error').textContent = t('chpin_wrong_old');
+      _chpinBuf = '';
+    }
+  } else if (_chpinStep === 'new') {
+    if (_chpinBuf.length < 4) { document.getElementById('chpin-error').textContent = t('chpin_enter_4digits'); return; }
+    _chpinNew = _chpinBuf; _chpinStep = 'confirm'; _chpinBuf = '';
+    document.getElementById('chpin-step-label').textContent = t('chpin_confirm_new');
+    document.getElementById('chpin-error').textContent = '';
+  } else if (_chpinStep === 'confirm') {
+    if (_chpinBuf === _chpinNew) {
+      // MUHIM: yangi PIN ham hech qachon ochiq holda saqlanmaydi — faqat
+      // SHA-256 xeshi yoziladi.
+      d.pinHash = await sha256Hex(_chpinNew);
+      d.pinSet = true;
+      d.pinFailCount = 0; d.pinLockUntil = 0;
+      saveSecretData(d);
+      pcSetSessionPin(_chpinNew); // yangi (joriy amaldagi) PIN — cloud sinxronlash uchun keshlanadi
+      closeChangePinModal();
+      toast(t('pin_changed_toast'));
+    } else {
+      document.getElementById('chpin-error').textContent = t('chpin_mismatch');
+      _chpinBuf = ''; _chpinStep = 'new'; _chpinNew = '';
+      document.getElementById('chpin-step-label').textContent = t('chpin_enter_new');
+    }
+  }
+  updateChpinDots();
+};
+
+var pcCreateKey = async function(k) {
+  if (k === 'del') {
+    _pcCreateBuf = _pcCreateBuf.slice(0, -1);
+    document.getElementById('pc-create-error').textContent = '';
+    updatePcCreateDots(); return;
+  }
+  if (k !== 'ok') {
+    if (_pcCreateBuf.length >= 4) return;
+    _pcCreateBuf += k;
+    updatePcCreateDots();
+    if (_pcCreateBuf.length === 4) setTimeout(function(){ pcCreateKey('ok'); }, 150);
+    return;
+  }
+  if (_pcCreateStep === 'new') {
+    if (_pcCreateBuf.length < 4) { document.getElementById('pc-create-error').textContent = t('chpin_enter_4digits'); return; }
+    _pcCreateNew = _pcCreateBuf; _pcCreateStep = 'confirm'; _pcCreateBuf = '';
+    document.getElementById('pc-create-step-label').textContent = t('chpin_confirm_new');
+    document.getElementById('pc-create-error').textContent = '';
+  } else if (_pcCreateStep === 'confirm') {
+    if (_pcCreateBuf === _pcCreateNew) {
+      var d = getSecretData();
+      // XAVFSIZLIK: ochiq PIN emas — faqat SHA-256 xeshi saqlanadi.
+      d.pinHash = await sha256Hex(_pcCreateNew);
+      d.pinSet = true;
+      d.pinFailCount = 0; d.pinLockUntil = 0;
+      saveSecretData(d);
+      S.pcPinProtectionEnabled = true;
+      save();
+      document.getElementById('pc-create-pin-overlay').style.display = 'none';
+      _pcCreateBuf = ''; _pcCreateNew = ''; _pcCreateStep = 'new';
+      updatePcToggleUI();
+      toast(t('pc_pin_enabled_toast'));
+      // Agar bu "Focus"ni ON qilish oqimining bir qismi bo'lsa —
+      // navbatdagi savolga ("Tezkor kirishdan yashirilsinmi?") o'tamiz.
+      if (typeof _pcSetupAfterPinCreated === 'function' && _pcSetupInProgress) _pcSetupAfterPinCreated();
+    } else {
+      document.getElementById('pc-create-error').textContent = t('chpin_mismatch');
+      _pcCreateBuf = ''; _pcCreateStep = 'new'; _pcCreateNew = '';
+      document.getElementById('pc-create-step-label').textContent = t('chpin_enter_new');
+    }
+  }
+  updatePcCreateDots();
+};
+
+var pcVerifyKey = async function(k) {
+  if (k === 'del') {
+    _pcVerifyBuf = _pcVerifyBuf.slice(0, -1);
+    document.getElementById('pc-verify-error').textContent = '';
+    updatePcVerifyDots(); return;
+  }
+  if (k !== 'ok') {
+    if (_pcVerifyBuf.length >= 4) return;
+    _pcVerifyBuf += k;
+    updatePcVerifyDots();
+    if (_pcVerifyBuf.length === 4) setTimeout(function(){ pcVerifyKey('ok'); }, 150);
+    return;
+  }
+  var lockedMs = pcLockRemainingMs();
+  if (lockedMs > 0) {
+    showPinLockout('pc-verify-error', 'pc-verify-keypad', Math.ceil(lockedMs / 1000));
+    _pcVerifyBuf = ''; updatePcVerifyDots(); return;
+  }
+  var res = await pcVerifyPinBuffer(_pcVerifyBuf);
+  if (res.ok) {
+    pcSetSessionPin(_pcVerifyBuf); // cloud sinxronlash uchun sessiyada keshlaymiz
+    if (_pcVerifyPurpose === 'disablePin') {
+      S.pcPinProtectionEnabled = false;
+      save();
+      document.getElementById('pc-verify-pin-overlay').style.display = 'none';
+      _pcVerifyBuf = '';
+      updatePcToggleUI();
+      toast(t('pc_pin_disabled_toast'));
+    } else if (_pcVerifyPurpose === 'disablePc') {
+      // OFF GUARD: PIN o'rnatilgan bo'lsa, "Focus"ni butunlay
+      // o'chirishdan oldin ham PIN tasdiqlanishi shart.
+      S.personalCheckEnabled = false;
+      save();
+      if(window._kiOv){window._kiOv.remove();window._kiOv=null;}
+      window._kiQ=[];
+      document.getElementById('pc-verify-pin-overlay').style.display = 'none';
+      _pcVerifyBuf = '';
+      updatePcToggleUI();
+      renderDsShortcuts();
+      toast(t('pc_disabled_toast'));
+    } else {
+      S.personalCheckEnabled = true;
+      save();
+      document.getElementById('pc-verify-pin-overlay').style.display = 'none';
+      _pcVerifyBuf = '';
+      updatePcToggleUI();
+      renderDsShortcuts();
+      toast(t('pc_enabled_toast'));
+    }
+  } else if (res.locked) {
+    showPinLockout('pc-verify-error', 'pc-verify-keypad', res.remainingSec);
+    _pcVerifyBuf = '';
+  } else {
+    document.getElementById('pc-verify-error').textContent = t('pin_wrong_error');
+    _pcVerifyBuf = '';
+    updatePcVerifyDots();
+  }
+};
 
 var I18N = {
   uz: {
@@ -6668,14 +7336,7 @@ function checkClockIntegrity() {
 }
 // Ixtiyoriy/asinxron: haqiqiy server vaqtini olishga urinadi (offline yoki
 // bloklangan bo'lsa jim o'tkaziladi va null qaytaradi — lokal soatga tayanamiz).
-async function fetchServerTimeSafe() {
-  try {
-    var res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC', { cache: 'no-store' });
-    var data = await res.json();
-    if (data && data.unixtime) return data.unixtime * 1000;
-  } catch (e) { /* tarmoq yo'q/bloklangan — jim o'tkazamiz */ }
-  return null;
-}
+/* fetchServerTimeSafe: blok boshiga (global var sifatida) ko'chirildi */
 
 function taskDueToday(t) {
   if (t.isFrozen) return false;
@@ -7004,36 +7665,11 @@ var _pendingTodoUpserts = {};   // task_id -> {task, orderIndex} — hali bulutg
 var _pendingTodoDeletes = {};   // task_id -> true — hali bulutdan o'chirilmagan
 var _todosCloudSyncTimer = null;
 
-async function upsertTodoRow(task, orderIndex) {
-  // LocalStorage'da alohida qatorlar yo'q — faqat ichki keshni yangilaymiz,
-  // haqiqiy yozish syncTasksToLocalStorage() ichida bitta martada bajariladi.
-  const json = JSON.stringify(task);
-  const changed = _lastSyncedTasks[task.id] !== json;
-  _lastSyncedTasks[task.id] = json;
-  if (!S.cloudLinked || !S.cloudUserId) return;
-  if (changed) {
-    _pendingTodoUpserts[task.id] = { task: task, orderIndex: orderIndex };
-    delete _pendingTodoDeletes[task.id];
-    scheduleTodosCloudSync();
-  } else if (_pendingTodoUpserts[task.id]) {
-    _pendingTodoUpserts[task.id].orderIndex = orderIndex;
-  }
-}
+/* upsertTodoRow: blok boshiga (global var sifatida) ko'chirildi */
 
-async function deleteTodoRow(id) {
-  delete _lastSyncedTasks[id];
-  if (!S.cloudLinked || !S.cloudUserId) return;
-  delete _pendingTodoUpserts[id];
-  _pendingTodoDeletes[id] = true;
-  scheduleTodosCloudSync();
-}
+/* deleteTodoRow: blok boshiga (global var sifatida) ko'chirildi */
 
-async function loadAllTodos() {
-  const tasks = readLocalTasks();
-  return tasks.map(function(task, idx) {
-    return { id: task.id, task: task, order_index: idx };
-  });
-}
+/* loadAllTodos: blok boshiga (global var sifatida) ko'chirildi */
 
 // Navbatga yig'ilgan o'zgarishlarni (yozish/o'chirish) 1.5s kutib, bitta
 // batch so'rov sifatida Supabase'ga yuboradi.
@@ -7071,50 +7707,13 @@ function scheduleTodosCloudSync(immediate) {
 
 // S.tasks massivini to'g'ridan-to'g'ri 'todolist_tasks' kaliti ostida
 // LocalStorage'ga yozadi va ichki keshni (_lastSyncedTasks) yangilaydi.
-async function syncTasksToLocalStorage() {
-  const currentIds = {};
-  (S.tasks || []).forEach(function(task, idx) {
-    currentIds[task.id] = true;
-    upsertTodoRow(task, idx);
-  });
-  Object.keys(_lastSyncedTasks).forEach(function(idStr) {
-    const id = Number(idStr);
-    if (!currentIds[id]) deleteTodoRow(id);
-  });
-  writeLocalTasks(S.tasks || []);
-}
+/* syncTasksToLocalStorage: blok boshiga (global var sifatida) ko'chirildi */
 
 // ============ APP_STATE — qolgan umumiy holat (tanga, mukofotlar,
 // maqsadlar, IELTS, o'quv taymeri, sirli odat, statistika va h.k.) LocalStorage'da ============
-async function saveToLocalStorage(state) {
-  try {
-    const clone = Object.assign({}, state);
-    delete clone.tasks;      // tasks alohida 'todolist_tasks' kalitida saqlanadi
-    clone._lastTaskCount = (state.tasks || []).length;
-    const updatedAt = new Date().toISOString();
-    localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify({ data: clone, updated_at: updatedAt }));
-    S._serverSavedAt = updatedAt;
-  } catch(e) {
-    console.warn('app_state saqlash xatosi:', e);
-  }
-  // Vazifalar ro'yxatini ham 'todolist_tasks' kalitiga yozamiz
-  syncTasksToLocalStorage();
-}
+/* saveToLocalStorage: blok boshiga (global var sifatida) ko'chirildi */
 
-async function loadFromLocalStorage() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STATE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.data) {
-        return { data: parsed.data, updatedAt: parsed.updated_at };
-      }
-    }
-  } catch(e) {
-    console.warn('app_state yuklash xatosi:', e);
-  }
-  return null;
-}
+/* loadFromLocalStorage: blok boshiga (global var sifatida) ko'chirildi */
 // =========================================
 
 
@@ -7275,132 +7874,7 @@ function openExportPinPrompt(chosen) {
   document.getElementById('export-pin-cancel').onclick = cleanup;
 }
 
-async function performExport(exportTypes, pin) {
-  try {
-    if (!Array.isArray(exportTypes)) exportTypes = [exportTypes];
-    exportTypes = exportTypes.filter(Boolean);
-    if (exportTypes.length === 0) exportTypes = ['all'];
-
-    var isAll = exportTypes.indexOf('all') !== -1;
-    var needState = isAll || exportTypes.indexOf('stats') !== -1;
-    var needExams = isAll || exportTypes.indexOf('ielts') !== -1;
-    var needTasks = isAll || exportTypes.indexOf('tasks') !== -1;
-
-    var backup = {
-      type: 'todolist_export',
-      version: 3,
-      app: 'ToDoList',
-      exported_at: new Date().toISOString(),
-      exportType: exportTypes, // array — kelajakda ham bir nechta turni birga saqlaydi
-      secretEncrypted: false,
-      data: {}
-    };
-
-    // LocalStorage-dan ma'lumotlarni olish
-    var allKeys = {};
-    for (var i = 0; i < localStorage.length; i++) {
-      var k = localStorage.key(i);
-      if (k && k.indexOf(BACKUP_KEY_PREFIX) === 0) {
-        allKeys[k] = localStorage.getItem(k);
-      }
-    }
-
-    // 🔐 "Focus"ni backup faylida shifrlash — faqat PIN berilgan va
-    // haqiqatan ham saqlangan secretHabit ma'lumoti bo'lsa amalga oshadi.
-    if (pin && allKeys[LOCAL_STATE_KEY]) {
-      try {
-        var stateWrapForEnc = JSON.parse(allKeys[LOCAL_STATE_KEY]);
-        if (stateWrapForEnc && stateWrapForEnc.data && stateWrapForEnc.data.secretHabit) {
-          var encResult = await pcEncryptWithPin(pin, stateWrapForEnc.data.secretHabit);
-          stateWrapForEnc.data.secretHabit = { __pcEncrypted: true, enc: encResult };
-          allKeys[LOCAL_STATE_KEY] = JSON.stringify(stateWrapForEnc);
-          backup.secretEncrypted = true;
-        }
-      } catch (encErr) {
-        console.warn('Focusni shifrlash xatosi:', encErr);
-      }
-    }
-
-    if (allKeys[LOCAL_STATE_KEY]) {
-      try {
-        var stateForStrip = JSON.parse(allKeys[LOCAL_STATE_KEY]);
-        if (stateForStrip && stateForStrip.data && stateForStrip.data.profile) {
-          var pStrip = stateForStrip.data.profile;
-          delete pStrip.name;
-          delete pStrip.photo;
-          delete pStrip.country;
-          delete pStrip.language;
-          allKeys[LOCAL_STATE_KEY] = JSON.stringify(stateForStrip);
-        }
-      } catch (stripErr) {
-        console.warn('Profilni eksportdan olib tashlashda xatolik:', stripErr);
-      }
-    }
-
-    var taskCount = 0, coinCount = 0;
-    try { taskCount = (JSON.parse(allKeys[LOCAL_TASKS_KEY] || '[]') || []).length; } catch(e) {}
-    try {
-      var stParsed = JSON.parse(allKeys[LOCAL_STATE_KEY] || 'null');
-      coinCount = (stParsed && stParsed.data) ? (stParsed.data.coins || 0) : 0;
-    } catch(e) {}
-
-    var examsPayload = null, examCount = 0;
-    if (needExams && !isAll) {
-      try {
-        var stateForExams = JSON.parse(allKeys[LOCAL_STATE_KEY] || 'null');
-        var dExams = stateForExams && stateForExams.data;
-        if (dExams) {
-          examsPayload = {
-            ieltsResults: dExams.ieltsResults || [],
-            satResults: dExams.satResults || [],
-            examDates: dExams.examDates || {},
-            ieltsData: dExams.ieltsData || null, // eski (migratsiyadan oldingi) format uchun
-            targetSubjects: (dExams.profile && dExams.profile.targetSubjects) || [],
-            prep: (dExams.profile && dExams.profile.prep) || null
-          };
-          examCount = examsPayload.ieltsResults.length + examsPayload.satResults.length;
-        }
-      } catch (exErr) {
-        console.warn('Imtihon ma\u2019lumotlarini ajratib olishda xatolik:', exErr);
-      }
-    }
-
-    if (isAll) {
-      // Barchasi — 'todolist_' bilan boshlanuvchi HAMMA kalitlar (sozlamalar,
-      // streaklar, kalendar loglari va h.k. ham kiradi).
-      backup.data = allKeys;
-    } else {
-      // Tanlangan qismlar bo'yicha faqat kerakli kalitlarni qo'shamiz.
-      if (needState && allKeys[LOCAL_STATE_KEY]) backup.data.state = allKeys[LOCAL_STATE_KEY];
-      if (needTasks && allKeys[LOCAL_TASKS_KEY]) backup.data.tasks = allKeys[LOCAL_TASKS_KEY];
-      if (examsPayload) backup.data.exams = JSON.stringify(examsPayload);
-    }
-
-    var labels = exportTypes.map(function(tId){ return EXPORT_TYPE_LABELS[tId] || tId; });
-    backup.meta = {
-      type: labels.join(' + '),
-      taskCount: needTasks ? taskCount : undefined,
-      coins: needState ? (coinCount || 0) : undefined,
-      examCount: examsPayload ? examCount : undefined
-    };
-
-    // JSON faylga yozish
-    var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'todolist_' + exportTypes.join('-') + '_' + new Date().getTime() + '.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-
-    toast(t('data_export_success'));
-  } catch(e) {
-    console.warn('Eksport xatosi:', e);
-    toast(t('data_export_error'));
-  }
-}
+/* performExport: blok boshiga (global var sifatida) ko'chirildi */
 
 function triggerImportAppData() {
   var input = document.getElementById('data-import-input');
@@ -7728,9 +8202,7 @@ function removeTestDataForJuly1() {
   }
 }
 
-async function bootSharedApp() {
-  await loadUserDataAndInit();
-}
+/* bootSharedApp: blok boshiga (global var sifatida) ko'chirildi */
 if (document.readyState === 'complete') {
   bootSharedApp();
 } else {
@@ -7847,6 +8319,7 @@ function save() {
   // Akkaunt bulutga ulangan bo'lsa (S.cloudLinked), profil (nik/tanga/xp/
   // streak) fonda debounce bilan Supabase'ga ham yoziladi.
   try { if (typeof scheduleCloudSync === 'function') scheduleCloudSync(); } catch (e) {}
+  try { if (typeof scheduleAppStateSync === 'function') scheduleAppStateSync(); } catch (e) {}
 }
 
 function wasTaskDoneOnDate(t, dateStr) {
@@ -7872,6 +8345,25 @@ function getTaskDayFlag(taskId, dateStr) {
 }
 
 // Vazifaning qiyinligiga mos tanga qiymati (mukofot ham, jazo ham shu qiymatga teng)
+
+// Vazifa/sub-task tangasi tahrirlanganda: hali yechilmagan (yoki qaytarilgan) kunlar
+// uchun saqlangan jarima miqdori eskirib qolmasin — yangi qiymatga o'tkaziladi.
+function refreshStalePenaltyAmts(flagsByDate, item) {
+  if (!flagsByDate) return;
+  var v = taskPenaltyValue(item);
+  Object.keys(flagsByDate).forEach(function (d) {
+    var f = flagsByDate[d];
+    if (f && !f.penaltyGiven && f.penaltyAmt > 0) f.penaltyAmt = v;
+  });
+}
+// Jarima miqdori: vazifada alohida `penalty` (0–30) kiritilgan bo'lsa shu (o'yin
+// qiyinligi ko'paytiruvchisi bilan), aks holda — eskicha: mukofotga teng.
+function taskPenaltyValue(tsk) {
+  if (!tsk || typeof tsk.penalty !== 'number') return taskCoinValue(tsk);
+  var p = tsk.penalty;
+  if (p <= 0) return 0;
+  return Math.max(1, Math.round(p * getDifficultyMultipliers().coinXp));
+}
 function taskCoinValue(tsk) {
   var base = (tsk.coins !== undefined && tsk.coins !== null) ? tsk.coins : (tsk.diff === 3 ? 3 : tsk.diff === 2 ? 2 : tsk.diff === 0 ? 0 : 1);
   if (base <= 0) return 0; // "Bepul" (0 tanga) vazifalar uchun hech qanday mukofot/jarima berilmaydi
@@ -7882,15 +8374,17 @@ function taskCoinValue(tsk) {
 function grantTaskReward(tsk, dateStr) {
   var f = getTaskDayFlag(tsk.id, dateStr);
   if (f.rewardGiven) return 0;
-  var amt = f.rewardAmt;
-  if (!amt) {
-    amt = applyDebtEarningPenalty(taskCoinValue(tsk));
-    if (S.spinDoubleNextTaskActive && amt > 0) {
-      amt = amt * 2;
-      S.spinDoubleNextTaskActive = false;
-      setTimeout(function(){ toast(t('spin_double_consumed_toast')); }, 500);
-    }
+  // Har safar JORIY tanga qiymati bo'yicha hisoblanadi (tahrirdan keyin ham
+  // yangi qiymat beriladi). Faqat spin "x2" bonusi shu kun uchun eslab qolinadi.
+  var mult = f.rewardMult || 1;
+  var amt = applyDebtEarningPenalty(taskCoinValue(tsk));
+  if (!f.rewardMult && S.spinDoubleNextTaskActive && amt > 0) {
+    mult = 2;
+    S.spinDoubleNextTaskActive = false;
+    setTimeout(function(){ toast(t('spin_double_consumed_toast')); }, 500);
   }
+  amt = amt * mult;
+  f.rewardMult = mult;
   f.rewardAmt = amt; f.rewardGiven = true;
   S.coins = (S.coins||0) + amt;
   S.totalCoins = (S.totalCoins||0) + amt;
@@ -7902,7 +8396,7 @@ function revokeTaskReward(tsk, dateStr) {
   var f = getTaskDayFlag(tsk.id, dateStr);
   if (!f.rewardGiven) return 0;
   var amt = f.rewardAmt;
-  f.rewardGiven = false; // rewardAmt saqlanib qoladi — keyingi safar aynan shu qiymat qaytariladi
+  f.rewardGiven = false; // aynan berilgan miqdor (rewardAmt) qaytarib olindi; keyingi Done joriy qiymat bo'yicha beriladi
   S.coins = (S.coins||0) - amt;
   S.totalCoins = (S.totalCoins||0) - amt;
   return amt;
@@ -7911,7 +8405,8 @@ function revokeTaskReward(tsk, dateStr) {
 function chargeTaskPenalty(tsk, dateStr) {
   var f = getTaskDayFlag(tsk.id, dateStr);
   if (f.penaltyGiven) return 0;
-  var amt = f.penaltyAmt || taskCoinValue(tsk);
+  var amt = f.penaltyAmt || taskPenaltyValue(tsk);
+  if (amt <= 0) return 0; // jarima 0 — hech narsa yechilmaydi
   f.penaltyAmt = amt; f.penaltyGiven = true;
   S.coins = (S.coins||0) - amt;
   return amt;
@@ -8121,6 +8616,7 @@ function checkReset() {
         checkDate.setDate(checkDate.getDate() + 1);
         continue;
       }
+      try { goalsApplyMissedPenalty(ps); } catch (e) { console.warn('[goals penalty]', e); }
 
       // O'sha kunda bajariladigan vazifalar
       var dueTasks = S.tasks.filter(function(t) {
@@ -8299,7 +8795,7 @@ var _calReopenDate = null;
 function openModal(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   _editingTaskId = null;
-  mDiff=1; mRepeat='daily'; mDays=[]; mInterval=4; mLabel=''; mEmoji='';
+  mDiff=1; mRepeat='daily'; mDays=[]; mInterval=4; mLabel=''; mEmoji=''; mPenaltyTouched=false;
   document.getElementById('m-name').value='';
   document.getElementById('m-note').value='';
   document.getElementById('m-duedate').value='';
@@ -8309,6 +8805,7 @@ function openModal(e) {
   const td=today(); document.getElementById('m-startdate').value=td;
   document.getElementById('m-strict-schedule').checked = false;
   selDiff(1); selRepeat('daily');
+  tmFillLabels();
   document.getElementById('modal-title').textContent = t('task_modal_title_new');
   document.getElementById('modal-save-btn').textContent = t('btn_save_disk');
   document.getElementById('modal-overlay').classList.add('open');
@@ -8331,6 +8828,12 @@ function editTask(id) {
   document.getElementById('m-strict-schedule').checked = !!tk.strictSchedule;
   setTaskEmoji(mEmoji);
   selDiff(mDiff);
+  tmFillLabels();
+  var _tc = (typeof tk.coins === 'number') ? tk.coins : mDiff;
+  var _tp = (typeof tk.penalty === 'number') ? tk.penalty : _tc;
+  mPenaltyTouched = (_tp !== _tc);
+  document.getElementById('m-coins').value = _tc;
+  document.getElementById('m-penalty').value = _tp;
   selRepeat(mRepeat);
   selLabel(mLabel);
   // custom-days tugmalarini belgilash
@@ -8371,11 +8874,36 @@ document.addEventListener('DOMContentLoaded', function() {
   stOverlay.addEventListener('mouseup', e => { if(stMouseDown && e.target === stOverlay) closeSubtaskModal(); stMouseDown=false; });
 });
 
+var mPenaltyTouched = false;
 function selDiff(d) {
   mDiff=d;
   document.querySelectorAll('.diff-opt').forEach(el=>{
     el.classList.toggle('sel', parseInt(el.dataset.diff)===d);
   });
+  // Qiyinlik tanlansa, tanga (va tegilmagan bo'lsa jarima) shu qiymatga o'rnatiladi;
+  // keyin ularni 0–30 oralig'ida o'zingiz o'zgartirishingiz mumkin.
+  var c = document.getElementById('m-coins');
+  if (c) { c.value = d; if (!mPenaltyTouched) { var pe = document.getElementById('m-penalty'); if (pe) pe.value = d; } }
+}
+function _tmClamp(el) {
+  if (el.value === '') return;
+  var v = parseInt(el.value);
+  if (isNaN(v)) { el.value = ''; return; }
+  if (v > 30) el.value = 30; else if (v < 0) el.value = 0;
+}
+function tmCoinsInput() {
+  var c = document.getElementById('m-coins'); _tmClamp(c);
+  if (!mPenaltyTouched) { var pe = document.getElementById('m-penalty'); if (pe) pe.value = c.value; }
+}
+function tmPenaltyInput() { mPenaltyTouched = true; _tmClamp(document.getElementById('m-penalty')); }
+function tmReadCoins(id, fallback) {
+  var v = parseInt((document.getElementById(id) || {}).value);
+  return isNaN(v) ? fallback : Math.max(0, Math.min(30, v));
+}
+function tmFillLabels() {
+  var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+  set('m-coins-label', _cl('Tanga mukofoti (0–30)', 'Coin reward (0–30)', 'Награда монетами (0–30)'));
+  set('m-penalty-label', _cl('Jarima: bajarilmasa necha tanga olinadi (0–30)', 'Penalty if missed (0–30 coins)', 'Штраф за пропуск (0–30 монет)'));
 }
 
 function selRepeat(r) {
@@ -8471,6 +8999,7 @@ function toggleDay(d) {
   });
 }
 
+function tmDiffFromCoins(c){ c=Number(c)||0; return c<=0?0:c<=10?1:c<=20?2:3; }
 function saveTask() {
   const name = document.getElementById('m-name').value.trim();
   if (!name) { document.getElementById('m-name').focus(); return; }
@@ -8489,8 +9018,10 @@ function saveTask() {
         if (!confirm(t('task_startdate_change_warning'))) return;
       }
       tk.name = name;
-      tk.diff = mDiff;
-      tk.coins = mDiff;
+      var _oldC = (typeof tk.coins==='number') ? tk.coins : tk.diff;
+      tk.coins = tmReadCoins('m-coins', mDiff);
+      if (tk.coins !== _oldC || tk.diff===undefined) tk.diff = tmDiffFromCoins(tk.coins);
+      tk.penalty = tmReadCoins('m-penalty', tk.coins);
       tk.repeat = mRepeat;
       tk.days = mRepeat==='custom-days' ? [...mDays] : null;
       tk.interval = mRepeat==='interval' ? interval : null;
@@ -8503,6 +9034,7 @@ function saveTask() {
       tk.note = document.getElementById('m-note').value.trim() || null;
       tk.dueDate = dueDate;
       tk.emoji = mEmoji || null;
+      try { refreshStalePenaltyAmts(S.taskDayFlags && S.taskDayFlags[tk.id], tk); } catch (e) {}
     }
     _editingTaskId = null;
     var _reDate = _calReopenDate;
@@ -8517,7 +9049,7 @@ function saveTask() {
   }
 
   const task = {
-    id: S.nextId++, name, diff:mDiff, coins:mDiff,
+    id: S.nextId++, name, diff:tmDiffFromCoins(tmReadCoins('m-coins', mDiff)), coins:tmReadCoins('m-coins', mDiff), penalty:tmReadCoins('m-penalty', tmReadCoins('m-coins', mDiff)),
     repeat:mRepeat, days:mRepeat==='custom-days'?[...mDays]:null,
     interval: mRepeat==='interval'?interval:null,
     nextDate: mRepeat==='interval'?startDate:null,
@@ -9592,7 +10124,7 @@ function showTab(tab) {
   if (tab !== 'reyting') { stopReytingCountdown(); stopReytingAutoRefresh(); }
   if(tab==='rewards') renderRewards();
   if(tab==='spin') renderSpin();
-  if(tab==='profile') { renderProfile(); renderStats(); renderCalendar(); renderIeltsCountdown(); }
+  if(tab==='profile') { renderProfile(); renderStats(); renderCalendar(); try{renderGoalsCalendar();}catch(e){} renderIeltsCountdown(); }
   if(tab==='tarix') renderTarix();
   if(tab==='secret') openSecretTab();
   if(tab==='goals') { checkNotifBar(); renderGoals(); renderGoalsCalendar(); }
@@ -10039,6 +10571,7 @@ function saveSubtaskModal() {
     sub.label = stLabel;
     if (sub.dueDate !== stDueDate) { sub.lastPenalizedDate = null; sub.penalizedDaysCount = 0; }
     sub.dueDate = stDueDate;
+    try { refreshStalePenaltyAmts(S.subtaskDayFlags && S.subtaskDayFlags[sub.id], sub); } catch (e) {}
     save(); render();
     refreshCalDetailIfOpen();
     closeSubtaskModal();
@@ -10096,7 +10629,7 @@ function extractSubtaskToTask(taskId, subId) {
   const idx = subs.findIndex(function(s){ return s.id === subId; });
   if (idx === -1) return;
   const sub = subs[idx];
-  const _isOriginalTaskId = typeof sub.id === 'number' && sub.id < 1e11;
+  const _isOriginalTaskId = typeof sub.id === 'number' && sub.id < 1e11 && !S.tasks.some(function(x){ return x.id === sub.id; });
   const newTask = {
     id: _isOriginalTaskId ? sub.id : S.nextId++, name: sub.name, diff: sub.diff||0, coins: sub.coins||0,
     repeat: sub.repeat || 'daily',
@@ -10199,6 +10732,8 @@ function toggleSubtask(taskId, subId, dateStr, silent) {
       // (asosiy tasklardagi nextDate mantig'i bilan bir xil).
       if (sub.repeat === 'interval') { sub.nextDate = addDays(dateStr, Number(sub.interval)||1); }
     }
+    if (!S.subRewardGiven) S.subRewardGiven = {};
+    S.subRewardGiven[logKey + '|' + dateStr] = { c: amt, x: xpAmt };
     if (amt) {
       S.coins = (S.coins||0) + amt;
       S.totalCoins = (S.totalCoins||0) + amt;
@@ -10219,12 +10754,17 @@ function toggleSubtask(taskId, subId, dateStr, silent) {
       sub.doneDate = null;
       if (sub.repeat === 'interval') { sub.nextDate = dateStr; }
     }
-    if (amt) {
-      S.coins = (S.coins||0) - amt;
-      S.totalCoins = (S.totalCoins||0) - amt;
+    // Done paytida aynan nima berilgan bo'lsa, shuni qaytarib olamiz
+    // (oradagi tahrir tufayli tanga/XP ortib ketmasligi uchun).
+    var _given = S.subRewardGiven && S.subRewardGiven[logKey + '|' + dateStr];
+    var undoAmt = _given ? _given.c : amt, undoXp = _given ? _given.x : xpAmt;
+    if (_given) delete S.subRewardGiven[logKey + '|' + dateStr];
+    if (undoAmt) {
+      S.coins = (S.coins||0) - undoAmt;
+      S.totalCoins = (S.totalCoins||0) - undoAmt;
     }
     if (S.totalTasksDone > 0) S.totalTasksDone--;
-    addXP(-xpAmt, sub.name + ' (bekor qilindi)');
+    addXP(-undoXp, sub.name + ' (bekor qilindi)');
     if (!silent) SFX.click();
   }
 
@@ -10590,7 +11130,7 @@ function makeTaskEl(t, future) {
       </div>
       <button class="task-menu-btn" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="Amallar">⋯</button>
     </div>
-    ${hasSubtasks?`<div class="task-card-bottom"><div class="task-card-bottom-spacer"></div><div class="subtask-wrap" id="subtask-wrap-${t.id}">${renderSubtasksHtml(t)}</div></div>`:''}
+    ${hasSubtasks?`<div class="task-card-bottom"><div class="task-card-bottom-spacer"></div><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
   `;
 
 
@@ -10834,6 +11374,9 @@ function recordUsage(reward, amount, penaltyCoins) {
   });
   if (history.length > MAX_HISTORY_ENTRIES) history = history.slice(history.length - MAX_HISTORY_ENTRIES);
   saveUsageHistory(history);
+  // ☁️ Bulutga ham yozamiz — boshqa qurilmada ham ko'rinishi uchun
+  // (fire-and-forget: natijasini kutmaymiz, xato bo'lsa ham UI bloklanmasin)
+  pushRewardLogToCloud('usage', reward, { amount: (amount > 0) ? amount : 1, penaltyCoins: penaltyCoins || 0 });
 }
 
 // reward - S.rewards ichidagi obyekt, coinsSpent - sotib olishga sarflangan tanga
@@ -10852,7 +11395,18 @@ function recordPurchase(reward, coinsSpent) {
   });
   if (history.length > MAX_HISTORY_ENTRIES) history = history.slice(history.length - MAX_HISTORY_ENTRIES);
   savePurchaseHistory(history);
+  pushRewardLogToCloud('purchase', reward, { coinsSpent: coinsSpent });
 }
+
+// ============================================================
+// ☁️ REWARD LOG — Do'kon xaridlari/ishlatilgan mukofotlar tarixini
+// Supabase'dagi `reward_log` jadvaliga yozadi va boshqa qurilmalardan
+// kelgan yozuvlarni tortib, mahalliy tarixga birlashtiradi.
+// ============================================================
+/* pushRewardLogToCloud: blok boshiga (global var sifatida) ko'chirildi */
+
+var _rewardLogCloudSyncing = false;
+/* rewardLogSyncFromCloud: blok boshiga (global var sifatida) ko'chirildi */
 
 function getMostProblematicRewardId() {
   var usage = loadUsageHistory();
@@ -11087,12 +11641,18 @@ function renderLevel() {
     const isCur = l.level === lv.level;
     const isDone = total >= l.min;
     const el = document.createElement('div');
-    el.style.cssText = 'display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--radius-sm);border:1px solid ' + (isCur ? 'rgba(245,166,35,0.5)' : 'var(--border)') + ';background:' + (isCur ? 'var(--gold-dim)' : 'transparent');
-    el.innerHTML = '<span style="font-size:var(--fs-lg)">' + l.icon + '</span>'
-      + '<span style="flex:1;font-size:var(--fs-sm);color:' + (isCur ? 'var(--gold)' : isDone ? 'var(--text)' : 'var(--text-dim)') + '">' + levelName(l) + '</span>'
-      + '<span style="font-size:var(--fs-2xs);color:var(--text-dim)">' + l.min + ' XP</span>'
-      + (l.reward > 0 ? '<span style="font-size:var(--fs-2xs);color:var(--gold);margin-left:4px">+'+l.reward+'🪙</span>' : '')
-      + (isCur ? '<span style="font-size:var(--fs-3xs);color:var(--gold);font-weight:700;margin-left:4px">✦ ' + t('level_you') + '</span>' : isDone ? '<span style="font-size:var(--fs-xs);color:var(--green);margin-left:4px">✓</span>' : '');
+    el.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;min-width:0;overflow:hidden;border-radius:var(--radius-sm);border:1px solid ' + (isCur ? 'rgba(245,166,35,0.5)' : 'var(--border)') + ';background:' + (isCur ? 'var(--gold-dim)' : 'transparent');
+    // O'ng tomondagi ma'lumotlar (XP, mukofot, holat) ikki qatorli ustunda — qator
+    // tor panelda ham kengayib tashqariga chiqib ketmaydi; nom kerak bo'lsa 2 qatorga o'raladi.
+    el.innerHTML = '<span style="font-size:var(--fs-lg);flex-shrink:0">' + l.icon + '</span>'
+      + '<span style="flex:1;min-width:0;line-height:1.2;overflow-wrap:anywhere;font-size:var(--fs-sm);color:' + (isCur ? 'var(--gold)' : isDone ? 'var(--text)' : 'var(--text-dim)') + '">' + levelName(l) + '</span>'
+      + '<div class="lv-meta" style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;white-space:nowrap;text-align:right">'
+      +   '<span class="lv-xp" style="font-size:var(--fs-2xs);color:var(--text-dim)">' + l.min + ' XP</span>'
+      +   '<span class="lv-sub" style="display:flex;align-items:center;gap:5px;font-size:var(--fs-2xs)">'
+      +     (l.reward > 0 ? '<span style="color:var(--gold)">+' + l.reward + '🪙</span>' : '')
+      +     (isCur ? '<span style="font-size:var(--fs-3xs);color:var(--gold);font-weight:700">✦ ' + t('level_you') + '</span>' : isDone ? '<span style="font-size:var(--fs-xs);color:var(--green)">✓</span>' : '')
+      +   '</span>'
+      + '</div>';
     list.appendChild(el);
   });
 }
@@ -11104,7 +11664,26 @@ function updateHeaderUserTitle() {
   el.textContent = getDisplayUsername();
 }
 
+function dedupeTaskIds() {
+  if (!Array.isArray(S.tasks)) return false;
+  var seen = {}, maxId = Number(S.nextId) || 0, changed = false, dup = false;
+  S.tasks.forEach(function (tk) { if (tk && typeof tk.id === 'number' && tk.id >= maxId && tk.id < 1e11) maxId = tk.id + 1; });
+  S.tasks.forEach(function (tk) {
+    if (!tk) return;
+    if (seen[tk.id] || tk.id === undefined || tk.id === null) { tk.id = maxId++; changed = true; }
+    seen[tk.id] = true;
+  });
+  if (maxId > (Number(S.nextId) || 0)) S.nextId = maxId;
+  if (changed) {
+    // taskOrder'da takrorlar bo'lsa yangi ID'lar uchun qayta tuzamiz
+    S.taskOrder = [];
+    try { ensureFullTaskOrder(); } catch (e) {}
+  }
+  return changed;
+}
+
 function render() {
+  if (dedupeTaskIds()) { try { save(); } catch (e) {} }
   updateHeaderUserTitle();
   recordIntervalDueLog(today());
   recalcStreakFromLog();
@@ -11248,11 +11827,30 @@ function render() {
         lbCoinsEarned += flag.rewardGiven ? flag.rewardAmt : taskCoinValue(tk);
       }
       ensureSubtasks(tk).forEach(function(sub){
-        if (!subtaskDueToday(sub, _lbToday)) return;
-        var subAmt = taskCoinValue(sub);
+        var subDone = subtaskDoneOnDate(tk.id, sub.id, _lbToday);
+        // "Har N kunda" sub-task bajarilgach nextDate oldinga suriladi va u
+        // "bugun navbatda" bo'lmay qoladi — lekin bugun topilgan tanga baribir hisoblanadi.
+        if (!subDone && !subtaskDueToday(sub, _lbToday)) return;
+        var _given = S.subRewardGiven && S.subRewardGiven[tk.id + '_' + sub.id + '|' + _lbToday];
+        var subAmt = (subDone && _given) ? _given.c : taskCoinValue(sub);
         lbCoinsPossible += subAmt;
-        if (subtaskDoneOnDate(tk.id, sub.id, _lbToday)) lbCoinsEarned += subAmt;
+        if (subDone) lbCoinsEarned += subAmt;
       });
+    });
+    // 🎯 Maqsadlar (odatlar): belgilanadigan kun (trackDate) bo'yicha navbatdagi odatlar
+    // "Bugungi imkoniyat"ga, bajarilganlari "Bugun to'plangan"ga qo'shiladi.
+    var _gDay = trackDate();
+    (S.goals || []).forEach(function(g){
+      var gChecked = !!(g.daysChecked && g.daysChecked[_gDay]);
+      if (!gChecked) {
+        if (g.done || goalIsPaused(g)) return;
+        if (g.endDate && g.endDate < _gDay) return;
+        if (!isGoalDueOnDate(g, _gDay)) return;
+      }
+      var gBase = (typeof g.coins === 'number') ? g.coins : 1;
+      var gAmt = (gChecked && g.daysCoinsGiven && g.daysCoinsGiven[_gDay] != null) ? g.daysCoinsGiven[_gDay] : gBase;
+      lbCoinsPossible += gAmt;
+      if (gChecked) lbCoinsEarned += gAmt;
     });
     (S.chestHistory || []).forEach(function(h){
       if (h.date === today()) lbCoinsEarned += (h.coins || 0);
@@ -11430,6 +12028,69 @@ function toggleAllTasks() {
 }
 
 // Vazifa qancha kundan keyin chiqishini hisoblaydi
+
+// ---- Sub-tasklar: "Hammasi" (All) rejimida kelajakdagi sub-tasklarni ko'rsatish ----
+function daysUntilSubtask(sub) {
+  var td = today();
+  if (sub.repeat === 'interval' && sub.nextDate && sub.nextDate > td) {
+    return Math.round((new Date(sub.nextDate + 'T00:00:00') - new Date(td + 'T00:00:00')) / 86400000);
+  }
+  for (var i = 1; i <= 7; i++) {
+    var ds = addDays(td, i);
+    if (subtaskDueToday(sub, ds)) return i;
+  }
+  return 1;
+}
+// Ota-task kelajak ro'yxatida emas, lekin uning ayrim sub-tasklari bugun navbatda emas
+function collectFutureSubtasks(td) {
+  var out = [];
+  (S.tasks || []).forEach(function (tk) {
+    if (tk.isFrozen) return;
+    if (tk.repeat === 'once' && tk.done) return;
+    if (taskIsFuture(tk, td)) return; // ota-task kartasining o'zida hammasi ko'rinadi
+    ensureSubtasks(tk).forEach(function (sub) {
+      if (sub.done) return;
+      if (subtaskDueToday(sub, td)) return;
+      out.push({ task: tk, sub: sub, days: daysUntilSubtask(sub) });
+    });
+  });
+  return out;
+}
+function makeFutureSubEl(tk, sub, days) {
+  var d = document.createElement('div');
+  d.className = 'task-card future-readonly';
+  d.dataset.id = 'sub-' + tk.id + '-' + sub.id;
+  var rl = {cls: 'badge-daily', text: ''};
+  try { rl = repeatLabel(sub); } catch (e) {}
+  var coin = 0; try { coin = taskCoinValue(sub); } catch (e) {}
+  d.innerHTML =
+    '<div class="task-card-top">' +
+      (sub.label ? '<span class="task-label-dot" style="background:' + sub.label + '"></span>' : '') +
+      '<div class="task-info">' +
+        '<div class="task-name"><span class="task-parent-badge">' + esc(tk.name) + ' ›</span> ' + esc(sub.name) + '</div>' +
+        '<div class="task-sub">' + daysBadge(days) + '</div>' +
+      '</div>' +
+      '<div class="task-badges">' +
+        (rl.text ? '<span class="badge ' + rl.cls + '">' + esc(rl.text) + '</span>' : '') +
+        (coin ? '<span class="badge badge-coins">+' + coin + '🪙</span>' : '') +
+      '</div>' +
+      '<button class="task-quick-btn qb-edit" onclick="openSubtaskModal(' + tk.id + ',' + sub.id + ')" title="' + esc(tr('edit_dd_item')) + '">✏️</button>' +
+    '</div>';
+  return d;
+}
+// Kelajak ota-task kartasida sub-tasklar (bajarilmaganlari) faqat o'qish uchun ko'rinadi
+function renderFutureSubtasksHtml(t) {
+  var subs = ensureSubtasks(t).filter(function (s) { return !s.done; });
+  if (!subs.length) return '';
+  var html = '<div class="subtask-list">';
+  subs.forEach(function (s) {
+    var due = subtaskDueToday(s);
+    var info = due ? '' : daysBadge(daysUntilSubtask(s));
+    html += '<div class="subtask-item" style="opacity:.75"><span class="subtask-name">' + esc(s.name) + '</span> ' + info + '</div>';
+  });
+  return html + '</div>';
+}
+
 function daysUntilTask(t) {
   var td = today();
   if (t.repeat === 'interval' && t.nextDate && t.nextDate > td) {
@@ -11557,9 +12218,26 @@ function renderTaskList() {
     sortByOrder(filteredOnce).forEach(function(t){ oList.appendChild(makeTaskEl(t)); });
   }
 
-  // Kelajakdagi vazifalar ro'yxati
-  if (showAllTasks && filteredFuture.length) {
-    filteredFuture.forEach(function(t) {
+  // Kelajakdagi sub-tasklar (ota-task bugun navbatda, lekin sub-taskning o'z jadvali bo'yicha emas)
+  var futureSubs = [];
+  if (showAllTasks) {
+    futureSubs = collectFutureSubtasks(td);
+    if (q) {
+      var _w = q.split(/\s+/).filter(Boolean);
+      futureSubs = futureSubs.filter(function (fs) {
+        var hay = (fs.sub.name + ' ' + fs.task.name).toLowerCase();
+        return _w.every(function (w) { return hay.includes(w); });
+      });
+    }
+  }
+  // Kelajakdagi vazifalar ro'yxati (vazifalar + sub-tasklar, sanasi yaqinidan)
+  var _futEntries = filteredFuture.map(function (t) { return { days: daysUntilTask(t), task: t }; })
+    .concat(futureSubs.map(function (fs) { return { days: fs.days, fs: fs }; }));
+  _futEntries.sort(function (a, b) { return a.days - b.days; });
+  if (showAllTasks && _futEntries.length) {
+    _futEntries.forEach(function (en) {
+      if (en.fs) { fList.appendChild(makeFutureSubEl(en.fs.task, en.fs.sub, en.days)); return; }
+      var t = en.task;
       var el = makeTaskEl(t, true);
       // "nechi kundan keyin" badge qo'shamiz task-sub qismiga
       var days = daysUntilTask(t);
@@ -11581,7 +12259,7 @@ function renderTaskList() {
 
   document.getElementById('daily-section').style.display = filteredRecurring.length ? '' : 'none';
   document.getElementById('once-section').style.display  = filteredOnce.length ? '' : 'none';
-  document.getElementById('future-section').style.display = (showAllTasks && filteredFuture.length) ? '' : 'none';
+  document.getElementById('future-section').style.display = (showAllTasks && (filteredFuture.length + futureSubs.length)) ? '' : 'none';
 
   var emptyMsg = document.getElementById('empty-msg');
   if (emptyMsg) emptyMsg.style.display = (filteredRecurring.length===0 && filteredOnce.length===0) ? '' : 'none';
@@ -11589,116 +12267,7 @@ function renderTaskList() {
   updateBulkBar();
 }
 
-async function loadUserDataAndInit() {
-  load(); // moslik uchun (hech narsa qilmaydi)
-
-  const remote = await loadFromLocalStorage();
-  const todoRows = await loadAllTodos();
-
-  if (remote) {
-    const remoteState = remote.data;
-    const remoteUpdatedAt = remote.updatedAt || '1970-01-01';
-    S = Object.assign({}, S, remoteState);
-    S._serverSavedAt = remoteUpdatedAt;
-    S._localUpdatedAt = remoteUpdatedAt;
-    (S.goals||[]).forEach(function(g) {
-      if (!g.daysCoinsGiven) {
-        g.daysCoinsGiven = {};
-        Object.keys(g.daysChecked||{}).forEach(function(d) { g.daysCoinsGiven[d] = 1; });
-      }
-    });
-    ensureCefrDefaults(); // eski (CEFR qo'shilishidan oldingi) foydalanuvchilar uchun xavfsiz standart qiymat
-  } else {
-    var exStart = today();
-    var exEnd = addDays(exStart, 7 - 1);
-    S.goals = [{
-      id: Date.now(),
-      name: t('goal_example_name'),
-      desc: t('goal_example_desc'),
-      duration: 7,
-      emoji: '📚',
-      startDate: exStart,
-      endDate: exEnd,
-      done: false,
-      daysChecked: {},
-      daysCoinsGiven: {},
-      coins: 1
-    }];
-    S.nextCtId = 1001;
-    S.chestTasks = [{ id: 1000, name: t('chest_example_task_name'), diff: 1 }];
-    // 🎉 Yangi foydalanuvchi — birinchi marta ochilganda "Xush kelibsiz"
-    // so'rovnomasini ko'rsatish uchun bayroq o'rnatamiz (render() dan keyin ishlatiladi).
-    S.showWelcomeSurveyPending = true;
-    ensureCefrDefaults();
-    saveToLocalStorage(S);
-  }
-
-  var lastKnownTaskCount = (remote && remote.data && typeof remote.data._lastTaskCount === 'number') ? remote.data._lastTaskCount : 0;
-  if (todoRows && todoRows.length) {
-    S.tasks = todoRows.map(function(r){ return r.task; });
-    if (!Array.isArray(S.taskOrder) || !S.taskOrder.length) {
-      S.taskOrder = todoRows.map(function(r){ return r.id; });
-    } else {
-      ensureFullTaskOrder();
-    }
-    todoRows.forEach(function(r){ _lastSyncedTasks[r.id] = JSON.stringify(r.task); });
-  } else if (S.tasks && S.tasks.length) {
-    // 'todolist_tasks' kaliti hali bo'sh, lekin holat ichida eski uslubdagi tasks bor —
-    // ularni bir martalik migratsiya sifatida LocalStorage'ga yozamiz.
-    syncTasksToLocalStorage();
-  } else if (lastKnownTaskCount > 0) {
-    // Oldin vazifalar bor edi, lekin hozir na asosiy, na zaxira kalitda
-    // topilmadi — bu haqiqiy "bo'sh ro'yxat" emas, ma'lumot yo'qolishi belgisi.
-    console.warn('Ogohlantirish: oldin', lastKnownTaskCount, 'ta vazifa bor edi, lekin hech qanday manbada topilmadi.');
-    setTimeout(function(){ toast(t('tasks_not_found_toast')); }, 500);
-  }
-
-  if (remote) {
-    ensureFreezeGrants();
-    recalcStreakFromLog();
-    checkReset();
-  }
-
-  migrateLegacyRewards();
-  fixInflatedTaskDoneCounts();
-  // 🆕 Qabristonni sozlangan muddat bo'yicha avtomatik tozalash (agar
-  // foydalanuvchi bu funksiyani yoqqan bo'lsa).
-  try { cleanupOldTrash(); } catch (e) {}
-
-  // Reyting — oylik mavsum almashganmi, tekshiramiz (faqat LOCAL "shu oy"
-  // ko'rsatkichini reset qilish uchun).
-  checkReytingMonthlySeason();
-
-  render();
-  refreshAllModulesFromState();
-  removeTestDataForJuly1();
-
-  // 🎉 Yangi foydalanuvchi bo'lsa — "Xush kelibsiz" so'rovnoma oynasini ochamiz
-  if (S.showWelcomeSurveyPending) {
-    S.showWelcomeSurveyPending = false;
-    save();
-    setTimeout(function(){ if (typeof showWelcomeSurvey === 'function') showWelcomeSurvey(); }, 500);
-  }
-
-  if (S.pendingStreakMsg) {
-    setTimeout(()=>{ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 600);
-  }
-  if (S.pendingMissedMsg) {
-    setTimeout(function(){ toast(S.pendingMissedMsg); S.pendingMissedMsg=null; save(); }, 1200);
-  }
-  if (S.pendingSubtaskPenaltyMsg) {
-    setTimeout(function(){ toast(S.pendingSubtaskPenaltyMsg); S.pendingSubtaskPenaltyMsg=null; save(); }, 1400);
-  }
-  if (S.pendingFreezeGrantMsg) {
-    setTimeout(function(){ toast(S.pendingFreezeGrantMsg); S.pendingFreezeGrantMsg=null; save(); renderProfile(); }, 1600);
-  }
-  if (S.pendingLevelUp) {
-    setTimeout(function(){ showLevelUpModal(getLevel(S.pendingLevelUp)); S.pendingLevelUp=null; save(); }, 1800);
-  }
-  if (S.pendingReytingReward) {
-    setTimeout(function(){ showReytingMonthlyRewardModal(S.pendingReytingReward.rank, S.pendingReytingReward.reward); S.pendingReytingReward=null; save(); }, 2200);
-  }
-}
+/* loadUserDataAndInit: blok boshiga (global var sifatida) ko'chirildi */
 
 
 function refreshAllModulesFromState() {
@@ -12572,6 +13141,11 @@ function showProfileEdit() {
         (isGuestAccount ? t('pe_account_create_btn') : t('pe_account_logout_btn')) +
       '</button>'+
     '</div>'+
+    (isGuestAccount ? '' :
+      '<div style="margin-bottom:12px;display:flex;gap:8px">'+
+        '<button type="button" onclick="cloudShowNewPasswordModal()" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-xs);cursor:pointer">🔑 '+_cl('Parolni o\'zgartirish','Change password','Сменить пароль')+'</button>'+
+        '<button type="button" onclick="cloudDeleteAccount()" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid rgba(248,113,113,0.4);background:rgba(248,113,113,0.08);color:#F87171;font-size:var(--fs-xs);cursor:pointer">🗑 '+_cl('Akkauntni o\'chirish','Delete account','Удалить аккаунт')+'</button>'+
+      '</div>')+
     '<div style="display:flex;gap:10px">'+
       '<button id="pe-cancel" style="flex:1;padding:9px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer">'+t('btn_cancel')+'</button>'+
       '<button id="pe-save" style="flex:2;padding:9px;border-radius:var(--radius-md);border:none;background:var(--accent);color:#fff;font-size:var(--fs-sm);font-weight:600;cursor:pointer">'+t('btn_save')+'</button>'+
@@ -12945,39 +13519,7 @@ function setReytingSubjectFilter(filter) {
   renderReyting();
 }
 
-async function fetchReytingList(scope, metric, subjectFilter) {
-  var me = getRealUserEntry();
-  if (scope === 'local' && !me.country) {
-    return { list: [], noCountry: true };
-  }
-  var canQuery = typeof window.fbFetchLeaderboard === 'function' && navigator.onLine;
-  if (!canQuery) {
-    var onlyMe = [me];
-    onlyMe[0].rank = 1;
-    return { list: onlyMe, noCountry: false, offline: true };
-  }
-  var res;
-  try {
-    res = await window.fbFetchLeaderboard(scope, metric, subjectFilter);
-  } catch (e) {
-    console.warn('[Reyting] Supabase so\'rovida xatolik:', e);
-    res = null;
-  }
-  if (!res) {
-    var onlyMe2 = [me];
-    onlyMe2[0].rank = 1;
-    return { list: onlyMe2, noCountry: false, offline: true, error: true };
-  }
-  if (res.noCountry) return res;
-  var all = res.list.slice();
-  var idx = me.id ? all.findIndex(function(p){ return p.id === me.id; }) : -1;
-  if (idx !== -1) all[idx] = Object.assign({}, all[idx], me, { id: all[idx].id });
-  else all.push(me);
-  all.sort(function(a, b){ return reytingMetricValue(b, metric) - reytingMetricValue(a, metric); });
-  all.forEach(function(p, i){ p.rank = i + 1; });
-  _reytingLastList = all;
-  return { list: all, noCountry: false };
-}
+/* fetchReytingList: blok boshiga (global var sifatida) ko'chirildi */
 
 function startReytingAutoRefresh() {
   stopReytingAutoRefresh();
@@ -14343,13 +14885,7 @@ var _secretUnlocked = false;
 var SECRET_KEY = 'secret_habit_v1';
 
 // ---- Kriptografik yordamchilar (Web Crypto API, tashqi kutubxonasiz) ----
-async function sha256Hex(str) {
-  var enc = new TextEncoder().encode(String(str));
-  var buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.prototype.map.call(new Uint8Array(buf), function(b){
-    return b.toString(16).padStart(2, '0');
-  }).join('');
-}
+/* sha256Hex: blok boshiga (global var sifatida) ko'chirildi */
 function _bufToB64(bytes) {
   var bin = '';
   for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -14361,29 +14897,9 @@ function _b64ToBuf(b64) {
   for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
   return arr;
 }
-async function _pcDeriveAesKey(pin, saltBytes) {
-  var baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), { name: 'PBKDF2' }, false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' },
-    baseKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-async function pcEncryptWithPin(pin, plainObj) {
-  var salt = crypto.getRandomValues(new Uint8Array(16));
-  var iv = crypto.getRandomValues(new Uint8Array(12));
-  var key = await _pcDeriveAesKey(pin, salt);
-  var data = new TextEncoder().encode(JSON.stringify(plainObj));
-  var cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, data);
-  return { salt: _bufToB64(salt), iv: _bufToB64(iv), ciphertext: _bufToB64(new Uint8Array(cipherBuf)) };
-}
-async function pcDecryptWithPin(pin, enc) {
-  var key = await _pcDeriveAesKey(pin, _b64ToBuf(enc.salt));
-  var plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: _b64ToBuf(enc.iv) }, key, _b64ToBuf(enc.ciphertext));
-  return JSON.parse(new TextDecoder().decode(plainBuf));
-}
+/* _pcDeriveAesKey: blok boshiga (global var sifatida) ko'chirildi */
+/* pcEncryptWithPin: blok boshiga (global var sifatida) ko'chirildi */
+/* pcDecryptWithPin: blok boshiga (global var sifatida) ko'chirildi */
 
 function pcLockRemainingMs() {
   var d = getSecretData();
@@ -14408,21 +14924,7 @@ function pcRegisterPinSuccess() {
 }
 // buf — foydalanuvchi kiritgan 4 xonali PIN. Natija: {ok:true} |
 // {ok:false, locked:true, remainingSec} | {ok:false, noPinSet:true} | {ok:false}
-async function pcVerifyPinBuffer(buf) {
-  var lockedMs = pcLockRemainingMs();
-  if (lockedMs > 0) return { ok: false, locked: true, remainingSec: Math.ceil(lockedMs / 1000) };
-  var d = getSecretData();
-  if (!d.pinHash) return { ok: false, noPinSet: true };
-  var hash = await sha256Hex(buf);
-  if (hash === d.pinHash) {
-    pcRegisterPinSuccess();
-    return { ok: true };
-  }
-  var until = pcRegisterPinFail();
-  var remMs = until - Date.now();
-  if (remMs > 0) return { ok: false, locked: true, remainingSec: Math.ceil(remMs / 1000) };
-  return { ok: false };
-}
+/* pcVerifyPinBuffer: blok boshiga (global var sifatida) ko'chirildi */
 var _pcLockoutIntervals = {};
 function showPinLockout(errorElId, keypadElId, secs) {
   var errEl = document.getElementById(errorElId);
@@ -14489,46 +14991,7 @@ function openSecretTab() {
   _secretUnlocked = false;
 }
 
-async function pinKey(k) {
-  if(k === 'del') {
-    _pinBuffer = _pinBuffer.slice(0,-1);
-  } else if(k === 'ok') {
-    var lockedMs = pcLockRemainingMs();
-    if (lockedMs > 0) {
-      showPinLockout('pin-error', 'secret-pin-keypad', Math.ceil(lockedMs / 1000));
-      _pinBuffer = ''; updatePinDots(); return;
-    }
-    var res = await pcVerifyPinBuffer(_pinBuffer);
-    if (res.ok) {
-      pcSetSessionPin(_pinBuffer); // cloud sinxronlash uchun sessiyada keshlaymiz
-      _secretUnlocked = true;
-      document.getElementById('secret-pin-overlay').style.display = 'none';
-      document.getElementById('secret-content').style.display = '';
-      renderSecretContent();
-      _pcResetAutoLockTimer();
-    } else if (res.locked) {
-      showPinLockout('pin-error', 'secret-pin-keypad', res.remainingSec);
-      _pinBuffer = '';
-    } else {
-      document.getElementById('pin-error').textContent = t('pin_wrong_error');
-      _pinBuffer = '';
-      // shake dots
-      var dots = document.getElementById('pin-dots');
-      dots.style.animation = 'none';
-      setTimeout(function(){ dots.style.animation=''; }, 10);
-    }
-    updatePinDots(); return;
-  } else {
-    if(_pinBuffer.length >= 4) return;
-    _pinBuffer += k;
-    // auto-check when 4 digits entered
-    if(_pinBuffer.length === 4) {
-      setTimeout(function(){ pinKey('ok'); }, 150);
-    }
-  }
-  document.getElementById('pin-error').textContent = '';
-  updatePinDots();
-}
+/* pinKey: blok boshiga (global var sifatida) ko'chirildi */
 
 function updatePinDots() {
   for(var i=0;i<4;i++){
@@ -14591,62 +15054,7 @@ function closeChangePinModal() {
   document.getElementById('change-pin-overlay').style.display = 'none';
   _chpinBuf = ''; _chpinNew = ''; _chpinStep = 'old';
 }
-async function chpinKey(k) {
-  if (k === 'del') {
-    _chpinBuf = _chpinBuf.slice(0, -1);
-    document.getElementById('chpin-error').textContent = '';
-    updateChpinDots(); return;
-  }
-  if (k !== 'ok') {
-    if (_chpinBuf.length >= 4) return;
-    _chpinBuf += k;
-    updateChpinDots();
-    if (_chpinBuf.length === 4) setTimeout(function(){ chpinKey('ok'); }, 150);
-    return;
-  }
-  var d = getSecretData();
-  if (_chpinStep === 'old') {
-    var lockedMs = pcLockRemainingMs();
-    if (lockedMs > 0) {
-      showPinLockout('chpin-error', 'chpin-keypad', Math.ceil(lockedMs / 1000));
-      _chpinBuf = ''; updateChpinDots(); return;
-    }
-    var res = await pcVerifyPinBuffer(_chpinBuf);
-    if (res.ok) {
-      _chpinStep = 'new'; _chpinBuf = '';
-      document.getElementById('chpin-step-label').textContent = t('chpin_enter_new');
-      document.getElementById('chpin-error').textContent = '';
-    } else if (res.locked) {
-      showPinLockout('chpin-error', 'chpin-keypad', res.remainingSec);
-      _chpinBuf = '';
-    } else {
-      document.getElementById('chpin-error').textContent = t('chpin_wrong_old');
-      _chpinBuf = '';
-    }
-  } else if (_chpinStep === 'new') {
-    if (_chpinBuf.length < 4) { document.getElementById('chpin-error').textContent = t('chpin_enter_4digits'); return; }
-    _chpinNew = _chpinBuf; _chpinStep = 'confirm'; _chpinBuf = '';
-    document.getElementById('chpin-step-label').textContent = t('chpin_confirm_new');
-    document.getElementById('chpin-error').textContent = '';
-  } else if (_chpinStep === 'confirm') {
-    if (_chpinBuf === _chpinNew) {
-      // MUHIM: yangi PIN ham hech qachon ochiq holda saqlanmaydi — faqat
-      // SHA-256 xeshi yoziladi.
-      d.pinHash = await sha256Hex(_chpinNew);
-      d.pinSet = true;
-      d.pinFailCount = 0; d.pinLockUntil = 0;
-      saveSecretData(d);
-      pcSetSessionPin(_chpinNew); // yangi (joriy amaldagi) PIN — cloud sinxronlash uchun keshlanadi
-      closeChangePinModal();
-      toast(t('pin_changed_toast'));
-    } else {
-      document.getElementById('chpin-error').textContent = t('chpin_mismatch');
-      _chpinBuf = ''; _chpinStep = 'new'; _chpinNew = '';
-      document.getElementById('chpin-step-label').textContent = t('chpin_enter_new');
-    }
-  }
-  updateChpinDots();
-}
+/* chpinKey: blok boshiga (global var sifatida) ko'chirildi */
 function updateChpinDots() {
   for (var i = 0; i < 4; i++) {
     var dot = document.getElementById('cpd' + i);
@@ -14889,49 +15297,7 @@ function closePcCreatePinModal() {
   if (_pcSetupInProgress) { _pcSetupInProgress = false; }
   updatePcToggleUI(); // bekor qilindi — PIN himoyasi OFF holatida qoladi
 }
-async function pcCreateKey(k) {
-  if (k === 'del') {
-    _pcCreateBuf = _pcCreateBuf.slice(0, -1);
-    document.getElementById('pc-create-error').textContent = '';
-    updatePcCreateDots(); return;
-  }
-  if (k !== 'ok') {
-    if (_pcCreateBuf.length >= 4) return;
-    _pcCreateBuf += k;
-    updatePcCreateDots();
-    if (_pcCreateBuf.length === 4) setTimeout(function(){ pcCreateKey('ok'); }, 150);
-    return;
-  }
-  if (_pcCreateStep === 'new') {
-    if (_pcCreateBuf.length < 4) { document.getElementById('pc-create-error').textContent = t('chpin_enter_4digits'); return; }
-    _pcCreateNew = _pcCreateBuf; _pcCreateStep = 'confirm'; _pcCreateBuf = '';
-    document.getElementById('pc-create-step-label').textContent = t('chpin_confirm_new');
-    document.getElementById('pc-create-error').textContent = '';
-  } else if (_pcCreateStep === 'confirm') {
-    if (_pcCreateBuf === _pcCreateNew) {
-      var d = getSecretData();
-      // XAVFSIZLIK: ochiq PIN emas — faqat SHA-256 xeshi saqlanadi.
-      d.pinHash = await sha256Hex(_pcCreateNew);
-      d.pinSet = true;
-      d.pinFailCount = 0; d.pinLockUntil = 0;
-      saveSecretData(d);
-      S.pcPinProtectionEnabled = true;
-      save();
-      document.getElementById('pc-create-pin-overlay').style.display = 'none';
-      _pcCreateBuf = ''; _pcCreateNew = ''; _pcCreateStep = 'new';
-      updatePcToggleUI();
-      toast(t('pc_pin_enabled_toast'));
-      // Agar bu "Focus"ni ON qilish oqimining bir qismi bo'lsa —
-      // navbatdagi savolga ("Tezkor kirishdan yashirilsinmi?") o'tamiz.
-      if (typeof _pcSetupAfterPinCreated === 'function' && _pcSetupInProgress) _pcSetupAfterPinCreated();
-    } else {
-      document.getElementById('pc-create-error').textContent = t('chpin_mismatch');
-      _pcCreateBuf = ''; _pcCreateStep = 'new'; _pcCreateNew = '';
-      document.getElementById('pc-create-step-label').textContent = t('chpin_enter_new');
-    }
-  }
-  updatePcCreateDots();
-}
+/* pcCreateKey: blok boshiga (global var sifatida) ko'chirildi */
 function updatePcCreateDots() {
   for (var i = 0; i < 4; i++) {
     var dot = document.getElementById('pccd' + i);
@@ -14962,64 +15328,7 @@ function closePcVerifyPinModal() {
   _pcVerifyBuf = '';
   updatePcToggleUI(); // tasdiqlanmadi — toggle OFF holatida qoladi
 }
-async function pcVerifyKey(k) {
-  if (k === 'del') {
-    _pcVerifyBuf = _pcVerifyBuf.slice(0, -1);
-    document.getElementById('pc-verify-error').textContent = '';
-    updatePcVerifyDots(); return;
-  }
-  if (k !== 'ok') {
-    if (_pcVerifyBuf.length >= 4) return;
-    _pcVerifyBuf += k;
-    updatePcVerifyDots();
-    if (_pcVerifyBuf.length === 4) setTimeout(function(){ pcVerifyKey('ok'); }, 150);
-    return;
-  }
-  var lockedMs = pcLockRemainingMs();
-  if (lockedMs > 0) {
-    showPinLockout('pc-verify-error', 'pc-verify-keypad', Math.ceil(lockedMs / 1000));
-    _pcVerifyBuf = ''; updatePcVerifyDots(); return;
-  }
-  var res = await pcVerifyPinBuffer(_pcVerifyBuf);
-  if (res.ok) {
-    pcSetSessionPin(_pcVerifyBuf); // cloud sinxronlash uchun sessiyada keshlaymiz
-    if (_pcVerifyPurpose === 'disablePin') {
-      S.pcPinProtectionEnabled = false;
-      save();
-      document.getElementById('pc-verify-pin-overlay').style.display = 'none';
-      _pcVerifyBuf = '';
-      updatePcToggleUI();
-      toast(t('pc_pin_disabled_toast'));
-    } else if (_pcVerifyPurpose === 'disablePc') {
-      // OFF GUARD: PIN o'rnatilgan bo'lsa, "Focus"ni butunlay
-      // o'chirishdan oldin ham PIN tasdiqlanishi shart.
-      S.personalCheckEnabled = false;
-      save();
-      if(window._kiOv){window._kiOv.remove();window._kiOv=null;}
-      window._kiQ=[];
-      document.getElementById('pc-verify-pin-overlay').style.display = 'none';
-      _pcVerifyBuf = '';
-      updatePcToggleUI();
-      renderDsShortcuts();
-      toast(t('pc_disabled_toast'));
-    } else {
-      S.personalCheckEnabled = true;
-      save();
-      document.getElementById('pc-verify-pin-overlay').style.display = 'none';
-      _pcVerifyBuf = '';
-      updatePcToggleUI();
-      renderDsShortcuts();
-      toast(t('pc_enabled_toast'));
-    }
-  } else if (res.locked) {
-    showPinLockout('pc-verify-error', 'pc-verify-keypad', res.remainingSec);
-    _pcVerifyBuf = '';
-  } else {
-    document.getElementById('pc-verify-error').textContent = t('pin_wrong_error');
-    _pcVerifyBuf = '';
-    updatePcVerifyDots();
-  }
-}
+/* pcVerifyKey: blok boshiga (global var sifatida) ko'chirildi */
 function updatePcVerifyDots() {
   for (var i = 0; i < 4; i++) {
     var dot = document.getElementById('pcvd' + i);
@@ -15062,6 +15371,56 @@ document.addEventListener('keydown', function(e) {
 
 // Streak milestone coins
 var SEC_STREAK_BONUSES = {5:8, 10:20, 20:45, 40:90, 75:180};
+var SEC_DEFAULT_CFG = { daily:3, fail:5, fail2x:10, tiers:{5:8, 10:20, 20:45, 40:90, 75:180} };
+function secCfg() {
+  var c = S.secretCfg || {};
+  function n(v, d, mx) { v = Math.round(Number(v)); if (isNaN(v)) return d; return Math.max(0, Math.min(mx, v)); }
+  var o = { daily:n(c.daily, 3, 1000), fail:n(c.fail, 5, 1000), fail2x:n(c.fail2x, 10, 1000), tiers:{} };
+  [5,10,20,40,75].forEach(function(k){ o.tiers[k] = n(c.tiers && c.tiers[k], SEC_DEFAULT_CFG.tiers[k], 5000); });
+  return o;
+}
+function secCfgSet(key, val) {
+  if (!S.secretCfg) S.secretCfg = { tiers:{} };
+  if (!S.secretCfg.tiers) S.secretCfg.tiers = {};
+  var v = Math.max(0, Math.min(key.indexOf('t')===0 ? 5000 : 1000, Math.round(Number(val) || 0)));
+  if (key.indexOf('t') === 0) S.secretCfg.tiers[key.slice(1)] = v; else S.secretCfg[key] = v;
+  save();
+}
+function secCfgReset() {
+  S.secretCfg = null; save(); renderSecCoinTable();
+  try { toast(_cl('Standart narxlar tiklandi','Defaults restored','Значения по умолчанию')); } catch(e){}
+}
+var _secCfgEdit = false;
+function secCfgToggleEdit() { _secCfgEdit = !_secCfgEdit; renderSecCoinTable(); }
+function renderSecCoinTable() {
+  var box = document.getElementById('sec-coin-table'); if (!box) return;
+  var c = secCfg();
+  var rows = [
+    ['daily', _cl('✅ Har kun (qilmadim)','✅ Each clean day','✅ Каждый чистый день'), c.daily, 1],
+    ['t5',  _cl('🥉 Daraja 1 (5 kun)','🥉 Level 1 (5 days)','🥉 Уровень 1 (5 дней)'), c.tiers[5], 1],
+    ['t10', _cl('🥈 Daraja 2 (10 kun)','🥈 Level 2 (10 days)','🥈 Уровень 2 (10 дней)'), c.tiers[10], 1],
+    ['t20', _cl('🥇 Daraja 3 (20 kun)','🥇 Level 3 (20 days)','🥇 Уровень 3 (20 дней)'), c.tiers[20], 1],
+    ['t40', _cl('🏅 Daraja 4 (40 kun)','🏅 Level 4 (40 days)','🏅 Уровень 4 (40 дней)'), c.tiers[40], 1],
+    ['t75', _cl('👑 Daraja 5 (75 kun)','👑 Level 5 (75 days)','👑 Уровень 5 (75 дней)'), c.tiers[75], 1],
+    null,
+    ['fail', _cl('❌ Yiqilsa (jazo)','❌ Slip (penalty)','❌ Срыв (штраф)'), c.fail, -1],
+    ['fail2x', _cl('⚠️ 3 kun ketma-ket (2x jazo)','⚠️ 3 in a row (2x penalty)','⚠️ 3 подряд (2x штраф)'), c.fail2x, -1]
+  ];
+  var h = '';
+  rows.forEach(function(r){
+    if (!r) { h += '<div style="height:1px;background:var(--border);margin:4px 0"></div>'; return; }
+    var col = r[3] > 0 ? '#34D399' : '#F87171';
+    var val = _secCfgEdit
+      ? '<span style="display:flex;align-items:center;gap:4px;color:' + col + '">' + (r[3]>0?'+':'−') + '<input type="number" min="0" max="' + (r[0].charAt(0)==='t'?5000:1000) + '" value="' + r[2] + '" inputmode="numeric" onchange="secCfgSet(\'' + r[0] + '\',this.value);renderSecCoinTable()" style="width:70px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-sm);text-align:right" /> 🪙</span>'
+      : '<span style="color:' + col + ';font-weight:600">' + (r[3]>0?'+':'−') + r[2] + ' 🪙</span>';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center"><span>' + r[1] + '</span>' + val + '</div>';
+  });
+  box.innerHTML = h;
+  var eb = document.getElementById('sec-cfg-edit-btn');
+  if (eb) eb.textContent = _secCfgEdit ? _cl('✔ Tayyor','✔ Done','✔ Готово') : _cl('✏️ Narxlarni o\'zgartirish','✏️ Edit prices','✏️ Изменить цены');
+  var rb = document.getElementById('sec-cfg-reset-btn');
+  if (rb) rb.style.display = _secCfgEdit ? '' : 'none';
+}
 var SEC_STREAK_TIER_ICON = {5:'🥉', 10:'🥈', 20:'🥇', 40:'🏅', 75:'👑'};
 
 function calcSecretStreak(log) {
@@ -15171,7 +15530,7 @@ function secretLog(status, when) {
 
   // ── 2. YANGI TANLOV effektlarini qo'llash ────────────────────────────────────
   if(status === 'clean') {
-    var coinGain = 3;
+    var coinGain = secCfg().daily;
     var actualCoinGain = addLifetimeCoins(coinGain); // ijobiy topilgan tanga — S.totalCoins ham to'g'ri oshadi
     d.logCoins[logDate] = actualCoinGain; // earnedOrPenalizedCoins — aynan shu kun uchun (streak bonusisiz)
     // uniqueKey bilan yozsak, fikr o'zgartirish tarixga spam qilmaydi
@@ -15183,11 +15542,11 @@ function secretLog(status, when) {
     var streakBonusKey = logDate + '_milestone';
     if(!d.streakBonusByDate[streakBonusKey]) {
       var mBonus = 0, mLabel = 0;
-      if      (newStreak >= 75) { mBonus = SEC_STREAK_BONUSES[75]; mLabel = 75; }
-      else if (newStreak >= 40) { mBonus = SEC_STREAK_BONUSES[40]; mLabel = 40; }
-      else if (newStreak >= 20) { mBonus = SEC_STREAK_BONUSES[20]; mLabel = 20; }
-      else if (newStreak >= 10) { mBonus = SEC_STREAK_BONUSES[10]; mLabel = 10; }
-      else if (newStreak >= 5)  { mBonus = SEC_STREAK_BONUSES[5];  mLabel = 5;  }
+      if      (newStreak >= 75) { mBonus = secCfg().tiers[75]; mLabel = 75; }
+      else if (newStreak >= 40) { mBonus = secCfg().tiers[40]; mLabel = 40; }
+      else if (newStreak >= 20) { mBonus = secCfg().tiers[20]; mLabel = 20; }
+      else if (newStreak >= 10) { mBonus = secCfg().tiers[10]; mLabel = 10; }
+      else if (newStreak >= 5)  { mBonus = secCfg().tiers[5];  mLabel = 5;  }
       if(mBonus > 0) {
         // 🐛 Xuddi yuqoridagi kabi — endi HAQIQIY (chegirmali) bonus miqdori saqlanadi.
         var actualBonus = addLifetimeCoins(mBonus); // ijobiy bonus — S.totalCoins ham oshadi
@@ -15213,7 +15572,7 @@ function secretLog(status, when) {
       if(d.log[ck] === 'fail' || d.log[ck] === 'fail2x') { consecutiveFails++; checkDate.setDate(checkDate.getDate()-1); }
       else break;
     }
-    var penalty = (consecutiveFails >= 2) ? 10 : 5;
+    var _sc = secCfg(); var penalty = (consecutiveFails >= 2) ? _sc.fail2x : _sc.fail;
     d.logCoins[logDate] = -penalty; // earnedOrPenalizedCoins — aynan shu kun uchun yechilgan miqdor
     // 🔴 TUZATILDI (1.2): streak jarimasi S.totalCoins (umrbod hisoblagich)ni
     // ASLO kamaytirmaydi — faqat joriy balansdan (S.coins) ayiriladi.
@@ -15311,6 +15670,7 @@ function secretLogCurrent(status) {
 }
 
 function renderSecretContent() {
+  try { renderSecCoinTable(); } catch (e) {}
   var d = getSecretData();
   var log = d.log || {};
   var t = today();
@@ -15487,7 +15847,7 @@ function gmSelRepeat(r) {
   });
   document.getElementById('gm-field-custom-days').style.display = r==='custom-days' ? '' : 'none';
   document.getElementById('gm-field-interval').style.display = r==='interval' ? '' : 'none';
-  document.getElementById('gm-field-startdate').style.display = r==='interval' ? '' : 'none';
+  document.getElementById('gm-field-startdate').style.display = '';
   // "Bir marta" tanlanganda muddat (necha kun) maydoni ma'nosiz bo'lib
   // qoladi — chunki bunday maqsad faqat BIR marta belgilanadi.
   document.getElementById('gm-field-duration').style.display = r==='once' ? 'none' : '';
@@ -15505,6 +15865,7 @@ function isGoalDueOnDate(g, dateStr) {
   // Maqsad hali yaratilmagan kunlarga ta'sir qilmaydi.
   if (g.startDate && dateStr < g.startDate) return false;
   if (g.daysChecked && g.daysChecked[dateStr]) return true;
+  if (typeof goalPausedOn === 'function' && goalPausedOn(g, dateStr)) return false;
   var rep = g.repeat || 'daily';
   if (rep === 'daily') return true;
   if (rep === 'custom-days') {
@@ -15521,7 +15882,7 @@ function isGoalDueOnDate(g, dateStr) {
     return diffDays % interval === 0;
   }
   if (rep === 'once') {
-    return dateStr === today() && !g.done;
+    return (dateStr === today() || dateStr === trackDate()) && !g.done;
   }
   return true;
 }
@@ -15551,7 +15912,11 @@ function openGoalModal(id) {
     document.querySelectorAll('#goal-modal-box .day-btn').forEach(function(el){
       el.classList.toggle('sel', gmDays.includes(parseInt(el.dataset.d)));
     });
+    gmOngoing = !g.duration && (g.repeat || 'daily') !== 'once';
+    gmFillHabitFields(g);
     syncGoalDurChips();
+    gmSyncCoinChips();
+    gmShowPage(1);
   } else {
     title.textContent = t('gm_title_new');
     document.getElementById('gm-name').value = '';
@@ -15561,10 +15926,14 @@ function openGoalModal(id) {
     setGoalCoins(1);
     gmRepeat = 'daily'; gmDays = []; gmInterval = 4;
     document.getElementById('gm-interval').value = '4';
-    document.getElementById('gm-startdate').value = today();
+    document.getElementById('gm-startdate').value = trackDate();
     gmSelRepeat('daily');
     document.querySelectorAll('#goal-modal-box .day-btn').forEach(function(el){ el.classList.remove('sel'); });
+    gmOngoing = false;
+    gmFillHabitFields(null);
     syncGoalDurChips();
+    gmSyncCoinChips();
+    gmShowPage(1);
   }
   document.getElementById('goal-modal-overlay').classList.add('open');
   setTimeout(function(){ document.getElementById('gm-name').focus(); }, 150);
@@ -15575,19 +15944,6 @@ function closeGoalModal() {
   _editingGoalId = null;
 }
 
-function setGoalDur(val) {
-  document.getElementById('gm-duration').value = val;
-  syncGoalDurChips();
-}
-
-function syncGoalDurChips() {
-  var val = parseInt(document.getElementById('gm-duration').value) || 0;
-  document.querySelectorAll('#gm-duration-presets .rcost-chip').forEach(function(b){
-    var bval = parseInt(b.textContent);
-    b.className = 'rcost-chip' + (bval === val ? ' sel' : '');
-  });
-}
-
 function setGoalEmoji(e) {
   document.getElementById('gm-emoji').value = e;
   document.querySelectorAll('#goal-modal-box .remoji-chip').forEach(function(b){
@@ -15596,11 +15952,44 @@ function setGoalEmoji(e) {
 }
 
 function setGoalCoins(val) {
-  document.getElementById('gm-coins').value = val;
-  [0,1,2,3].forEach(function(v) {
-    var btn = document.getElementById('gm-coin-'+v);
-    if(btn) btn.classList.toggle('sel', v===val);
+  var v = parseInt(val); if (isNaN(v)) v = 0;
+  v = Math.max(0, Math.min(30, v));
+  document.getElementById('gm-coins').value = v;
+  gmSyncCoinChips();
+}
+function gmCoinsInput() {
+  var el = document.getElementById('gm-coins');
+  if (el.value === '') { gmSyncCoinChips(); return; }
+  var v = parseInt(el.value);
+  if (isNaN(v)) { el.value = ''; return; }
+  if (v > 30) el.value = 30; else if (v < 0) el.value = 0;
+  gmSyncCoinChips();
+}
+function gmSyncCoinChips() {
+  var cur = parseInt(document.getElementById('gm-coins').value);
+  document.querySelectorAll('#gm-coin-opts .rcost-chip').forEach(function (b) {
+    b.className = 'rcost-chip' + (parseInt(b.dataset.v) === cur ? ' sel' : '');
   });
+}
+var gmPage = 1;
+function gmShowPage(n) {
+  gmPage = n;
+  document.querySelectorAll('#goal-modal-box .gm-page').forEach(function (el) { el.style.display = (+el.dataset.page === n) ? '' : 'none'; });
+  document.getElementById('gm-step-label').textContent = n + ' / 2';
+  document.getElementById('gm-dot-1').style.background = 'var(--accent)';
+  document.getElementById('gm-dot-2').style.background = n === 2 ? 'var(--accent)' : 'var(--surface2)';
+  document.getElementById('gm-btn-cancel').style.display = n === 1 ? '' : 'none';
+  document.getElementById('gm-btn-next').style.display = n === 1 ? '' : 'none';
+  document.getElementById('gm-btn-back').style.display = n === 2 ? '' : 'none';
+  document.getElementById('gm-btn-save').style.display = n === 2 ? '' : 'none';
+  var nx = document.getElementById('gm-btn-next'); if (nx) nx.textContent = _cl('Keyingi →', 'Next →', 'Далее →');
+  var bk = document.getElementById('gm-btn-back'); if (bk) bk.textContent = _cl('← Orqaga', '← Back', '← Назад');
+  var box = document.getElementById('goal-modal-box'); if (box) box.scrollTop = 0;
+}
+function gmNext() {
+  var name = (document.getElementById('gm-name').value || '').trim();
+  if (!name) { document.getElementById('gm-name').focus(); toast(t('gm_name_required_toast')); return; }
+  gmShowPage(2);
 }
 
 function saveGoal() {
@@ -15608,19 +15997,21 @@ function saveGoal() {
   var desc = (document.getElementById('gm-desc').value || '').trim();
   var emoji = (document.getElementById('gm-emoji').value || '').trim() || '🎯';
   var coinsRaw = parseInt(document.getElementById('gm-coins').value);
-  var coins = isNaN(coinsRaw) ? 1 : coinsRaw;
-  var dur = (gmRepeat === 'once') ? 1 : (parseInt(document.getElementById('gm-duration').value) || 0);
+  var coins = isNaN(coinsRaw) ? 1 : Math.max(0, Math.min(30, coinsRaw));
+  var dur = (gmRepeat === 'once') ? 1 : (gmOngoing ? 0 : (parseInt(document.getElementById('gm-duration').value) || 0));
+  var penVal = Math.max(0, Math.min(30, parseInt((document.getElementById('gm-penalty') || {}).value) || 0));
+  var remindVal = ((document.getElementById('gm-remind') || {}).value || '').trim() || null;
   var interval = Math.max(1, parseInt(document.getElementById('gm-interval').value) || 4);
   var startDateInput = document.getElementById('gm-startdate').value || today();
   if(!name) { document.getElementById('gm-name').focus(); toast(t('gm_name_required_toast')); return; }
-  if(gmRepeat !== 'once' && !dur)  { document.getElementById('gm-duration').focus(); toast(t('goal_duration_required_toast')); return; }
+  if(gmRepeat !== 'once' && !gmOngoing && !dur)  { document.getElementById('gm-duration').focus(); toast(t('goal_duration_required_toast')); return; }
   if(gmRepeat === 'custom-days' && gmDays.length === 0) { toast(t('task_select_day_toast')); return; }
 
   if(!S.goals) S.goals = [];
   if(_editingGoalId) {
     var g = S.goals.find(function(x){return x.id===_editingGoalId;});
     if(g){
-      g.name=name; g.desc=desc; g.emoji=emoji; g.coins=coins;
+      g.name=name; g.desc=desc; g.emoji=emoji; g.coins=coins; g.penalty=penVal; g.remind=remindVal;
       var repeatChanged = (g.repeat||'daily') !== gmRepeat;
       g.repeat = gmRepeat;
       g.days = gmRepeat==='custom-days' ? [...gmDays] : null;
@@ -15630,18 +16021,22 @@ function saveGoal() {
       } else if (gmRepeat !== 'interval') {
         g.intervalStart = null;
       }
+      if (startDateInput && startDateInput !== g.startDate) {
+        g.startDate = startDateInput;
+        if (gmRepeat === 'daily' && dur > 0) g.endDate = addDays(g.startDate, dur - 1);
+      }
       if (g.duration !== dur || repeatChanged) {
         g.duration = dur;
-        g.endDate = (gmRepeat === 'daily') ? addDays(g.startDate || today(), dur - 1) : null;
+        g.endDate = (gmRepeat === 'daily' && dur > 0) ? addDays(g.startDate || today(), dur - 1) : null;
       }
     }
   } else {
-    var startDate = today();
-    var endDate = (gmRepeat === 'daily') ? addDays(startDate, dur - 1) : null;
+    var startDate = startDateInput; // standart: trackDate() (kecha rejimida kecha); kelajak sana = kelajakdagi odat
+    var endDate = (gmRepeat === 'daily' && dur > 0) ? addDays(startDate, dur - 1) : null;
     S.goals.push({
       id: Date.now(), name:name, desc:desc, duration:dur, emoji:emoji,
       startDate:startDate, endDate:endDate, done:false, daysChecked:{}, coins:coins,
-      repeat: gmRepeat,
+      repeat: gmRepeat, penalty: penVal, remind: remindVal, pauses: [], daysPenalty: {},
       days: gmRepeat==='custom-days' ? [...gmDays] : null,
       interval: gmRepeat==='interval' ? interval : null,
       intervalStart: gmRepeat==='interval' ? startDateInput : null
@@ -15649,6 +16044,7 @@ function saveGoal() {
     toast(emoji + t('gm_added_toast'));
   }
   save(); closeGoalModal(); renderGoals(); renderGoalsCalendar();
+  try { scheduleGoalReminders(); } catch (e) {}
 }
 
 function _goalToggleDateCore(g, dateStr) {
@@ -15671,6 +16067,12 @@ function _goalToggleDateCore(g, dateStr) {
     // Check — faqat shu kun uchun hali tanga berilmagan bo'lsa ber, va
     // aynan shu miqdorni (coinAward) o'sha kun uchun "muzlatib" saqlaymiz.
     g.daysChecked[dateStr] = 1;
+    if (g.daysPenalty && g.daysPenalty[dateStr]) {
+      var _refund = g.daysPenalty[dateStr];
+      delete g.daysPenalty[dateStr];
+      S.coins = (S.coins || 0) + _refund;
+      addTarixLog('in', '↩️ ' + g.emoji + ' ' + g.name, _refund, null, dateStr);
+    }
     if(!g.daysCoinsGiven[dateStr]) {
       var actualAward = addLifetimeCoins(coinAward);
       g.daysCoinsGiven[dateStr] = actualAward;
@@ -15682,14 +16084,14 @@ function _goalToggleDateCore(g, dateStr) {
 
   var daysDone = g.daysChecked ? Object.keys(g.daysChecked).length : 0;
   var wasDone = !!g.done;
-  g.done = daysDone >= (g.duration || 1);
+  g.done = (g.duration > 0 || g.repeat === 'once') ? daysDone >= (g.duration || 1) : false;
   return { nowChecked: nowChecked, coinAward: coinAward, justCompleted: (g.done && !wasDone) };
 }
 
 function goalCheckToday(id) {
   var g = (S.goals||[]).find(function(x){return x.id===id;}); if(!g) return;
-  if (!goalDueToday(g)) { toast(t('goal_not_today')); return; }
   var yd = trackDate();
+  if (!isGoalDueOnDate(g, yd)) { toast(t('goal_not_today')); return; }
   var result = _goalToggleDateCore(g, yd);
 
   if (result.nowChecked) {
@@ -15896,6 +16298,7 @@ function getGoalsDayStats(dateStr) {
 }
 
 function renderGoalsCalendar() {
+  if (!document.getElementById("gcal-grid")) return;
   var label = document.getElementById('gcal-month-label');
   if (label) label.textContent = getMonthsFullArr()[_gCalMonth] + ' ' + _gCalYear;
 
@@ -16104,91 +16507,274 @@ function deleteGoal(id) {
   }, { icon: '🗑️' });
 }
 
-// 📊 Maqsadlar (Goals) tab statistikasi — faol, bajarilgan va bugun
-// belgilangan maqsadlar soni.
+// ============================================================
+// 🎯 MAQSADLAR = ODATLAR (habits): doimiy rejim, streak, pauza,
+// o'tkazib yuborilgan kun uchun jarima, eslatma, 7 kunlik lenta, filtr.
+// ============================================================
+var gmOngoing = false;
+var _goalsFilter = 'today'; // today | all | paused | done
+
+function goalPausedOn(g, dateStr) {
+  return (g.pauses || []).some(function (p) { return dateStr >= p.from && (!p.to || dateStr < p.to); });
+}
+function goalIsPaused(g) {
+  var ps = g.pauses || [];
+  return ps.length > 0 && !ps[ps.length - 1].to;
+}
+function goalTogglePause(id) {
+  var g = (S.goals || []).find(function (x) { return x.id === id; }); if (!g) return;
+  if (!g.pauses) g.pauses = [];
+  var d = trackDate();
+  if (goalIsPaused(g)) {
+    g.pauses[g.pauses.length - 1].to = d;
+    toast('▶️ ' + _cl('Odat davom ettirildi', 'Habit resumed', 'Привычка возобновлена'));
+  } else {
+    g.pauses.push({ from: d, to: null });
+    toast('⏸ ' + _cl('Odat pauzada: jarima va talab yo\'q', 'Habit paused: no penalty or requirement', 'Привычка на паузе: без штрафов'));
+  }
+  save(); renderGoals(); try { renderGoalsCalendar(); } catch (e) {}
+}
+
+function goalStreak(g) {
+  if (g.repeat === 'once') return { cur: 0, best: 0 };
+  var end = trackDate(), d = g.startDate || end, run = 0, best = 0, guard = 0;
+  while (d <= end && guard++ < 1500) {
+    if (g.daysChecked && g.daysChecked[d]) { run++; if (run > best) best = run; }
+    else if (isGoalDueOnDate(g, d)) { if (d !== end) run = 0; }
+    d = addDays(d, 1);
+  }
+  return { cur: run, best: best };
+}
+function goalRate30(g) {
+  var end = trackDate(), due = 0, done = 0;
+  for (var i = 0; i < 30; i++) {
+    var d = addDays(end, -i);
+    if (g.startDate && d < g.startDate) break;
+    var chk = !!(g.daysChecked && g.daysChecked[d]);
+    if (chk) { due++; done++; }
+    else if (isGoalDueOnDate(g, d) && d !== end) due++;
+  }
+  return due ? Math.round(done / due * 100) : 0;
+}
+
+function gmToggleOngoing() {
+  gmOngoing = !gmOngoing;
+  if (gmOngoing) document.getElementById('gm-duration').value = '';
+  syncGoalDurChips();
+}
+function syncGoalDurChips() {
+  var inp = document.getElementById('gm-duration');
+  var val = parseInt(inp.value) || 0;
+  document.querySelectorAll('#gm-duration-presets .rcost-chip').forEach(function (b) {
+    if (b.id === 'gm-dur-inf') { b.className = 'rcost-chip' + (gmOngoing ? ' sel' : ''); return; }
+    b.className = 'rcost-chip' + (!gmOngoing && parseInt(b.textContent) === val ? ' sel' : '');
+  });
+  inp.disabled = gmOngoing;
+}
+function setGoalDur(val) {
+  gmOngoing = false;
+  document.getElementById('gm-duration').value = val;
+  syncGoalDurChips();
+}
+function gmFillHabitFields(g) {
+  var L = function (id, uz, en, ru) { var el = document.getElementById(id); if (el) el.textContent = _cl(uz, en, ru); };
+  L('gm-dur-inf', '♾ Doimiy', '♾ Ongoing', '♾ Постоянно');
+  L('gm-penalty-label', 'Jarima (kun o\'tkazib yuborilsa)', 'Penalty (if a day is missed)', 'Штраф (за пропуск дня)');
+  L('gm-remind-label', 'Eslatma vaqti (ixtiyoriy)', 'Reminder time (optional)', 'Время напоминания (необязательно)');
+  var pen = document.getElementById('gm-penalty'), rem = document.getElementById('gm-remind');
+  if (pen) pen.value = String(g && g.penalty ? g.penalty : 0);
+  if (rem) rem.value = (g && g.remind) || '';
+  if (pen) pen.placeholder = _cl('0 = jarimasiz (0–30 🪙)', '0 = no penalty (0–30 🪙)', '0 = без штрафа (0–30 🪙)');
+}
+
+// O'tkazib yuborilgan (kechagi) kun uchun jarima — checkReset() chaqiradi.
+function goalsApplyMissedPenalty(ps) {
+  var td = today();
+  if (ps !== addDays(td, -1)) return;
+  if (S.noOvernightPenalty) return;
+  if (S.penaltyPausedUntil && td < S.penaltyPausedUntil) return;
+  if (isDateFrozen(ps)) return;
+  var total = 0, n = 0;
+  (S.goals || []).forEach(function (g) {
+    var pen = Number(g.penalty) || 0;
+    if (pen <= 0 || g.done || g.repeat === 'once') return;
+    if (g.daysChecked && g.daysChecked[ps]) return;
+    if (!isGoalDueOnDate(g, ps)) return;
+    if (g.endDate && ps > g.endDate) return;
+    if (!g.daysPenalty) g.daysPenalty = {};
+    if (g.daysPenalty[ps]) return;
+    g.daysPenalty[ps] = pen; S.coins = (S.coins || 0) - pen; total += pen; n++;
+  });
+  if (total > 0) {
+    addTarixLog('out', '😔 ' + n + ' ' + _cl('ta odat bajarilmadi', 'habits missed', 'привычек пропущено'), -total, null, ps);
+    if (!S.pendingMissedMsg) S.pendingMissedMsg = '😔 ' + n + ' ' + _cl('ta odat bajarilmadi', 'habits missed', 'привычек пропущено') + ' (−' + total + ' 🪙)';
+  }
+}
+
+// 7 kunlik lentadan (yoki istalgan sanadan) belgilash/bekor qilish
+function goalStripToggle(id, dateStr) {
+  var g = (S.goals || []).find(function (x) { return x.id === id; }); if (!g) return;
+  var chk = !!(g.daysChecked && g.daysChecked[dateStr]);
+  if (!chk && !isGoalDueOnDate(g, dateStr)) { toast(t('goal_not_today')); return; }
+  var r = _goalToggleDateCore(g, dateStr);
+  if (r.nowChecked) { try { SFX.coin(); } catch (e) {} }
+  if (r.justCompleted) toast('🏆 ' + g.emoji + ' ' + t('goal_completed'));
+  save(); renderGoals(); try { renderGoalsCalendar(); } catch (e) {} try { render(); } catch (e) {}
+}
+
+// Eslatmalar (sahifa ochiq bo'lganda ishlaydi)
+var _goalRemTimers = [];
+function scheduleGoalReminders() {
+  _goalRemTimers.forEach(clearTimeout); _goalRemTimers = [];
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  var now = new Date(), td = today();
+  (S.goals || []).forEach(function (g) {
+    if (!g.remind || g.done || goalIsPaused(g) || !isGoalDueOnDate(g, td)) return;
+    var hm = g.remind.split(':'), at = new Date(now.getFullYear(), now.getMonth(), now.getDate(), +hm[0] || 0, +hm[1] || 0);
+    if (at <= now) return;
+    _goalRemTimers.push(setTimeout(function () {
+      var gg = (S.goals || []).find(function (x) { return x.id === g.id; });
+      if (!gg || (gg.daysChecked && gg.daysChecked[today()])) return;
+      try { new Notification((gg.emoji || '🎯') + ' ' + gg.name, { body: _cl('Odatni bajarish vaqti!', 'Time for your habit!', 'Пора выполнить привычку!') }); } catch (e) {}
+    }, at - now));
+  });
+}
+if (typeof Notification !== 'undefined' && Notification.permission === 'granted') setTimeout(scheduleGoalReminders, 3500);
+
+function setGoalsFilter(f) { _goalsFilter = f; renderGoals(); }
+
 function renderGoalsStats() {
   var elActive = document.getElementById('goals-stat-active');
   var elDone = document.getElementById('goals-stat-done');
   var elToday = document.getElementById('goals-stat-today');
   if (!elActive || !elDone || !elToday) return;
-  var goals = S.goals || [];
-  var td = trackDate();
-  var doneCount = goals.filter(function(g){ return g.done; }).length;
-  var activeCount = goals.length - doneCount;
-  var todayCount = goals.filter(function(g){ return g.daysChecked && g.daysChecked[td]; }).length;
+  var goals = S.goals || [], td = trackDate();
+  var doneCount = goals.filter(function (g) { return g.done; }).length;
+  var activeCount = goals.filter(function (g) { return !g.done && !goalIsPaused(g); }).length;
+  var dueList = goals.filter(function (g) { return !g.done && (isGoalDueOnDate(g, td)); });
+  var checked = dueList.filter(function (g) { return g.daysChecked && g.daysChecked[td]; }).length;
   elActive.textContent = activeCount;
   elDone.textContent = doneCount;
-  elToday.textContent = todayCount;
+  elToday.textContent = checked + '/' + dueList.length;
 }
 
 function renderGoals() {
   var list = document.getElementById('goals-list');
   var empty = document.getElementById('goals-empty');
+  var bar = document.getElementById('goals-filter-bar');
   renderGoalsStats();
-  if(!list) return;
+  if (!list) return;
   var goals = S.goals || [];
-  if(goals.length === 0){ list.innerHTML=''; if(empty) empty.style.display=''; return; }
-  if(empty) empty.style.display='none';
-  var td = today();
-  list.innerHTML = '';
-  goals.forEach(function(g) {
-    var days = g.daysChecked ? Object.keys(g.daysChecked).length : 0;
-    var total = g.duration || 1;
-    var pct = Math.min(100, Math.round(days / total * 100));
-    var checkedToday = g.daysChecked && g.daysChecked[trackDate()];
-    var expired = g.endDate && g.endDate < td && !g.done;
-    // g.done — endi goalCheckToday() da to'g'ri belgilanadi; "days>=total"
-    // fallback faqat tuzatishdan oldin yaratilgan eski maqsadlar uchun.
-    var completed = !!g.done || days >= total;
+  if (bar) {
+    var F = [['today', _cl('Bugun', 'Today', 'Сегодня')], ['all', '🗂 ' + _cl('Hammasi (kelajak ham)', 'All (incl. future)', 'Все (и будущие)')],
+             ['paused', '⏸ ' + _cl('Pauza', 'Paused', 'Пауза')], ['done', '🏆 ' + _cl('Tugagan', 'Completed', 'Завершены')]];
+    bar.innerHTML = goals.length ? F.map(function (f) {
+      var on = _goalsFilter === f[0];
+      return '<button onclick="setGoalsFilter(\'' + f[0] + '\')" style="padding:6px 12px;border-radius:var(--radius-full);border:1px solid ' + (on ? 'var(--accent)' : 'var(--border)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:' + (on ? '#fff' : 'var(--text-muted)') + ';font-size:var(--fs-xs);cursor:pointer">' + f[1] + '</button>';
+    }).join('') : '';
+  }
+  if (goals.length === 0) { list.innerHTML = ''; if (empty) empty.style.display = ''; return; }
+  if (empty) empty.style.display = 'none';
 
+  var td = today(), tk = trackDate();
+  var info = goals.map(function (g) {
+    var days = g.daysChecked ? Object.keys(g.daysChecked).length : 0;
+    var ongoing = !g.duration && g.repeat !== 'once';
+    var total = g.duration || 1;
+    var completed = !ongoing && (!!g.done || days >= total);
+    var paused = goalIsPaused(g);
+    var expired = !!(g.endDate && g.endDate < td && !completed);
+    var due = isGoalDueOnDate(g, tk);
+    var checked = !!(g.daysChecked && g.daysChecked[tk]);
+    var future = !!(g.startDate && g.startDate > tk);
+    var rank = completed ? 5 : paused ? 4 : expired ? 3 : future ? 2.5 : (due && !checked) ? 0 : checked ? 1 : 2;
+    return { future: future, g: g, days: days, ongoing: ongoing, total: total, completed: completed, paused: paused, expired: expired, due: due, checked: checked, rank: rank };
+  });
+  var shown = info.filter(function (x) {
+    if (_goalsFilter === 'today') return x.due && !x.completed && !x.paused;
+    if (_goalsFilter === 'paused') return x.paused;
+    if (_goalsFilter === 'done') return x.completed;
+    return true;
+  }).sort(function (a, b) { return a.rank - b.rank; });
+
+  list.innerHTML = '';
+  if (!shown.length) {
+    list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--text-dim);font-size:var(--fs-sm);line-height:1.6">' + (_goalsFilter === 'today'
+      ? _cl('Bugun uchun odat yo\'q 🎉<br>Boshqa kunlardagi va kelajakdagi odatlarni ko\'rish uchun «Hammasi» ni bosing', 'No habits for today 🎉<br>Tap “All” to see other days and future habits', 'На сегодня привычек нет 🎉<br>Нажмите «Все», чтобы увидеть остальные и будущие')
+      : _cl('Bu bo\'limda hech narsa yo\'q', 'Nothing here', 'Здесь пусто')) + '</div>';
+    return;
+  }
+  var dayNames = getShortDaysArr();
+  shown.forEach(function (x) {
+    var g = x.g, rl = repeatLabel(g), st = goalStreak(g);
+    var pct = x.ongoing ? goalRate30(g) : Math.min(100, Math.round(x.days / x.total * 100));
     var coinAward = (typeof g.coins === 'number') ? g.coins : 1;
-    var coinLabel = coinAward===0 ? '🆓 +0 🪙' : coinAward===1 ? '🥉 +1 🪙' : coinAward===2 ? '🥈 +2 🪙' : '🥇 +3 🪙';
-    var coinColor = coinAward===0 ? '#a3a3a3' : coinAward===1 ? '#a3a3a3' : coinAward===2 ? '#60A5FA' : '#F5A623';
-    var dueToday = goalDueToday(g);
-    var rl = repeatLabel(g);
+    var coinLabel = coinAward === 0 ? '🆓 +0 🪙' : (coinAward >= 10 ? '🏆 ' : coinAward >= 3 ? '🥇 ' : coinAward === 2 ? '🥈 ' : '🥉 ') + '+' + coinAward + ' 🪙';
+    var coinColor = coinAward >= 3 ? '#F5A623' : coinAward === 2 ? '#60A5FA' : '#a3a3a3';
+    var daysLeft = g.endDate ? Math.max(0, Math.ceil((new Date(g.endDate) - new Date(td)) / 86400000)) : 0;
+    var statusText = x.future ? '📅 ' + _cl('Boshlanadi', 'Starts', 'Начало') + ': ' + g.startDate : x.completed ? t('goal_completed') : x.paused ? '⏸ ' + _cl('Pauzada', 'Paused', 'На паузе') : x.expired ? t('goal_expired')
+      : x.ongoing ? '♾ ' + _cl('30 kun', '30 days', '30 дней') + ': ' + pct + '%' : (g.endDate ? (daysLeft + ' ' + t('goal_days_left')) : rl.text);
+    var statusColor = x.completed ? '#34D399' : x.expired ? '#F87171' : 'var(--text-muted)';
+    var btn = 'background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 8px;font-size:var(--fs-2xs);color:var(--text-muted);cursor:pointer';
+
+    // 7 kunlik lenta
+    var strip = '';
+    for (var i = 6; i >= 0; i--) {
+      var d = addDays(tk, -i);
+      if (g.startDate && d < g.startDate) { strip += '<div style="flex:1"></div>'; continue; }
+      var chk = !!(g.daysChecked && g.daysChecked[d]);
+      var dueD = isGoalDueOnDate(g, d);
+      var dow = new Date(d + 'T00:00:00').getDay();
+      var lab = dayNames[dow] || '';
+      var circ = chk ? 'background:#34D399;border:2px solid #34D399;color:#fff' :
+        (dueD && d !== tk) ? 'background:transparent;border:2px solid rgba(248,113,113,0.7);color:#F87171' :
+        dueD ? 'background:transparent;border:2px solid var(--accent);color:var(--accent)' :
+        'background:var(--surface2);border:2px solid transparent;color:var(--text-dim)';
+      var mark = chk ? '✓' : (dueD && d !== tk) ? '✕' : dueD ? '·' : '–';
+      strip += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">' +
+        '<div style="font-size:9px;color:var(--text-dim)">' + esc(String(lab).slice(0, 2)) + '</div>' +
+        '<button ' + ((chk || dueD) ? 'onclick="goalStripToggle(' + g.id + ',\'' + d + '\')"' : 'disabled') + ' style="width:24px;height:24px;border-radius:50%;font-size:11px;line-height:1;padding:0;cursor:' + ((chk || dueD) ? 'pointer' : 'default') + ';' + circ + '">' + mark + '</button></div>';
+    }
 
     var card = document.createElement('div');
-    card.style.cssText = 'background:var(--surface);border:1px solid ' + (completed?'rgba(52,211,153,0.4)':expired?'rgba(248,113,113,0.3)':'var(--border)') + ';border-radius:var(--radius-lg);padding:16px;';
-
-    var daysLeft = g.endDate ? Math.max(0, Math.ceil((new Date(g.endDate)-new Date(td))/86400000)) : 0;
-    var statusText = completed ? t('goal_completed') : expired ? t('goal_expired') : (g.endDate ? (daysLeft + ' ' + t('goal_days_left')) : rl.text);
-    var statusColor = completed ? '#34D399' : expired ? '#F87171' : 'var(--text-muted)';
-
+    card.style.cssText = 'background:var(--surface);border:1px solid ' + (x.completed ? 'rgba(52,211,153,0.4)' : x.expired ? 'rgba(248,113,113,0.3)' : 'var(--border)') + ';border-radius:var(--radius-lg);padding:16px;' + (x.paused ? 'opacity:.7;' : '');
     card.innerHTML =
-      '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">' +
-        '<div style="display:flex;align-items:center;gap:8px">' +
-          '<span style="font-size:var(--fs-xl)">' + (g.emoji||'🎯') + '</span>' +
-          '<div>' +
-            '<div style="font-size:var(--fs-base);font-weight:600;color:var(--text)">' + esc(g.name) + '</div>' +
-            (g.desc ? '<div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:1px">'+esc(g.desc)+'</div>' : '') +
-          '</div>' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:8px">' +
+        '<div style="display:flex;align-items:center;gap:8px;min-width:0">' +
+          '<span style="font-size:var(--fs-xl)">' + (g.emoji || '🎯') + '</span>' +
+          '<div style="min-width:0"><div style="font-size:var(--fs-base);font-weight:600;color:var(--text);word-break:break-word">' + esc(g.name) + '</div>' +
+          (g.desc ? '<div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:1px">' + esc(g.desc) + '</div>' : '') + '</div>' +
         '</div>' +
-        '<div style="display:flex;align-items:center;gap:4px">' +
-          '<span style="font-size:var(--fs-2xs);font-weight:600;color:'+coinColor+';background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:var(--radius-full);padding:3px 8px">' + coinLabel + '</span>' +
-          '<button onclick="openGoalCalendar('+g.id+')" title="' + esc(t('goal_cal_subtitle')) + '" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 8px;font-size:var(--fs-2xs);color:var(--text-muted);cursor:pointer">📅</button>' +
-          '<button onclick="openGoalModal('+g.id+')" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 8px;font-size:var(--fs-2xs);color:var(--text-muted);cursor:pointer">✏️</button>' +
-          '<button onclick="deleteGoal('+g.id+')" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 8px;font-size:var(--fs-2xs);color:var(--text-muted);cursor:pointer">🗑</button>' +
+        '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">' +
+          '<button onclick="openGoalCalendar(' + g.id + ')" title="' + esc(t('goal_cal_subtitle')) + '" style="' + btn + '">📅</button>' +
+          '<button onclick="goalTogglePause(' + g.id + ')" title="' + esc(_cl('Pauza', 'Pause', 'Пауза')) + '" style="' + btn + '">' + (x.paused ? '▶️' : '⏸') + '</button>' +
+          '<button onclick="openGoalModal(' + g.id + ')" style="' + btn + '">✏️</button>' +
+          '<button onclick="deleteGoal(' + g.id + ')" style="' + btn + '">🗑</button>' +
         '</div>' +
       '</div>' +
-      (g.endDate ? '' : '<div style="margin-bottom:8px"><span class="'+rl.cls+'" style="font-size:var(--fs-2xs)">'+esc(rl.text)+'</span></div>') +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' +
+        '<span style="font-size:var(--fs-2xs);font-weight:600;color:' + coinColor + ';background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:var(--radius-full);padding:3px 8px">' + coinLabel + '</span>' +
+        (g.endDate ? '' : '<span class="' + rl.cls + '" style="font-size:var(--fs-2xs)">' + esc(rl.text) + '</span>') +
+        (st.best > 0 ? '<span style="font-size:var(--fs-2xs);font-weight:600;color:#F5A623;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius-full);padding:3px 8px">🔥 ' + st.cur + ' <span style="opacity:.7">(' + _cl('rekord', 'best', 'рекорд') + ' ' + st.best + ')</span></span>' : '') +
+        ((Number(g.penalty) || 0) > 0 ? '<span style="font-size:var(--fs-2xs);color:#F87171;border:1px solid rgba(248,113,113,0.3);border-radius:var(--radius-full);padding:3px 8px">⚠️ −' + g.penalty + ' 🪙</span>' : '') +
+        (g.remind ? '<span style="font-size:var(--fs-2xs);color:var(--text-muted);border:1px solid var(--border);border-radius:var(--radius-full);padding:3px 8px">⏰ ' + esc(g.remind) + '</span>' : '') +
+      '</div>' +
+      '<div style="display:flex;gap:2px;margin-bottom:10px">' + strip + '</div>' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
-        '<span style="font-size:var(--fs-xs);color:var(--text-muted)">' + days + '/' + total + ' ' + t('goal_days_unit') + '</span>' +
-        '<span style="font-size:var(--fs-xs);color:'+statusColor+'">' + statusText + '</span>' +
+        '<span style="font-size:var(--fs-xs);color:var(--text-muted)">' + (x.ongoing ? x.days + ' ' + t('goal_days_unit') : x.days + '/' + x.total + ' ' + t('goal_days_unit')) + '</span>' +
+        '<span style="font-size:var(--fs-xs);color:' + statusColor + '">' + statusText + '</span>' +
       '</div>' +
       '<div style="height:6px;background:var(--surface2);border-radius:var(--radius-full);overflow:hidden;margin-bottom:12px">' +
-        '<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,var(--accent),#B48EFF);border-radius:var(--radius-full);transition:width 0.5s ease"></div>' +
+        '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,var(--accent),#B48EFF);border-radius:var(--radius-full);transition:width 0.5s ease"></div>' +
       '</div>' +
-      (!completed && !expired ?
-        (dueToday ?
-          '<button onclick="goalCheckToday('+g.id+')" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:' + (checkedToday?'2px solid #34D399':'1px solid var(--border)') + ';background:' + (checkedToday?'rgba(52,211,153,0.15)':'var(--surface2)') + ';color:' + (checkedToday?'#34D399':'var(--text-muted)') + ';font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:DM Sans,sans-serif">' +
-            (checkedToday ? t(isYesterdayMode() ? 'goal_check_done' : 'goal_check_done_today') : t(isYesterdayMode() ? 'goal_check_todo' : 'goal_check_todo_today')) +
+      (!x.completed && !x.expired && !x.paused ?
+        (x.due ?
+          '<button onclick="goalCheckToday(' + g.id + ')" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:' + (x.checked ? '2px solid #34D399' : '1px solid var(--border)') + ';background:' + (x.checked ? 'rgba(52,211,153,0.12)' : 'var(--surface2)') + ';color:' + (x.checked ? '#34D399' : 'var(--text)') + ';font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">' +
+            (x.checked ? t(isYesterdayMode() ? 'goal_check_done' : 'goal_check_done_today') : t(isYesterdayMode() ? 'goal_check_todo' : 'goal_check_todo_today')) +
           '</button>'
         :
-          '<div style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px dashed var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);font-weight:600;text-align:center;font-family:DM Sans,sans-serif">' +
-            t('goal_not_today') +
-          '</div>'
-        )
-      : '');
+          '<div style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px dashed var(--border);color:var(--text-muted);font-size:var(--fs-sm);font-weight:600;text-align:center">' + t('goal_not_today') + '</div>'
+        ) : '');
     list.appendChild(card);
   });
 }
@@ -19362,23 +19948,37 @@ function allDailyDone() {
 }
 
 // Chest vazifalarini qo'shish modali
-function openAddChestTask() {
+var _ctEditId = null, _ctCoinsInit = 5;
+function ctCoinsClamp() {
+  var e = document.getElementById('ct-coins'); if (!e || e.value === '') return;
+  var v = Math.round(Number(e.value)); if (isNaN(v)) v = 0;
+  e.value = Math.max(0, Math.min(100, v));
+}
+function ctCoinsOf(tk) {
+  if (tk && typeof tk.coins === 'number') return tk.coins;
+  var d = (tk && tk.diff) || 1;
+  return CHEST_REWARDS[d] || CHEST_REWARDS[1];
+}
+function openAddChestTask(editId) {
+  _ctEditId = (typeof editId === 'number') ? editId : null;
+  var _ex = _ctEditId !== null ? (S.chestTasks || []).find(function(x){ return x.id === _ctEditId; }) : null;
+  if (_ctEditId !== null && !_ex) _ctEditId = null;
+  _ctCoinsInit = _ex ? ctCoinsOf(_ex) : 5;
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;display:flex;align-items:flex-end;justify-content:center;padding:0';
   ov.className = 'ct-modal-overlay';
   ov.innerHTML =
     '<div style="background:var(--surface);border:1px solid var(--border-hover);border-radius:var(--radius-xl) 20px 0 0;padding:24px 20px 32px;width:100%;max-width:560px;animation:modalIn 0.22s ease">' +
-      '<div style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;margin-bottom:16px">' + t('ct_modal_title') + '</div>' +
+      '<div style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;margin-bottom:16px">' + (_ex ? _cl('✏️ Chest vazifani tahrirlash','✏️ Edit chest task','✏️ Изменить задачу') : t('ct_modal_title')) + '</div>' +
       '<div style="margin-bottom:12px">' +
         '<label style="font-size:var(--fs-2xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;display:block;margin-bottom:6px">' + t('ct_name_label') + '</label>' +
         '<input id="ct-name" type="text" placeholder="' + t('ct_name_ph') + '" style="width:100%;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;outline:none" />' +
       '</div>' +
       '<div style="margin-bottom:18px">' +
-        '<label style="font-size:var(--fs-2xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;display:block;margin-bottom:8px">' + t('ct_diff_label') + '</label>' +
-        '<div style="display:flex;gap:8px">' +
-          '<button class="ct-diff-btn ct-diff-sel" data-d="1" onclick="selCtDiff(1)" style="flex:1;padding:10px 8px;border-radius:var(--radius-sm);border:1px solid var(--accent);background:rgba(124,92,252,0.1);color:var(--text);font-size:var(--fs-sm);cursor:pointer;font-family:DM Sans,sans-serif">' + t('ct_diff_easy') + '<br><span style="color:var(--gold);font-size:var(--fs-xs)">+' + CHEST_REWARDS[1] + ' &#129529;</span></button>' +
-          '<button class="ct-diff-btn" data-d="2" onclick="selCtDiff(2)" style="flex:1;padding:10px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer;font-family:DM Sans,sans-serif">' + t('ct_diff_medium') + '<br><span style="color:var(--gold);font-size:var(--fs-xs)">+' + CHEST_REWARDS[2] + ' &#129529;</span></button>' +
-          '<button class="ct-diff-btn" data-d="3" onclick="selCtDiff(3)" style="flex:1;padding:10px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer;font-family:DM Sans,sans-serif">' + t('ct_diff_hard') + '<br><span style="color:var(--gold);font-size:var(--fs-xs)">+' + CHEST_REWARDS[3] + ' &#129529;</span></button>' +
+        '<label style="font-size:var(--fs-2xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;display:block;margin-bottom:8px">' + _cl('Mukofot tangasi (0–100)','Reward coins (0–100)','Награда (0–100)') + '</label>' +
+        '<input id="ct-coins" type="number" min="0" max="100" step="1" inputmode="numeric" value="' + _ctCoinsInit + '" oninput="ctCoinsClamp()" style="width:100%;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:DM Sans,sans-serif;box-sizing:border-box" />' +
+        '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' +
+          [2,5,10,20,50].map(function(v){ return '<button type="button" onclick="document.getElementById(\'ct-coins\').value=' + v + '" style="padding:6px 12px;border-radius:var(--radius-full);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-xs);cursor:pointer">' + v + ' \u{1FA99}</button>'; }).join('') +
         '</div>' +
       '</div>' +
       '<div style="display:flex;gap:10px">' +
@@ -19387,7 +19987,7 @@ function openAddChestTask() {
       '</div>' +
     '</div>';
   document.body.appendChild(ov);
-  setTimeout(function() { var inp = document.getElementById('ct-name'); if(inp) inp.focus(); }, 150);
+  setTimeout(function() { var inp = document.getElementById('ct-name'); if(inp) { if (_ex) inp.value = _ex.name; inp.focus(); } }, 150);
   ov.addEventListener('click', function(e) { if(e.target === ov) ov.remove(); });
   // enter key
   setTimeout(function() {
@@ -19419,8 +20019,13 @@ function saveChestTask() {
   if (!name) { inp.style.borderColor = 'var(--red)'; inp.focus(); return; }
   if (!S.chestTasks) S.chestTasks = [];
   if (!S.nextCtId) S.nextCtId = 1000;
-  S.chestTasks.push({ id: S.nextCtId++, name: name, diff: _ctDiff });
-  _ctDiff = 1;
+  ctCoinsClamp();
+  var _cv = Math.max(0, Math.min(100, Math.round(Number((document.getElementById('ct-coins')||{}).value) || 0)));
+  var _dd = _cv <= 0 ? 1 : _cv <= 3 ? 1 : _cv <= 8 ? 2 : 3;
+  var _ed = _ctEditId !== null ? S.chestTasks.find(function(x){ return x.id === _ctEditId; }) : null;
+  if (_ed) { _ed.name = name; _ed.coins = _cv; _ed.diff = _dd; }
+  else S.chestTasks.push({ id: S.nextCtId++, name: name, diff: _dd, coins: _cv });
+  _ctEditId = null;
   save();
   var ov = inp.closest('.ct-modal-overlay') || document.querySelector('.ct-modal-overlay');
   if (ov) ov.remove();
@@ -19482,7 +20087,7 @@ function openChestInline() {
 
   var rnd = pool[Math.floor(Math.random() * pool.length)];
   var diff = rnd.diff || 1;
-  var bonusCoins = CHEST_REWARDS[diff] || CHEST_REWARDS[1];
+  var bonusCoins = ctCoinsOf(rnd);
 
   S.isChestQuestActive = true;
   S.chestQuest = { name: rnd.name, diff: diff, coins: bonusCoins };
@@ -19687,13 +20292,14 @@ function renderChestTasksList() {
   tasks.forEach(function(t) {
     var diff = t.diff || 1;
     var dot = diff === 1 ? '\u{1F7E2}' : diff === 2 ? '\u{1F7E1}' : '\u{1F534}';
-    var coins = CHEST_REWARDS[diff] || CHEST_REWARDS[1];
+    var coins = ctCoinsOf(t);
     var el = document.createElement('div');
     el.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 14px;display:flex;align-items:center;gap:10px';
     el.innerHTML =
       '<span style="font-size:var(--fs-md)">' + dot + '</span>' +
       '<span style="flex:1;font-size:var(--fs-base);color:var(--text)">' + esc(t.name) + '</span>' +
       '<span style="font-size:var(--fs-xs);color:var(--gold);font-weight:600;margin-right:4px">+' + coins + ' \u{1FA99}</span>' +
+      '<button onclick="openAddChestTask(' + t.id + ')" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:var(--fs-2xs);padding:4px 8px;cursor:pointer;margin-right:4px">✏️</button>' +
       '<button onclick="deleteChestTask(' + t.id + ')" style="background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-size:var(--fs-2xs);padding:4px 8px;cursor:pointer;font-family:DM Sans,sans-serif">&#128465;</button>';
     list.appendChild(el);
   });
@@ -19881,7 +20487,7 @@ setTimeout(function(){ updateMoodBtn(); }, 100);
   console.error('[script.js] Blok 3 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr3);
 }
 
-// ---------- Blok 4/8 ----------
+// ---------- Blok 4/10 ----------
 try {
 
 function openTaskSheet(id, future) {
@@ -19988,13 +20594,15 @@ function openIeltsResultModal() {
   if (hint)      hint.textContent    = '';
 
   // Hide score rows & subsection
-  ['ielts-raw-row','ielts-band-row','ielts-subsec-row'].forEach(function(id) {
+  ['ielts-raw-row','ielts-band-row','ielts-subsec-row','ielts-full-row'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
+  ['l','r','w','s'].forEach(function(k){ var e=document.getElementById('ielts-full-'+k); if(e) e.value=''; });
+  var _fp=document.getElementById('ielts-full-preview'); if(_fp) _fp.textContent='';
 
   // Reset section buttons opacity
-  ['l','r','w','s'].forEach(function(k) {
+  ['l','r','w','s','f'].forEach(function(k) {
     var btn = document.getElementById('ielts-sec-'+k);
     if (btn) btn.style.opacity = '1';
   });
@@ -20008,11 +20616,12 @@ function closeIeltsResultModal() {
 }
 
 function selectIeltsSection(sec) {
+  var _ff = document.getElementById('ielts-full-row'); if (_ff) _ff.style.display = 'none';
   _ieltsSection    = sec;
   _ieltsSubSection = null;
 
   // Highlight selected section button
-  ['l','r','w','s'].forEach(function(k) {
+  ['l','r','w','s','f'].forEach(function(k) {
     var btn = document.getElementById('ielts-sec-'+k);
     if (btn) btn.style.opacity = '0.4';
   });
@@ -20218,7 +20827,58 @@ function partsToFullRaw(sec, partScores) {
   return { total: total, filled: filled };
 }
 
+function selectIeltsFull() {
+  _ieltsSection = 'full'; _ieltsSubSection = null;
+  ['l','r','w','s','f'].forEach(function(k){ var b=document.getElementById('ielts-sec-'+k); if(b) b.style.opacity = (k==='f')?'1':'0.4'; });
+  ['ielts-raw-row','ielts-band-row','ielts-subsec-row'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
+  var f = document.getElementById('ielts-full-row'); if (f) f.style.display = 'block';
+  ieltsFullPreview();
+}
+function _ieltsFullRead() {
+  function num(id){ var e=document.getElementById(id); if(!e||e.value==='') return null; var v=Number(e.value); return isNaN(v)?NaN:v; }
+  return { listening:num('ielts-full-l'), reading:num('ielts-full-r'), writing:num('ielts-full-w'), speaking:num('ielts-full-s') };
+}
+function ieltsFullPreview() {
+  var p = document.getElementById('ielts-full-preview'); if (!p) return;
+  var v = _ieltsFullRead(), bands = [];
+  ['listening','reading'].forEach(function(k){ if (v[k]!==null && !isNaN(v[k]) && v[k]>=0 && v[k]<=40) bands.push(rawToBand(Math.round(v[k]), k)); });
+  ['writing','speaking'].forEach(function(k){ if (v[k]!==null && !isNaN(v[k]) && v[k]>=0 && v[k]<=9) bands.push(v[k]); });
+  if (!bands.length) { p.textContent = ''; return; }
+  var avg = Math.round(bands.reduce(function(a,b){return a+b;},0)/bands.length*2)/2;
+  p.textContent = 'Overall ≈ ' + avg.toFixed(1) + ' (' + bands.length + '/4)';
+}
+function saveIeltsFull() {
+  var dateVal = document.getElementById('ielts-res-date').value;
+  if (!dateVal) { toast(t('ielts_enter_date_toast')); return; }
+  if (dateVal > today()) { toast('❗ ' + t('date_future_not_allowed_toast')); return; }
+  var v = _ieltsFullRead(), out = [], bad = false;
+  ['listening','reading'].forEach(function(k){
+    if (v[k]===null) return;
+    if (isNaN(v[k]) || v[k]<0 || v[k]>40) { bad = true; return; }
+    var raw = Math.round(v[k]);
+    out.push({ section:k, subSection:'all', band:rawToBand(raw,k), raw:raw });
+  });
+  ['writing','speaking'].forEach(function(k){
+    if (v[k]===null) return;
+    if (isNaN(v[k]) || v[k]<0 || v[k]>9) { bad = true; return; }
+    out.push({ section:k, subSection:'all', band:Math.round(v[k]*2)/2, raw:null });
+  });
+  if (bad) { toast('❗ Qiymatlar oralig\'ini tekshiring'); return; }
+  if (!out.length) { toast('Kamida bitta natijani kiriting'); return; }
+  if (!S.ieltsResults) S.ieltsResults = [];
+  var base = Date.now();
+  out.forEach(function(r, i){ r.date = dateVal; r.id = base + i; S.ieltsResults.push(r); });
+  save();
+  closeIeltsResultModal();
+  renderIeltsTab();
+  try { renderProfileGoalWidget(); } catch(e) {}
+  try { renderExamTrendChart(); } catch(e) {}
+  try { renderExamForecastCard(); } catch(e) {}
+  toast(t('ielts_result_saved_toast'));
+}
+
 function saveIeltsResult() {
+  if (_ieltsSection === 'full') { saveIeltsFull(); return; }
   if (!_ieltsSection) { toast(t('ielts_select_section_toast')); return; }
   var dateVal = document.getElementById('ielts-res-date').value;
   if (!dateVal) { toast(t('ielts_enter_date_toast')); return; }
@@ -21386,10 +22046,14 @@ function openSatResultModal() {
   var ieltsModal = document.getElementById('ielts-result-modal');
   if (ieltsModal) ieltsModal.style.display = 'none';
   _satSection = null;
-  ['rw','math'].forEach(function(k) {
+  ['rw','math','full'].forEach(function(k) {
     var btn = document.getElementById('sat-sec-' + k);
     if (btn) { btn.style.opacity = '1'; btn.style.transform = 'scale(1)'; }
   });
+  ['sat-full-rw','sat-full-math'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  var _sf=document.getElementById('sat-full-row'); if(_sf) _sf.style.display='none';
+  var _ss=document.getElementById('sat-single-row'); if(_ss) _ss.style.display='';
+  var _sp=document.getElementById('sat-full-preview'); if(_sp) _sp.textContent='';
   var scoreInp = document.getElementById('sat-res-score');
   var dateInp = document.getElementById('sat-res-date');
   if (scoreInp) scoreInp.value = '';
@@ -21405,7 +22069,10 @@ function closeSatResultModal() {
 
 function selectSatSection(sec) {
   _satSection = sec;
-  ['rw','math'].forEach(function(k) {
+  var _sf=document.getElementById('sat-full-row'); if(_sf) _sf.style.display = (sec==='full')?'block':'none';
+  var _ss=document.getElementById('sat-single-row'); if(_ss) _ss.style.display = (sec==='full')?'none':'';
+  if (sec==='full') satFullPreview();
+  ['rw','math','full'].forEach(function(k) {
     var btn = document.getElementById('sat-sec-' + k);
     if (!btn) return;
     if (k === sec) {
@@ -21418,7 +22085,38 @@ function selectSatSection(sec) {
   });
 }
 
+function satFullPreview() {
+  var p = document.getElementById('sat-full-preview'); if (!p) return;
+  var a = document.getElementById('sat-full-rw').value, b = document.getElementById('sat-full-math').value;
+  if (a!=='' && b!=='' && !isNaN(a) && !isNaN(b)) p.textContent = 'Total: ' + (Number(a)+Number(b)) + ' / 1600'; else p.textContent = '';
+}
+function saveSatFull() {
+  var dateVal = document.getElementById('sat-res-date').value;
+  if (!dateVal) { toast(t('sat_enter_date_toast')); return; }
+  if (dateVal > today()) { toast('❗ ' + t('date_future_not_allowed_toast')); return; }
+  var out = [], bad = false;
+  [['rw','sat-full-rw'],['math','sat-full-math']].forEach(function(p){
+    var e = document.getElementById(p[1]); if (!e || e.value==='') return;
+    var v = parseInt(e.value);
+    if (isNaN(v) || v<200 || v>800) { bad = true; return; }
+    out.push({ section:p[0], score:v });
+  });
+  if (bad) { toast(t('sat_score_range_toast')); return; }
+  if (!out.length) { toast('Kamida bitta natijani kiriting'); return; }
+  if (!S.satResults) S.satResults = [];
+  var base = Date.now();
+  out.forEach(function(r,i){ r.date = dateVal; r.id = base + i; S.satResults.push(r); });
+  save();
+  closeSatResultModal();
+  renderSatTab();
+  try { renderProfileGoalWidget(); } catch(e) {}
+  try { renderExamTrendChart(); } catch(e) {}
+  try { renderExamForecastCard(); } catch(e) {}
+  toast(t('sat_result_saved_toast'));
+}
+
 function saveSatResult() {
+  if (_satSection === 'full') { saveSatFull(); return; }
   if (!_satSection) { toast(t('sat_select_section_toast')); return; }
   var scoreVal = parseInt(document.getElementById('sat-res-score').value);
   if (isNaN(scoreVal) || scoreVal < 200 || scoreVal > 800) {
@@ -21655,8 +22353,135 @@ function renderSatDetailContent(sec) {
   console.error('[script.js] Blok 4 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr4);
 }
 
-// ---------- Blok 5/8 ----------
+// ---------- Blok 5/10 ----------
 try {
+// async funksiyalar try{} ichida block-scoped bo'lib qolmasligi uchun global var qilib, blok boshiga ko'chirildi
+var wsSubmitRegister = async function() {
+  var nameVal = (wsState.regName || '').trim();
+  var emailVal = (wsState.regEmail || '').trim();
+  var passVal = wsState.regPass || '';
+
+  if (isGuestStyleUsername(nameVal)) {
+    try { toast(t('pe_username_guest_style')); } catch (e) {}
+    return;
+  }
+  if (nameVal.length < 3 || nameVal.length > USERNAME_MAX_LEN || !USERNAME_ALLOWED_REGEX.test(nameVal) || isUsernameBlocked(nameVal)) {
+    try { toast(t('ws_reg_name_invalid_toast')); } catch (e) {}
+    return;
+  }
+  if (isUsernameTaken(nameVal, S.profile && S.profile.name)) {
+    try { toast(t('ws_reg_taken_toast')); } catch (e) {}
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+    try { toast(t('ws_email_invalid_toast')); } catch (e) {}
+    return;
+  }
+  if (passVal.length < 6) {
+    try { toast(t('ws_reg_pass_invalid_toast')); } catch (e) {}
+    return;
+  }
+
+  wsSetAuthBusy('ws-reg-submit-btn', true, '⏳ ...');
+  try {
+    var res = await supabase.auth.signUp({
+      email: emailVal,
+      password: passVal,
+      options: { data: { name: nameVal } }
+    });
+    if (res.error) {
+      toast('⚠️ ' + res.error.message);
+      return;
+    }
+    S.cloudLinked = true;
+    S.cloudUserId = res.data.user ? res.data.user.id : null;
+    S.cloudEmail = emailVal;
+    S.lastCloudUserId = S.cloudUserId;
+    window._cloudPullDone = true; // yangi akkaunt: bulutda hali hech narsa yo'q, mahalliy holat yoziladi
+    wsState.name = nameVal;
+    wsFinish('register', 'ws_reg_success_toast');
+    // Yangi akkaunt uchun profil qatori trigger orqali yaratiladi — hozirgi
+    // mahalliy tanga/xp/streak holatini shu yangi qatorga darhol yozamiz.
+    scheduleCloudSync(true);
+    // Shu qurilmada avvaldan (mehmon sifatida) tasklar bo'lsa, ularni ham
+    // darhol yangi akkauntga yuklaymiz (cloudLinked endi true bo'lgani
+    // uchun syncTasksToLocalStorage() ularni navbatga qo'yadi).
+    try { syncTasksToLocalStorage(); scheduleTodosCloudSync(true); } catch (e) {}
+    try { scheduleAppStateSync(true); } catch (e) {}
+  } catch (e) {
+    toast('⚠️ ' + (e && e.message ? e.message : String(e)));
+  } finally {
+    wsSetAuthBusy('ws-reg-submit-btn', false);
+  }
+};
+
+var wsSubmitLogin = async function() {
+  var emailVal = (wsState.loginEmail || '').trim();
+  var passVal = wsState.loginPass || '';
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+    try { toast(t('ws_email_invalid_toast')); } catch (e) {}
+    return;
+  }
+  if (!passVal) {
+    try { toast(t('ws_login_fail_toast')); } catch (e) {}
+    return;
+  }
+
+  wsSetAuthBusy('ws-login-submit-btn', true, '⏳ ...');
+  try {
+    var res = await supabase.auth.signInWithPassword({ email: emailVal, password: passVal });
+    if (res.error) {
+      toast('⚠️ ' + t('ws_login_fail_toast'));
+      return;
+    }
+    var uid = res.data.user ? res.data.user.id : null;
+    S.cloudLinked = true;
+    S.cloudUserId = uid;
+    S.cloudEmail = emailVal;
+    window._cloudPullDone = false;
+    startRealtimeSync();
+
+    // Bulutdan hamma narsani tiklaymiz: app_state → profil → tasklar
+    var pulled = await cloudPullAll(uid);
+    if (pulled.profile && pulled.profile.name) wsState.name = pulled.profile.name;
+    if (pulled.hadProfile || pulled.hadAppState) {
+      // wsFinish so'rovnoma javoblari bilan bulutdagi sozlamalarni bosib yubormasin
+      wsState.goal = null; wsState.ref = null;
+      wsState.difficulty = S.difficulty || 'normal';
+      wsState.ambientFocusEnabled = !!S.ambientFocusEnabled;
+    }
+    wsFinish('login', 'ws_login_success_toast');
+  } catch (e) {
+    toast('⚠️ ' + (e && e.message ? e.message : String(e)));
+  } finally {
+    wsSetAuthBusy('ws-login-submit-btn', false);
+  }
+};
+
+var wsCheckSupabaseSession = async function() {
+  try {
+    var res = await supabase.auth.getSession();
+    var session = res.data && res.data.session;
+    if (session && session.user) await cloudBoot(session);
+  } catch (e) { console.warn('[Supabase session] tekshirishda xatolik:', e); }
+};
+
+var cloudLogout = async function() {
+  window._cloudManualLogout = true;
+  try { await supabase.auth.signOut(); } catch (e) {}
+  window._cloudManualLogout = false;
+  try { _cloudResetLink(); } catch (e) {}
+  stopRealtimeSync();
+  S.cloudLinked = false;
+  S.cloudUserId = null;
+  S.cloudEmail = null;
+  // Navbatda kutayotgan (hali yuborilmagan) task sinxronlashlarini bekor
+  // qilamiz — boshqa akkaunt bilan aralashib ketmasligi uchun.
+  if (_todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
+  _pendingTodoUpserts = {};
+  _pendingTodoDeletes = {};
+};
 
 
 function getOnboardingTourSteps() {
@@ -22259,6 +23084,7 @@ function wsRenderStep() {
       html +=
         '<div style="' + titleStyle + '">' + t('ws_reg_title') + '</div>' +
         '<div style="' + descStyle + '">' + t('ws_reg_desc') + '</div>' +
+        '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-bottom:10px">' + t('ws_reg_google_btn') + '</button>' +
         '<input id="ws-reg-name-input" type="text" maxlength="' + USERNAME_MAX_LEN + '" placeholder="' + t('ws_reg_name_ph') + '" value="' + esc(wsState.regName) + '" style="' + fieldStyle + '" />' +
         '<input id="ws-reg-email-input" type="email" placeholder="' + t('ws_reg_email_ph') + '" value="' + esc(wsState.regEmail || '') + '" style="' + fieldStyle + '" />' +
         '<input id="ws-reg-pass-input" type="password" placeholder="' + t('ws_reg_pass_ph') + '" value="' + esc(wsState.regPass || '') + '" style="' + fieldStyle + '" />' +
@@ -22270,8 +23096,10 @@ function wsRenderStep() {
       html +=
         '<div style="' + titleStyle + '">' + t('ws_login_title') + '</div>' +
         '<div style="' + descStyle + '">' + t('ws_login_desc_simple') + '</div>' +
+        '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-bottom:10px">' + t('ws_login_google_btn') + '</button>' +
         '<input id="ws-login-email-input" type="email" placeholder="' + t('ws_login_email_ph') + '" value="' + esc(wsState.loginEmail || '') + '" style="' + fieldStyle + '" />' +
         '<input id="ws-login-pass-input" type="password" placeholder="' + t('ws_login_pass_ph') + '" value="' + esc(wsState.loginPass || '') + '" style="' + fieldStyle + '" />' +
+        '<div id="ws-forgot-link" style="text-align:right;font-size:12px;opacity:.75;cursor:pointer;margin-top:-4px;text-decoration:underline">' + _cl('Parolni unutdingizmi?', 'Forgot password?', 'Забыли пароль?') + '</div>' +
         '<div class="onboarding-tt-actions" style="margin-top:16px">' +
           '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn">' + t('guide_back_btn') + '</button>' +
           '<button class="onboarding-btn onboarding-btn-primary" id="ws-login-submit-btn">' + t('ws_login_submit_btn') + '</button>' +
@@ -22338,6 +23166,10 @@ function wsAttachHandlers() {
   if (loginPassInput) loginPassInput.oninput = function () { wsState.loginPass = loginPassInput.value; };
   var loginSubmitBtn = document.getElementById('ws-login-submit-btn');
   if (loginSubmitBtn) loginSubmitBtn.onclick = function () { wsSubmitLogin(); };
+  var googleBtn = document.getElementById('ws-google-btn');
+  if (googleBtn) googleBtn.onclick = function () { cloudGoogleSignIn(); };
+  var forgotLink = document.getElementById('ws-forgot-link');
+  if (forgotLink) forgotLink.onclick = function () { cloudForgotPassword(); };
 }
 
 function wsNext() {
@@ -22372,133 +23204,9 @@ function wsSetAuthBusy(btnId, busy, busyLabel) {
   else { if (btn.dataset.origLabel) btn.innerHTML = btn.dataset.origLabel; btn.disabled = false; btn.style.opacity = '1'; }
 }
 
-async function wsSubmitRegister() {
-  var nameVal = (wsState.regName || '').trim();
-  var emailVal = (wsState.regEmail || '').trim();
-  var passVal = wsState.regPass || '';
+/* wsSubmitRegister: blok boshiga (global var sifatida) ko'chirildi */
 
-  if (isGuestStyleUsername(nameVal)) {
-    try { toast(t('pe_username_guest_style')); } catch (e) {}
-    return;
-  }
-  if (nameVal.length < 3 || nameVal.length > USERNAME_MAX_LEN || !USERNAME_ALLOWED_REGEX.test(nameVal) || isUsernameBlocked(nameVal)) {
-    try { toast(t('ws_reg_name_invalid_toast')); } catch (e) {}
-    return;
-  }
-  if (isUsernameTaken(nameVal, S.profile && S.profile.name)) {
-    try { toast(t('ws_reg_taken_toast')); } catch (e) {}
-    return;
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-    try { toast(t('ws_email_invalid_toast')); } catch (e) {}
-    return;
-  }
-  if (passVal.length < 6) {
-    try { toast(t('ws_reg_pass_invalid_toast')); } catch (e) {}
-    return;
-  }
-
-  wsSetAuthBusy('ws-reg-submit-btn', true, '⏳ ...');
-  try {
-    var res = await supabase.auth.signUp({
-      email: emailVal,
-      password: passVal,
-      options: { data: { name: nameVal } }
-    });
-    if (res.error) {
-      toast('⚠️ ' + res.error.message);
-      return;
-    }
-    S.cloudLinked = true;
-    S.cloudUserId = res.data.user ? res.data.user.id : null;
-    S.cloudEmail = emailVal;
-    wsState.name = nameVal;
-    wsFinish('register', 'ws_reg_success_toast');
-    // Yangi akkaunt uchun profil qatori trigger orqali yaratiladi — hozirgi
-    // mahalliy tanga/xp/streak holatini shu yangi qatorga darhol yozamiz.
-    scheduleCloudSync(true);
-    // Shu qurilmada avvaldan (mehmon sifatida) tasklar bo'lsa, ularni ham
-    // darhol yangi akkauntga yuklaymiz (cloudLinked endi true bo'lgani
-    // uchun syncTasksToLocalStorage() ularni navbatga qo'yadi).
-    try { syncTasksToLocalStorage(); scheduleTodosCloudSync(true); } catch (e) {}
-  } catch (e) {
-    toast('⚠️ ' + (e && e.message ? e.message : String(e)));
-  } finally {
-    wsSetAuthBusy('ws-reg-submit-btn', false);
-  }
-}
-
-async function wsSubmitLogin() {
-  var emailVal = (wsState.loginEmail || '').trim();
-  var passVal = wsState.loginPass || '';
-
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-    try { toast(t('ws_email_invalid_toast')); } catch (e) {}
-    return;
-  }
-  if (!passVal) {
-    try { toast(t('ws_login_fail_toast')); } catch (e) {}
-    return;
-  }
-
-  wsSetAuthBusy('ws-login-submit-btn', true, '⏳ ...');
-  try {
-    var res = await supabase.auth.signInWithPassword({ email: emailVal, password: passVal });
-    if (res.error) {
-      toast('⚠️ ' + t('ws_login_fail_toast'));
-      return;
-    }
-    var uid = res.data.user ? res.data.user.id : null;
-    S.cloudLinked = true;
-    S.cloudUserId = uid;
-    S.cloudEmail = emailVal;
-    startRealtimeSync();
-
-    var profRes = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
-    if (profRes.data) {
-      var p = profRes.data;
-      wsState.name = p.name || (S.profile && S.profile.name) || '';
-      if (!S.profile) S.profile = {};
-      S.coins = p.coins || 0;
-      S.totalCoins = p.total_coins || 0;
-      // Mavsum hisobi: kirishda season_coins qiymati saqlanib qolishi uchun
-      // bazani shunga moslab qayta hisoblaymiz (coins - season_coins = baza).
-      S.reytingSeasonCoinsBase = Math.max(0, (p.coins || 0) - (p.season_coins || 0));
-      S.xp = p.xp || 0;
-      S.streak = p.streak || 0;
-      S.bestStreak = p.best_streak || p.streak || 0;
-      S.profile.photo = p.photo || S.profile.photo || null;
-      S.profile.country = p.country || S.profile.country || null;
-      S.profile.targetSubjects = (p.target_subjects && p.target_subjects.length) ? p.target_subjects : (S.profile.targetSubjects || []);
-      S.profile.appGoalOther = p.app_goal_other || S.profile.appGoalOther || '';
-      S.profile.joinedDate = p.joined_date || S.profile.joinedDate || null;
-    }
-
-    // Tasklarni ham bulutdan tortib olamiz. Agar bulutda hech qanday vazifa
-    // topilmasa (masalan, bu akkaunt hali hech qayerda tasklar yozmagan),
-    // shu qurilmadagi mavjud tasklarga tegmaymiz — ular keyingi save()'da
-    // o'zi bulutga yuklanadi. Bulutda vazifa bo'lsa esa, "Kirish" — "shu
-    // akkauntni tiklash" degani, shuning uchun ular shu qurilmadagi
-    // ro'yxatni to'liq almashtiradi.
-    var todosRes = await supabase.from('todos')
-      .select('task_id,task_data,order_index')
-      .eq('user_id', uid)
-      .order('order_index', { ascending: true });
-    if (!todosRes.error && todosRes.data && todosRes.data.length) {
-      var cloudTasks = todosRes.data.map(function (r) { return r.task_data; });
-      S.tasks = cloudTasks;
-      S.taskOrder = todosRes.data.map(function (r) { return r.task_id; });
-      _lastSyncedTasks = {};
-      cloudTasks.forEach(function (tk) { _lastSyncedTasks[tk.id] = JSON.stringify(tk); });
-      try { if (typeof ensureFullTaskOrder === 'function') ensureFullTaskOrder(); } catch (e) {}
-    }
-    wsFinish('login', 'ws_login_success_toast');
-  } catch (e) {
-    toast('⚠️ ' + (e && e.message ? e.message : String(e)));
-  } finally {
-    wsSetAuthBusy('ws-login-submit-btn', false);
-  }
-}
+/* wsSubmitLogin: blok boshiga (global var sifatida) ko'chirildi */
 
 function wsGuestLogin() {
   wsFinish('guest', 'ws_guest_success_toast');
@@ -22517,12 +23225,21 @@ function _cloudTasksCompletedCount() {
 var _cloudSyncTimer = null;
 function scheduleCloudSync(immediate) {
   if (!S.cloudLinked || !S.cloudUserId) return;
+  // Bulutdan holat tiklanmaguncha profilni yozmaymiz (tasks_completed/coins
+  // yangi qurilmada nol bo'lib bulutni bosib yubormasligi uchun).
+  if (!window._cloudPullDone) return;
   if (_cloudSyncTimer) clearTimeout(_cloudSyncTimer);
-  var run = function () {
+  var run = async function () {
+    _cloudSyncTimer = null;
+    if (!S.cloudLinked || !S.cloudUserId) return;
+    var photoUrl = (S.profile && S.profile.photo) || null;
+    try { if (typeof cloudResolveAvatarUrl === 'function') photoUrl = await cloudResolveAvatarUrl(); } catch (e) {}
+    var stamp = new Date().toISOString();
+    window._lastProfilePushAt = stamp;
     supabase.from('profiles').upsert({
       id: S.cloudUserId,
       name: (S.profile && S.profile.name) || null,
-      photo: (S.profile && S.profile.photo) || null,
+      photo: photoUrl,
       country: (S.profile && S.profile.country) || null,
       language: (S.profile && S.profile.language) || null,
       target_subjects: (S.profile && S.profile.targetSubjects) || [],
@@ -22536,7 +23253,7 @@ function scheduleCloudSync(immediate) {
       streak: S.streak || 0,
       best_streak: S.bestStreak || S.streak || 0,
       tasks_completed: _cloudTasksCompletedCount(),
-      updated_at: new Date().toISOString()
+      updated_at: stamp
     }).then(function (r) {
       if (r.error) console.warn('[Cloud sync] xatolik:', r.error.message);
     });
@@ -22588,18 +23305,7 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
   return { list: list, noCountry: false };
 };
 
-async function wsCheckSupabaseSession() {
-  try {
-    var res = await supabase.auth.getSession();
-    var session = res.data && res.data.session;
-    if (session && session.user) {
-      S.cloudLinked = true;
-      S.cloudUserId = session.user.id;
-      S.cloudEmail = session.user.email;
-      startRealtimeSync();
-    }
-  } catch (e) { console.warn('[Supabase session] tekshirishda xatolik:', e); }
-}
+/* wsCheckSupabaseSession: blok boshiga (global var sifatida) ko'chirildi */
 
 // ============================================================
 // 📡 REALTIME — boshqa qurilma/sessiyada o'zgarish bo'lsa avtomatik yangilanish
@@ -22645,6 +23351,8 @@ function startRealtimeSync() {
     }, function (payload) {
       var p = payload.new;
       if (!p) return;
+      if (p.updated_at && p.updated_at === window._lastProfilePushAt) return; // o'zimiz yuborgan yozuv
+      if ((p.coins || 0) === (S.coins || 0) && (p.xp || 0) === (S.xp || 0) && (p.streak || 0) === (S.streak || 0) && (p.total_coins || 0) === (S.totalCoins || 0)) return;
       S.coins = p.coins || 0;
       S.totalCoins = p.total_coins || 0;
       S.xp = p.xp || 0;
@@ -22680,10 +23388,40 @@ function startRealtimeSync() {
       event: '*', schema: 'public', table: 'party_invites',
       filter: 'from_id=eq.' + S.cloudUserId
     }, function () { partySyncFromCloud(); toast(t('realtime_updated_toast')); })
+    // --- 1v1 Musobaqa (duels): menga tegishli yangi/o'zgargan yozuvlar ---
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'duels',
+      filter: 'from_id=eq.' + S.cloudUserId
+    }, function () { duelsSyncFromCloud(); toast(t('realtime_updated_toast')); })
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'duels',
+      filter: 'to_id=eq.' + S.cloudUserId
+    }, function () { duelsSyncFromCloud(); toast(t('realtime_updated_toast')); })
+    // --- World Party: ro'yxat (browse) barcha foydalanuvchilarga tegishli
+    // bo'lgani uchun filtrsiz tinglaymiz (yangi partiya, a'zo o'zgarishi va h.k.) ---
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'world_parties' },
+      function () { worldPartySyncFromCloud(); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'world_party_members' },
+      function () { worldPartySyncFromCloud(); })
+    // --- Do'kon xaridlari/ishlatilgan mukofotlar: boshqa qurilmada yangi yozuv bo'lsa ---
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'reward_log', filter: 'user_id=eq.' + S.cloudUserId
+    }, function () { rewardLogSyncFromCloud(); })
+    // --- Pomodoro: boshqa qurilmada yangi seans/tanaffus yozilsa ---
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'pomo_log', filter: 'user_id=eq.' + S.cloudUserId
+    }, function () { if (typeof window.pomoSyncFromCloud === 'function') window.pomoSyncFromCloud(); })
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'pomo_break_stats', filter: 'user_id=eq.' + S.cloudUserId
+    }, function () { if (typeof window.pomoSyncFromCloud === 'function') window.pomoSyncFromCloud(); })
     .subscribe();
 
   friendsSyncFromCloud();
   partySyncFromCloud();
+  duelsSyncFromCloud();
+  worldPartySyncFromCloud();
+  rewardLogSyncFromCloud();
+  if (typeof window.pomoSyncFromCloud === 'function') window.pomoSyncFromCloud();
 }
 
 function stopRealtimeSync() {
@@ -22698,18 +23436,7 @@ function stopRealtimeSync() {
   }
 }
 
-async function cloudLogout() {
-  try { await supabase.auth.signOut(); } catch (e) {}
-  stopRealtimeSync();
-  S.cloudLinked = false;
-  S.cloudUserId = null;
-  S.cloudEmail = null;
-  // Navbatda kutayotgan (hali yuborilmagan) task sinxronlashlarini bekor
-  // qilamiz — boshqa akkaunt bilan aralashib ketmasligi uchun.
-  if (_todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
-  _pendingTodoUpserts = {};
-  _pendingTodoDeletes = {};
-}
+/* cloudLogout: blok boshiga (global var sifatida) ko'chirildi */
 
 function wsFinish(method, toastKey) {
   if (!S.profile) S.profile = {};
@@ -22779,7 +23506,7 @@ function wsFinish(method, toastKey) {
   console.error('[script.js] Blok 5 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr5);
 }
 
-// ---------- Blok 6/8 ----------
+// ---------- Blok 6/10 ----------
 try {
 
 /* ============================================================
@@ -23084,6 +23811,73 @@ try {
       localStorage.setItem(POMO_LOGS_KEY, JSON.stringify(pomoLogs));
     } catch (e) {}
   }
+  // ============================================================
+  // ☁️ POMODORO CLOUD SYNC — faqat tugallangan seanslar tarixi
+  // (pomoLogs) va tanaffus statistikasi (pomoBreakStats) bulutga
+  // yoziladi. Faol/jonli taймer holati (running, elapsedMs) QASDDAN
+  // sinxronlanmaydi — bu alohida, ancha murakkab muammo.
+  // ============================================================
+  async function pushPomoLogToCloud(entry) {
+    if (!window.S || !window.S.cloudLinked || !window.S.cloudUserId || typeof window.supabase === 'undefined') return;
+    try {
+      await window.supabase.from('pomo_log').insert({
+        user_id: window.S.cloudUserId,
+        act_name: entry.actName || '',
+        start_at: new Date(entry.startAt).toISOString(),
+        stop_at: new Date(entry.stopAt).toISOString(),
+        duration_ms: entry.durationMs || 0,
+        catch_up_ms: entry.catchUpMs || 0
+      });
+    } catch (e) { console.warn('[pomo_log] yozish xatosi:', e.message); }
+  }
+
+  async function pushPomoBreakStatDelta(takenDelta, skippedDelta) {
+    if (!window.S || !window.S.cloudLinked || !window.S.cloudUserId || typeof window.supabase === 'undefined') return;
+    try {
+      await window.supabase.rpc('pomo_bump_break_stats', { p_taken_delta: takenDelta || 0, p_skipped_delta: skippedDelta || 0 });
+    } catch (e) { console.warn('[pomo_break_stats] yozish xatosi:', e.message); }
+  }
+
+  var _pomoCloudSyncing = false;
+  async function pomoSyncFromCloud() {
+    if (!window.S || !window.S.cloudLinked || !window.S.cloudUserId || typeof window.supabase === 'undefined') return;
+    if (_pomoCloudSyncing) return;
+    _pomoCloudSyncing = true;
+    try {
+      var logRes = await window.supabase.from('pomo_log').select('*').eq('user_id', window.S.cloudUserId).order('start_at', { ascending: false }).limit(POMO_LOGS_MAX);
+      if (!logRes.error) {
+        var cloudRows = logRes.data || [];
+        var byId = {};
+        pomoLogs.forEach(function (l) { byId[l._cloudId || l.id] = l; });
+        cloudRows.forEach(function (r) {
+          byId[r.id] = {
+            id: r.id, _cloudId: r.id, actId: null, actName: r.act_name,
+            startAt: new Date(r.start_at).getTime(), stopAt: new Date(r.stop_at).getTime(),
+            durationMs: r.duration_ms, catchUpMs: r.catch_up_ms, date: pomoDateKey(new Date(r.start_at).getTime())
+          };
+        });
+        pomoLogs = Object.keys(byId).map(function (k) { return byId[k]; }).sort(function (a, b) { return b.startAt - a.startAt; });
+        pomoSaveLogs();
+      }
+
+      var statRes = await window.supabase.from('pomo_break_stats').select('*').eq('user_id', window.S.cloudUserId).maybeSingle();
+      if (!statRes.error && statRes.data) {
+        pomoBreakStats = { taken: statRes.data.taken || 0, skipped: statRes.data.skipped || 0 };
+        pomoSaveBreakStats();
+      }
+
+      if (typeof pomoStatsRender === 'function') pomoStatsRender();
+    } catch (e) {
+      console.warn('[Pomodoro sync] xatolik:', e.message);
+    } finally {
+      _pomoCloudSyncing = false;
+    }
+  }
+
+  window.pushPomoLogToCloud = pushPomoLogToCloud;
+  window.pushPomoBreakStatDelta = pushPomoBreakStatDelta;
+  window.pomoSyncFromCloud = pomoSyncFromCloud;
+
   function pomoDateKey(ts) {
     var d = new Date(ts);
     function p(n) { return (n < 10 ? '0' : '') + n; }
@@ -23136,6 +23930,10 @@ try {
       });
       pomoSaveLogs();
       if (typeof pomoStatsRender === 'function') pomoStatsRender();
+      // ☁️ Bulutga ham yozamiz — boshqa qurilmada ham tarixda ko'rinishi uchun
+      if (typeof window.pushPomoLogToCloud === 'function') {
+        window.pushPomoLogToCloud({ actName: act.name, startAt: act.sessionStartAt, stopAt: Date.now(), durationMs: durationMs, catchUpMs: catchUpMs });
+      }
     }
     act.sessionStartAt = null;
     act.sessionBaseElapsed = null;
@@ -24011,6 +24809,7 @@ try {
     // 🆕 Tanaffus SKIP qilindi — statistikaga +1.
     pomoBreakStats.skipped = (pomoBreakStats.skipped || 0) + 1;
     pomoSaveBreakStats();
+    if (typeof window.pushPomoBreakStatDelta === 'function') window.pushPomoBreakStatDelta(0, 1);
     pomoUpdateFloatUI();
     pomoRenderActivityList();
     pomoRenderCalendarIfOpen();
@@ -25076,6 +25875,7 @@ try {
           // 🆕 Tanaffus TO'LIQ (skip qilinmasdan) tugadi — statistikaga +1.
           pomoBreakStats.taken = (pomoBreakStats.taken || 0) + 1;
           pomoSaveBreakStats();
+          if (typeof window.pushPomoBreakStatDelta === 'function') window.pushPomoBreakStatDelta(1, 0);
         }
       }
     }
@@ -25491,8 +26291,500 @@ try {
   console.error('[script.js] Blok 6 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr6);
 }
 
-// ---------- Blok 7/8 ----------
+// ---------- Blok 7/10 ----------
 try {
+// async funksiyalar try{} ichida block-scoped bo'lib qolmasligi uchun global var qilib, blok boshiga ko'chirildi
+var friendsSyncFromCloud = async function() {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (_friendsCloudSyncing) return;
+  _friendsCloudSyncing = true;
+  try {
+    ensureFriendsDefaults();
+    var res = await supabase.rpc('get_my_friends_data');
+    if (res.error) { console.warn('[Friends sync] xatolik:', res.error.message); return; }
+    var d = res.data || {};
+    var F = S.friends;
+    if (d.friend_code) F.myId = d.friend_code;
+    F.list = (d.friends || []).map(function (x) {
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
+    });
+    F.incoming = (d.incoming || []).map(function (x) {
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
+    });
+    F.outgoing = (d.outgoing || []).map(function (x) {
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
+    });
+    F.banned = (d.blocked || []).map(function (x) {
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, bannedAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
+    });
+    save();
+    var overlay = document.getElementById('friends-modal-overlay');
+    if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
+    else { try { updateFriendsBadges(); } catch (e) {} }
+  } catch (e) {
+    console.warn('[Friends sync] xatolik:', e.message);
+  } finally {
+    _friendsCloudSyncing = false;
+  }
+};
+
+var partySyncFromCloud = async function() {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (_partyCloudSyncing) return;
+  _partyCloudSyncing = true;
+  try {
+    ensureFriendsDefaults();
+    var res = await supabase.rpc('get_my_party_data');
+    if (res.error) { console.warn('[Party sync] xatolik:', res.error.message); return; }
+    var d = res.data || {};
+    var F = S.friends;
+
+    if (d.party) {
+      var p = d.party;
+      F.parties = [{
+        id: p.id, name: p.name, leaderIsMe: p.leaderId === S.cloudUserId,
+        note: p.note || '',
+        createdAt: p.createdAt ? new Date(p.createdAt).getTime() : Date.now(),
+        challenge: p.challenge ? {
+          title: p.challenge.title, target: p.challenge.target,
+          progress: p.challenge.progress, reward: p.challenge.reward,
+          startedAt: p.challenge.startedAt ? new Date(p.challenge.startedAt).getTime() : Date.now()
+        } : null,
+        members: (p.members || []).map(function (m) {
+          return { id: m.id, name: m.name, avatarUrl: m.photo || null, contribution: m.contribution || 0, isMe: m.id === S.cloudUserId };
+        })
+      }];
+    } else {
+      F.parties = [];
+    }
+    _subscribePartyChannel(d.party ? d.party.id : null);
+
+    F.partyInvitesIncoming = (d.invites_incoming || []).map(function (x) {
+      return {
+        id: x.id, partyId: x.partyId, partyName: x.partyName,
+        fromId: x.fromId, fromName: x.fromName, fromAvatarUrl: x.fromPhoto,
+        partyCreatedAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(),
+        memberCount: x.memberCount || 1, challenge: x.challenge || null
+      };
+    });
+    F.partyInvitesOutgoing = (d.invites_outgoing || []).map(function (x) {
+      return { id: x.id, partyId: x.partyId, partyName: x.partyName, toId: x.toId, toName: x.toName, toAvatarUrl: x.toPhoto };
+    });
+    F.partyChallengesHistory = (d.history || []).map(function (h) {
+      return { partyName: h.partyName, title: h.title, target: h.target, reward: h.reward, result: h.result, finishedAt: h.finishedAt ? new Date(h.finishedAt).getTime() : Date.now() };
+    });
+
+    save();
+    var overlay = document.getElementById('friends-modal-overlay');
+    if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
+    else { try { updateFriendsBadges(); } catch (e) {} }
+  } catch (e) {
+    console.warn('[Party sync] xatolik:', e.message);
+  } finally {
+    _partyCloudSyncing = false;
+  }
+};
+
+var duelsReportTaskEvent = async function(deltaDone, deltaCoins) {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  try {
+    var res = await supabase.rpc('duel_record_task_event', {
+      p_delta_done: deltaDone || 0, p_delta_coins: deltaCoins || 0, p_due_today: _todayDueCount()
+    });
+    if (!res.error) { await duelsSyncFromCloud(); try { renderFriendsChallenges(); } catch (e) {} }
+  } catch (e) { console.warn('[Duels] xatolik:', e.message); }
+};
+
+var duelsSyncFromCloud = async function() {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (_duelsCloudSyncing) return;
+  _duelsCloudSyncing = true;
+  try {
+    ensureFriendsDefaults();
+    var res = await supabase.rpc('get_my_duels_data');
+    if (res.error) { console.warn('[Duels sync] xatolik:', res.error.message); return; }
+    var d = res.data || {};
+    var F = S.friends;
+
+    F.challengesIncoming = (d.incoming || []).map(function (x) {
+      return { id: x.id, fromId: x.fromId, fromName: x.fromName, fromAvatarUrl: x.fromPhoto, criteria: x.criteria, stake: x.stake, durationDays: x.durationDays, sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
+    });
+    F.challengesOutgoing = (d.outgoing || []).map(function (x) {
+      return { id: x.id, opponentId: x.toId, opponentName: x.toName, opponentAvatarUrl: x.toPhoto, criteria: x.criteria, stake: x.stake, durationDays: x.durationDays, createdAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
+    });
+    F.challenges = (d.active || []).map(function (x) {
+      return {
+        id: x.id, opponentId: x.opponentId, opponentName: x.opponentName, opponentAvatarUrl: x.opponentPhoto,
+        criteria: x.criteria, stake: x.stake, durationDays: x.durationDays, status: 'active',
+        startAt: x.startedAt ? new Date(x.startedAt).getTime() : Date.now(),
+        endAt: x.endsAt ? new Date(x.endsAt).getTime() : Date.now(),
+        me: { dailyLog: x.myLog || {}, totalCoinsEarned: x.myCoins || 0 },
+        opp: { dailyLog: x.oppLog || {}, totalCoinsEarned: x.oppCoins || 0 }
+      };
+    });
+    F.challengesHistory = (d.history || []).map(function (x) {
+      return { id: x.id, opponentName: x.opponentName, criteria: x.criteria, stake: x.stake, winner: x.result === 'won' ? 'me' : (x.result === 'lost' ? 'opponent' : 'draw'), forfeited: !!x.forfeited, finishedAt: x.finishedAt ? new Date(x.finishedAt).getTime() : Date.now() };
+    });
+
+    save();
+    var overlay = document.getElementById('friends-modal-overlay');
+    if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
+    else { try { updateFriendsBadges(); } catch (e) {} }
+  } catch (e) {
+    console.warn('[Duels sync] xatolik:', e.message);
+  } finally {
+    _duelsCloudSyncing = false;
+  }
+};
+
+var worldPartyReportTaskEvent = async function(deltaDone, deltaCoins) {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  try {
+    var res = await supabase.rpc('world_party_contribute', {
+      p_delta_done: deltaDone || 0, p_delta_coins: deltaCoins || 0, p_due_today: _todayDueCount()
+    });
+    if (!res.error) {
+      if (res.data && res.data.finished) {
+        toast('🏁 ' + t('wp_goal_reached_toast') || '🏁 World Party yakunlandi!');
+      }
+      await worldPartySyncFromCloud();
+      try { renderWorldPartyList(); } catch (e) {}
+    }
+  } catch (e) { console.warn('[World Party] xatolik:', e.message); }
+};
+
+var worldPartySyncFromCloud = async function() {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (_worldPartyCloudSyncing) return;
+  _worldPartyCloudSyncing = true;
+  try {
+    ensureFriendsDefaults();
+    var res = await supabase.rpc('get_world_party_data');
+    if (res.error) { console.warn('[World Party sync] xatolik:', res.error.message); return; }
+    var d = res.data || {};
+    var F = S.friends;
+
+    function mapMember(m) {
+      return { id: m.id, name: m.name, avatarUrl: m.photo || null, isMe: m.id === S.cloudUserId, dailyLog: m.dailyLog || {}, totalCoinsEarned: m.totalCoinsEarned || 0, joinedAt: m.joinedAt ? new Date(m.joinedAt).getTime() : Date.now() };
+    }
+
+    var mineParty = null;
+    if (d.mine) {
+      var mp = d.mine;
+      mineParty = {
+        id: mp.id, name: mp.name, creatorId: mp.creatorId,
+        goalType: mp.goalType, target: mp.target, durationDays: mp.durationDays,
+        maxMembers: mp.maxMembers, prize: mp.prize, status: mp.status,
+        startAt: mp.startedAt ? new Date(mp.startedAt).getTime() : Date.now(),
+        endAt: mp.endsAt ? new Date(mp.endsAt).getTime() : Date.now(),
+        members: (mp.members || []).map(mapMember)
+      };
+    }
+    F.myWorldPartyId = mineParty ? mineParty.id : null;
+
+    var browseList = (d.browse || []).map(function (p) {
+      if (mineParty && p.id === mineParty.id) return mineParty; // o'zimning partiyam — allaqachon to'liq
+      return {
+        id: p.id, name: p.name, creatorId: p.creatorId, creatorName: p.creatorName,
+        goalType: p.goalType, target: p.target, durationDays: p.durationDays,
+        maxMembers: p.maxMembers, prize: p.prize, status: p.status,
+        startAt: p.startedAt ? new Date(p.startedAt).getTime() : Date.now(),
+        endAt: p.endsAt ? new Date(p.endsAt).getTime() : Date.now(),
+        members: (p.members || []).map(mapMember)
+      };
+    });
+    if (mineParty && !browseList.some(function (p) { return p.id === mineParty.id; })) {
+      browseList.unshift(mineParty);
+    }
+    F.worldParties = browseList;
+
+    F.worldPartiesHistory = (d.history || []).map(function (h) {
+      var members = h.members || [];
+      var maxVal = members.length ? Math.max.apply(null, members.map(function (x) { return x.value || 0; })) : 0;
+      var winners = (h.result === 'draw' && maxVal > 0) ? members.filter(function (m) { return (m.value || 0) === maxVal; }) : [];
+      var winnerName = h.result === 'won'
+        ? (members.filter(function (m) { return m.id === h.winnerId; }).map(function (m) { return m.name; })[0] || null)
+        : (winners.length ? winners.map(function (m) { return m.name; }).join(', ') : null);
+      return {
+        id: h.id, name: h.name, creatorId: h.creatorId,
+        goalType: h.goalType, target: h.target, durationDays: h.durationDays,
+        result: h.result, winnerId: h.winnerId, winnerName: winnerName,
+        isDraw: h.result === 'draw', winners: winners,
+        members: members.map(function (m) { return { id: m.id, name: m.name, isMe: m.id === S.cloudUserId }; }),
+        prize: h.prize, cancelled: h.result === 'cancelled',
+        finishedAt: h.finishedAt ? new Date(h.finishedAt).getTime() : Date.now()
+      };
+    });
+
+    save();
+    var overlay = document.getElementById('friends-modal-overlay');
+    if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
+    else { try { updateFriendsBadges(); } catch (e) {} }
+  } catch (e) {
+    console.warn('[World Party sync] xatolik:', e.message);
+  } finally {
+    _worldPartyCloudSyncing = false;
+  }
+};
+
+var friendsSendRequest = async function(userId, reason) {
+  if (!S.cloudLinked || !S.cloudUserId) { toast('Avval tizimga kiring'); return; }
+  if ((S.friends.banned || []).some(function (b) { return b.id === userId; })) return;
+  var user = friendsFindPersonById(userId);
+  var name = (user && user.name) || '...';
+  var incomingIdx = (S.friends.incoming || []).findIndex(function (r) { return r.id === userId; });
+  var res = await supabase.rpc('send_friend_request', { target_id: userId, p_reason: (reason || '').trim().slice(0, FRIENDS_REASON_MAX_LEN) });
+  if (res.error || !(res.data && res.data.ok)) {
+    var err = res.error ? res.error.message : (res.data && res.data.error);
+    toast('❌ ' + (err || 'Xatolik'));
+    return;
+  }
+  await friendsSyncFromCloud();
+  if (incomingIdx !== -1 || (res.data && res.data.auto_accepted)) {
+    toast('🤝 ' + t('friends_mutual_matched_toast').replace('{name}', name));
+    try { confetti(); } catch (e) {}
+  } else {
+    toast(t('friends_request_sent_toast').replace('{name}', name));
+  }
+};
+
+var friendsCancelOutgoing = async function(userId) {
+  var entry = (S.friends.outgoing || []).find(function (o) { return o.id === userId; });
+  if (!entry) return;
+  closeFriendProfileModal();
+  if (entry._requestId) {
+    var res = await supabase.rpc('cancel_friend_request', { p_request_id: entry._requestId });
+    if (res.error) { toast('❌ ' + res.error.message); return; }
+  }
+  await friendsSyncFromCloud();
+};
+
+var friendsAcceptIncoming = async function(userId) {
+  var entry = (S.friends.incoming || []).find(function (r) { return r.id === userId; });
+  if (!entry || !entry._requestId) return;
+  var name = entry.name;
+  closeFriendProfileModal();
+  var res = await supabase.rpc('respond_friend_request', { p_request_id: entry._requestId, p_accept: true });
+  if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : 'Xatolik')); return; }
+  await friendsSyncFromCloud();
+  try { confetti(); } catch (e) {}
+  toast('🎉 ' + t('friends_new_friend_toast').replace('{name}', name));
+};
+
+var friendsDeclineIncoming = async function(userId) {
+  var entry = (S.friends.incoming || []).find(function (r) { return r.id === userId; });
+  if (!entry || !entry._requestId) return;
+  closeFriendProfileModal();
+  var res = await supabase.rpc('respond_friend_request', { p_request_id: entry._requestId, p_accept: false });
+  if (res.error) { toast('❌ ' + res.error.message); return; }
+  await friendsSyncFromCloud();
+};
+
+var friendsDeclinePartyInvite = async function(id) {
+  var res = await supabase.rpc('respond_party_invite', { p_invite_id: id, p_accept: false });
+  if (res.error) { toast('❌ ' + res.error.message); return; }
+  await partySyncFromCloud();
+  renderFriendsAll();
+};
+
+var friendsCreateParty = async function() {
+  var input = document.getElementById('friends-party-name-input');
+  var name = (input && input.value || '').trim();
+  if (!name) { toast(t('friends_party_name_required')); return; }
+  if (!S.cloudLinked || !S.cloudUserId) { toast('Avval tizimga kiring'); return; }
+  var res = await supabase.rpc('create_party', { p_name: name });
+  if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
+  if (input) input.value = '';
+  await partySyncFromCloud();
+  renderFriendsParty();
+  toast(t('friends_party_created_toast'));
+};
+
+var friendsStartPartyChallenge = async function() {
+  var party = friendsGetMyParty();
+  if (!party || !party.leaderIsMe) return;
+  var titleEl = document.getElementById('fpc-title');
+  var targetEl = document.getElementById('fpc-target');
+  var rewardEl = document.getElementById('fpc-reward');
+  var title = (titleEl && titleEl.value || '').trim() || t('friends_default_challenge_title');
+  var target = Math.max(1, parseInt(targetEl && targetEl.value, 10) || 20);
+  var reward = Math.max(0, parseInt(rewardEl && rewardEl.value, 10) || 10);
+  if (reward > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
+  var res = await supabase.rpc('start_party_challenge', { p_title: title, p_target: target, p_reward: reward });
+  if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
+  await partySyncFromCloud();
+  renderFriendsParty();
+  toast(t('friends_challenge_started_toast'));
+};
+
+var friendsCancelPartyChallenge = async function() {
+  var party = friendsGetMyParty();
+  if (!party) return;
+  var res = await supabase.rpc('cancel_party_challenge');
+  if (res.error) { toast('❌ ' + res.error.message); return; }
+  await partySyncFromCloud();
+  renderFriendsParty();
+};
+
+var friendsSavePartyNote = async function() {
+  var party = friendsGetMyParty();
+  if (!party || !party.leaderIsMe) return;
+  var input = document.getElementById('fp-note-input');
+  var note = (input && input.value || '').trim().slice(0, 80);
+  var res = await supabase.rpc('save_party_note', { p_note: note });
+  if (res.error) { toast('❌ ' + res.error.message); return; }
+  await partySyncFromCloud();
+  renderFriendsParty();
+  toast(t('friends_party_note_saved_toast'));
+};
+
+var friendsInviteToParty = async function(friendId) {
+  var party = friendsGetMyParty();
+  var f = (S.friends.list || []).find(function (x) { return x.id === friendId; });
+  if (!party || !f) return;
+  closeInviteModal();
+  var res = await supabase.rpc('send_party_invite', { p_target_id: friendId });
+  if (res.error || !(res.data && res.data.ok)) {
+    var err = res.error ? res.error.message : (res.data && res.data.error);
+    if (err !== 'already_invited') toast('❌ ' + (err || 'Xatolik'));
+    return;
+  }
+  toast(t('friends_invited_toast').replace('{name}', f.name));
+  await partySyncFromCloud();
+  renderFriendsParty();
+};
+
+var friendsCancelPartyInviteOutgoing = async function(id) {
+  var res = await supabase.rpc('cancel_party_invite', { p_invite_id: id });
+  if (res.error) { toast('❌ ' + res.error.message); return; }
+  await partySyncFromCloud();
+  renderFriendsParty();
+};
+
+var worldPartyCreate = async function() {
+  if (S.friends.myWorldPartyId) { toast(t('wp_already_in_one')); return; }
+  var cap = worldPartyMaxMembersForMe();
+  if (cap < 2) { toast(t('wp_level_too_low_toast') || '🔒 Bu daraja uchun World Party yopiq'); return; }
+  var nameEl = document.getElementById('wp-name-input');
+  var name = (nameEl && nameEl.value || '').trim();
+  if (!name) { toast(t('friends_party_name_required')); return; }
+  var maxMembers = Math.min(cap, Math.max(2, parseInt((document.getElementById('wp-max-input') || {}).value, 10) || cap));
+  var prize = Math.max(1, parseInt((document.getElementById('wp-prize-input') || {}).value, 10) || 10);
+  if (prize > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
+  var target = _wpGoalType === 'race_coins' ? Math.max(1, parseInt((document.getElementById('wp-target-input') || {}).value, 10) || 100) : null;
+
+  var res = await supabase.rpc('create_world_party', {
+    p_name: name, p_goal_type: _wpGoalType, p_target: target,
+    p_duration_days: _wpDuration, p_max_members: maxMembers, p_prize: prize
+  });
+  if (res.error || !(res.data && res.data.ok)) {
+    toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error)));
+    return;
+  }
+  if (nameEl) nameEl.value = '';
+  closeCreateWorldPartyModal();
+  await worldPartySyncFromCloud();
+  renderFriendsParty();
+  toast(t('wp_created_toast'));
+};
+
+var worldPartyJoin = async function(id) {
+  var p = (S.friends.worldParties || []).find(function (x) { return x.id === id; });
+  if (!p) return;
+  if (S.friends.myWorldPartyId) { toast(t('wp_already_in_one')); return; }
+  if (p.status !== 'active') { toast(t('wp_not_joinable')); return; }
+  var res = await supabase.rpc('join_world_party', { p_party_id: id });
+  if (res.error || !(res.data && res.data.ok)) {
+    var err = res.error ? res.error.message : (res.data && res.data.error);
+    toast('❌ ' + (err === 'full' ? t('wp_full') : (err || 'Xatolik')));
+    return;
+  }
+  await worldPartySyncFromCloud();
+  renderFriendsParty();
+  toast(t('wp_joined_toast').replace('{name}', p.name));
+};
+
+var worldPartyLeave = async function(id) {
+  var res = await supabase.rpc('leave_world_party');
+  if (res.error) { toast('❌ ' + res.error.message); return; }
+  await worldPartySyncFromCloud();
+  renderFriendsParty();
+};
+
+var friendsSendChallenge = async function() {
+  var sel = document.getElementById('fnc-friend-select');
+  var friendId = sel && sel.value;
+  var friend = (S.friends.list || []).find(function (f) { return f.id === friendId; });
+  if (!friend) { closeNewChallengeModal(); return; }
+  var stake = Math.max(1, parseInt(document.getElementById('fnc-stake').value, 10) || 10);
+  if (stake > FRIENDS_MAX_STAKE) {
+    stake = FRIENDS_MAX_STAKE;
+    toast(t('friends_stake_capped_toast').replace('{max}', FRIENDS_MAX_STAKE));
+  }
+  if (stake > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
+  closeNewChallengeModal();
+  var res = await supabase.rpc('send_duel_challenge', {
+    p_target_id: friendId, p_criteria: _fncCriteria, p_stake: stake, p_duration_days: _fncDuration
+  });
+  if (res.error || !(res.data && res.data.ok)) {
+    toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error)));
+    return;
+  }
+  await duelsSyncFromCloud();
+  renderFriendsChallenges();
+  toast(t('friends_challenge_sent_toast').replace('{name}', friend.name));
+};
+
+var friendsAcceptChallengeIncoming = async function(id) {
+  var c = (S.friends.challengesIncoming || []).find(function (c) { return c.id === id; });
+  if (!c) return;
+  if (c.stake > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
+  var res = await supabase.rpc('respond_duel_challenge', { p_duel_id: id, p_accept: true });
+  if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
+  await duelsSyncFromCloud();
+  renderFriendsAll();
+  toast(t('friends_challenge_started_with').replace('{name}', c.fromName));
+};
+
+var friendsDeclineChallengeIncoming = async function(id) {
+  var res = await supabase.rpc('respond_duel_challenge', { p_duel_id: id, p_accept: false });
+  if (res.error) { toast('❌ ' + res.error.message); return; }
+  await duelsSyncFromCloud();
+  renderFriendsAll();
+};
+
+var friendsCancelChallenge = async function(id, isPending) {
+  if (isPending) {
+    // Hali qarshi tomon javob bermagan (pending) chorlovni bekor qilish —
+    // hech qanday musobaqa boshlanmagani uchun tikilma to'liq qaytariladi.
+    var res = await supabase.rpc('cancel_duel_challenge', { p_duel_id: id });
+    if (res.error) { toast('❌ ' + res.error.message); return; }
+    await duelsSyncFromCloud();
+    renderFriendsChallenges();
+    return;
+  }
+  var c = (S.friends.challenges || []).find(function (x) { return x.id === id; });
+  if (!c || c.status !== 'active') return;
+  showConfirmModal(esc(t('friends_surrender_confirm')), function () {
+    (async function () {
+      var res = await supabase.rpc('surrender_duel', { p_duel_id: id });
+      if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : 'Xatolik')); return; }
+      toast('🏳️ ' + t('friends_surrendered_toast').replace('{name}', c.opponentName));
+      await duelsSyncFromCloud();
+      renderFriendsChallenges();
+    })();
+  }, { icon: '🏳️' });
+};
+
+var friendsUnbanUser = async function(id) {
+  var base = friendsFindPersonById(id);
+  closeFriendProfileModal();
+  var res = await supabase.rpc('unblock_user', { p_target_id: id });
+  if (res.error) { toast('❌ ' + res.error.message); return; }
+  await friendsSyncFromCloud();
+  try { renderBannedModalBody(); } catch (e) {}
+  toast(t('friends_unbanned_toast').replace('{name}', (base && base.name) || ''));
+};
 
 
 // Eslatma: FRIENDS_DEMO_DIRECTORY (soxta demo foydalanuvchilar ro'yxati)
@@ -25556,39 +26848,7 @@ var _friendsSearchResults = []; // oxirgi qidiruv natijalari (showFriendProfileM
 var _friendsSearchReqId = 0;
 var _friendsCloudSyncing = false;
 
-async function friendsSyncFromCloud() {
-  if (!S.cloudLinked || !S.cloudUserId) return;
-  if (_friendsCloudSyncing) return;
-  _friendsCloudSyncing = true;
-  try {
-    ensureFriendsDefaults();
-    var res = await supabase.rpc('get_my_friends_data');
-    if (res.error) { console.warn('[Friends sync] xatolik:', res.error.message); return; }
-    var d = res.data || {};
-    var F = S.friends;
-    if (d.friend_code) F.myId = d.friend_code;
-    F.list = (d.friends || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
-    });
-    F.incoming = (d.incoming || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
-    });
-    F.outgoing = (d.outgoing || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
-    });
-    F.banned = (d.blocked || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, bannedAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
-    });
-    save();
-    var overlay = document.getElementById('friends-modal-overlay');
-    if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
-    else { try { updateFriendsBadges(); } catch (e) {} }
-  } catch (e) {
-    console.warn('[Friends sync] xatolik:', e.message);
-  } finally {
-    _friendsCloudSyncing = false;
-  }
-}
+/* friendsSyncFromCloud: blok boshiga (global var sifatida) ko'chirildi */
 
 // ============================================================
 // ☁️ PARTY (JAMOA) — Supabase bilan haqiqiy sinxronizatsiya
@@ -25610,62 +26870,7 @@ function _subscribePartyChannel(partyId) {
     .subscribe();
 }
 
-async function partySyncFromCloud() {
-  if (!S.cloudLinked || !S.cloudUserId) return;
-  if (_partyCloudSyncing) return;
-  _partyCloudSyncing = true;
-  try {
-    ensureFriendsDefaults();
-    var res = await supabase.rpc('get_my_party_data');
-    if (res.error) { console.warn('[Party sync] xatolik:', res.error.message); return; }
-    var d = res.data || {};
-    var F = S.friends;
-
-    if (d.party) {
-      var p = d.party;
-      F.parties = [{
-        id: p.id, name: p.name, leaderIsMe: p.leaderId === S.cloudUserId,
-        note: p.note || '',
-        createdAt: p.createdAt ? new Date(p.createdAt).getTime() : Date.now(),
-        challenge: p.challenge ? {
-          title: p.challenge.title, target: p.challenge.target,
-          progress: p.challenge.progress, reward: p.challenge.reward,
-          startedAt: p.challenge.startedAt ? new Date(p.challenge.startedAt).getTime() : Date.now()
-        } : null,
-        members: (p.members || []).map(function (m) {
-          return { id: m.id, name: m.name, avatarUrl: m.photo || null, contribution: m.contribution || 0, isMe: m.id === S.cloudUserId };
-        })
-      }];
-    } else {
-      F.parties = [];
-    }
-    _subscribePartyChannel(d.party ? d.party.id : null);
-
-    F.partyInvitesIncoming = (d.invites_incoming || []).map(function (x) {
-      return {
-        id: x.id, partyId: x.partyId, partyName: x.partyName,
-        fromId: x.fromId, fromName: x.fromName, fromAvatarUrl: x.fromPhoto,
-        partyCreatedAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(),
-        memberCount: x.memberCount || 1, challenge: x.challenge || null
-      };
-    });
-    F.partyInvitesOutgoing = (d.invites_outgoing || []).map(function (x) {
-      return { id: x.id, partyId: x.partyId, partyName: x.partyName, toId: x.toId, toName: x.toName, toAvatarUrl: x.toPhoto };
-    });
-    F.partyChallengesHistory = (d.history || []).map(function (h) {
-      return { partyName: h.partyName, title: h.title, target: h.target, reward: h.reward, result: h.result, finishedAt: h.finishedAt ? new Date(h.finishedAt).getTime() : Date.now() };
-    });
-
-    save();
-    var overlay = document.getElementById('friends-modal-overlay');
-    if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
-    else { try { updateFriendsBadges(); } catch (e) {} }
-  } catch (e) {
-    console.warn('[Party sync] xatolik:', e.message);
-  } finally {
-    _partyCloudSyncing = false;
-  }
-}
+/* partySyncFromCloud: blok boshiga (global var sifatida) ko'chirildi */
 
 // ============================================================
 // ☁️ 1v1 MUSOBAQA (Duels) — Supabase bilan haqiqiy sinxronizatsiya
@@ -25679,57 +26884,18 @@ function _todayDueCount() {
   }).length;
 }
 
-async function duelsReportTaskEvent(deltaDone, deltaCoins) {
-  if (!S.cloudLinked || !S.cloudUserId) return;
-  try {
-    var res = await supabase.rpc('duel_record_task_event', {
-      p_delta_done: deltaDone || 0, p_delta_coins: deltaCoins || 0, p_due_today: _todayDueCount()
-    });
-    if (!res.error) { await duelsSyncFromCloud(); try { renderFriendsChallenges(); } catch (e) {} }
-  } catch (e) { console.warn('[Duels] xatolik:', e.message); }
-}
+/* duelsReportTaskEvent: blok boshiga (global var sifatida) ko'chirildi */
 
-async function duelsSyncFromCloud() {
-  if (!S.cloudLinked || !S.cloudUserId) return;
-  if (_duelsCloudSyncing) return;
-  _duelsCloudSyncing = true;
-  try {
-    ensureFriendsDefaults();
-    var res = await supabase.rpc('get_my_duels_data');
-    if (res.error) { console.warn('[Duels sync] xatolik:', res.error.message); return; }
-    var d = res.data || {};
-    var F = S.friends;
+/* duelsSyncFromCloud: blok boshiga (global var sifatida) ko'chirildi */
 
-    F.challengesIncoming = (d.incoming || []).map(function (x) {
-      return { id: x.id, fromId: x.fromId, fromName: x.fromName, fromAvatarUrl: x.fromPhoto, criteria: x.criteria, stake: x.stake, durationDays: x.durationDays, sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
-    });
-    F.challengesOutgoing = (d.outgoing || []).map(function (x) {
-      return { id: x.id, opponentId: x.toId, opponentName: x.toName, opponentAvatarUrl: x.toPhoto, criteria: x.criteria, stake: x.stake, durationDays: x.durationDays, createdAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
-    });
-    F.challenges = (d.active || []).map(function (x) {
-      return {
-        id: x.id, opponentId: x.opponentId, opponentName: x.opponentName, opponentAvatarUrl: x.opponentPhoto,
-        criteria: x.criteria, stake: x.stake, durationDays: x.durationDays, status: 'active',
-        startAt: x.startedAt ? new Date(x.startedAt).getTime() : Date.now(),
-        endAt: x.endsAt ? new Date(x.endsAt).getTime() : Date.now(),
-        me: { dailyLog: x.myLog || {}, totalCoinsEarned: x.myCoins || 0 },
-        opp: { dailyLog: x.oppLog || {}, totalCoinsEarned: x.oppCoins || 0 }
-      };
-    });
-    F.challengesHistory = (d.history || []).map(function (x) {
-      return { id: x.id, opponentName: x.opponentName, criteria: x.criteria, stake: x.stake, winner: x.result === 'won' ? 'me' : (x.result === 'lost' ? 'opponent' : 'draw'), forfeited: !!x.forfeited, finishedAt: x.finishedAt ? new Date(x.finishedAt).getTime() : Date.now() };
-    });
+// ============================================================
+// ☁️ WORLD PARTY — Supabase bilan haqiqiy sinxronizatsiya
+// ============================================================
+var _worldPartyCloudSyncing = false;
 
-    save();
-    var overlay = document.getElementById('friends-modal-overlay');
-    if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
-    else { try { updateFriendsBadges(); } catch (e) {} }
-  } catch (e) {
-    console.warn('[Duels sync] xatolik:', e.message);
-  } finally {
-    _duelsCloudSyncing = false;
-  }
-}
+/* worldPartyReportTaskEvent: blok boshiga (global var sifatida) ko'chirildi */
+
+/* worldPartySyncFromCloud: blok boshiga (global var sifatida) ko'chirildi */
 
 function ensureFriendsDefaults() {
   if (!S.friends) {
@@ -26017,36 +27183,8 @@ function friendsRenderSearch() {
     }).join('');
   })();
 }
-async function friendsSendRequest(userId, reason) {
-  if (!S.cloudLinked || !S.cloudUserId) { toast('Avval tizimga kiring'); return; }
-  if ((S.friends.banned || []).some(function (b) { return b.id === userId; })) return;
-  var user = friendsFindPersonById(userId);
-  var name = (user && user.name) || '...';
-  var incomingIdx = (S.friends.incoming || []).findIndex(function (r) { return r.id === userId; });
-  var res = await supabase.rpc('send_friend_request', { target_id: userId, p_reason: (reason || '').trim().slice(0, FRIENDS_REASON_MAX_LEN) });
-  if (res.error || !(res.data && res.data.ok)) {
-    var err = res.error ? res.error.message : (res.data && res.data.error);
-    toast('❌ ' + (err || 'Xatolik'));
-    return;
-  }
-  await friendsSyncFromCloud();
-  if (incomingIdx !== -1 || (res.data && res.data.auto_accepted)) {
-    toast('🤝 ' + t('friends_mutual_matched_toast').replace('{name}', name));
-    try { confetti(); } catch (e) {}
-  } else {
-    toast(t('friends_request_sent_toast').replace('{name}', name));
-  }
-}
-async function friendsCancelOutgoing(userId) {
-  var entry = (S.friends.outgoing || []).find(function (o) { return o.id === userId; });
-  if (!entry) return;
-  closeFriendProfileModal();
-  if (entry._requestId) {
-    var res = await supabase.rpc('cancel_friend_request', { p_request_id: entry._requestId });
-    if (res.error) { toast('❌ ' + res.error.message); return; }
-  }
-  await friendsSyncFromCloud();
-}
+/* friendsSendRequest: blok boshiga (global var sifatida) ko'chirildi */
+/* friendsCancelOutgoing: blok boshiga (global var sifatida) ko'chirildi */
 function renderFriendsOutgoing() {
   var list = S.friends.outgoing || [];
   var box = document.getElementById('friends-outgoing-list');
@@ -26074,25 +27212,8 @@ function renderFriendsIncoming() {
     return friendCardHtml(r, actions, true);
   }).join('');
 }
-async function friendsAcceptIncoming(userId) {
-  var entry = (S.friends.incoming || []).find(function (r) { return r.id === userId; });
-  if (!entry || !entry._requestId) return;
-  var name = entry.name;
-  closeFriendProfileModal();
-  var res = await supabase.rpc('respond_friend_request', { p_request_id: entry._requestId, p_accept: true });
-  if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : 'Xatolik')); return; }
-  await friendsSyncFromCloud();
-  try { confetti(); } catch (e) {}
-  toast('🎉 ' + t('friends_new_friend_toast').replace('{name}', name));
-}
-async function friendsDeclineIncoming(userId) {
-  var entry = (S.friends.incoming || []).find(function (r) { return r.id === userId; });
-  if (!entry || !entry._requestId) return;
-  closeFriendProfileModal();
-  var res = await supabase.rpc('respond_friend_request', { p_request_id: entry._requestId, p_accept: false });
-  if (res.error) { toast('❌ ' + res.error.message); return; }
-  await friendsSyncFromCloud();
-}
+/* friendsAcceptIncoming: blok boshiga (global var sifatida) ko'chirildi */
+/* friendsDeclineIncoming: blok boshiga (global var sifatida) ko'chirildi */
 
 function renderFriendsParty() {
   renderFriendsPartyInvitesIncoming();
@@ -26262,28 +27383,12 @@ function friendsAcceptPartyInvite(id) {
     doAccept();
   }
 }
-async function friendsDeclinePartyInvite(id) {
-  var res = await supabase.rpc('respond_party_invite', { p_invite_id: id, p_accept: false });
-  if (res.error) { toast('❌ ' + res.error.message); return; }
-  await partySyncFromCloud();
-  renderFriendsAll();
-}
+/* friendsDeclinePartyInvite: blok boshiga (global var sifatida) ko'chirildi */
 
 // ---------------- PARTY (GURUH) ----------------
 function friendsGetMyParty() { return (S.friends.parties || [])[0] || null; }
 
-async function friendsCreateParty() {
-  var input = document.getElementById('friends-party-name-input');
-  var name = (input && input.value || '').trim();
-  if (!name) { toast(t('friends_party_name_required')); return; }
-  if (!S.cloudLinked || !S.cloudUserId) { toast('Avval tizimga kiring'); return; }
-  var res = await supabase.rpc('create_party', { p_name: name });
-  if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
-  if (input) input.value = '';
-  await partySyncFromCloud();
-  renderFriendsParty();
-  toast(t('friends_party_created_toast'));
-}
+/* friendsCreateParty: blok boshiga (global var sifatida) ko'chirildi */
 
 function friendsKickMember(memberId) {
   var party = friendsGetMyParty();
@@ -26311,41 +27416,9 @@ function friendsLeaveParty() {
     })();
   }, { icon: party.leaderIsMe ? '🎈' : '🚶' });
 }
-async function friendsStartPartyChallenge() {
-  var party = friendsGetMyParty();
-  if (!party || !party.leaderIsMe) return;
-  var titleEl = document.getElementById('fpc-title');
-  var targetEl = document.getElementById('fpc-target');
-  var rewardEl = document.getElementById('fpc-reward');
-  var title = (titleEl && titleEl.value || '').trim() || t('friends_default_challenge_title');
-  var target = Math.max(1, parseInt(targetEl && targetEl.value, 10) || 20);
-  var reward = Math.max(0, parseInt(rewardEl && rewardEl.value, 10) || 10);
-  if (reward > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
-  var res = await supabase.rpc('start_party_challenge', { p_title: title, p_target: target, p_reward: reward });
-  if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
-  await partySyncFromCloud();
-  renderFriendsParty();
-  toast(t('friends_challenge_started_toast'));
-}
-async function friendsCancelPartyChallenge() {
-  var party = friendsGetMyParty();
-  if (!party) return;
-  var res = await supabase.rpc('cancel_party_challenge');
-  if (res.error) { toast('❌ ' + res.error.message); return; }
-  await partySyncFromCloud();
-  renderFriendsParty();
-}
-async function friendsSavePartyNote() {
-  var party = friendsGetMyParty();
-  if (!party || !party.leaderIsMe) return;
-  var input = document.getElementById('fp-note-input');
-  var note = (input && input.value || '').trim().slice(0, 80);
-  var res = await supabase.rpc('save_party_note', { p_note: note });
-  if (res.error) { toast('❌ ' + res.error.message); return; }
-  await partySyncFromCloud();
-  renderFriendsParty();
-  toast(t('friends_party_note_saved_toast'));
-}
+/* friendsStartPartyChallenge: blok boshiga (global var sifatida) ko'chirildi */
+/* friendsCancelPartyChallenge: blok boshiga (global var sifatida) ko'chirildi */
+/* friendsSavePartyNote: blok boshiga (global var sifatida) ko'chirildi */
 function friendsPushPartyChallengeToHistory(party, challenge, result) {
   if (!challenge) return;
   S.friends.partyChallengesHistory = S.friends.partyChallengesHistory || [];
@@ -26439,27 +27512,8 @@ function openInviteModal() {
 function closeInviteModal() {
   document.getElementById('friends-invite-overlay').classList.remove('open');
 }
-async function friendsInviteToParty(friendId) {
-  var party = friendsGetMyParty();
-  var f = (S.friends.list || []).find(function (x) { return x.id === friendId; });
-  if (!party || !f) return;
-  closeInviteModal();
-  var res = await supabase.rpc('send_party_invite', { p_target_id: friendId });
-  if (res.error || !(res.data && res.data.ok)) {
-    var err = res.error ? res.error.message : (res.data && res.data.error);
-    if (err !== 'already_invited') toast('❌ ' + (err || 'Xatolik'));
-    return;
-  }
-  toast(t('friends_invited_toast').replace('{name}', f.name));
-  await partySyncFromCloud();
-  renderFriendsParty();
-}
-async function friendsCancelPartyInviteOutgoing(id) {
-  var res = await supabase.rpc('cancel_party_invite', { p_invite_id: id });
-  if (res.error) { toast('❌ ' + res.error.message); return; }
-  await partySyncFromCloud();
-  renderFriendsParty();
-}
+/* friendsInviteToParty: blok boshiga (global var sifatida) ko'chirildi */
+/* friendsCancelPartyInviteOutgoing: blok boshiga (global var sifatida) ko'chirildi */
 
 
 // ============================================================
@@ -26541,36 +27595,7 @@ function closeCreateWorldPartyModal() {
 // Eslatma: worldPartySpawnNpc (soxta NPC a'zolarni qo'shuvchi funksiya) olib tashlandi —
 // endi World Party'ga faqat haqiqiy foydalanuvchilar qo'shiladi.
 
-function worldPartyCreate() {
-  if (S.friends.myWorldPartyId) { toast(t('wp_already_in_one')); return; }
-  var cap = worldPartyMaxMembersForMe();
-  if (cap < 2) { toast(t('wp_level_too_low_toast') || '🔒 Bu daraja uchun World Party yopiq'); return; }
-  var nameEl = document.getElementById('wp-name-input');
-  var name = (nameEl && nameEl.value || '').trim();
-  if (!name) { toast(t('friends_party_name_required')); return; }
-  // 🔧 TUZATILDI: a'zolar soni endi cheksiz emas — darajangizga qarab chegaralanadi
-  var maxMembers = Math.min(cap, Math.max(2, parseInt((document.getElementById('wp-max-input') || {}).value, 10) || cap));
-  var prize = Math.max(1, parseInt((document.getElementById('wp-prize-input') || {}).value, 10) || 10);
-  if (prize > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
-  var target = _wpGoalType === 'race_coins' ? Math.max(1, parseInt((document.getElementById('wp-target-input') || {}).value, 10) || 100) : null;
-  S.coins -= prize; // mukofot yaratuvchidan darhol yechilib, "o'rtaga" (escrow) qo'yiladi
-  var id = 'W' + (S.friends.nextWorldPartyId++);
-  var party = {
-    id: id, name: name,
-    creatorId: S.friends.myId, creatorName: getDisplayUsername(), creatorIcon: getLevel(S.xp || 0).icon,
-    goalType: _wpGoalType, target: target, durationDays: _wpDuration,
-    maxMembers: maxMembers, prize: prize,
-    // 🔧 TUZATILDI: soxta (NPC) a'zolar endi qo'shilmaydi — faqat haqiqiy
-    // do'stlaringiz taklif qabul qilgach a'zo bo'ladi (worldPartyJoin orqali).
-    members: [{ id: 'me-' + S.friends.myId, name: getDisplayUsername(), icon: getLevel(S.xp || 0).icon, isMe: true, dailyLog: {}, totalCoinsEarned: 0, joinedAt: Date.now() }],
-    status: 'active', createdAt: Date.now(), startAt: Date.now(), endAt: Date.now() + _wpDuration * 86400000
-  };
-  S.friends.worldParties.unshift(party);
-  S.friends.myWorldPartyId = id;
-  if (nameEl) nameEl.value = '';
-  save(); closeCreateWorldPartyModal(); renderFriendsParty();
-  toast(t('wp_created_toast'));
-}
+/* worldPartyCreate: blok boshiga (global var sifatida) ko'chirildi */
 
 function worldPartyGoalDesc(p) {
   if (p.goalType === 'race_coins') return '🏁 ' + t('wp_goal_race_desc').replace('{target}', p.target);
@@ -26613,19 +27638,11 @@ function worldPartyEnsureSim(party) {
 }
 
 function worldPartyCheckExpiry() {
-  // 🔧 Avval saqlangan eski soxta (NPC-) a'zolarni tozalaymiz
-  (S.friends.worldParties || []).forEach(function (p) {
-    if (Array.isArray(p.members)) {
-      p.members = p.members.filter(function (m) { return !(m && typeof m.id === 'string' && m.id.indexOf('NPC-') === 0); });
-    }
-  });
-  (S.friends.worldParties || []).forEach(function (p) {
-    if (p.status !== 'active') return;
-    worldPartyEnsureSim(p);
-    var expired = Date.now() >= p.endAt;
-    var raceWon = p.goalType === 'race_coins' && (p.members || []).some(function (m) { return worldMemberScore(m).coins >= p.target; });
-    if (expired || raceWon) worldPartyFinish(p);
-  });
+  // Eslatma: World Party muddati tugashini va g'olibni endi SERVER
+  // hisoblaydi (_world_parties_finalize_expired, get_world_party_data
+  // har chaqirilganda avtomatik ishga tushadi) — mahalliy hisoblash
+  // va soxta simulyatsiyaga endi hojat yo'q.
+  if (S.cloudLinked && S.cloudUserId) worldPartySyncFromCloud();
 }
 function worldPartyFinish(party) {
   if (party.status !== 'active') return;
@@ -26637,7 +27654,7 @@ function worldPartyFinish(party) {
     if (val > maxVal) maxVal = val;
   });
   var winners = maxVal > 0 ? (party.members || []).filter(function (m) { return worldPartyMemberValue(party, m) === maxVal; }) : [];
-  var amCreator = party.creatorId === S.friends.myId;
+  var amCreator = party.creatorId === S.cloudUserId;
   if (!winners.length) {
     party.winnerId = null; party.winnerName = null; party.winners = []; party.isDraw = false;
     if (amCreator) {
@@ -26700,12 +27717,13 @@ function worldPartyCancel(id) {
   var p = (S.friends.worldParties || []).find(function (x) { return x.id === id; });
   if (!p || p.status !== 'active') return;
   var doCancel = function () {
-    S.coins = (S.coins || 0) + p.prize;
-    p.status = 'finished'; p.winnerId = null; p.winnerName = null; p.cancelled = true;
-    if (S.friends.myWorldPartyId === id) S.friends.myWorldPartyId = null;
-    worldPartyPushToHistory(p);
-    save(); render();
-    toast(t('wp_cancelled_toast'));
+    (async function () {
+      var res = await supabase.rpc('cancel_world_party', { p_party_id: id });
+      if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : 'Xatolik')); return; }
+      await worldPartySyncFromCloud();
+      renderFriendsParty();
+      toast(t('wp_cancelled_toast'));
+    })();
   };
   if ((p.members || []).length > 1) {
     showConfirmModal(esc(t('wp_cancel_confirm')), doCancel, { icon: '⚠️' });
@@ -26713,24 +27731,8 @@ function worldPartyCancel(id) {
     doCancel();
   }
 }
-function worldPartyJoin(id) {
-  var p = (S.friends.worldParties || []).find(function (x) { return x.id === id; });
-  if (!p) return;
-  if (S.friends.myWorldPartyId) { toast(t('wp_already_in_one')); return; }
-  if (p.status !== 'active') { toast(t('wp_not_joinable')); return; }
-  if ((p.members || []).length >= p.maxMembers) { toast(t('wp_full')); return; }
-  p.members.push({ id: 'me-' + S.friends.myId, name: getDisplayUsername(), icon: getLevel(S.xp || 0).icon, isMe: true, dailyLog: {}, totalCoinsEarned: 0, joinedAt: Date.now() });
-  S.friends.myWorldPartyId = p.id;
-  save(); renderFriendsParty();
-  toast(t('wp_joined_toast').replace('{name}', p.name));
-}
-function worldPartyLeave(id) {
-  var p = (S.friends.worldParties || []).find(function (x) { return x.id === id; });
-  if (!p) return;
-  p.members = (p.members || []).filter(function (m) { return !m.isMe; });
-  if (S.friends.myWorldPartyId === id) S.friends.myWorldPartyId = null;
-  save(); renderFriendsParty();
-}
+/* worldPartyJoin: blok boshiga (global var sifatida) ko'chirildi */
+/* worldPartyLeave: blok boshiga (global var sifatida) ko'chirildi */
 
 var _wpFilterState = { q: '', size: '', prize: '', status: '' };
 function wpSyncFilterInputs() {
@@ -26780,8 +27782,7 @@ function renderWorldPartyList() {
   if (!list.length) { listBox.innerHTML = ''; if (emptyBox) emptyBox.style.display = ''; return; }
   if (emptyBox) emptyBox.style.display = 'none';
   listBox.innerHTML = list.map(function (p) {
-    worldPartyEnsureSim(p);
-    var amCreator = p.creatorId === S.friends.myId;
+    var amCreator = p.creatorId === S.cloudUserId;
     var amMember = (p.members || []).some(function (m) { return m.isMe; });
     var isFull = (p.members || []).length >= p.maxMembers;
     var actionBtn;
@@ -26818,7 +27819,6 @@ function renderWorldPartyList() {
 function worldPartyShowStats(id) {
   var p = findWorldPartyById(id);
   if (!p) return;
-  worldPartyEnsureSim(p);
   var ranked = (p.members || []).map(function (m) { return { m: m, val: worldPartyMemberValue(p, m) }; }).sort(function (a, b) { return b.val - a.val; });
   var unit = p.goalType === 'race_coins' ? ' 🪙' : '%';
   var rows = ranked.map(function (r, i) {
@@ -26870,7 +27870,7 @@ function renderWorldPartyHistoryModalBody() {
   var list = S.friends.worldPartiesHistory || [];
   if (_wpHistoryMineOnly) {
     list = list.filter(function (p) {
-      var amCreator = p.creatorId === S.friends.myId;
+      var amCreator = p.creatorId === S.cloudUserId;
       var amMember = (p.members || []).some(function (m) { return m.isMe; });
       return amCreator || amMember;
     });
@@ -26880,7 +27880,7 @@ function renderWorldPartyHistoryModalBody() {
     return;
   }
   box.innerHTML = list.map(function (p) {
-    var amCreator = p.creatorId === S.friends.myId;
+    var amCreator = p.creatorId === S.cloudUserId;
     var resultLabel = p.cancelled ? t('wp_cancelled_label') : (p.isDraw ? (t('friends_draw_label') + ': ' + esc(p.winnerName || '')) : (p.winnerName ? ('🏆 ' + esc(p.winnerName)) : t('wp_cancelled_label')));
     return '<div class="friend-card" style="align-items:flex-start;flex-direction:column">'
       + '<div style="display:flex;width:100%;align-items:center;gap:10px">'
@@ -26957,52 +27957,7 @@ function friendsTimeLeftLabel(c) {
 }
 
 // ---------------- YUBORISH ----------------
-function friendsSendChallenge() {
-  var sel = document.getElementById('fnc-friend-select');
-  var friendId = sel && sel.value;
-  var friend = (S.friends.list || []).find(function (f) { return f.id === friendId; });
-  if (!friend) { closeNewChallengeModal(); return; }
-  var stake = Math.max(1, parseInt(document.getElementById('fnc-stake').value, 10) || 10);
-  if (stake > FRIENDS_MAX_STAKE) {
-    stake = FRIENDS_MAX_STAKE;
-    toast(t('friends_stake_capped_toast').replace('{max}', FRIENDS_MAX_STAKE));
-  }
-  if (stake > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
-  S.coins -= stake;
-  var delay = 4000 + Math.random() * 5000;
-  var willAccept = Math.random() < 0.75;
-  var challenge = {
-    id: 'C' + (S.friends.nextChallengeId++),
-    opponentId: friend.id, opponentName: friend.name, opponentIcon: friend.icon,
-    criteria: _fncCriteria, stake: stake, durationDays: _fncDuration,
-    status: 'pending', createdAt: Date.now(), resolveAt: Date.now() + delay, _willAccept: willAccept
-  };
-  S.friends.challengesOutgoing.push(challenge);
-  save(); closeNewChallengeModal(); renderFriendsChallenges();
-  toast(t('friends_challenge_sent_toast').replace('{name}', friend.name));
-
-  setTimeout(function () { _resolveChallengeOutgoing(challenge.id); }, delay);
-}
-function _resolveChallengeOutgoing(challengeId) {
-  var idx = (S.friends.challengesOutgoing || []).findIndex(function (o) { return o.id === challengeId; });
-  if (idx === -1) return; // foydalanuvchi bekor qilgan yoki allaqachon hal qilingan
-  var c = S.friends.challengesOutgoing.splice(idx, 1)[0];
-  if (c._willAccept) {
-    c.status = 'active';
-    c.startAt = Date.now();
-    c.endAt = c.startAt + c.durationDays * 86400000;
-    c.me = { dailyLog: {}, totalCoinsEarned: 0 };
-    c.opp = { dailyLog: {}, totalCoinsEarned: 0, _seed: Math.random() };
-    S.friends.challenges.unshift(c);
-    toast(t('friends_challenge_accepted_toast').replace('{name}', c.opponentName));
-  } else {
-    S.coins = (S.coins || 0) + c.stake; // rad etildi — tikilma qaytariladi
-    toast(t('friends_challenge_declined_toast').replace('{name}', c.opponentName));
-  }
-  save();
-  var overlay = document.getElementById('friends-modal-overlay');
-  if (overlay && overlay.classList.contains('open')) renderFriendsAll(); else updateFriendsBadges();
-}
+/* friendsSendChallenge: blok boshiga (global var sifatida) ko'chirildi */
 
 // ---------------- KELGAN CHORLOVLAR (accept/decline) ----------------
 function renderFriendsChallengeIncoming() {
@@ -27024,28 +27979,8 @@ function renderFriendsChallengeIncoming() {
       + actions + '</div>';
   }).join('');
 }
-function friendsAcceptChallengeIncoming(id) {
-  var idx = (S.friends.challengesIncoming || []).findIndex(function (c) { return c.id === id; });
-  if (idx === -1) return;
-  var c = S.friends.challengesIncoming[idx];
-  if (c.stake > (S.coins || 0)) { toast(t('friends_not_enough_coins')); return; }
-  S.friends.challengesIncoming.splice(idx, 1);
-  S.coins -= c.stake; // o'z tikilmamni "o'rtaga" qo'yaman
-  var active = {
-    id: c.id, opponentId: c.fromId, opponentName: c.fromName, opponentIcon: c.fromIcon,
-    criteria: c.criteria, stake: c.stake, durationDays: c.durationDays,
-    status: 'active', createdAt: c.sentAt, startAt: Date.now(), endAt: Date.now() + c.durationDays * 86400000,
-    me: { dailyLog: {}, totalCoinsEarned: 0 },
-    opp: { dailyLog: {}, totalCoinsEarned: 0, _seed: Math.random() }
-  };
-  S.friends.challenges.unshift(active);
-  save(); renderFriendsAll();
-  toast(t('friends_challenge_started_with').replace('{name}', c.fromName));
-}
-function friendsDeclineChallengeIncoming(id) {
-  S.friends.challengesIncoming = (S.friends.challengesIncoming || []).filter(function (c) { return c.id !== id; });
-  save(); renderFriendsAll();
-}
+/* friendsAcceptChallengeIncoming: blok boshiga (global var sifatida) ko'chirildi */
+/* friendsDeclineChallengeIncoming: blok boshiga (global var sifatida) ko'chirildi */
 
 function friendsRecordTaskEvent(taskDelta, coinsDelta) {
   if (!S.friends) return;
@@ -27076,6 +28011,8 @@ function friendsRecordTaskEvent(taskDelta, coinsDelta) {
   }
   var d = today();
   var list = S.friends.challenges || [];
+  // Darhol (optimistik) mahalliy yangilanish — haqiqiy holat duelsReportTaskEvent
+  // orqali bulutga yoziladi va duelsSyncFromCloud bilan tez orada tasdiqlanadi.
   list.forEach(function (c) {
     if (c.status !== 'active') return;
     if (!c.me) c.me = { dailyLog: {}, totalCoinsEarned: 0 };
@@ -27084,6 +28021,12 @@ function friendsRecordTaskEvent(taskDelta, coinsDelta) {
     c.me.dailyLog[d].coins += coinsDelta;
     c.me.totalCoinsEarned = Math.max(0, (c.me.totalCoinsEarned || 0) + coinsDelta);
   });
+  if (list.some(function (c) { return c.status === 'active'; })) {
+    duelsReportTaskEvent(taskDelta, coinsDelta);
+  }
+  if (S.friends.myWorldPartyId) {
+    worldPartyReportTaskEvent(taskDelta, coinsDelta);
+  }
   var wp = S.friends.worldParties || [];
   wp.forEach(function (p) {
     if (p.status !== 'active') return;
@@ -27173,9 +28116,11 @@ function friendsCompareChallenge(c) {
 }
 function friendsCheckExpiry() {
   if (!S.friends) return;
-  (S.friends.challenges || []).slice().forEach(function (c) {
-    if (c.status === 'active' && Date.now() >= (c.endAt || Infinity)) friendsFinishChallenge(c);
-  });
+  // Eslatma: musobaqa (duel) muddati tugashini endi SERVER hisoblaydi
+  // (_duels_finalize_expired, duelsSyncFromCloud chaqirilganda avtomatik
+  // ishga tushadi) — bu yerda mahalliy hisoblashga hojat yo'q, chunki
+  // ikkala tomonning haqiqiy kunlik ma'lumoti faqat bulutda bor.
+  if (S.cloudLinked && S.cloudUserId) duelsSyncFromCloud();
 }
 var FRIENDS_HISTORY_MAX = 100;
 function friendsPushToHistory(c) {
@@ -27210,30 +28155,7 @@ function friendsFinishChallenge(c) {
 }
 
 // ---------------- BEKOR QILISH / TASLIM BO'LISH ----------------
-function friendsCancelChallenge(id, isPending) {
-  if (isPending) {
-    // Hali qarshi tomon javob bermagan (pending) chorlovni bekor qilish —
-    // hech qanday musobaqa boshlanmagani uchun tikilma to'liq qaytariladi.
-    var idx = (S.friends.challengesOutgoing || []).findIndex(function (x) { return x.id === id; });
-    if (idx !== -1) {
-      var pc = S.friends.challengesOutgoing.splice(idx, 1)[0];
-      S.coins = (S.coins || 0) + pc.stake;
-      save(); renderFriendsChallenges();
-    }
-    return;
-  }
-  var c = (S.friends.challenges || []).find(function (x) { return x.id === id; });
-  if (!c || c.status !== 'active') return;
-  showConfirmModal(esc(t('friends_surrender_confirm')), function () {
-    c.status = 'finished';
-    c.winner = 'opponent';
-    c.forfeited = true;
-    c.finishedAt = Date.now();
-    friendsPushToHistory(c);
-    toast('🏳️ ' + t('friends_surrendered_toast').replace('{name}', c.opponentName));
-    save(); renderFriendsChallenges();
-  }, { icon: '🏳️' });
-}
+/* friendsCancelChallenge: blok boshiga (global var sifatida) ko'chirildi */
 
 // ---------------- TARIX (tugagan chorlovlar) ----------------
 function openChallengeHistoryModal() {
@@ -27299,7 +28221,6 @@ function renderFriendsChallenges() {
   }).join('');
 
   var mainHtml = main.map(function (c) {
-    friendsEnsureOppSim(c);
     var cmp = friendsCompareChallenge(c);
     var unit = c.criteria === 'coins' ? ' 🪙' : (c.criteria === 'tasks' ? ' ' + t('friends_unit_tasks') : '%');
     var sub = friendsCriteriaLabel(c.criteria) + ' · 🪙 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
@@ -27332,7 +28253,6 @@ function renderFriendsChallenges() {
 function friendsShowChallengeStats(id) {
   var c = (S.friends.challenges || []).find(function (x) { return x.id === id; });
   if (!c) return;
-  friendsEnsureOppSim(c);
   var startStr = dateStrFromTs(c.startAt);
   var elapsedDays = Math.min(c.durationDays, Math.floor((Date.now() - c.startAt) / 86400000) + 1);
   var rows = '';
@@ -27586,15 +28506,7 @@ function friendsBanUser(id) {
     })();
   }, { icon: '🚫' });
 }
-async function friendsUnbanUser(id) {
-  var base = friendsFindPersonById(id);
-  closeFriendProfileModal();
-  var res = await supabase.rpc('unblock_user', { p_target_id: id });
-  if (res.error) { toast('❌ ' + res.error.message); return; }
-  await friendsSyncFromCloud();
-  try { renderBannedModalBody(); } catch (e) {}
-  toast(t('friends_unbanned_toast').replace('{name}', (base && base.name) || ''));
-}
+/* friendsUnbanUser: blok boshiga (global var sifatida) ko'chirildi */
 function renderFriendsBannedLink() {
   var el = document.getElementById('friends-banned-link');
   if (!el) return;
@@ -27703,10 +28615,11 @@ window.openAdminPanel = async function () {
   overlay.id = 'admin-panel-modal';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px';
   var box = document.createElement('div');
-  box.style.cssText = 'position:relative;background:#1C1C25;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-xl);padding:18px;width:100%;max-width:520px;max-height:86vh;overflow-y:auto;font-family:\'DM Sans\',sans-serif';
+  box.style.cssText = 'position:relative;background:#1C1C25;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-xl);padding:18px;width:100%;max-width:640px;max-height:86vh;overflow-y:auto;font-family:\'DM Sans\',sans-serif';
   box.innerHTML =
     '<h2 style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--text);margin-bottom:12px">📊 Admin statistikasi</h2>' +
     '<div id="admin-stats-body" style="color:var(--text-muted);font-size:14px;line-height:1.5">Yuklanmoqda...</div>' +
+    '<div id="admin-feedback-box"></div>' +
     '<button id="admin-close-btn" style="margin-top:14px;width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">Yopish</button>';
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -27716,6 +28629,7 @@ window.openAdminPanel = async function () {
   };
 
   var body = document.getElementById('admin-stats-body');
+  try { adminRenderFeedback('new'); } catch (e) {}
 
   function statRows(list, key, labelFn) {
     if (!list || !list.length) return '<div style="opacity:.6">— ma\'lumot yo\'q —</div>';
@@ -27774,17 +28688,542 @@ window.addEventListener('load', _checkAdminHash);
   console.error('[script.js] Blok 7 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr7);
 }
 
-// ---------- Blok 8/8 ----------
+// ---------- Blok 8/10 ----------
 try {
 
 var supabase = window.supabase.createClient(
   'https://zzcvpenkevxlurgpjltz.supabase.co',
   'sb_publishable_KbjJQoICYY8BoIqeBw_OKQ_xTTk_yu8'
 );
-// supabase client shu yerda yaratilgach, saqlangan sessiya bor-yo'qligini
-// tekshiramiz (wsCheckSupabaseSession — welcome-survey skriptida yozilgan).
-try { if (typeof wsCheckSupabaseSession === 'function') wsCheckSupabaseSession(); } catch (e) {}
+// Sessiya tekshiruvi cloud_extras modulining oxirida chaqiriladi.
 
 } catch (_blockErr8) {
   console.error('[script.js] Blok 8 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr8);
+}
+
+// ---------- Blok 9/10 ----------
+try {
+// async funksiyalar try{} ichida block-scoped bo'lib qolmasligi uchun global var qilib, blok boshiga ko'chirildi
+var cloudPullAppState = async function(force) {
+  var r = await supabase.from('app_state').select('data,updated_at').eq('user_id', S.cloudUserId).maybeSingle();
+  if (r.error) { console.warn('[app_state] o\'qishda xatolik:', r.error.message); return { ok: false }; }
+  if (!r.data) return { ok: true, had: false };
+  var cloudMs = Date.parse(r.data.updated_at) || 0;
+  if (!force && cloudMs <= (S._cloudSyncedAt || 0)) return { ok: true, had: true, applied: false };
+
+  var cd = r.data.data || {};
+  var keepProfile = S.profile || {};
+  Object.keys(cd).forEach(function (k) {
+    if (k === '_ls' || k === 'profile' || _CLOUD_LOCAL_ONLY.indexOf(k) !== -1) return;
+    S[k] = cd[k];
+  });
+  S.profile = Object.assign({}, keepProfile, cd.profile || {}, {
+    photo: keepProfile.photo || null, loginMethod: keepProfile.loginMethod
+  });
+  var needReload = false;
+  var ls = cd._ls || {};
+  try {
+    if (ls.pomoSettings != null && localStorage.getItem('pomoSettings') !== ls.pomoSettings) {
+      localStorage.setItem('pomoSettings', ls.pomoSettings); needReload = true;
+    }
+    if (ls.pomoActivities != null && !localStorage.getItem('pomoActivities')) {
+      localStorage.setItem('pomoActivities', ls.pomoActivities); needReload = true;
+    }
+  } catch (e) {}
+  S._cloudSyncedAt = cloudMs;
+  try { if (typeof ensureCefrDefaults === 'function') ensureCefrDefaults(); } catch (e) {}
+  try { if (typeof ensureFullTaskOrder === 'function') ensureFullTaskOrder(); } catch (e) {}
+  try { saveToLocalStorage(S); } catch (e) {}
+  _appStateLastCmp = JSON.stringify(Object.assign({}, _appStatePayload(), { _savedAt: 0 }));
+  if (needReload && !sessionStorage.getItem('cloudPomoReloaded')) {
+    try { sessionStorage.setItem('cloudPomoReloaded', '1'); } catch (e) {}
+    setTimeout(function () { location.reload(); }, 400);
+  }
+  return { ok: true, had: true, applied: true };
+};
+
+var _cloudPullTodos = async function(uid) {
+  var todosRes = await supabase.from('todos').select('task_id,task_data,order_index')
+    .eq('user_id', uid).order('order_index', { ascending: true });
+  if (!todosRes.error && todosRes.data && todosRes.data.length) {
+    // Mehmon rejimida (hech qachon akkauntga ulanmagan) yozilgan tasklar
+    // yo'qolmasin: bulutdagilarga qo'shib olamiz, id to'qnashsa yangi id beramiz.
+    var guestTasks = (!S.lastCloudUserId && S.tasks && S.tasks.length) ? S.tasks.slice() : [];
+    var cloudTasks = todosRes.data.map(function (r) { return r.task_data; });
+    var order = todosRes.data.map(function (r) { return r.task_id; });
+    var used = {}; var maxId = Number(S.nextId) || 0;
+    cloudTasks.forEach(function (tk) { used[tk.id] = true; if (tk.id >= maxId) maxId = tk.id + 1; });
+    guestTasks.forEach(function (tk) {
+      var nt = JSON.parse(JSON.stringify(tk));
+      if (used[nt.id]) { nt.id = maxId++; }
+      used[nt.id] = true;
+      if (nt.id >= maxId) maxId = nt.id + 1;
+      cloudTasks.push(nt); order.push(nt.id);
+    });
+    S.nextId = Math.max(Number(S.nextId) || 0, maxId);
+    S.tasks = cloudTasks;
+    S.taskOrder = order;
+    _lastSyncedTasks = {};
+    // faqat bulutdagilar "sinxronlangan" hisoblanadi — mehmon tasklari keyingi save()da yuklanadi
+    todosRes.data.forEach(function (r) { _lastSyncedTasks[r.task_id] = JSON.stringify(r.task_data); });
+    try { ensureFullTaskOrder(); } catch (e) {}
+    return true;
+  }
+  return false;
+};
+
+var cloudPullAll = async function(uid) {
+  var as = await cloudPullAppState(true);
+  var profRes = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+  var hadProfile = !!profRes.data;
+  if (hadProfile) _cloudApplyProfileRow(profRes.data);
+  var hadTodos = await _cloudPullTodos(uid);
+  // app_state o'qilmagan bo'lsa (xato) — bulutni ustidan yozib yubormaslik uchun yozuvni ochmaymiz
+  window._cloudPullDone = !!as.ok;
+  S.lastCloudUserId = uid;
+  return { hadProfile: hadProfile, hadTodos: hadTodos, hadAppState: !!as.had, profile: profRes.data || null };
+};
+
+var cloudBoot = async function(session, isOAuthReturn) {
+  await _cloudWaitBooted();
+  S.cloudLinked = true;
+  S.cloudUserId = session.user.id;
+  S.cloudEmail = session.user.email;
+  var provider = (session.user.app_metadata && session.user.app_metadata.provider) || 'email';
+  if (!S.lastCloudUserId) S.lastCloudUserId = session.user.id;
+  var firstLink = !S.profile || !S.profile.loginMethod || S.profile.loginMethod === 'guest';
+
+  if (provider === 'google' && firstLink) {
+    // Google bilan yangi qurilmada/yangi akkaunt: bulutni to'liq tiklaymiz
+    var res = await cloudPullAll(S.cloudUserId);
+    if (!S.profile) S.profile = {};
+    S.profile.loginMethod = 'google';
+    S.welcomeSurveyDone = true;
+    S.showWelcomeSurveyPending = false;
+    if (!res.hadProfile) {
+      var meta = session.user.user_metadata || {};
+      var nm = String(meta.full_name || meta.name || (session.user.email || '').split('@')[0] || '').replace(/[^\p{L}\p{N}_ .-]/gu, '').slice(0, 20);
+      if (nm && !S.profile.name) S.profile.name = nm;
+      if (!S.profile.photo && meta.avatar_url) S.profile.photo = meta.avatar_url;
+      if (!S.profile.joinedDate) S.profile.joinedDate = new Date().toISOString().slice(0, 10);
+      window._cloudPullDone = true;
+      try { syncTasksToLocalStorage(); } catch (e) {}
+      scheduleCloudSync(true);
+      scheduleTodosCloudSync(true);
+    }
+    try { closeWelcomeSurvey(); } catch (e) {}
+    try { applyLanguage(); } catch (e) {}
+    try { save(); } catch (e) {}
+    try { updateHeaderUserTitle(); } catch (e) {}
+    try { renderProfile(); } catch (e) {}
+    try { render(); } catch (e) {}
+    startRealtimeSync();
+    scheduleAppStateSync(true);
+    _cloudToast(_cl('Google orqali kirdingiz ✅', 'Signed in with Google ✅', 'Вход через Google выполнен ✅'));
+    return;
+  }
+
+  var as = await cloudPullAppState(false);
+  window._cloudPullDone = !!as.ok;
+  startRealtimeSync();
+  if (as.ok) {
+    if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
+    scheduleAppStateSync(true);
+  }
+};
+
+var cloudResolveAvatarUrl = async function() {
+  var ph = S.profile && S.profile.photo;
+  if (!ph) return null;
+  if (!/^data:image\//.test(ph)) return ph;            // allaqachon URL
+  var key = ph.length + ':' + ph.slice(-64);
+  if (_avatarCache.key === key) return _avatarCache.url;
+  try {
+    var blob = await (await fetch(ph)).blob();
+    var ext = blob.type === 'image/png' ? 'png' : (blob.type === 'image/webp' ? 'webp' : 'jpg');
+    var path = S.cloudUserId + '/avatar.' + ext;
+    var up = await supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: blob.type, cacheControl: '3600' });
+    if (up.error) throw up.error;
+    var url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl + '?v=' + Date.now();
+    _avatarCache = { key: key, url: url };
+    return url;
+  } catch (e) {
+    console.warn('[Avatar] Storage\'ga yuklab bo\'lmadi, base64 ishlatiladi:', e && e.message ? e.message : e);
+    return ph; // zaxira: avvalgidek
+  }
+};
+
+var cloudGoogleSignIn = async function() {
+  try {
+    try { save(); } catch (e) {}
+    var r = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.origin + location.pathname }
+    });
+    if (r.error) _cloudToast('⚠️ ' + r.error.message);
+  } catch (e) { _cloudToast('⚠️ ' + (e && e.message ? e.message : e)); }
+};
+
+var cloudForgotPassword = async function() {
+  var email = ((typeof wsState !== 'undefined' && wsState.loginEmail) || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    _cloudToast(_cl('Avval email manzilingizni kiriting', 'Enter your email first', 'Сначала введите email'));
+    return;
+  }
+  var r = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  if (r.error) { _cloudToast('⚠️ ' + r.error.message); return; }
+  _cloudToast(_cl('Parolni tiklash havolasi emailingizga yuborildi 📧', 'Password reset link sent to your email 📧', 'Ссылка для сброса пароля отправлена на email 📧'));
+};
+
+var cloudDeleteAccount = async function() {
+  if (!S.cloudLinked) return;
+  if (!confirm(_cl('Akkaunt va bulutdagi BARCHA ma\'lumotlar butunlay o\'chiriladi. Davom etasizmi?',
+    'Your account and ALL cloud data will be permanently deleted. Continue?',
+    'Аккаунт и ВСЕ облачные данные будут удалены навсегда. Продолжить?'))) return;
+  if (!confirm(_cl('Aniq o\'chiraymi? Buni qaytarib bo\'lmaydi.', 'Really delete? This cannot be undone.', 'Точно удалить? Это нельзя отменить.'))) return;
+  var r = await supabase.rpc('delete_my_account');
+  if (r.error) { _cloudToast('⚠️ ' + r.error.message); return; }
+  try { await cloudLogout(); } catch (e) {}
+  if (!S.profile) S.profile = {};
+  S.profile.loginMethod = 'guest';
+  try { save(); renderProfile(); updateHeaderUserTitle(); } catch (e) {}
+  var m = document.getElementById('profile-edit-modal'); if (m) m.remove();
+  _cloudToast(_cl('Akkaunt o\'chirildi', 'Account deleted', 'Аккаунт удалён'));
+};
+
+/* ============================================================
+   ☁️ CLOUD EXTRAS — app_state sinxronizatsiyasi, avatar Storage,
+   Google OAuth, parol tiklash/almashtirish, akkaunt o'chirish,
+   auth listener. (supabase_setup.sql ni oldin ishga tushiring)
+   ============================================================ */
+window._cloudPullDone = false;
+window._lastProfilePushAt = null;
+window._appBooted = window._appBooted || false;
+
+function _cl(uz, en, ru) {
+  var l = (typeof getLang === 'function') ? getLang() : 'uz';
+  return l === 'ru' ? (ru || en) : (l === 'en' ? en : uz);
+}
+function _cloudToast(m) { try { toast(m); } catch (e) { console.log(m); } }
+function _cloudWaitBooted() {
+  return new Promise(function (resolve) {
+    var n = 0;
+    (function tick() {
+      if (window._appBooted || n++ > 150) return resolve();
+      setTimeout(tick, 100);
+    })();
+  });
+}
+
+// ---------- 1) app_state ----------
+var _CLOUD_LOCAL_ONLY = ['tasks', 'cloudLinked', 'cloudUserId', 'cloudEmail', '_serverSavedAt',
+  '_localUpdatedAt', '_cloudSyncedAt', 'lastCloudUserId', 'friends', 'showWelcomeSurveyPending'];
+var _CLOUD_LS_KEYS = ['pomoActivities', 'pomoSettings'];
+var _appStateTimer = null, _appStateLastCmp = '';
+
+function _appStatePayload() {
+  var d = {};
+  Object.keys(S).forEach(function (k) {
+    if (_CLOUD_LOCAL_ONLY.indexOf(k) === -1) d[k] = S[k];
+  });
+  if (d.profile) {
+    d.profile = Object.assign({}, d.profile);
+    delete d.profile.photo;        // rasm Storage'da
+    delete d.profile.loginMethod;  // qurilmaga xos
+  }
+  d._ls = {};
+  _CLOUD_LS_KEYS.forEach(function (k) {
+    try { var v = localStorage.getItem(k); if (v != null) d._ls[k] = v; } catch (e) {}
+  });
+  return JSON.parse(JSON.stringify(d));
+}
+
+function scheduleAppStateSync(immediate) {
+  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone) return;
+  if (_appStateTimer) clearTimeout(_appStateTimer);
+  var run = async function () {
+    _appStateTimer = null;
+    if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone) return;
+    try {
+      var payload = _appStatePayload();
+      var cmp = JSON.stringify(Object.assign({}, payload, { _savedAt: 0 }));
+      if (cmp === _appStateLastCmp) return;
+      var nowMs = Date.now();
+      var r = await supabase.from('app_state').upsert({
+        user_id: S.cloudUserId, data: payload, updated_at: new Date(nowMs).toISOString()
+      }, { onConflict: 'user_id' });
+      if (r.error) { console.warn('[app_state] yozishda xatolik:', r.error.message); return; }
+      _appStateLastCmp = cmp;
+      S._cloudSyncedAt = nowMs;
+    } catch (e) { console.warn('[app_state] tarmoq xatoligi:', e); }
+  };
+  if (immediate) run(); else _appStateTimer = setTimeout(run, 3000);
+}
+
+// force=true: bulutdagi holat doim ustun (login). Aks holda faqat boshqa
+// qurilmada yangilangan bo'lsagina (updated_at > oxirgi sinx vaqti).
+// true qaytarsa — yozish xavfsiz (bulut o'qildi yoki qator yo'q).
+/* cloudPullAppState: blok boshiga (global var sifatida) ko'chirildi */
+
+function _cloudApplyProfileRow(p) {
+  if (!S.profile) S.profile = {};
+  if (p.name) S.profile.name = p.name;
+  if (p.language) S.profile.language = p.language;
+  S.coins = p.coins || 0;
+  S.totalCoins = p.total_coins || 0;
+  S.reytingSeasonCoinsBase = Math.max(0, (p.coins || 0) - (p.season_coins || 0));
+  S.xp = p.xp || 0;
+  S.streak = p.streak || 0;
+  S.bestStreak = p.best_streak || p.streak || 0;
+  S.profile.photo = p.photo || S.profile.photo || null;
+  S.profile.country = p.country || S.profile.country || null;
+  S.profile.targetSubjects = (p.target_subjects && p.target_subjects.length) ? p.target_subjects : (S.profile.targetSubjects || []);
+  S.profile.appGoalOther = p.app_goal_other || S.profile.appGoalOther || '';
+  S.profile.joinedDate = p.joined_date || S.profile.joinedDate || null;
+}
+
+/* _cloudPullTodos: blok boshiga (global var sifatida) ko'chirildi */
+
+// Login: bulutdagi hamma narsani tortadi (app_state → profil → tasklar)
+/* cloudPullAll: blok boshiga (global var sifatida) ko'chirildi */
+
+// Sahifa ochilganda mavjud sessiya bo'lsa
+/* cloudBoot: blok boshiga (global var sifatida) ko'chirildi */
+
+function _cloudResetLink() {
+  window._cloudPullDone = false;
+  if (_appStateTimer) { clearTimeout(_appStateTimer); _appStateTimer = null; }
+  _appStateLastCmp = '';
+  S._cloudSyncedAt = 0;
+}
+
+// Sahifa yopilayotganda / fonga o'tayotganda navbatdagi yozuvni darhol yuboramiz
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') {
+    try { if (_appStateTimer) scheduleAppStateSync(true); } catch (e) {}
+  }
+});
+window.addEventListener('pagehide', function () {
+  try { if (_appStateTimer) scheduleAppStateSync(true); } catch (e) {}
+});
+
+// ---------- 2) Avatar → Storage ----------
+var _avatarCache = { key: null, url: null };
+/* cloudResolveAvatarUrl: blok boshiga (global var sifatida) ko'chirildi */
+
+// ---------- 3) Auth: Google, parol tiklash/almashtirish, o'chirish ----------
+/* cloudGoogleSignIn: blok boshiga (global var sifatida) ko'chirildi */
+
+/* cloudForgotPassword: blok boshiga (global var sifatida) ko'chirildi */
+
+function cloudShowNewPasswordModal() {
+  var old = document.getElementById('cloud-newpass-modal'); if (old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = 'cloud-newpass-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#1C1C25;border:1px solid rgba(255,255,255,0.15);border-radius:16px;padding:18px;width:100%;max-width:380px;color:var(--text)';
+  box.innerHTML =
+    '<h3 style="margin:0 0 10px;font-size:17px">🔑 ' + _cl('Yangi parol', 'New password', 'Новый пароль') + '</h3>' +
+    '<input id="cloud-newpass-input" type="password" placeholder="' + _cl('Yangi parol (kamida 6 belgi)', 'New password (min 6 chars)', 'Новый пароль (мин. 6 символов)') + '" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);margin-bottom:10px;box-sizing:border-box" />' +
+    '<div style="display:flex;gap:8px"><button id="cloud-newpass-cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">' + _cl('Bekor', 'Cancel', 'Отмена') + '</button>' +
+    '<button id="cloud-newpass-save" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-weight:600">' + _cl('Saqlash', 'Save', 'Сохранить') + '</button></div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  document.getElementById('cloud-newpass-cancel').onclick = function () { ov.remove(); };
+  document.getElementById('cloud-newpass-save').onclick = async function () {
+    var v = document.getElementById('cloud-newpass-input').value;
+    if (!v || v.length < 6) { _cloudToast(_cl('Parol kamida 6 belgi bo\'lsin', 'Password must be at least 6 characters', 'Пароль не короче 6 символов')); return; }
+    var r = await supabase.auth.updateUser({ password: v });
+    if (r.error) { _cloudToast('⚠️ ' + r.error.message); return; }
+    ov.remove();
+    _cloudToast(_cl('Parol yangilandi ✅', 'Password updated ✅', 'Пароль обновлён ✅'));
+  };
+}
+
+/* cloudDeleteAccount: blok boshiga (global var sifatida) ko'chirildi */
+
+// ---------- 4) Auth holati listener ----------
+try {
+  supabase.auth.onAuthStateChange(function (ev) {
+    if (ev === 'PASSWORD_RECOVERY') {
+      setTimeout(cloudShowNewPasswordModal, 300);
+    } else if (ev === 'SIGNED_OUT') {
+      setTimeout(function () {
+        if (!S.cloudLinked || window._cloudManualLogout) return;
+        // sessiya boshqa tabda/muddati tugashi bilan yopildi
+        try { stopRealtimeSync(); } catch (e) {}
+        S.cloudLinked = false; S.cloudUserId = null; S.cloudEmail = null;
+        _cloudResetLink();
+        _cloudToast(_cl('Sessiya tugadi, qayta kiring', 'Session ended, please sign in again', 'Сессия завершена, войдите снова'));
+      }, 0);
+    }
+  });
+} catch (e) { console.warn('[auth listener]', e); }
+
+// Sessiyani tekshirish (modul to'liq yuklangandan keyin)
+try { if (typeof wsCheckSupabaseSession === 'function') wsCheckSupabaseSession(); } catch (e) {}
+
+
+} catch (_blockErr9) {
+  console.error('[script.js] Blok 9 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr9);
+}
+
+// ---------- Blok 10/10 ----------
+try {
+// async funksiyalar try{} ichida block-scoped bo'lib qolmasligi uchun global var qilib, blok boshiga ko'chirildi
+var fbSubmit = async function() {
+  var ta = document.getElementById('fb-text'), btn = document.getElementById('fb-send');
+  var msg = (ta.value || '').trim();
+  if (msg.length < 5) { toast(_cl('Iltimos, kamida 5 ta belgi yozing', 'Please write at least 5 characters', 'Напишите минимум 5 символов')); ta.focus(); return; }
+  var last = 0; try { last = Number(localStorage.getItem('fbLastSent')) || 0; } catch (e) {}
+  if (Date.now() - last < 30000) { toast(_cl('Biroz kuting, keyin yana yuboring', 'Please wait a bit before sending again', 'Подождите немного перед повторной отправкой')); return; }
+  btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = '⏳ ...';
+  try {
+    var contact = (document.getElementById('fb-contact').value || '').trim() || S.cloudEmail || null;
+    var r = await supabase.from('feedback').insert({
+      user_id: (S.cloudLinked && S.cloudUserId) ? S.cloudUserId : null,
+      kind: _fbKind,
+      message: msg.slice(0, 2000),
+      contact: contact ? contact.slice(0, 120) : null,
+      user_name: (S.profile && S.profile.name) ? String(S.profile.name).slice(0, 60) : null,
+      lang: (typeof getLang === 'function') ? getLang() : null,
+      device: (navigator.userAgent || '').slice(0, 200)
+    });
+    if (r.error) throw r.error;
+    try { localStorage.removeItem('fbDraft'); localStorage.setItem('fbLastSent', String(Date.now())); } catch (e) {}
+    var m = document.getElementById('feedback-modal'); if (m) m.remove();
+    toast('🙏 ' + _cl('Rahmat! Fikringiz yuborildi', 'Thank you! Your feedback was sent', 'Спасибо! Отзыв отправлен'));
+  } catch (e) {
+    console.warn('[feedback]', e);
+    btn.disabled = false; btn.textContent = oldTxt;
+    toast('⚠️ ' + _cl('Yuborib bo\'lmadi, keyinroq urinib ko\'ring (matn saqlanib turadi)', 'Could not send, try later (your text is kept)', 'Не удалось отправить, попробуйте позже (текст сохранён)'));
+  }
+};
+
+var adminRenderFeedback = async function(filter) {
+  var box = document.getElementById('admin-feedback-box'); if (!box) return;
+  if (filter) _fbAdminFilter = filter;
+  var kindIcon = { bug: '🐞', idea: '💡', complaint: '😕', other: '💬' };
+  var chips = [['new', 'Yangi'], ['read', 'O\'qilgan'], ['done', 'Bajarilgan'], ['', 'Hammasi']].map(function (c) {
+    var on = _fbAdminFilter === c[0];
+    return '<button onclick="adminRenderFeedback(\'' + c[0] + '\')" style="padding:5px 11px;border-radius:999px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--border)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:' + (on ? '#fff' : 'var(--text-muted)') + ';font-size:12px;cursor:pointer">' + c[1] + '</button>';
+  }).join('');
+  box.innerHTML = '<h4 style="color:var(--text);margin:16px 0 8px">📬 Fikrlar va takliflar</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + chips + '</div><div id="admin-feedback-list" style="color:var(--text-muted);font-size:13px">Yuklanmoqda...</div>';
+  var list = document.getElementById('admin-feedback-list');
+  try {
+    var r = await supabase.rpc('admin_list_feedback', { p_status: _fbAdminFilter || null, p_limit: 200 });
+    if (r.error) { list.innerHTML = '<div style="color:#F87171">Ruxsat yo\'q yoki SQL (supabase_feedback.sql) ishga tushirilmagan: ' + esc(r.error.message) + '</div>'; return; }
+    var rows = r.data || [];
+    if (!rows.length) { list.innerHTML = '<div style="opacity:.6">— bu bo\'limda fikr yo\'q —</div>'; return; }
+    list.innerHTML = rows.map(function (f) {
+      var when = new Date(f.created_at).toLocaleString();
+      var who = esc(f.user_name || 'Mehmon') + (f.contact ? ' · ' + esc(f.contact) : '') + (f.user_id ? '' : ' · (akkauntsiz)');
+      var st = f.status === 'done' ? '✅' : f.status === 'read' ? '👁' : '🆕';
+      return '<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--surface2)">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-dim)"><span>' + (kindIcon[f.kind] || '💬') + ' ' + st + ' ' + who + '</span><span style="white-space:nowrap">' + esc(when) + '</span></div>' +
+        '<div style="color:var(--text);font-size:14px;line-height:1.5;margin:6px 0;white-space:pre-wrap;word-break:break-word">' + esc(f.message) + '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+          (f.status !== 'read' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'read\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">👁 O\'qildi</button>' : '') +
+          (f.status !== 'done' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'done\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">✅ Bajarildi</button>' : '') +
+          '<button onclick="adminFeedbackDelete(' + f.id + ')" style="padding:4px 10px;border-radius:8px;border:1px solid rgba(248,113,113,.4);background:transparent;color:#F87171;font-size:12px;cursor:pointer">🗑</button>' +
+          '<span style="margin-left:auto;font-size:11px;color:var(--text-dim)">' + esc((f.lang || '').toUpperCase()) + '</span>' +
+        '</div></div>';
+    }).join('');
+  } catch (e) { list.innerHTML = '<div style="color:#F87171">Xatolik: ' + esc(e.message || String(e)) + '</div>'; }
+};
+
+var adminFeedbackSet = async function(id, st) {
+  var r = await supabase.rpc('admin_set_feedback_status', { p_id: id, p_status: st });
+  if (r.error) { toast('⚠️ ' + r.error.message); return; }
+  adminRenderFeedback();
+};
+
+var adminFeedbackDelete = async function(id) {
+  if (!confirm('Bu fikrni o\'chirasizmi?')) return;
+  var r = await supabase.rpc('admin_delete_feedback', { p_id: id });
+  if (r.error) { toast('⚠️ ' + r.error.message); return; }
+  adminRenderFeedback();
+};
+
+/* ============================================================
+   💬 FIKR-MULOHAZA — foydalanuvchilar shikoyat/g'oya/xato yozadi,
+   hammasi Supabase `feedback` jadvaliga tushadi. Faqat admin
+   (#admin paneli) o'qiy oladi. SQL: supabase_feedback.sql
+   ============================================================ */
+var _fbKind = 'idea';
+function _fbKinds() {
+  return [
+    ['bug', '🐞', _cl('Xato', 'Bug', 'Ошибка')],
+    ['idea', '💡', _cl('G\'oya', 'Idea', 'Идея')],
+    ['complaint', '😕', _cl('Shikoyat', 'Complaint', 'Жалоба')],
+    ['other', '💬', _cl('Boshqa', 'Other', 'Другое')]
+  ];
+}
+function fbRefreshLabels() {
+  var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+  set('fb-card-title', '💬 ' + _cl('Fikr va takliflar', 'Feedback & ideas', 'Отзывы и идеи'));
+  set('fb-card-desc', _cl('Shikoyat, xato yoki yangi funksiya yozing', 'Report a problem or suggest a feature', 'Сообщите о проблеме или предложите функцию'));
+  set('fb-card-text', _cl('Ilovani yaxshilashga yordam bering: nima yoqmadi, nima yetishmayapti yoki qanday yangi funksiya kerak — yozing. Xabaringiz to\'g\'ridan-to\'g\'ri ilova muallifiga boradi.',
+    'Help improve the app: tell us what you dislike, what is missing or which feature you need. Your message goes straight to the app author.',
+    'Помогите улучшить приложение: что не нравится, чего не хватает или какая функция нужна. Сообщение попадёт напрямую автору.'));
+  set('fb-card-btn', '✍️ ' + _cl('Fikr yozish', 'Write feedback', 'Написать отзыв'));
+}
+(function () {
+  try {
+    var _orig = applyLanguage;
+    applyLanguage = function () { var r = _orig.apply(this, arguments); try { fbRefreshLabels(); } catch (e) {} return r; };
+  } catch (e) {}
+  setTimeout(function () { try { fbRefreshLabels(); } catch (e) {} }, 800);
+})();
+
+function _fbSelStyle(on) {
+  return 'flex:1;min-width:78px;padding:9px 6px;border-radius:12px;font-size:13px;cursor:pointer;border:1px solid ' + (on ? 'var(--accent)' : 'var(--border)') +
+    ';background:' + (on ? 'var(--accent)' : 'var(--surface2)') + ';color:' + (on ? '#fff' : 'var(--text)');
+}
+function fbPickKind(k) {
+  _fbKind = k;
+  _fbKinds().forEach(function (x) { var b = document.getElementById('fb-kind-' + x[0]); if (b) b.style.cssText = _fbSelStyle(x[0] === k); });
+}
+function openFeedbackModal() {
+  var old = document.getElementById('feedback-modal'); if (old) old.remove();
+  var draft = ''; try { draft = localStorage.getItem('fbDraft') || ''; } catch (e) {}
+  var isGuest = !(S.cloudLinked && S.cloudUserId);
+  var ov = document.createElement('div');
+  ov.id = 'feedback-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:450;display:flex;align-items:center;justify-content:center;padding:14px';
+  ov.addEventListener('mousedown', function (e) { if (e.target === ov) ov.remove(); });
+  var inp = 'width:100%;box-sizing:border-box;padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:15px;font-family:inherit;outline:none';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#1C1C25;border:1px solid rgba(255,255,255,0.15);border-radius:18px;padding:18px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;color:var(--text)';
+  box.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0;font-size:18px">💬 ' + _cl('Fikr va takliflar', 'Feedback & ideas', 'Отзывы и идеи') + '</h3>' +
+    '<button id="fb-close" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">✕</button></div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">' +
+      _fbKinds().map(function (x) { return '<button type="button" id="fb-kind-' + x[0] + '" onclick="fbPickKind(\'' + x[0] + '\')" style="' + _fbSelStyle(x[0] === _fbKind) + '">' + x[1] + ' ' + x[2] + '</button>'; }).join('') +
+    '</div>' +
+    '<textarea id="fb-text" maxlength="2000" rows="6" placeholder="' + _cl('Nima yoqmadi yoki qanday yangi funksiya kerak? Batafsil yozing...', 'What went wrong, or what feature would you like? Details help...', 'Что не так или какой функции не хватает? Опишите подробнее...') + '" style="' + inp + ';resize:vertical;min-height:120px"></textarea>' +
+    '<div id="fb-count" style="text-align:right;font-size:11px;color:var(--text-dim);margin:3px 0 10px">0 / 2000</div>' +
+    '<input id="fb-contact" type="text" maxlength="120" placeholder="' + _cl('Aloqa uchun (ixtiyoriy): email yoki Telegram', 'Contact (optional): email or Telegram', 'Контакт (необязательно): email или Telegram') + '" style="' + inp + ';margin-bottom:' + (isGuest ? '10' : '4') + 'px" />' +
+    '<div style="font-size:11px;color:var(--text-dim);margin-bottom:12px;line-height:1.4">' + _cl('Fikrni faqat ilova muallifi ko\'radi. Boshqa foydalanuvchilarga ko\'rinmaydi.', 'Only the app author can read this. Other users cannot see it.', 'Видит только автор приложения. Другим пользователям недоступно.') + '</div>' +
+    '<button id="fb-send" style="width:100%;padding:12px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer">' + _cl('Yuborish', 'Send', 'Отправить') + '</button>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  var ta = document.getElementById('fb-text'), cnt = document.getElementById('fb-count');
+  ta.value = draft; cnt.textContent = ta.value.length + ' / 2000';
+  ta.oninput = function () { cnt.textContent = ta.value.length + ' / 2000'; try { localStorage.setItem('fbDraft', ta.value); } catch (e) {} };
+  document.getElementById('fb-close').onclick = function () { ov.remove(); };
+  document.getElementById('fb-send').onclick = fbSubmit;
+  fbPickKind(_fbKind);
+  setTimeout(function () { ta.focus(); }, 120);
+}
+/* fbSubmit: blok boshiga (global var sifatida) ko'chirildi */
+
+// ---------- Admin: kelgan fikrlar (faqat #admin paneli ichida) ----------
+var _fbAdminFilter = 'new';
+/* adminRenderFeedback: blok boshiga (global var sifatida) ko'chirildi */
+/* adminFeedbackSet: blok boshiga (global var sifatida) ko'chirildi */
+/* adminFeedbackDelete: blok boshiga (global var sifatida) ko'chirildi */
+
+
+} catch (_blockErr10) {
+  console.error('[script.js] Blok 10 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr10);
 }
