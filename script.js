@@ -7338,9 +7338,42 @@ function checkClockIntegrity() {
 // bloklangan bo'lsa jim o'tkaziladi va null qaytaradi — lokal soatga tayanamiz).
 /* fetchServerTimeSafe: blok boshiga (global var sifatida) ko'chirildi */
 
+// ============ ⏩ ERTAGA QOLDIRISH → OVERDUE ============
+// Vazifa faqat foydalanuvchi uni ⏩ bilan ertaga qoldirganda "Muddati o'tgan"
+// bo'ladi: overdueFrom — qoldirilgan kun, overdueOn — ko'chirilgan kun.
+// Bajarilmaguncha overdue bo'lib turadi; bajarilganda belgisi olib tashlanadi.
+function isTaskPostponedOverdue(t, td) {
+  return !!(t && t.overdueFrom && t.overdueOn && !t.done && t.overdueOn <= (td || today()));
+}
+function markTaskPostponed(tk) {
+  var td = today();
+  if (!tk.overdueFrom) tk.overdueFrom = td; // eng birinchi qoldirilgan kun saqlanadi
+  tk.overdueOn = addDays(td, 1);
+  if (tk.repeat === 'interval') tk.nextDate = tk.overdueOn;
+}
+function clearTaskPostponed(tk) {
+  tk.overdueFrom = null; tk.overdueOn = null;
+}
+// Bajarilmay qolgan "har N kunda" vazifani jadval bo'yicha keyingi kuniga o'tkazadi
+// (avtomatik Overdue bo'lib qolmasligi uchun). Qoldirilgan (⏩) vazifalarga tegmaydi.
+function rollMissedIntervalTasks(td) {
+  td = td || today();
+  (S.tasks || []).forEach(function(tk) {
+    if (tk.repeat !== 'interval' || tk.done || tk.isFrozen) return;
+    if (tk.overdueFrom) return;
+    if (!tk.nextDate || tk.nextDate >= td) return;
+    var iv = Math.max(1, Number(tk.interval) || 1);
+    var n = tk.nextDate, guard = 0;
+    while (n < td && guard < 5000) { n = addDays(n, iv); guard++; }
+    tk.nextDate = n;
+  });
+}
+
 function taskDueToday(t) {
   if (t.isFrozen) return false;
   const td = today();
+  // ⏩ bilan ertaga qoldirilgan vazifa — bajarilmaguncha har kuni chiqadi (Overdue)
+  if (isTaskPostponedOverdue(t, td)) return true;
   const dow = new Date().getDay();
   if (t.repeat === 'daily') return true;
   if (t.repeat === 'weekdays') return dow >= 1 && dow <= 5;
@@ -8744,6 +8777,10 @@ function checkReset() {
     });
     // remove completed once tasks
     S.tasks = S.tasks.filter(t => !(t.repeat==='once' && t.done));
+    // ⏩ qoldirilgan (bir martalik ham) vazifa ko'chirilgan kuni yana faol bo'lsin
+    S.tasks.forEach(function(t) {
+      if (isTaskPostponedOverdue(t, td)) { t.skipped = false; t.skippedDate = null; }
+    });
 
     // Chest done tarixi — faqat bugungi kunni qoldirish (ertaga vazifalar qaytsin)
     if (S.chestDoneHistory) {
@@ -8781,6 +8818,9 @@ function checkReset() {
   if (S.penaltyPausedUntil && td >= S.penaltyPausedUntil) {
     S.penaltyPausedUntil = null;
   }
+
+  // Jarimalar hisoblangandan keyin: o'tib ketgan interval vazifalar jadval bo'yicha surilsin
+  rollMissedIntervalTasks(td);
 
   S.lastDate = td;
   save();
@@ -9226,6 +9266,9 @@ function toggleTaskInternal(id) {
   if (tsk.done) {
     SFX.taskCheck();
     tsk.doneDate = today(); tsk.skipped=false; tsk.skippedDate=null;
+    // Overdue belgisi olib tashlanadi (bekor qilinsa qaytarish uchun nusxa)
+    tsk._ovBak = tsk.overdueFrom ? { from: tsk.overdueFrom, on: tsk.overdueOn, next: tsk.nextDate } : null;
+    if (tsk.overdueFrom) { clearTaskPostponed(tsk); if (tsk.repeat==='interval') tsk.nextDate = today(); }
     if (tsk.repeat==='interval') { tsk.lastDoneDate=today(); tsk.nextDate=computeNextIntervalDate(tsk); }
     // Streak uchun kun tarixi — reset bo'lganda ham yo'qolmaydi
     if (!S.taskDoneLog) S.taskDoneLog = {};
@@ -9274,6 +9317,8 @@ function toggleTaskInternal(id) {
     SFX.click();
     tsk.doneDate=null;
     if (tsk.repeat==='interval') { tsk.nextDate=today(); }
+    if (tsk._ovBak) { tsk.overdueFrom = tsk._ovBak.from; tsk.overdueOn = tsk._ovBak.on; }
+    tsk._ovBak = null;
     // Streak log dan ham olib tashlash
     if (S.taskDoneLog && S.taskDoneLog[tsk.id]) {
       var td1 = today();
@@ -9354,7 +9399,8 @@ function skipTask(id) {
     if (!S.taskSkipLog[tk.id]) S.taskSkipLog[tk.id] = [];
     var tds = today();
     if (S.taskSkipLog[tk.id].indexOf(tds) === -1) S.taskSkipLog[tk.id].push(tds);
-    if(tk.repeat==='interval') tk.nextDate=computeNextIntervalDate(tk);
+    tk._ovBak = { from: tk.overdueFrom || null, on: tk.overdueOn || null };
+    markTaskPostponed(tk); // ertaga ko'chadi va bajarilmaguncha Overdue bo'lib turadi
     spendCoins(1); addTarixLog('out',tk.name+' '+_skipLogSuffix,-1);
     toast(_skipToast);
     save(); render();
@@ -9365,6 +9411,10 @@ function skipTask(id) {
 function unskipTask(id) {
   var tk=S.tasks.find(function(x){return x.id===id;}); if(!tk||!tk.skipped) return;
   tk.skipped=false; tk.skippedDate=null;
+  // Qoldirishni bekor qilish — oldingi holatga qaytadi
+  if (tk._ovBak) { tk.overdueFrom = tk._ovBak.from; tk.overdueOn = tk._ovBak.on; }
+  else clearTaskPostponed(tk);
+  tk._ovBak = null;
   if(tk.repeat==='interval') tk.nextDate=today();
   S.coins+=1;
   addTarixLog('in',tk.name+' '+t('unskip_log_suffix'),1);
@@ -9433,11 +9483,12 @@ function renderFrozenTasksPanel() {
 function postponeTask(id) {
   const tk = S.tasks.find(x=>x.id===id); if(!tk||tk.done) return;
   if (tk.repeat==='interval') {
-    tk.nextDate=addDays(today(),1);
+    markTaskPostponed(tk);
     toast(t('postpone_interval_toast'));
   } else if (tk.repeat==='once') {
     toast(t('postpone_once_toast'));
     tk.postponedTo = addDays(today(),1);
+    markTaskPostponed(tk);
   } else {
     toast(t('postpone_repeat_blocked_toast'));
     return;
@@ -11086,13 +11137,14 @@ function makeTaskEl(t, future) {
   const rl = repeatLabel(t);
   let subText = '';
   let subOverdue = false;
-  if (t.repeat==='interval' && t.nextDate) {
-    if (!t.done && !t.skipped && t.nextDate < today()) {
-      subText = tr('task_overdue_label') + ': ' + t.nextDate;
-      subOverdue = true;
-    } else {
-      subText = tr('task_next_label') + ': ' + t.nextDate;
-    }
+  if (!future && isTaskPostponedOverdue(t) && !t.skipped) {
+    // Faqat ⏩ bilan qoldirilgan vazifa "Muddati o'tgan" bo'ladi
+    subText = tr('task_overdue_label') + ': ' + t.overdueFrom;
+    subOverdue = true;
+  } else if (!future && t.skipped && t.overdueOn) {
+    subText = '⏩ ' + _cl('Ertaga qoldirildi', 'Moved to tomorrow', 'Перенесено на завтра') + ': ' + t.overdueOn;
+  } else if (t.repeat==='interval' && t.nextDate) {
+    subText = tr('task_next_label') + ': ' + t.nextDate;
   }
   if (subOverdue) cls += ' overdue';
 
@@ -12032,8 +12084,8 @@ function bulkPostpone() {
   ids.forEach(function(id){
     var tk = S.tasks.find(function(x){ return x.id === id; });
     if (!tk || tk.done) return;
-    if (tk.repeat === 'interval') { tk.nextDate = addDays(today(), 1); n++; }
-    else if (tk.repeat === 'once') { tk.postponedTo = addDays(today(), 1); n++; }
+    if (tk.repeat === 'interval') { markTaskPostponed(tk); n++; }
+    else if (tk.repeat === 'once') { tk.postponedTo = addDays(today(), 1); markTaskPostponed(tk); n++; }
   });
   save(); render();
   toggleBulkMode();
