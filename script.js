@@ -468,6 +468,10 @@ var fetchReytingList = async function(scope, metric, subjectFilter) {
   }
   if (res.noCountry) return res;
   var all = res.list.slice();
+  if (scope === 'league') {
+    var _ml = myLeague().id;
+    all = all.filter(function (p) { return leagueFor(p.seasonCoins || 0).id === _ml; });
+  }
   var idx = me.id ? all.findIndex(function(p){ return p.id === me.id; }) : -1;
   if (idx !== -1) all[idx] = Object.assign({}, all[idx], me, { id: all[idx].id });
   else all.push(me);
@@ -5550,6 +5554,7 @@ var I18N = {
 (function () {
   var extra = {
     uz: {
+      weekly_report_btn: "Haftalik hisobot",
       task_remind_label: "⏰ Eslatma vaqti (ixtiyoriy)",
       task_remind_hint: "Vazifa bajarilmagan bo'lsa, shu vaqtda eslatamiz (ilova ochiq yoki fonda bo'lsa).",
       pf_kpi_gems: "💎 Olmoslar",
@@ -5581,6 +5586,7 @@ var I18N = {
       ph_eg_650: "masalan: 650"
     },
     en: {
+      weekly_report_btn: "Weekly report",
       task_remind_label: "⏰ Reminder time (optional)",
       task_remind_hint: "If the task isn't done yet, we'll remind you at this time (while the app is open or in the background).",
       pf_kpi_gems: "💎 Gems",
@@ -5612,6 +5618,7 @@ var I18N = {
       ph_eg_650: "e.g. 650"
     },
     ru: {
+      weekly_report_btn: "Отчёт за неделю",
       task_remind_label: "⏰ Время напоминания (необязательно)",
       task_remind_hint: "Если задача не выполнена, напомним в это время (пока приложение открыто или в фоне).",
       pf_kpi_gems: "💎 Алмазы",
@@ -7526,6 +7533,8 @@ function _gemSourceLabel(src) {
   if (src === 'friends') return '👥 ' + _cl("Do'stlar", 'Friends', 'Друзья');
   if (src === 'exchange') return '🔁 ' + _cl('Almashtirish', 'Exchange', 'Обмен');
   if (src === 'spin') return '🎰 Spin';
+  if (src === 'quest') return '🎯 ' + _cl('Kvest', 'Quest', 'Квест');
+  if (src === 'freeze') return '❄️ Freeze';
   if (src === 'badge') return '🏅 ' + _cl('Yutuq', 'Achievement', 'Достижение');
   return src || '';
 }
@@ -7733,10 +7742,14 @@ function renderGemsModal() {
       '<div class="gems-way"><div class="gems-way-icon">🍅</div><div class="gems-way-body"><div class="gems-way-title">Pomodoro</div>' +
         '<div class="gems-way-sub">' + _cl('Har 25 daqiqa fokus = 1 💎 (kuniga 4 tagacha)', 'Every 25 min of focus = 1 💎 (up to 4 a day)', 'Каждые 25 мин фокуса = 1 💎 (до 4 в день)') + '</div></div>' +
         '<div class="gems-way-val">' + pomoGot + ' / ' + GEM_POMO_DAILY_CAP + '<small>' + pomoMin + ' ' + _cl('daq', 'min', 'мин') + '</small></div></div>' +
+      '<div class="gems-way"><div class="gems-way-icon">🎯</div><div class="gems-way-body"><div class="gems-way-title">' + _cl('Kvestlar', 'Quests', 'Квесты') + '</div>' +
+        '<div class="gems-way-sub">' + _cl('Kunlik kvest — 1 💎, haftalik — 3 💎', 'Daily quest — 1 💎, weekly — 3 💎', 'Ежедневный — 1 💎, недельный — 3 💎') + '</div></div><div class="gems-way-val">🎯</div></div>' +
       '<div class="gems-way"><div class="gems-way-icon">👥</div><div class="gems-way-body"><div class="gems-way-title">' + _cl("Do'stlar", 'Friends', 'Друзья') + '</div>' +
         '<div class="gems-way-sub">' + _cl('Duel va partylarda g\'alaba (bonus kuniga 3 tagacha)', 'Win duels and parties (bonus up to 3 a day)', 'Побеждайте в дуэлях и пати (бонус до 3 в день)') + '</div></div>' +
         '<div class="gems-way-val">' + frGot + ' / ' + GEM_FRIENDS_DAILY_CAP + '</div></div>' +
     '</div>' +
+    '<div class="gems-freeze"><div><div class="gems-ex-title">❄️ ' + _cl('Freeze sotib olish', 'Buy a Freeze', 'Купить заморозку') + '</div><div class="gems-ex-sub">' + _cl('Streakni bir kun himoya qiladi. Sizda: ', 'Protects your streak for a day. You have: ', 'Защищает серию на день. У вас: ') + (S.freezeCount || 0) + ' / ' + FREEZE_MAX_HOLD + '</div></div>' +
+      '<button type="button" class="rw-btn rw-btn-use" onclick="buyFreezeWithGems()"' + (avail < FREEZE_GEM_COST || (S.freezeCount || 0) >= FREEZE_MAX_HOLD ? ' disabled' : '') + '>' + FREEZE_GEM_COST + ' 💎</button></div>' +
     '<div class="gems-exchange"><div class="gems-ex-title">🔁 💎 → 🪙</div>' +
       '<div class="gems-ex-sub">' + _cl('1 💎 = {r} 🪙 (so\'nggi 14 kundagi kunlik o\'rtacha tangangiz). Tangani olmosga almashtirib bo\'lmaydi.', '1 💎 = {r} 🪙 (your daily coin average over the last 14 days). Coins can\'t be turned into gems.', '1 💎 = {r} 🪙 (ваш средний доход монет в день за 14 дней). Монеты нельзя обменять на алмазы.').replace('{r}', rate) + '</div>' +
       '<div class="gems-ex-row"><button type="button" class="rw-btn rw-btn-use" onclick="gemsExchange(1)"' + (avail < 1 ? ' disabled' : '') + '>1 💎 → ' + rate + ' 🪙</button>' +
@@ -7744,6 +7757,269 @@ function renderGemsModal() {
     '<div class="gems-log-title">' + _cl('Tarix', 'History', 'История') + '</div>' +
     (rows ? '<div class="gems-log">' + rows + '</div>' : '<div class="gems-empty">' + _cl("Hali olmos yo'q — streakni davom ettiring yoki Pomodoro boshlang 🍅", 'No gems yet — keep your streak or start a Pomodoro 🍅', 'Алмазов пока нет — держите серию или запустите Помодоро 🍅') + '</div>');
 }
+
+// ============================================================
+// 🎯 KVESTLAR · ❄️ FREEZE (💎) · 🏅 LIGALAR · 📅 HAFTALIK HISOBOT
+// 💾 AVTOMATIK NUSXALAR · ☁️ SINXRONIZATSIYA HOLATI
+// ============================================================
+function _mqHash(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function _mqWeekStart(ds) { var d = new Date((ds || today()) + 'T00:00:00'); var dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function _mqDaysOfWeek(ws) { var out = []; for (var i = 0; i < 7; i++) out.push(addDays(ws, i)); return out; }
+function mqTasksDoneOn(ds) { var n = 0; Object.keys(S.taskDoneLog || {}).forEach(function (id) { if ((S.taskDoneLog[id] || []).indexOf(ds) !== -1) n++; }); return n; }
+function mqHardDoneOn(ds) { var n = 0; Object.keys(S.taskDoneLog || {}).forEach(function (id) { if ((S.taskDoneLog[id] || []).indexOf(ds) === -1) return; var tk = (S.tasks || []).find(function (x) { return String(x.id) === String(id); }); if (tk && taskDiffOrDefault(tk) === 3) n++; }); return n; }
+function mqSubsDoneOn(ds) { var n = 0; Object.keys(S.subtaskDoneLog || {}).forEach(function (k) { if ((S.subtaskDoneLog[k] || []).indexOf(ds) !== -1) n++; }); return n; }
+function mqGoalsOn(ds) { return (S.goals || []).filter(function (g) { return g.daysChecked && g.daysChecked[ds]; }).length; }
+function mqChestOn(ds) { return (S.chestHistory || []).filter(function (h) { return h.date === ds; }).length; }
+function mqPomoMinOn(ds) {
+  var raw = []; try { raw = JSON.parse(localStorage.getItem('pomoLogs') || '[]'); } catch (e) {}
+  var ms = 0; (raw || []).forEach(function (l) { if (l && l.date === ds && !l.manual) { var d = (Number(l.durationMs) || 0) - (Number(l.catchUpMs) || 0); if (d > 0) ms += Math.min(d, 3 * 3600000); } });
+  return Math.floor(ms / 60000);
+}
+function mqPerfectDay(ds) {
+  if (ds > today()) return false;
+  var due = (S.tasks || []).filter(function (t) { return taskWasDueOnDate(t, ds); });
+  if (!due.length) return false;
+  return due.every(function (t) { return wasTaskDoneOnDate(t, ds) || wasTaskSkippedOnDate(t, ds); });
+}
+
+var MQ_DAILY_REWARD = 1, MQ_WEEKLY_REWARD = 3;
+function mqDailyPool() {
+  var hasGoals = (S.goals || []).some(function (g) { return !g.done; });
+  var hasChest = (S.chestTasks || []).length > 0;
+  var hasSubs = (S.tasks || []).some(function (t) { return (t.subtasks || []).length; });
+  var pool = [
+    { id: 'tasks3', icon: '✅', target: 3, get: function (d) { return mqTasksDoneOn(d); }, text: _cl('3 ta vazifa bajaring', 'Complete 3 tasks', 'Выполните 3 задачи') },
+    { id: 'tasks5', icon: '🚀', target: 5, get: function (d) { return mqTasksDoneOn(d); }, text: _cl('5 ta vazifa bajaring', 'Complete 5 tasks', 'Выполните 5 задач') },
+    { id: 'hard1', icon: '🔴', target: 1, get: function (d) { return mqHardDoneOn(d); }, text: _cl('1 ta qiyin vazifa bajaring', 'Finish 1 hard task', 'Выполните 1 сложную задачу') },
+    { id: 'pomo25', icon: '🍅', target: 25, unit: _cl('daq', 'min', 'мин'), get: function (d) { return mqPomoMinOn(d); }, text: _cl('25 daqiqa fokus qiling', 'Focus for 25 minutes', 'Фокус 25 минут') },
+    { id: 'pomo50', icon: '⏱️', target: 50, unit: _cl('daq', 'min', 'мин'), get: function (d) { return mqPomoMinOn(d); }, text: _cl('50 daqiqa fokus qiling', 'Focus for 50 minutes', 'Фокус 50 минут') },
+    { id: 'all', icon: '🏁', target: 1, get: function (d) { return (typeof allDailyDone === 'function' && d === today() && allDailyDone()) ? 1 : 0; }, text: _cl('Bugungi barcha vazifalarni tugating', "Finish all of today's tasks", 'Выполните все задачи на сегодня') }
+  ];
+  if (hasSubs) pool.push({ id: 'sub3', icon: '↳', target: 3, get: function (d) { return mqSubsDoneOn(d); }, text: _cl('3 ta sub-task bajaring', 'Complete 3 subtasks', 'Выполните 3 подзадачи') });
+  if (hasGoals) pool.push({ id: 'goal1', icon: '🎯', target: 1, get: function (d) { return mqGoalsOn(d); }, text: _cl('1 ta maqsadni belgilang', 'Check off 1 goal', 'Отметьте 1 цель') });
+  if (hasChest) pool.push({ id: 'chest1', icon: '🎲', target: 1, get: function (d) { return mqChestOn(d); }, text: _cl('1 ta chest vazifasini bajaring', 'Complete 1 chest task', 'Выполните 1 задачу сундука') });
+  return pool;
+}
+function mqWeeklyPool() {
+  var hasGoals = (S.goals || []).some(function (g) { return !g.done; });
+  var pool = [
+    { id: 'wtasks25', icon: '📋', target: 25, get: function (days) { return days.reduce(function (a, d) { return a + mqTasksDoneOn(d); }, 0); }, text: _cl('Hafta davomida 25 ta vazifa', '25 tasks this week', '25 задач за неделю') },
+    { id: 'wpomo150', icon: '🍅', target: 150, unit: _cl('daq', 'min', 'мин'), get: function (days) { return days.reduce(function (a, d) { return a + mqPomoMinOn(d); }, 0); }, text: _cl('Hafta davomida 150 daqiqa fokus', '150 focus minutes this week', '150 минут фокуса за неделю') },
+    { id: 'wperfect3', icon: '💯', target: 3, get: function (days) { return days.filter(mqPerfectDay).length; }, text: _cl('3 ta mukammal kun (hammasi bajarilgan)', '3 perfect days (everything done)', '3 идеальных дня (всё выполнено)') },
+    { id: 'wstreak7', icon: '🔥', target: 7, get: function () { return S.streak || 0; }, text: _cl("7 kunlik streakka yeting", 'Reach a 7-day streak', 'Достигните серии 7 дней') }
+  ];
+  if (hasGoals) pool.push({ id: 'wgoals5', icon: '🎯', target: 5, get: function (days) { return days.reduce(function (a, d) { return a + mqGoalsOn(d); }, 0); }, text: _cl('Hafta davomida 5 ta maqsad belgisi', '5 goal check-ins this week', '5 отметок целей за неделю') });
+  return pool;
+}
+function _mqPick(pool, n, seed) {
+  // Bir guruhdan (masalan "3 ta / 5 ta vazifa", "25 / 50 daqiqa") faqat bittasi tushadi
+  var grp = function (id) { return id.replace(/\d+$/, ''); };
+  var arr = pool.slice().sort(function (a, b) { return _mqHash(seed + a.id) - _mqHash(seed + b.id); });
+  var out = [], used = {};
+  arr.forEach(function (q) { if (out.length < n && !used[grp(q.id)]) { used[grp(q.id)] = 1; out.push(q); } });
+  arr.forEach(function (q) { if (out.length < n && out.indexOf(q) === -1) out.push(q); });
+  return out;
+}
+function mqGetQuests() {
+  var td = today(), ws = _mqWeekStart(td), days = _mqDaysOfWeek(ws).filter(function (d) { return d <= td; });
+  var claims = S.questClaims || {};
+  var daily = _mqPick(mqDailyPool(), 3, 'd' + td).map(function (q) {
+    var v = q.get(td), key = 'd:' + td + ':' + q.id;
+    return { key: key, kind: 'daily', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key], reward: MQ_DAILY_REWARD };
+  });
+  var weekly = _mqPick(mqWeeklyPool(), 2, 'w' + ws).map(function (q) {
+    var v = q.get(days), key = 'w:' + ws + ':' + q.id;
+    return { key: key, kind: 'weekly', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key], reward: MQ_WEEKLY_REWARD };
+  });
+  return { daily: daily, weekly: weekly, weekStart: ws };
+}
+function mqClaim(key) {
+  var all = mqGetQuests(); var q = all.daily.concat(all.weekly).find(function (x) { return x.key === key; });
+  if (!q || !q.done || q.claimed) return;
+  S.questClaims = S.questClaims || {};
+  S.questClaims[key] = Date.now();
+  // eski da'volarni tozalash (60 kundan eski)
+  var cut = addDays(today(), -60);
+  Object.keys(S.questClaims).forEach(function (k) { var d = k.split(':')[1]; if (d && d < cut) delete S.questClaims[k]; });
+  gemsAdd(q.reward, 'quest', '🎯 ' + q.text);
+  try { confetti(); SFX.coin(); } catch (e) {}
+  save(); renderQuests();
+}
+function renderQuests() {
+  var box = document.getElementById('quests-card');
+  if (!box || typeof S === 'undefined' || !S) return;
+  var Q = mqGetQuests();
+  var collapsed = !!S.questsCollapsed;
+  var doneN = Q.daily.filter(function (q) { return q.claimed; }).length;
+  var row = function (q) {
+    var pct = Math.round(q.value / q.target * 100);
+    var btn = q.claimed ? '<span class="mq-claimed">✓</span>'
+      : q.done ? '<button type="button" class="mq-claim" onclick="mqClaim(\'' + q.key + '\')">+' + q.reward + ' 💎</button>'
+      : '<span class="mq-reward">+' + q.reward + ' 💎</span>';
+    return '<div class="mq-row' + (q.claimed ? ' is-claimed' : q.done ? ' is-done' : '') + '">' +
+      '<div class="mq-icon">' + q.icon + '</div>' +
+      '<div class="mq-body"><div class="mq-text">' + esc(q.text) + '</div>' +
+        '<div class="mq-bar"><div style="width:' + pct + '%"></div></div>' +
+        '<div class="mq-prog">' + q.value + ' / ' + q.target + (q.unit ? ' ' + q.unit : '') + '</div></div>' + btn + '</div>';
+  };
+  var ready = Q.daily.concat(Q.weekly).filter(function (q) { return q.done && !q.claimed; }).length;
+  box.innerHTML =
+    '<button type="button" class="mq-head" onclick="S.questsCollapsed=!S.questsCollapsed;save();renderQuests()">' +
+      '<span class="mq-title">🎯 ' + _cl('Kvestlar', 'Quests', 'Квесты') + '</span>' +
+      '<span class="mq-sum">' + doneN + '/3 ' + _cl('bugun', 'today', 'сегодня') + (ready ? ' · <b>' + ready + ' ' + _cl('mukofot tayyor', 'ready to claim', 'можно забрать') + '</b>' : '') + '</span>' +
+      '<span class="mq-caret">' + (collapsed ? '▸' : '▾') + '</span></button>' +
+    (collapsed ? '' :
+      '<div class="mq-group-title">' + _cl('Bugungi', 'Daily', 'На сегодня') + '</div>' + Q.daily.map(row).join('') +
+      '<div class="mq-group-title">' + _cl('Haftalik', 'Weekly', 'На неделю') + '</div>' + Q.weekly.map(row).join(''));
+}
+
+// ❄️ Freeze'ni olmosga sotib olish
+var FREEZE_GEM_COST = 5, FREEZE_MAX_HOLD = 3;
+function buyFreezeWithGems() {
+  gemsEnsure();
+  if ((S.freezeCount || 0) >= FREEZE_MAX_HOLD) { toast(_cl('Ko\'pi bilan ' + FREEZE_MAX_HOLD + ' ta freeze saqlash mumkin', 'You can hold at most ' + FREEZE_MAX_HOLD + ' freezes', 'Можно хранить не больше ' + FREEZE_MAX_HOLD)); return; }
+  if (gemsAvailable() < FREEZE_GEM_COST) { toast(_cl('Olmos yetarli emas', 'Not enough gems', 'Недостаточно алмазов')); return; }
+  gemsAdd(-FREEZE_GEM_COST, 'freeze', '❄️ ' + _cl('Freeze sotib olindi', 'Freeze bought', 'Куплена заморозка'), true);
+  S.freezeCount = (S.freezeCount || 0) + 1;
+  save(); render();
+  try { renderProfile(); } catch (e) {}
+  toast('❄️ +1 Freeze');
+  try { renderGemsModal(); } catch (e) {}
+}
+
+// 🏅 Ligalar — shu oyda topilgan ochko (mavsum tangasi) bo'yicha
+var LEAGUES = [
+  { id: 'bronze', min: 0, icon: '🥉' }, { id: 'silver', min: 100, icon: '🥈' }, { id: 'gold', min: 300, icon: '🥇' },
+  { id: 'platinum', min: 700, icon: '💠' }, { id: 'diamond', min: 1500, icon: '💎' }
+];
+function leagueName(id) {
+  return ({ bronze: _cl('Bronza', 'Bronze', 'Бронза'), silver: _cl('Kumush', 'Silver', 'Серебро'), gold: _cl('Oltin', 'Gold', 'Золото'), platinum: _cl('Platina', 'Platinum', 'Платина'), diamond: _cl('Olmos', 'Diamond', 'Алмаз') })[id] || id;
+}
+function leagueFor(points) {
+  var p = Number(points) || 0, cur = LEAGUES[0];
+  LEAGUES.forEach(function (l) { if (p >= l.min) cur = l; });
+  var idx = LEAGUES.indexOf(cur), next = LEAGUES[idx + 1] || null;
+  return { id: cur.id, icon: cur.icon, name: leagueName(cur.id), min: cur.min, next: next, toNext: next ? next.min - p : 0 };
+}
+function myLeague() { return leagueFor(Math.max(0, (S.coins || 0) - (S.reytingSeasonCoinsBase || 0))); }
+
+// 📅 Haftalik hisobot
+function weeklyReportData(ws) {
+  var days = _mqDaysOfWeek(ws);
+  var tasks = days.map(mqTasksDoneOn), total = tasks.reduce(function (a, b) { return a + b; }, 0);
+  var best = 0; tasks.forEach(function (v, i) { if (v > tasks[best]) best = i; });
+  var pomo = days.reduce(function (a, d) { return a + mqPomoMinOn(d); }, 0);
+  var perfect = days.filter(mqPerfectDay).length;
+  var gems = (S.gemLog || []).filter(function (g) { return g.amount > 0 && g.date >= days[0] && g.date <= days[6]; }).reduce(function (a, g) { return a + g.amount; }, 0);
+  var coins = (S.tarix || []).filter(function (r) { return r.type === 'in' && r.amount > 0 && r.date >= days[0] && r.date <= days[6]; }).reduce(function (a, r) { return a + r.amount; }, 0);
+  return { days: days, tasks: tasks, total: total, bestIdx: best, pomo: pomo, perfect: perfect, gems: gems, coins: coins };
+}
+function showWeeklyReport(ws) {
+  ws = ws || addDays(_mqWeekStart(today()), -7);
+  var D = weeklyReportData(ws), max = Math.max.apply(null, D.tasks.concat([1]));
+  var wd = (typeof getShortDaysArr === 'function') ? getShortDaysArr() : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  var bars = D.days.map(function (d, i) {
+    var dow = new Date(d + 'T00:00:00').getDay();
+    return '<div class="wr-bar' + (i === D.bestIdx && D.tasks[i] ? ' best' : '') + '"><div class="wr-bar-v">' + (D.tasks[i] || '') + '</div><div class="wr-bar-fill" style="height:' + Math.max(4, Math.round(D.tasks[i] / max * 70)) + 'px"></div><div class="wr-bar-l">' + esc(wd[dow]) + '</div></div>';
+  }).join('');
+  var tile = function (icon, v, l) { return '<div class="wr-tile"><div class="wr-tile-v">' + icon + ' ' + v + '</div><div class="wr-tile-l">' + l + '</div></div>'; };
+  var ov = document.createElement('div');
+  ov.className = 'wr-overlay'; ov.id = 'weekly-report';
+  ov.innerHTML = '<div class="wr-box">' +
+    '<div class="wr-title">📅 ' + _cl('Haftalik hisobot', 'Weekly report', 'Отчёт за неделю') + '</div>' +
+    '<div class="wr-sub">' + tkShortDate(D.days[0]) + ' — ' + tkShortDate(D.days[6]) + '</div>' +
+    '<div class="wr-bars">' + bars + '</div>' +
+    '<div class="wr-tiles">' + tile('✅', D.total, _cl('vazifa', 'tasks', 'задач')) + tile('💯', D.perfect, _cl('mukammal kun', 'perfect days', 'идеальных дней')) +
+      tile('🍅', D.pomo, _cl('daq fokus', 'focus min', 'мин фокуса')) + tile('🪙', D.coins, _cl('tanga', 'coins', 'монет')) + tile('💎', D.gems, _cl('olmos', 'gems', 'алмазов')) + tile('🔥', S.streak || 0, _cl('streak', 'streak', 'серия')) + '</div>' +
+    '<div class="wr-msg">' + (D.total === 0 ? _cl("Bu hafta yangi boshlanish — bugun bitta vazifadan boshlang! 💪", "A fresh start this week — begin with one task today! 💪", "Новая неделя — начните с одной задачи сегодня! 💪")
+      : D.perfect >= 5 ? _cl("Ajoyib hafta! Siz haqiqiy chempionsiz 🏆", "Amazing week! You're a true champion 🏆", "Отличная неделя! Вы настоящий чемпион 🏆")
+      : _cl("Yaxshi ish! Bu hafta yanada ko'proq mukammal kun qiling 🔥", "Nice work! Aim for more perfect days this week 🔥", "Хорошая работа! На этой неделе больше идеальных дней 🔥")) + '</div>' +
+    '<button type="button" class="wr-ok" onclick="document.getElementById(\'weekly-report\').remove()">' + _cl('Davom etamiz', "Let's go", 'Продолжаем') + ' →</button></div>';
+  ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+function maybeShowWeeklyReport() {
+  var lastWs = addDays(_mqWeekStart(today()), -7);
+  if (S.weeklyReportShown === lastWs) return;
+  var D = weeklyReportData(lastWs);
+  S.weeklyReportShown = lastWs; save();
+  if (D.total > 0 || D.pomo > 0) setTimeout(function () { showWeeklyReport(lastWs); }, 3000);
+}
+
+// 💾 Avtomatik kunlik nusxalar (IndexedDB, oxirgi 7 kun)
+var _snapDbP = null;
+function _snapDb() {
+  if (_snapDbP) return _snapDbP;
+  _snapDbP = new Promise(function (res, rej) {
+    try {
+      var rq = indexedDB.open('todolist_backups', 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore('snaps', { keyPath: 'day' }); };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error); };
+    } catch (e) { rej(e); }
+  });
+  return _snapDbP;
+}
+function _snapCollect() {
+  var data = {};
+  for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(BACKUP_KEY_PREFIX) === 0) data[k] = localStorage.getItem(k); }
+  return { exportType: ['all'], exported_at: new Date().toISOString(), data: data, meta: { type: 'auto' } };
+}
+function autoSnapshotDaily() {
+  _snapDb().then(function (db) {
+    var day = today();
+    var tx = db.transaction('snaps', 'readwrite'), st = tx.objectStore('snaps');
+    var g = st.get(day);
+    g.onsuccess = function () {
+      st.put({ day: day, ts: Date.now(), backup: _snapCollect() });
+      var all = st.getAllKeys();
+      all.onsuccess = function () { var keys = (all.result || []).sort(); while (keys.length > 7) st.delete(keys.shift()); };
+    };
+  }).catch(function (e) { console.warn('[snapshot]', e); });
+}
+function renderAutoSnapshots() {
+  var box = document.getElementById('auto-snapshots');
+  if (!box) return;
+  _snapDb().then(function (db) {
+    var rq = db.transaction('snaps', 'readonly').objectStore('snaps').getAll();
+    rq.onsuccess = function () {
+      var list = (rq.result || []).sort(function (a, b) { return b.day < a.day ? -1 : 1; });
+      box.innerHTML = '<div class="snap-title">🕒 ' + _cl('Avtomatik nusxalar (oxirgi 7 kun)', 'Automatic backups (last 7 days)', 'Автокопии (последние 7 дней)') + '</div>' +
+        (list.length ? list.map(function (s) {
+          var tm = new Date(s.ts); var hm = String(tm.getHours()).padStart(2, '0') + ':' + String(tm.getMinutes()).padStart(2, '0');
+          return '<div class="snap-row"><span>' + tkShortDate(s.day) + ' · ' + hm + '</span><button type="button" onclick="restoreAutoSnapshot(\'' + s.day + '\')">' + _cl('Tiklash', 'Restore', 'Восстановить') + '</button></div>';
+        }).join('') : '<div class="snap-empty">' + _cl("Hali nusxa yo'q", 'No backups yet', 'Копий пока нет') + '</div>');
+    };
+  }).catch(function () { box.innerHTML = ''; });
+}
+function restoreAutoSnapshot(day) {
+  _snapDb().then(function (db) {
+    var rq = db.transaction('snaps', 'readonly').objectStore('snaps').get(day);
+    rq.onsuccess = function () {
+      var s = rq.result; if (!s) return;
+      var norm = normalizeImportedBackup(s.backup);
+      if (norm) showImportConfirmModal(norm); else toast(t('data_import_error'));
+    };
+  });
+}
+
+// ☁️ Sinxronizatsiya holati belgisi
+function renderSyncPill() {
+  var el = document.getElementById('sync-pill');
+  if (!el || typeof S === 'undefined' || !S) return;
+  var state, txt;
+  if (!navigator.onLine) { state = 'offline'; txt = '📴 ' + _cl('Oflayn — keyin saqlanadi', 'Offline — will sync later', 'Офлайн — синхронизируем позже'); }
+  else if (!S.cloudLinked) { state = 'local'; txt = '💾 ' + _cl('Qurilmada saqlangan', 'Saved on device', 'Сохранено на устройстве'); }
+  else if ((typeof _cloudSyncTimer !== 'undefined' && _cloudSyncTimer) || (typeof _pendingTodoUpserts !== 'undefined' && Object.keys(_pendingTodoUpserts).length)) { state = 'pending'; txt = '⏳ ' + _cl('Saqlanmoqda…', 'Syncing…', 'Синхронизация…'); }
+  else { state = 'ok'; txt = '✓ ' + _cl('Bulutda saqlandi', 'Synced', 'Синхронизировано'); }
+  el.className = 'sync-pill sync-' + state;
+  el.textContent = txt;
+}
+setInterval(renderSyncPill, 2000);
+window.addEventListener('online', renderSyncPill);
+window.addEventListener('offline', renderSyncPill);
+setTimeout(function () { try { autoSnapshotDaily(); } catch (e) {} try { maybeShowWeeklyReport(); } catch (e) {} renderSyncPill(); }, 8000);
+setInterval(function () { try { autoSnapshotDaily(); } catch (e) {} }, 6 * 3600000);
 
 // ============ ⏩ ERTAGA QOLDIRISH → OVERDUE ============
 // Vazifa faqat foydalanuvchi uni ⏩ bilan ertaga qoldirganda "Muddati o'tgan"
@@ -10601,6 +10877,7 @@ function renderProfileQuick() {
 }
 
 function showProfileSubtab(name) {
+  if (name === 'settings') { try { renderAutoSnapshots(); } catch (e) {} }
   ['overview','stats','badges','settings'].forEach(function(n){
     var panel = document.getElementById('profile-subtab-'+n);
     if (panel) panel.style.display = (n===name) ? '' : 'none';
@@ -12403,6 +12680,7 @@ function render() {
   document.getElementById('coins-display').textContent=S.coins;
   renderGemsPill();
   try { renderProfileQuick(); } catch (e) {}
+  try { renderQuests(); } catch (e) {}
   setTimeout(function () { try { initSubtaskSortables(); } catch (e) {} }, 0);
   checkDebtTransition();
   (function(){
@@ -14484,6 +14762,10 @@ function renderReyting() {
   var gBtn = document.getElementById('reyting-scope-global'), lBtn = document.getElementById('reyting-scope-local');
   if (gBtn) gBtn.classList.toggle('active', reytingScope === 'global');
   if (lBtn) lBtn.classList.toggle('active', reytingScope === 'local');
+  var lgBtn = document.getElementById('reyting-scope-league');
+  if (lgBtn) { lgBtn.classList.toggle('active', reytingScope === 'league'); var _ml2 = myLeague(); lgBtn.innerHTML = _ml2.icon + ' ' + _ml2.name; }
+  var lgInfo = document.getElementById('reyting-league-info');
+  if (lgInfo) { var L = myLeague(); lgInfo.innerHTML = '<span class="rk-league-badge">' + L.icon + ' ' + L.name + ' ' + _cl('ligasi', 'league', 'лига') + '</span>' + (L.next ? '<span class="rk-league-next">' + _cl('Keyingi liga', 'Next league', 'Следующая лига') + ': ' + leagueFor(L.next.min).icon + ' ' + leagueFor(L.next.min).name + ' — ' + _cl('yana', 'need', 'ещё') + ' ' + L.toNext + ' 🪙</span>' : '<span class="rk-league-next">🏆 ' + _cl('Eng yuqori liga!', 'Top league!', 'Высшая лига!') + '</span>'); }
   var cBtn = document.getElementById('reyting-metric-coins'), hBtn = document.getElementById('reyting-metric-hp'), sBtn = document.getElementById('reyting-metric-streak');
   if (cBtn) cBtn.classList.toggle('active', reytingMetric === 'coins');
   if (hBtn) hBtn.classList.toggle('active', reytingMetric === 'hp');
@@ -24236,6 +24518,7 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
   var col = metric === 'coins' ? 'season_coins' : (metric === 'streak' ? 'streak' : (metric === 'gems' ? 'gems' : 'xp'));
   var myCountry = (S.profile && S.profile.country) || null;
   if (scope === 'local' && !myCountry) return { list: [], noCountry: true };
+  if (scope === 'league') { col = 'season_coins'; }
   function build(orderCol) {
     // select('*') — `gems` ustuni bazada bo'lsa u ham keladi, bo'lmasa xato bermaydi
     var q = supabase.from('profiles').select('*').order(orderCol, { ascending: false }).limit(100);
@@ -25717,7 +26000,26 @@ try {
     if (toggleEl) toggleEl.textContent = act.running ? t('pomo_btn_stop') : (act.elapsedMs > 0 ? t('pomo_btn_resume') : t('pomo_btn_start'));
     var skipBtn = document.getElementById('pomo-hero-skip-btn');
     if (skipBtn) skipBtn.style.display = isBreak ? 'inline-block' : 'none';
+    pomoRenderTree(act, isBreak);
     pomoRenderNowBar(act);
+  }
+
+  // 🌳 Fokus daraxti: ish sikli davomida 🌱 → 🌿 → 🪴 → 🌳 o'sadi;
+  // bugun to'liq o'sgan daraxtlar (har bir to'liq ish sikli) "o'rmon"da ko'rinadi.
+  function pomoRenderTree(act, isBreak) {
+    var el = document.getElementById('pomo-tree');
+    if (!el) return;
+    var frac = Math.max(0, Math.min(1, (act.cycleMs || 0) / pomoWorkMs()));
+    var stage = isBreak ? '🌳' : frac < 0.25 ? '🌱' : frac < 0.5 ? '🌿' : frac < 0.85 ? '🪴' : '🌳';
+    var workMin = Math.max(1, Math.round(pomoWorkMs() / 60000));
+    var mins = (typeof gemsPomoTodayMinutes === 'function') ? gemsPomoTodayMinutes() : 0;
+    var trees = Math.floor(mins / workMin);
+    var forest = trees ? ('🌳'.repeat(Math.min(trees, 8)) + (trees > 8 ? ' ×' + trees : '')) : '';
+    el.innerHTML = '<span class="pomo-tree-plant' + (act.running && !isBreak ? ' growing' : '') + '" style="--g:' + (0.6 + frac * 0.6).toFixed(2) + '">' + stage + '</span>' +
+      '<span class="pomo-tree-text">' + (isBreak ? _cl("Daraxt o'sdi! Dam oling ☕", 'Tree grown! Take a break ☕', 'Дерево выросло! Отдохните ☕')
+        : act.running ? _cl("Fokusda qoling — daraxt o'smoqda", 'Stay focused — your tree is growing', 'Сохраняйте фокус — дерево растёт')
+        : (act.cycleMs ? _cl("Pauza — daraxt kutmoqda", 'Paused — your tree is waiting', 'Пауза — дерево ждёт') : _cl("Boshlang — daraxt eking 🌱", 'Start to plant a tree 🌱', 'Начните — посадите дерево 🌱'))) + '</span>' +
+      (forest ? '<span class="pomo-forest" title="' + _cl("Bugungi o'rmon", "Today's forest", 'Лес за сегодня') + '">' + forest + '</span>' : '');
   }
 
   // 📌 Ro'yxat pastga aylantirilganda tepada ko'rinib turadigan ixcham
