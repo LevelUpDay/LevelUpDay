@@ -51,7 +51,7 @@
           <span id="friends-req-badge" class="friend-badge-count" style="display:none">0</span>
         </button>
         <button type="button" class="gems-pill" id="header-gems-pill" onclick="openGemsModal()" title="💎">
-          <span class="gems-pill-icon">💎</span><span id="gems-display">0</span>
+          <span class="gems-pill-icon">💎</span><span id="gems-display">0</span><span class="coins-text gems-text" id="gems-suffix"> gems</span>
         </button>
         <div class="coins-pill" id="header-coins-pill" onclick="showTab('tarix')" style="cursor:pointer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M9 9h4.5a1.5 1.5 0 010 3H9m0 3h4.5"/></svg>
@@ -123,6 +123,7 @@
     <button class="tab"        id="tab-rewards" data-tab="rewards" onclick="showTab('rewards')" data-i18n="tab_rewards">🎁 Mukofotlar</button>
     <button class="tab"        id="tab-goals"   data-tab="goals"   onclick="showTab('goals')" data-i18n="tab_goals">🎯 Maqsadlar</button>
     <button class="tab"        id="tab-chest"   data-tab="chest"   onclick="showTab('chest')" data-i18n="tab_chest">🎲 Chest</button>
+    <button class="tab"        id="tab-reyting" data-tab="reyting" onclick="showTab('reyting')" data-i18n="tab_reyting">🏆 Reyting</button>
     <button class="tab"        id="tab-ielts"   data-tab="ielts"   onclick="showTab('ielts')" data-i18n="tab_ielts">📊 IELTS</button>
     <button class="tab"        id="tab-sat"     data-tab="sat"     onclick="showTab('sat')" data-i18n="tab_sat">📐 SAT</button>
     <button class="tab"        id="tab-cefr"    data-tab="cefr"    onclick="showTab('cefr')" style="display:none">📘 CEFR</button>
@@ -1193,38 +1194,42 @@
   </div>
 
   <!-- TOP CHART / REYTING VIEW -->
-  <div id="view-reyting" style="display:none;padding:4px 0 100px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <button onclick="showTab('profile')" style="width:34px;height:34px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:var(--fs-base);cursor:pointer;display:flex;align-items:center;justify-content:center" title="Profilga qaytish">⬅</button>
-      <div style="font-family:'Syne',sans-serif;font-size:var(--fs-lg);font-weight:700;color:var(--text)" data-i18n="reyting_title">🏆 Top Chart</div>
-      <button type="button" id="reyting-info-btn" onclick="showReytingInfoModal()" title="Ma'lumot" data-i18n-title="reyting_info_btn_title" style="width:24px;height:24px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--accent);font-size:var(--fs-xs);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0">ℹ️</button>
+  <div id="view-reyting" class="rk-view" style="display:none">
+    <div class="rk-head">
+      <button type="button" class="rk-icon-btn" onclick="showTab('profile')" title="Profilga qaytish" data-i18n-title="profile_title">⬅</button>
+      <div class="rk-title" data-i18n="reyting_title">🏆 Top Chart</div>
+      <button type="button" class="rk-icon-btn" id="reyting-info-btn" onclick="showReytingInfoModal()" title="Ma'lumot" data-i18n-title="reyting_info_btn_title">i</button>
     </div>
 
-    <!-- Scope toggle: Global vs Local -->
-    <div id="reyting-scope-toggle" style="display:flex;gap:8px;margin-bottom:8px">
+    <!-- Mavsum: qolgan vaqt + joriy mukofotlar (bosilsa — batafsil) -->
+    <button type="button" class="rk-season" id="reyting-season-countdown" onclick="showReytingInfoModal()">
+      <div class="rk-season-top">
+        <span class="rk-season-label" data-i18n="reyting_season_countdown_label">⏳ Yangi mavsumgacha:</span>
+        <span class="rk-season-val" id="reyting-season-countdown-val">—</span>
+      </div>
+      <div class="rk-prize-bar" id="reyting-prize-bar"></div>
+    </button>
+
+    <!-- Global / Mening davlatim -->
+    <div class="rk-seg" id="reyting-scope-toggle">
       <button type="button" id="reyting-scope-global" class="reyting-toggle-btn" onclick="setReytingScope('global')" data-i18n="reyting_scope_global">🌍 Dunyo bo'yicha</button>
       <button type="button" id="reyting-scope-local" class="reyting-toggle-btn" onclick="setReytingScope('local')">🇺🇿 <span data-i18n="reyting_scope_local">Mening Davlatim</span></button>
     </div>
 
-    <!-- Metric toggle: Coins / HP / Streak -->
-    <div id="reyting-metric-toggle" style="display:flex;gap:8px;margin-bottom:16px">
+    <!-- Mezon: Tanga / HP / Streak / Olmos -->
+    <div class="rk-chips" id="reyting-metric-toggle">
       <button type="button" id="reyting-metric-coins" class="reyting-toggle-btn" onclick="setReytingMetric('coins')" data-i18n="reyting_metric_coins">🪙 Tanga</button>
+      <button type="button" id="reyting-metric-gems" class="reyting-toggle-btn" onclick="setReytingMetric('gems')" data-i18n="reyting_metric_gems">💎 Olmos</button>
       <button type="button" id="reyting-metric-hp" class="reyting-toggle-btn" onclick="setReytingMetric('hp')" data-i18n="reyting_metric_hp">❤️ HP</button>
       <button type="button" id="reyting-metric-streak" class="reyting-toggle-btn" onclick="setReytingMetric('streak')" data-i18n="reyting_metric_streak">⚡ Streak</button>
     </div>
 
-    <!-- Yo'nalish filtri: Hammasi / IELTS / SAT / CEFR -->
-    <div id="reyting-subject-filter" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    <!-- Yo'nalish filtri -->
+    <div class="rk-chips rk-chips-sm" id="reyting-subject-filter">
       <button type="button" id="reyting-subject-all" class="reyting-subject-pill" onclick="setReytingSubjectFilter('all')" data-i18n="reyting_filter_all">Hammasi</button>
       <button type="button" id="reyting-subject-ielts" class="reyting-subject-pill" onclick="setReytingSubjectFilter('ielts')" data-i18n="reyting_filter_ielts">📊 IELTS</button>
       <button type="button" id="reyting-subject-sat" class="reyting-subject-pill" onclick="setReytingSubjectFilter('sat')" data-i18n="reyting_filter_sat">📐 SAT</button>
       <button type="button" id="reyting-subject-cefr" class="reyting-subject-pill" onclick="setReytingSubjectFilter('cefr')" data-i18n="reyting_filter_cefr">📘 CEFR</button>
-    </div>
-
-    <!-- Yangi mavsumgacha qolgan vaqt — sekundigacha jonli hisoblagich -->
-    <div id="reyting-season-countdown" style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px">
-      <span style="font-size:var(--fs-xs);color:var(--text-muted)" data-i18n="reyting_season_countdown_label">⏳ Yangi mavsumgacha:</span>
-      <span id="reyting-season-countdown-val" style="font-family:'Syne',sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--accent);letter-spacing:0.02em">—</span>
     </div>
 
     <div id="reyting-list"></div>
