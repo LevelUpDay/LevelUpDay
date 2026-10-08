@@ -2927,3 +2927,99 @@ body.light .undo-toast { background: #fff; }
 .task-card .subtask-item { cursor: grab; }
 .task-card .subtask-item.dragging { opacity: 0.6; }
 .undo-toast { min-width: min(92vw, 300px); } #undo-toast-msg { flex: 1; }
+
+/* ============================================================
+   👥 FRIENDS — qulay va chiroyli qayta dizayn
+   ============================================================ */
+#friends-modal-box { max-width: 860px !important; border-radius: var(--radius-xl) !important; }
+#friends-modal-box .fr-layout { min-height: 520px !important; max-height: 86vh !important; }
+#friends-modal-box .fr-nav {
+  width: 200px !important; padding: 24px 12px !important; gap: 4px !important;
+  background: linear-gradient(180deg, rgba(124,92,252,0.10), transparent 60%);
+}
+#friends-modal-box .friends-tab-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border-radius: var(--radius-md);
+  font-size: var(--fs-sm); font-weight: 600; position: relative;
+}
+#friends-modal-box .friends-tab-btn.active { background: var(--accent) !important; color: #fff !important; box-shadow: 0 4px 14px var(--accent-glow); }
+#friends-modal-box .fr-content { padding: 22px 24px !important; }
+
+/* Mening kartam */
+#friends-modal-box .fr-me-card {
+  padding: 14px 16px !important; border-radius: var(--radius-lg) !important; gap: 12px !important;
+  background: linear-gradient(135deg, rgba(124,92,252,0.20), rgba(56,189,248,0.08)) !important;
+  border: 1px solid rgba(124,92,252,0.35) !important; margin-bottom: 12px !important;
+}
+#friends-modal-box .fr-me-card .friend-avatar { width: 48px; height: 48px; font-size: 22px; }
+#friends-my-name { font-size: var(--fs-base) !important; }
+#friends-my-id { padding: 6px 10px !important; border-radius: var(--radius-full) !important; letter-spacing: 0.04em; }
+
+/* Statistika qatori */
+.fr-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+.fr-stat { padding: 10px 6px; border-radius: var(--radius-md); background: var(--surface2); border: 1px solid var(--border); text-align: center; min-width: 0; }
+.fr-stat-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: var(--fs-md); color: var(--text); white-space: nowrap; }
+.fr-stat-label { font-size: var(--fs-3xs, 10px); color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-stat-gems .fr-stat-val { color: #38BDF8; }
+
+/* Do'st kartasi */
+#friends-modal-box .friend-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-md);
+  background: var(--surface); border: 1px solid var(--border); transition: border-color 0.15s, transform 0.15s;
+}
+#friends-modal-box .friend-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+#friends-modal-box .friend-card-info { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+#friends-modal-box .friend-avatar { width: 44px; height: 44px; flex-shrink: 0; }
+#friends-modal-box .friend-name { font-size: var(--fs-base); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#friends-modal-box .friend-sub { font-size: var(--fs-2xs); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-on { color: var(--green); font-weight: 600; }
+.fr-off { color: var(--text-dim); }
+#friends-modal-box .friend-card-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: nowrap; }
+.fr-act {
+  width: 40px; height: 40px; border-radius: var(--radius-md); cursor: pointer; font-size: 16px;
+  background: var(--surface2); border: 1px solid var(--border); transition: border-color 0.15s, transform 0.15s;
+}
+.fr-act:hover { border-color: var(--accent); transform: translateY(-1px); }
+.fr-act-duel { background: rgba(248,113,113,0.10); border-color: rgba(248,113,113,0.35); }
+#friends-modal-box .friend-req-btn { min-height: 38px; border-radius: var(--radius-md); font-weight: 700; padding: 8px 14px; }
+#friends-modal-box .friend-card[style*="flex-direction:column"] { align-items: stretch !important; }
+
+/* Chorlov progress chiziqlari */
+#friends-modal-box .duel-vs-bar { display: flex; align-items: center; gap: 8px; }
+#friends-modal-box .duel-progress-track { flex: 1; height: 8px; border-radius: 99px; background: var(--surface2); overflow: hidden; }
+#friends-modal-box .duel-progress-fill { height: 100%; border-radius: 99px; }
+
+/* Bo'lim sarlavhalari */
+#friends-modal-box [data-i18n$="_title"][style*="text-transform:uppercase"],
+#friends-modal-box [data-i18n$="_title"][style*="letter-spacing"] { font-weight: 700; margin-top: 6px; }
+
+/* 📱 Telefon: to'liq ekran, tablar tepada */
+@media (max-width: 640px) {
+  #friends-modal-overlay { padding: 0 !important; align-items: stretch !important; }
+  #friends-modal-box { max-width: none !important; width: 100% !important; height: 100% !important; max-height: none !important; border-radius: 0 !important; }
+  #friends-modal-box .fr-layout { flex-direction: column; min-height: 0 !important; max-height: none !important; height: 100%; }
+  #friends-modal-box .fr-nav {
+    width: auto !important; flex-direction: row !important; align-items: center; overflow-x: auto; flex-shrink: 0;
+    padding: 14px 56px 10px 12px !important; border-right: none !important; border-bottom: 1px solid var(--border); scrollbar-width: none;
+  }
+  #friends-modal-box .fr-nav::-webkit-scrollbar { display: none; }
+  #friends-modal-box .fr-nav > div[data-i18n="friends_modal_title"] { display: none; }
+  #friends-modal-box .fr-nav > div[style*="height:1px"] { display: none; }
+  #friends-modal-box .friends-tab-btn { width: auto !important; flex-shrink: 0; white-space: nowrap; padding: 8px 12px; }
+  #friends-modal-box .fr-content { padding: 14px !important; flex: 1; overflow-y: auto; }
+  .fr-stats { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .fr-stat-val { font-size: var(--fs-sm); }
+}
+@media (max-width: 640px) {
+  #friends-modal-box .friend-card:not([style*="flex-direction:column"]) { flex-wrap: nowrap !important; }
+  #friends-modal-box .friend-card:not([style*="flex-direction:column"]) .friend-card-actions { width: auto !important; margin: 0 !important; }
+  #friends-modal-box .friend-card:not([style*="flex-direction:column"]) .friend-card-actions .friend-req-btn { flex: 0 0 auto; }
+}
+
+/* ⌨️ Klaviatura yorliqlari */
+.task-card.kb-focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.kb-help-overlay { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.kb-help-box { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--border-hover); border-radius: var(--radius-xl); padding: 20px; }
+.kb-help-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: var(--fs-md); margin-bottom: 12px; color: var(--text); }
+.kb-help-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-sm); color: var(--text-muted); }
+.kb-help-row kbd { min-width: 72px; text-align: center; padding: 3px 8px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border-hover); color: var(--text); font-family: ui-monospace, monospace; font-size: var(--fs-xs); }
+.kb-help-close { width: 100%; margin-top: 14px; padding: 10px; border: none; border-radius: var(--radius-md); background: var(--accent); color: #fff; font-weight: 700; cursor: pointer; }

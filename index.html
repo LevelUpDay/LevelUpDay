@@ -2652,23 +2652,23 @@
   <div class="modal" id="friends-modal-box" style="max-width:680px;width:100%;padding:0;overflow:hidden;position:relative">
     <button type="button" onclick="closeFriendsModal()" data-i18n-title="btn_close" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);font-size:var(--fs-base);cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center">✕</button>
 
-    <div style="display:flex;min-height:440px;max-height:82vh">
+    <div class="fr-layout" style="display:flex;min-height:440px;max-height:82vh">
       <!-- Chap: bo'limlar -->
-      <div style="width:150px;flex-shrink:0;padding:26px 10px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
+      <div class="fr-nav" style="width:150px;flex-shrink:0;padding:26px 10px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
         <div style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:var(--text);padding:2px 10px 14px" data-i18n="friends_modal_title">👥 Do'stlar</div>
         <button type="button" class="friends-tab-btn active" id="friends-tab-list" onclick="friendsShowTab('list')">🧑‍🤝‍🧑 <span data-i18n="friends_tab_list">Do'stlarim</span></button>
         <button type="button" class="friends-tab-btn" id="friends-tab-add" onclick="friendsShowTab('add')">➕ <span data-i18n="friends_tab_add">Qo'shish</span><span id="friends-add-badge" class="friend-badge-count" style="position:static;margin-left:auto;display:none"></span></button>
         <button type="button" class="friends-tab-btn" id="friends-tab-party" onclick="friendsShowTab('party')">🎉 <span data-i18n="friends_tab_party">Party</span><span id="friends-party-badge" class="friend-badge-count" style="position:static;margin-left:auto;display:none"></span></button>
         <button type="button" class="friends-tab-btn" id="friends-tab-challenge" onclick="friendsShowTab('challenge')">⚔️ <span data-i18n="friends_tab_challenge">Chorlov</span><span id="friends-challenge-badge" class="friend-badge-count" style="position:static;margin-left:auto;display:none"></span></button>
         <div style="height:1px;background:var(--border);margin:6px 4px"></div>
-        <button type="button" class="friends-tab-btn" id="friends-tab-reyting" onclick="friendsOpenReyting()" style="color:var(--gold)">🏆 <span data-i18n="profile_reyting_btn">Reyting</span></button>
+        <button type="button" class="friends-tab-btn" id="friends-tab-reyting" onclick="friendsOpenReyting()" data-noicon="1" style="color:var(--gold)"><span data-i18n="profile_reyting_btn">Reyting</span></button>
       </div>
 
       <!-- O'ng: kontent -->
-      <div style="flex:1;padding:22px 22px;overflow-y:auto">
+      <div class="fr-content" style="flex:1;padding:22px 22px;overflow-y:auto">
 
         <!-- MENING ID KARTAM (har doim tepada) -->
-        <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:18px">
+        <div class="fr-me-card" style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:18px">
           <div class="friend-avatar" id="friends-my-avatar">🌱</div>
           <div style="min-width:0;flex:1">
             <div style="font-size:var(--fs-sm);font-weight:700;color:var(--text)" id="friends-my-name">—</div>
@@ -2679,6 +2679,8 @@
             <button type="button" onclick="friendsCopyMyId()" title="Nusxalash" data-i18n-title="friends_copy_id_title" style="width:30px;height:30px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;flex-shrink:0">📋</button>
           </div>
         </div>
+
+        <div class="fr-stats" id="fr-stats"></div>
 
         <!-- LIST PANEL -->
         <div id="friends-panel-list">
