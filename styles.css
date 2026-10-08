@@ -2775,3 +2775,133 @@ html.layout-desktop #ds-aside .gems-text { font-size: var(--fs-xs) !important; }
 .rk-val-sub { font-size: var(--fs-3xs, 10px); color: var(--text-muted); margin-top: 1px; }
 .rk-info-formula { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; margin-bottom: 8px; }
 .rk-info-now { font-size: var(--fs-xs); color: var(--text); margin-bottom: 10px; }
+
+/* TOTAL paneli: imkoniyat/to'plangan manbalar bo'yicha */
+.lb-src-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px; margin-top: 8px; }
+.lb-src { font-size: var(--fs-3xs, 10px); color: var(--text-muted); white-space: nowrap; }
+.lb-src b { color: var(--text); font-weight: 700; }
+.lb-src.zero { opacity: 0.5; }
+
+/* ============================================================
+   👤 PROFIL — tartiblangan va chiroyli ko'rinish
+   ============================================================ */
+#profile-header-row {
+  flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 16px !important;
+  padding: 18px !important; border-radius: var(--radius-lg) !important; margin-bottom: 12px !important;
+  background: linear-gradient(135deg, rgba(124,92,252,0.16), rgba(56,189,248,0.06)) !important;
+  border: 1px solid var(--border) !important; min-height: 0 !important;
+}
+#profile-header-info { display: flex !important; align-items: center; gap: 16px; text-align: left !important; flex: 1; min-width: 0; }
+#profile-header-info #profile-avatar { width: 76px !important; height: 76px !important; flex-shrink: 0; margin: 0 !important; }
+#profile-header-text { min-width: 0; }
+#profile-name-big { margin: 0 !important; text-align: left; overflow-wrap: anywhere; }
+#profile-country-big { text-align: left; }
+#profile-subjects-badges, #profile-edit-row { justify-content: flex-start !important; }
+#profile-edit-row { margin-top: 8px !important; }
+
+.pf-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.pf-q {
+  padding: 10px 8px; border-radius: var(--radius-md); text-align: center; min-width: 0;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.pf-q-icon { font-size: 18px; line-height: 1; }
+.pf-q-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: var(--fs-md); color: var(--text); margin-top: 4px; white-space: nowrap; }
+.pf-q-val small { font-size: var(--fs-2xs); color: var(--text-muted); font-weight: 600; }
+.pf-q-label { font-size: var(--fs-3xs, 10px); color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-q-coins .pf-q-val { color: var(--gold); }
+.pf-q-gems .pf-q-val { color: #38BDF8; }
+.pf-q-streak .pf-q-val { color: #FB923C; }
+.pf-q-level .pf-q-val { color: var(--accent); }
+.pf-q-bar { height: 4px; border-radius: 99px; background: var(--surface2); overflow: hidden; margin: 5px 4px 0; }
+.pf-q-bar > div { height: 100%; background: linear-gradient(90deg, var(--accent), #38BDF8); border-radius: 99px; }
+@media (max-width: 380px) { .pf-quick { grid-template-columns: repeat(2, 1fr); } }
+
+/* Ichki tablar — segment ko'rinishi */
+#profile-subtabs {
+  padding: 4px; gap: 4px !important; border-radius: var(--radius-full); background: var(--surface2);
+  border: 1px solid var(--border); scrollbar-width: none; position: sticky; top: 6px; z-index: 6;
+}
+#profile-subtabs::-webkit-scrollbar { display: none; }
+#profile-subtabs .profile-subtab-btn { flex: 1 0 auto !important; border: none !important; background: transparent; padding: 8px 12px; font-size: var(--fs-sm); }
+#profile-subtabs .profile-subtab-btn.active { background: var(--accent) !important; color: #fff !important; box-shadow: 0 4px 12px var(--accent-glow); }
+
+/* Statistika: KPI + bir xil kartalar, kompyuterda 2 ustun */
+.pf-kpis { grid-template-columns: repeat(2, 1fr) !important; }
+.pf-kpis > div { border-radius: var(--radius-md) !important; }
+.pf-kpi { padding: 14px 16px; border-radius: var(--radius-md); }
+.pf-kpi-label { font-size: var(--fs-2xs); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; margin-bottom: 6px; }
+.pf-kpi-val { font-family: 'Syne', sans-serif; font-size: var(--fs-2xl, 26px); font-weight: 700; }
+.pf-kpi-gems { background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.3); }
+.pf-kpi-gems .pf-kpi-label, .pf-kpi-gems .pf-kpi-val { color: #38BDF8; }
+.pf-kpi-streak { background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.3); }
+.pf-kpi-streak .pf-kpi-label, .pf-kpi-streak .pf-kpi-val { color: #FB923C; }
+@media (min-width: 700px) { .pf-kpis { grid-template-columns: repeat(4, 1fr) !important; } }
+#profile-subtab-stats > div { border-radius: var(--radius-lg); }
+@media (min-width: 1000px) {
+  #profile-subtab-stats:not([style*="display: none"]):not([style*="display:none"]) { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  #profile-subtab-stats > div { margin-bottom: 0 !important; }
+  #profile-subtab-stats > .pf-kpis, #profile-subtab-stats > #pomo-stats-card { grid-column: 1 / -1; }
+}
+
+/* ============================================================
+   📋 TASKS — qulay va toza karta dizayni
+   ============================================================ */
+.task-card { position: relative; padding: 12px 12px 12px 14px; gap: 0; }
+.task-card.has-label { box-shadow: inset 4px 0 0 var(--tk-label); }
+.tk-row { align-items: flex-start; gap: 12px; }
+.tk-row > .check-btn { width: 26px; height: 26px; flex-shrink: 0; margin-top: 1px; }
+.tk-row .task-info { flex: 1; min-width: 0; }
+.tk-row .task-name { font-size: var(--fs-base); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.tk-pin { margin-right: 4px; font-size: 12px; }
+.tk-emoji { margin-right: 6px; }
+.tk-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.tk-chip {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: var(--fs-3xs, 10.5px); font-weight: 600; white-space: nowrap; line-height: 1.6;
+  background: var(--surface2); color: var(--text-muted); border: 1px solid transparent;
+}
+.tk-chip-rep { color: #B48EFF; background: rgba(124,92,252,0.12); }
+.tk-chip-diff.d0 { color: var(--text-muted); }
+.tk-chip-diff.d1 { color: var(--green); background: rgba(52,211,153,0.12); }
+.tk-chip-diff.d2 { color: var(--gold); background: var(--gold-dim); }
+.tk-chip-diff.d3 { color: var(--red); background: rgba(248,113,113,0.12); }
+.tk-chip-coin { color: var(--gold); background: var(--gold-dim); }
+.tk-chip-subs { color: var(--info); background: rgba(96,165,250,0.12); }
+.tk-chip-subs.all { color: var(--green); background: rgba(52,211,153,0.12); }
+.tk-chip-over { color: var(--red); background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.35); }
+.tk-chip-info { color: var(--text-muted); }
+.tk-chip-skip { color: #FB923C; background: rgba(251,146,60,0.12); }
+.tk-more {
+  width: 36px !important; height: 36px !important; flex-shrink: 0; border-radius: var(--radius-sm) !important;
+  display: inline-flex !important; align-items: center; justify-content: center; font-size: 18px !important;
+  background: transparent !important; border: 1px solid var(--border) !important; color: var(--text-muted) !important; margin: 0 !important;
+}
+.tk-more:hover { border-color: var(--accent) !important; color: var(--text) !important; }
+.task-card.done .task-name { text-decoration: line-through; text-decoration-color: var(--text-dim); }
+.task-card.done { opacity: 0.55; }
+.task-card.skipped { opacity: 0.6; }
+
+/* Sub-tasklar: ichkariga surilgan, yupqa chiziq bilan bog'langan */
+.task-card-bottom { margin-top: 10px; padding-left: 38px; }
+.task-card-bottom .subtask-wrap { width: 100%; border-left: 2px solid var(--border); padding-left: 10px; }
+.task-card .subtask-list { gap: 4px; }
+.task-card .subtask-item {
+  padding: 6px 8px; border-radius: var(--radius-sm); gap: 8px; min-height: 36px;
+  background: transparent; border: 1px solid transparent;
+}
+.task-card .subtask-item:hover { background: var(--surface2); }
+.task-card .subtask-item .subtask-name { flex: 1; min-width: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.task-card .subtask-item.done .subtask-name { text-decoration: line-through; color: var(--text-dim); }
+.task-card .subtask-item.skipped { opacity: 1; }
+.task-card .subtask-item.skipped .subtask-name { color: var(--text-dim); }
+.task-card .subtask-check { width: 20px; height: 20px; flex-shrink: 0; }
+.subtask-skip-chip {
+  flex-shrink: 0; border: none; cursor: pointer; padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: var(--fs-3xs, 10.5px); font-weight: 700; color: #FB923C; background: rgba(251,146,60,0.12);
+}
+.task-card .subtask-dots-btn { width: 30px; height: 30px; }
+.task-card .subtask-progress { display: none; }
+.task-card .subtask-done-toggle { margin-top: 4px; }
+@media (max-width: 480px) {
+  .task-card-bottom { padding-left: 14px; }
+}
