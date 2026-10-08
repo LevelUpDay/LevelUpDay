@@ -474,7 +474,8 @@ var fetchReytingList = async function(scope, metric, subjectFilter) {
   all.sort(function(a, b){ return reytingMetricValue(b, metric) - reytingMetricValue(a, metric); });
   all.forEach(function(p, i){ p.rank = i + 1; });
   _reytingLastList = all;
-  return { list: all, noCountry: false };
+  var participants = typeof res.participants === 'number' ? Math.max(res.participants, all.filter(function (p) { return (p.seasonCoins || 0) > 0; }).length) : null;
+  return { list: all, noCountry: false, participants: participants };
 };
 
 var sha256Hex = async function(str) {
@@ -5549,6 +5550,9 @@ var I18N = {
 (function () {
   var extra = {
     uz: {
+      reyting_info_note: "⚠️ Mukofot faqat Dunyo (Worldwide) bo'yicha «Tanga — shu oy» reytingiga qarab, har oyning 1-sanasida beriladi. Mukofot miqdori shu oyda tanga topgan faol ishtirokchilar soniga bog'liq — odam qancha ko'p bo'lsa, 1-o'rin shuncha qadrli. Yangi oyda faqat oylik tanga hisobi 0 dan boshlanadi; HP, Streak va 💎 olmos saqlanib qoladi.",
+      tab_reyting: "🏆 Reyting",
+      reyting_metric_gems: "💎 Olmos",
       pomo_new_title: "➕ Yangi faoliyat",
       strict_b2_li4: "Balans <b>-30 🪙</b> dan pastga tushib ketsa — BARCHA mukofotlar bloklanadi va yangi mukofot ham qo'sha olmaysiz, balans musbatga chiqmaguncha.",
       strict_b2_li5: "Qarzda ekaningizda (balans manfiy bo'lgan har qanday paytda) yangi topiladigan tanga <b>1.5x kamaytirib</b> beriladi — masalan odatda 10 🪙 berilishi kerak bo'lsa, 7 🪙 beriladi. Balans 0 ga chiqishi bilan darhol normal (1x) stavkaga qaytadi.",
@@ -5572,6 +5576,9 @@ var I18N = {
       ph_eg_650: "masalan: 650"
     },
     en: {
+      reyting_info_note: "⚠️ The prize is given only for the Worldwide «Coins — this month» ranking, on the 1st of every month. Its size depends on how many active players earned coins this month — the more players, the more 1st place is worth. Each new month only the monthly coin score resets to 0; HP, Streak and 💎 gems carry over.",
+      tab_reyting: "🏆 Leaderboard",
+      reyting_metric_gems: "💎 Gems",
       pomo_new_title: "➕ New activity",
       strict_b2_li4: "If your balance drops below <b>-30 🪙</b>, ALL rewards are locked and you can't add new ones until the balance is positive again.",
       strict_b2_li5: "While you're in debt (any time the balance is negative), newly earned coins are <b>reduced 1.5x</b> — e.g. instead of 10 🪙 you get 7 🪙. As soon as the balance reaches 0, the normal (1x) rate returns.",
@@ -5595,6 +5602,9 @@ var I18N = {
       ph_eg_650: "e.g. 650"
     },
     ru: {
+      reyting_info_note: "⚠️ Награда выдаётся только по мировому рейтингу «Монеты — этот месяц», 1-го числа каждого месяца. Её размер зависит от числа активных участников, заработавших монеты в этом месяце — чем больше участников, тем ценнее 1-е место. В новом месяце обнуляется только месячный счёт монет; HP, серия и 💎 алмазы сохраняются.",
+      tab_reyting: "🏆 Рейтинг",
+      reyting_metric_gems: "💎 Алмазы",
       pomo_new_title: "➕ Новая активность",
       strict_b2_li4: "Если баланс опустится ниже <b>-30 🪙</b>, ВСЕ награды блокируются и новые добавить нельзя, пока баланс не станет положительным.",
       strict_b2_li5: "Пока вы в долгу (баланс отрицательный), новые монеты начисляются <b>в 1.5 раза меньше</b> — например, вместо 10 🪙 вы получите 7 🪙. Как только баланс достигнет 0, ставка снова станет обычной (1x).",
@@ -5618,7 +5628,7 @@ var I18N = {
       ph_eg_650: "например: 650"
     }
   };
-  Object.keys(extra).forEach(function (l) { if (I18N[l]) Object.keys(extra[l]).forEach(function (k) { if (l !== 'uz' || I18N.uz[k] === undefined) I18N[l][k] = extra[l][k]; }); });
+  Object.keys(extra).forEach(function (l) { if (I18N[l]) Object.keys(extra[l]).forEach(function (k) { I18N[l][k] = extra[l][k]; }); });
 })();
 
 // 💎 Friends endi olmos bilan o'ynaladi — tanga haqidagi matnlar almashtirildi
@@ -7500,6 +7510,7 @@ function _gemSourceLabel(src) {
   if (src === 'pomodoro') return '🍅 Pomodoro';
   if (src === 'friends') return '👥 ' + _cl("Do'stlar", 'Friends', 'Друзья');
   if (src === 'exchange') return '🔁 ' + _cl('Almashtirish', 'Exchange', 'Обмен');
+  if (src === 'spin') return '🎰 Spin';
   return src || '';
 }
 function gemsAdd(amount, source, note, silent) {
@@ -7530,6 +7541,8 @@ function renderGemsPill() {
   if (el) el.textContent = (S && S.gems) || 0;
   var pill = document.getElementById('header-gems-pill');
   if (pill) pill.title = _cl('Olmoslar', 'Gems', 'Алмазы');
+  var suf = document.getElementById('gems-suffix');
+  if (suf) suf.textContent = ' ' + _cl('olmos', 'gems', 'алмазов');
 }
 
 // 🔥 Streak bosqichlari. Har bosqich ko'pi bilan har N kunda bir marta
@@ -14051,12 +14064,14 @@ function getRealUserEntry() {
     streakRecord: S.bestStreak || S.streak || 0,
     targetSubjects: (S.profile && S.profile.targetSubjects) || [],
     appGoalOther: (S.profile && S.profile.appGoalOther) || '',
-    currentHP: getLevel(myXp).level
+    currentHP: getLevel(myXp).level,
+    gems: (S.gems || 0)
   };
 }
 
 function reytingMetricValue(p, metric) {
   if (metric === 'coins') return p.seasonCoins || 0;
+  if (metric === 'gems') return p.gems || 0;
   if (metric === 'streak') return p.streak || 0;
   return p.xp || 0;
 }
@@ -14074,10 +14089,14 @@ function setReytingMetric(metric) {
 
 function reytingMetricUnit(metric) {
   if (metric === 'coins') return ' 🪙';
+  if (metric === 'gems') return ' 💎';
   if (metric === 'streak') return ' ⚡';
   return ' HP';
 }
 function reytingMetricBlock(p, metric) {
+  if (metric === 'gems') {
+    return '<div class="rk-val rk-val-gems">'+(p.gems||0)+' 💎</div><div class="rk-val-sub">'+_cl("olmos", "gems", "алмазов")+'</div>';
+  }
   if (metric === 'coins') {
     return '<div style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--gold)">'+(p.seasonCoins||0)+' 🪙</div>'+
            '<div style="font-size:var(--fs-3xs);color:var(--text-muted);margin-top:1px">'+t('reyting_season_coins_label')+'</div>';
@@ -14111,6 +14130,27 @@ function renderReytingCard(p, metric) {
       '<div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end">'+reytingMetricBlock(p, metric)+'</div>'+
     '</div>'
   );
+}
+
+// 🏆 Top 3 — podium (2 · 1 · 3)
+function renderReytingPodium(top, metric) {
+  var order = [top[1], top[0], top[2]];
+  var medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+  return '<div class="rk-podium">' + order.map(function (p) {
+    if (!p) return '';
+    var av = p.photo ? '<img src="' + esc(p.photo) + '" alt="" />' : '<span>' + esc((p.name || '?').charAt(0).toUpperCase()) + '</span>';
+    var val = reytingMetricValue(p, metric);
+    var unit = metric === 'hp' ? ' ❤️' : reytingMetricUnit(metric);
+    return '<div class="rk-pod rk-pod-' + p.rank + (p.isMe ? ' is-me' : '') + '" ' + (p.isMe ? 'id="reyting-me-card" ' : '') + 'onclick="showPlayerProfileModal(\'' + esc(p.id) + '\')">' +
+      '<div class="rk-pod-medal">' + medals[p.rank] + '</div>' +
+      '<div class="rk-pod-av">' + av + '</div>' +
+      '<div class="rk-pod-name">' + esc(p.name || '?') + (p.isMe ? ' <span class="rk-you">' + t('reyting_you_badge') + '</span>' : '') + '</div>' +
+      '<div class="rk-pod-flag">' + countryFlagImg(p.country, 12) + '</div>' +
+      '<div class="rk-pod-val">' + val + unit + '</div>' +
+      (metric === 'coins' ? '<div class="rk-pod-prize">+' + reytingPrizeFor(p.rank, S.reytingParticipants || 0) + ' 🪙</div>' : '') +
+      '<div class="rk-pod-base"></div>' +
+    '</div>';
+  }).join('') + '</div>';
 }
 
 function findReytingPlayerById(id) {
@@ -14180,6 +14220,7 @@ function showPlayerProfileModal(id) {
       statCard('✅', t('pp_tasks_completed_label'), (p.tasksCompleted||0), 'pp-stat-tasks') +
       statCard('💰', t('pp_total_coins_label'), (p.totalCoins||0)+' 🪙', 'pp-stat-coins') +
       statCard('🔥', t('pp_cur_streak_label'), (p.streak||0)+' '+t('reyting_days_unit'), 'pp-stat-curstreak') +
+      '<div style="grid-column:1/-1">' + statCard('💎', _cl("Olmoslar", "Gems", "Алмазы"), (p.isMe ? (S.gems||0) : (p.gems||0))+' 💎', 'pp-stat-gems') + '</div>' +
     '</div>'+
     // Maqsad (Goal) — tanlangan barcha yo'nalishlar yonma-yon badge shaklida
     '<div style="margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px">'+
@@ -14209,6 +14250,8 @@ function renderReyting() {
   if (cBtn) cBtn.classList.toggle('active', reytingMetric === 'coins');
   if (hBtn) hBtn.classList.toggle('active', reytingMetric === 'hp');
   if (sBtn) sBtn.classList.toggle('active', reytingMetric === 'streak');
+  var gmBtn = document.getElementById('reyting-metric-gems');
+  if (gmBtn) gmBtn.classList.toggle('active', reytingMetric === 'gems');
   var aBtn = document.getElementById('reyting-subject-all'), iBtn = document.getElementById('reyting-subject-ielts'), satBtn = document.getElementById('reyting-subject-sat'), cefrBtn = document.getElementById('reyting-subject-cefr');
   if (aBtn) aBtn.classList.toggle('active', reytingSubjectFilter === 'all');
   if (iBtn) iBtn.classList.toggle('active', reytingSubjectFilter === 'ielts');
@@ -14236,13 +14279,21 @@ function renderReyting() {
       if (res.offline) {
         banner = '<div style="text-align:center;padding:8px 12px;margin-bottom:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-dim);font-size:var(--fs-2xs)">'+(res.error ? '⚠️ '+t('reyting_load_error_msg') : 'ℹ️ '+t('reyting_offline_msg'))+'</div>';
       }
-      listEl.innerHTML = banner + res.list.map(function(p){ return renderReytingCard(p, reytingMetric); }).join('');
+      var _lst = res.list;
+      if (_lst.length >= 3) {
+        listEl.innerHTML = banner + renderReytingPodium(_lst.slice(0, 3), reytingMetric) +
+          (_lst.length > 3 ? '<div class="rk-list">' + _lst.slice(3).map(function(p){ return renderReytingCard(p, reytingMetric); }).join('') + '</div>' : '') +
+          (_lst.some(function (p, i) { return p.isMe && i < 3; }) ? '' : '');
+      } else {
+        listEl.innerHTML = banner + '<div class="rk-list">' + _lst.map(function(p){ return renderReytingCard(p, reytingMetric); }).join('') + '</div>';
+      }
     }
     listEl.dataset.loadedOnce = '1';
     return reytingScope === 'global' ? res : fetchReytingList('global', reytingMetric, reytingSubjectFilter);
   }).then(function(globalRes){
     if (!globalRes || myToken !== _reytingRenderToken) return;
     if (globalRes.noCountry) return;
+    if (reytingMetric === 'coins' && reytingSubjectFilter === 'all') { try { reytingRememberSnapshot(globalRes); } catch (e) {} renderReytingPrizeBar(); }
     var meGlobal = globalRes.list.find(function(p){ return p.isMe; });
     var nameEl = document.getElementById('reyting-myrank-name');
     var flagEl = document.getElementById('reyting-myrank-flag');
@@ -14265,6 +14316,7 @@ function renderReyting() {
     }
   }).catch(function(e){ console.warn('[Reyting] renderReyting xatosi:', e); });
 
+  renderReytingPrizeBar();
   startReytingCountdown();
   startReytingAutoRefresh();
 }
@@ -14282,6 +14334,14 @@ function jumpToMyReytingRank() {
 function getMonthKey(d) {
   d = d || new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function renderReytingPrizeBar() {
+  var el = document.getElementById('reyting-prize-bar');
+  if (!el) return;
+  var n = S.reytingParticipants || 0;
+  el.innerHTML = '<span>🥇 ' + reytingPrizeFor(1, n) + ' 🪙</span><span>🥈 ' + reytingPrizeFor(2, n) + ' 🪙</span><span>🥉 ' + reytingPrizeFor(3, n) + ' 🪙</span>' +
+    '<span class="rk-prize-n">👥 ' + n + '</span>';
 }
 
 var _reytingCountdownTimer = null;
@@ -14321,6 +14381,29 @@ function stopReytingCountdown() {
   if (_reytingCountdownTimer) { clearInterval(_reytingCountdownTimer); _reytingCountdownTimer = null; }
 }
 
+// 🏆 Oylik mukofot ishtirokchilar soniga qarab: 1-o'rin = ishtirokchilar / 3
+// (kamida 5, ko'pi bilan 500 🪙), 2-o'rin — 60%, 3-o'rin — 30%.
+// Masalan: 150 kishi → 1-o'rin 50 🪙, 2-o'rin 30 🪙, 3-o'rin 15 🪙.
+function reytingPrizeFor(rank, participants) {
+  var n = Math.max(0, Number(participants) || 0);
+  var first = Math.max(5, Math.min(500, Math.round(n / 3)));
+  if (rank === 1) return first;
+  if (rank === 2) return Math.max(3, Math.round(first * 0.6));
+  if (rank === 3) return Math.max(2, Math.round(first * 0.3));
+  return 0;
+}
+// Global "Tanga" reytingidagi o'rnimiz va ishtirokchilar soni — mavsum
+// almashganda mukofotni hisoblash uchun saqlab boriladi.
+function reytingRememberSnapshot(res) {
+  if (!res || !res.list || res.offline) return;
+  var me = res.list.find(function (p) { return p.isMe; });
+  if (!me) return;
+  var n = typeof res.participants === 'number' ? res.participants : res.list.filter(function (p) { return (p.seasonCoins || 0) > 0; }).length;
+  S.reytingSnap = { month: getMonthKey(), rank: me.rank, total: n, seasonCoins: me.seasonCoins || 0, ts: Date.now() };
+  S.reytingParticipants = n;
+  save();
+}
+
 function checkReytingMonthlySeason() {
   var curMonth = getMonthKey();
   if (!S.reytingSeasonMonth) {
@@ -14332,6 +14415,22 @@ function checkReytingMonthlySeason() {
     return;
   }
   if (S.reytingSeasonMonth === curMonth) return; // Mavsum hali davom etyapti
+
+  // O'tgan mavsum yakuni: oxirgi ma'lum o'rnimiz Top 3 bo'lsa — mukofot
+  var snap = S.reytingSnap, prevMonth = S.reytingSeasonMonth;
+  if (snap && snap.month === prevMonth && snap.rank >= 1 && snap.rank <= 3 && snap.total >= 3 && (snap.seasonCoins || 0) > 0 &&
+      (!S.reytingRewardedMonths || !S.reytingRewardedMonths[prevMonth])) {
+    var prize = reytingPrizeFor(snap.rank, snap.total);
+    if (prize > 0) {
+      S.coins = (S.coins || 0) + prize;
+      S.totalCoins = (S.totalCoins || 0) + prize;
+      addTarixLog('in', '🏆 ' + t('reyting_monthly_reward_log').replace('{rank}', snap.rank), prize);
+      S.reytingRewardedMonths = S.reytingRewardedMonths || {};
+      S.reytingRewardedMonths[prevMonth] = prize;
+      S.pendingReytingReward = { rank: snap.rank, reward: prize };
+    }
+  }
+  S.reytingSnap = null;
 
   S.reytingSeasonCoinsBase = S.coins || 0;
   S.reytingSeasonMonth = curMonth;
@@ -14380,9 +14479,13 @@ function showReytingInfoModal() {
     '<button id="reyting-info-close" title="'+t('pp_close_title')+'" style="position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:var(--fs-sm);font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0">✕</button>'+
     '<div style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:var(--text);margin-bottom:12px;padding-right:26px">'+t('reyting_info_title')+'</div>'+
     '<div style="font-size:var(--fs-sm);color:var(--text-muted);line-height:1.55;margin-bottom:14px">'+t('reyting_info_intro')+'</div>'+
-    rewardRow('🥇', t('reyting_info_gold')) +
-    rewardRow('🥈', t('reyting_info_silver')) +
-    rewardRow('🥉', t('reyting_info_bronze')) +
+    (function () {
+      var n = S.reytingParticipants || 0;
+      var row = function (r) { return _cl("{r}-o'rin: {c} 🪙", "{r} place: {c} 🪙", "{r}-е место: {c} 🪙").replace('{r}', r === 1 ? (getLang()==='en'?'1st':'1') : r === 2 ? (getLang()==='en'?'2nd':'2') : (getLang()==='en'?'3rd':'3')).replace('{c}', reytingPrizeFor(r, n)); };
+      return '<div class="rk-info-formula">' + _cl("Mukofot ishtirokchilar soniga bog'liq: 1-o'rin = ishtirokchilar ÷ 3 (5–500 🪙), 2-o'rin — 60%, 3-o'rin — 30%. Masalan, 150 kishi bo'lsa 1-o'rin 50 🪙 oladi.", "The prize depends on the number of players: 1st = players ÷ 3 (5–500 🪙), 2nd — 60%, 3rd — 30%. E.g. with 150 players 1st place gets 50 🪙.", "Награда зависит от числа участников: 1-е место = участники ÷ 3 (5–500 🪙), 2-е — 60%, 3-е — 30%. Например, при 150 участниках 1-е место получает 50 🪙.") + '</div>' +
+        '<div class="rk-info-now">' + _cl("Hozir faol ishtirokchilar", "Active players now", "Сейчас активных участников") + ': <b>' + n + '</b></div>' +
+        rewardRow('🥇', row(1)) + rewardRow('🥈', row(2)) + rewardRow('🥉', row(3));
+    })() +
     '<div style="font-size:var(--fs-2xs);color:var(--gold);line-height:1.55;margin-top:12px;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--radius-md)">'+t('reyting_info_note')+'</div>'+
     '<button id="reyting-info-ok" style="width:100%;margin-top:16px;padding:11px;border-radius:var(--radius-md);border:none;background:var(--accent);color:#fff;font-size:var(--fs-base);font-weight:600;cursor:pointer">'+t('reyting_info_close_btn')+'</button>';
 
@@ -14404,12 +14507,12 @@ function getSpinPrizes() {
   var xpLbl = t('spin_prize_xp_label');
   var doubleLbl = t('spin_prize_double_label');
   return [
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:494},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:493},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:471},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:471},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:471},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:472},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:472},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:472},
     {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
     {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
     {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
@@ -14449,6 +14552,8 @@ function getSpinPrizes() {
     {label:xpLbl, type:'xp', coins:0, color:'#22D3EE', weight:70},
     {label:doubleLbl, type:'double', coins:0, color:'#FB923C', weight:60},
     {label:doubleLbl, type:'double', coins:0, color:'#FB923C', weight:60},
+    // 💎 1 olmos — aniq 1.30% (130 / 10000); og'irlik "omad yo'q" bo'limlaridan olindi
+    {label:'1 💎', type:'gem', coins:0, gems:1, color:'#0EA5E9', weight:130},
   ];
 }
 var SPIN_PRIZES = getSpinPrizes();
@@ -14658,6 +14763,12 @@ function doSpin() {
         save(); render();
         SFX.spinWin();
         setTimeout(function(){ toast(t('spin_prize_xp_toast').replace('{amt}', _xpAmt)); confetti(); renderSpin(); }, 300);
+      } else if (prize.type === 'gem') {
+        gemsAdd(prize.gems || 1, 'spin', '🎰 Spin', true);
+        addTarixLog('in', t('spin_log').replace('{label}', prize.label), 0);
+        save(); render();
+        SFX.spinWin();
+        setTimeout(function(){ toast('💎 ' + _cl('Omad! +1 olmos yutdingiz', 'Lucky! You won +1 gem', 'Удача! +1 алмаз')); confetti(); confetti(); renderSpin(); }, 300);
       } else if (prize.type === 'double') {
         S.spinDoubleNextTaskActive = true;
         save();
@@ -18455,7 +18566,7 @@ document.addEventListener('DOMContentLoaded', function(){
 setInterval(function(){ if(document.getElementById('view-spin') && document.getElementById('view-spin').style.display!=='none') renderSpin(); }, 60000);
 
 (function setupTabDrag() {
-  var DEFAULT_ORDER = ['tasks','rewards','goals','chest','ielts','sat','pomo'];
+  var DEFAULT_ORDER = ['tasks','rewards','goals','chest','ielts','sat','pomo','reyting'];
   var LONG_PRESS_MS = 300;
   var MOVE_CANCEL_PX = 8;
 
@@ -23843,7 +23954,7 @@ function scheduleCloudSync(immediate) {
     try { if (typeof cloudResolveAvatarUrl === 'function') photoUrl = await cloudResolveAvatarUrl(); } catch (e) {}
     var stamp = new Date().toISOString();
     window._lastProfilePushAt = stamp;
-    supabase.from('profiles').upsert({
+    var row = {
       id: S.cloudUserId,
       name: (S.profile && S.profile.name) || null,
       photo: photoUrl,
@@ -23861,7 +23972,15 @@ function scheduleCloudSync(immediate) {
       best_streak: S.bestStreak || S.streak || 0,
       tasks_completed: _cloudTasksCompletedCount(),
       updated_at: stamp
-    }).then(function (r) {
+    };
+    // 💎 `gems` ustuni bazaga qo'shilgan bo'lsa yozamiz; yo'q bo'lsa (hali SQL
+    // yangilanmagan) — usiz qayta yuboramiz, profil sinxronizatsiyasi buzilmasin.
+    if (!window._noGemsColumn) row.gems = S.gems || 0;
+    supabase.from('profiles').upsert(row).then(function (r) {
+      if (r.error && row.gems !== undefined && /gems/i.test(r.error.message || '')) {
+        window._noGemsColumn = true; delete row.gems;
+        return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
+      }
       if (r.error) console.warn('[Cloud sync] xatolik:', r.error.message);
     });
   };
@@ -23874,21 +23993,28 @@ function scheduleCloudSync(immediate) {
 // metric: 'coins' (season_coins ustuni) | 'streak' | 'xp' (default)
 // subjectFilter: 'all' | 'ielts' | 'sat' | 'cefr'
 window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
-  var col = metric === 'coins' ? 'season_coins' : (metric === 'streak' ? 'streak' : 'xp');
-  var q = supabase.from('profiles')
-    .select('id,name,photo,country,coins,total_coins,season_coins,xp,level,streak,best_streak,tasks_completed,joined_date,target_subjects,app_goal_other')
-    .order(col, { ascending: false })
-    .limit(100);
-  if (scope === 'local') {
-    var myCountry = (S.profile && S.profile.country) || null;
-    if (!myCountry) return { list: [], noCountry: true };
-    q = q.eq('country', myCountry);
+  var col = metric === 'coins' ? 'season_coins' : (metric === 'streak' ? 'streak' : (metric === 'gems' ? 'gems' : 'xp'));
+  var myCountry = (S.profile && S.profile.country) || null;
+  if (scope === 'local' && !myCountry) return { list: [], noCountry: true };
+  function build(orderCol) {
+    // select('*') — `gems` ustuni bazada bo'lsa u ham keladi, bo'lmasa xato bermaydi
+    var q = supabase.from('profiles').select('*').order(orderCol, { ascending: false }).limit(100);
+    if (scope === 'local') q = q.eq('country', myCountry);
+    if (subjectFilter && subjectFilter !== 'all') q = q.contains('target_subjects', [subjectFilter]);
+    return q;
   }
-  if (subjectFilter && subjectFilter !== 'all') {
-    q = q.contains('target_subjects', [subjectFilter]);
-  }
-  var res = await q;
+  var res = await build(col);
+  // `gems` ustuni hali yo'q bo'lsa — XP bo'yicha olib, ilovada saralaymiz
+  if (res.error && col === 'gems') res = await build('xp');
   if (res.error) throw res.error;
+  // Oylik mukofot uchun: shu mavsumda faol (tanga topgan) ishtirokchilar soni
+  var participants = null;
+  if (scope === 'global' && metric === 'coins' && (!subjectFilter || subjectFilter === 'all')) {
+    try {
+      var cRes = await supabase.from('profiles').select('id', { count: 'exact', head: true }).gt('season_coins', 0);
+      if (!cRes.error && typeof cRes.count === 'number') participants = cRes.count;
+    } catch (e) {}
+  }
   var list = (res.data || []).map(function (r) {
     return {
       id: r.id,
@@ -23906,10 +24032,11 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
       joinedDate: r.joined_date || null,
       targetSubjects: r.target_subjects || [],
       appGoalOther: r.app_goal_other || '',
+      gems: Number(r.gems) || 0,
       isMe: false
     };
   });
-  return { list: list, noCountry: false };
+  return { list: list, noCountry: false, participants: participants };
 };
 
 /* wsCheckSupabaseSession: blok boshiga (global var sifatida) ko'chirildi */
@@ -28992,7 +29119,8 @@ function showFriendProfileModal(id) {
   var base = friendsFindPersonById(id);
   if (!base) return;
   try { SFX.click(); } catch (e) {}
-  var stats = friendsMockStats(id);
+  // Haqiqiy ma'lumot Supabase'dan keladi (pastda); hozircha bo'sh qiymatlar
+  var stats = { xp: (base.level ? (LEVELS[Math.max(0, Math.min(LEVELS.length - 1, base.level - 1))] || {}).min || 0 : 0), coins: '…', maxStreak: '…', gems: '…', subjects: [], joinedDate: null };
   var lv = getLevel(stats.xp);
   var status = friendsRelationStatus(id);
   var reasonText = base.reason ? base.reason.trim() : '';
@@ -29057,12 +29185,13 @@ function showFriendProfileModal(id) {
     + '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:6px">📅 ' + t('pp_joined_label') + ': ' + _ppFormatJoinedDate(stats.joinedDate) + '</div>'
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-    + statCard('⚡', t('pp_max_streak_label'), stats.maxStreak + ' ' + t('reyting_days_unit'))
-    + statCard('💰', t('pp_total_coins_label'), stats.coins + ' 🪙')
+    + '<div id="fp-stat-streak">' + statCard('⚡', t('pp_max_streak_label'), stats.maxStreak + ' ' + t('reyting_days_unit')) + '</div>'
+    + '<div id="fp-stat-coins">' + statCard('💰', t('pp_total_coins_label'), stats.coins + ' 🪙') + '</div>'
+    + '<div id="fp-stat-gems" style="grid-column:1/-1">' + statCard('💎', _cl("Olmoslar", "Gems", "Алмазы"), stats.gems + ' 💎') + '</div>'
     + '</div>'
     + '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;margin-bottom:12px">'
     + '<div style="font-size:var(--fs-3xs);color:var(--text-muted);margin-bottom:6px">' + t('pp_goal_label') + '</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + (renderSubjectBadgesHtml(stats.subjects) || '<span style="font-size:var(--fs-xs);color:var(--text-dim)">—</span>') + '</div>'
+    + '<div id="fp-goal-badges" style="display:flex;flex-wrap:wrap;gap:6px">' + (renderSubjectBadgesHtml(stats.subjects) || '<span style="font-size:var(--fs-xs);color:var(--text-dim)">—</span>') + '</div>'
     + '</div>'
     + (reasonText ? ('<div style="background:var(--accent-glow);border:1px solid var(--accent);border-radius:var(--radius-md);padding:10px;margin-bottom:14px">'
       + '<div style="font-size:var(--fs-3xs);color:var(--accent);font-weight:700;margin-bottom:4px">' + t('friends_reason_shown_label') + '</div>'
@@ -29077,6 +29206,35 @@ function showFriendProfileModal(id) {
   // A11y: Esc tugmasi bilan ham yopish mumkin
   document.addEventListener('keydown', _fpEscHandler);
 }
+
+// Do'st profilidagi statistikani haqiqiy (Supabase) ma'lumot bilan to'ldirish
+function _fpFillStat(boxId, icon, label, value) {
+  var el = document.getElementById(boxId);
+  if (!el) return;
+  var v = el.querySelector('div > div:nth-child(2)');
+  if (v) v.textContent = value;
+}
+(function () {
+  var _orig = window.showFriendProfileModal || showFriendProfileModal;
+  showFriendProfileModal = function (id) {
+    _orig(id);
+    if (typeof supabase === 'undefined' || !supabase || !S.cloudLinked) {
+      ['fp-stat-streak', 'fp-stat-coins', 'fp-stat-gems'].forEach(function (k) { _fpFillStat(k, '', '', '—'); });
+      return;
+    }
+    supabase.from('profiles').select('*').eq('id', id).maybeSingle().then(function (r) {
+      if (!document.getElementById('friend-profile-modal')) return;
+      var d = (r && !r.error && r.data) || null;
+      if (!d) { ['fp-stat-streak', 'fp-stat-coins', 'fp-stat-gems'].forEach(function (k) { _fpFillStat(k, '', '', '—'); }); return; }
+      _fpFillStat('fp-stat-streak', '', '', (d.best_streak || d.streak || 0) + ' ' + t('reyting_days_unit'));
+      _fpFillStat('fp-stat-coins', '', '', (d.total_coins || 0) + ' 🪙');
+      _fpFillStat('fp-stat-gems', '', '', (d.gems != null ? Number(d.gems) || 0 : '—') + ' 💎');
+      var goal = document.getElementById('fp-goal-badges');
+      if (goal && d.target_subjects && d.target_subjects.length) goal.innerHTML = renderSubjectBadgesHtml(d.target_subjects, null, d.app_goal_other);
+    }, function () {});
+  };
+  window.showFriendProfileModal = showFriendProfileModal;
+})();
 
 // ---------------- SABAB BILAN SO'ROV YUBORISH ----------------
 var _friendsPendingAddId = null;
