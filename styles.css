@@ -2905,3 +2905,25 @@ html.layout-desktop #ds-aside .gems-text { font-size: var(--fs-xs) !important; }
 @media (max-width: 480px) {
   .task-card-bottom { padding-left: 14px; }
 }
+
+/* ↩ Undo toast */
+.undo-toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 2000;
+  transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  display: flex; align-items: center; gap: 12px; max-width: min(92vw, 460px);
+  padding: 10px 10px 10px 16px; border-radius: var(--radius-full);
+  background: #23202f; border: 1px solid var(--border-hover); color: var(--text);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45); transition: opacity 0.2s, transform 0.2s;
+}
+.undo-toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+#undo-toast-msg { font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#undo-toast-btn {
+  flex-shrink: 0; border: none; cursor: pointer; padding: 7px 14px; border-radius: var(--radius-full);
+  background: var(--accent); color: #fff; font-weight: 700; font-size: var(--fs-sm);
+}
+body.light .undo-toast { background: #fff; }
+.tk-chip-remind { color: var(--info); background: rgba(96,165,250,0.12); }
+.tk-remind-hint { font-size: var(--fs-2xs); color: var(--text-dim); margin-top: 5px; line-height: 1.4; }
+.task-card .subtask-item { cursor: grab; }
+.task-card .subtask-item.dragging { opacity: 0.6; }
+.undo-toast { min-width: min(92vw, 300px); } #undo-toast-msg { flex: 1; }

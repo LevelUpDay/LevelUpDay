@@ -1929,6 +1929,12 @@
     </div>
 
     <div class="modal-field">
+      <label data-i18n="task_remind_label">⏰ Eslatma vaqti (ixtiyoriy)</label>
+      <input type="time" id="m-remind" />
+      <div class="tk-remind-hint" data-i18n="task_remind_hint">Vazifa bajarilmagan bo'lsa, shu vaqtda eslatamiz (ilova ochiq yoki fonda bo'lsa).</div>
+    </div>
+
+    <div class="modal-field">
       <label data-i18n="task_label_color">Rang / Label</label>
       <div class="label-opts" id="label-opts">
         <button class="label-chip sel" data-color="" style="background:var(--surface2);border-color:var(--text)" onclick="selLabel('')" title="Rangsiz" data-i18n-title="task_label_none">✕</button>
@@ -2944,6 +2950,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="undo-toast" id="undo-toast" role="status" aria-live="polite"><span id="undo-toast-msg"></span><button type="button" id="undo-toast-btn"></button></div>
 
 
 
