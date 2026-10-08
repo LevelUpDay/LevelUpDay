@@ -5545,6 +5545,79 @@ var I18N = {
   }
 };
 
+// 🌐 Qo'shimcha tarjimalar (uz/en/ru) — avval faqat o'zbekcha bo'lgan joylar uchun
+(function () {
+  var extra = {
+    uz: {
+      strict_b2_li4: "Balans <b>-30 🪙</b> dan pastga tushib ketsa — BARCHA mukofotlar bloklanadi va yangi mukofot ham qo'sha olmaysiz, balans musbatga chiqmaguncha.",
+      strict_b2_li5: "Qarzda ekaningizda (balans manfiy bo'lgan har qanday paytda) yangi topiladigan tanga <b>1.5x kamaytirib</b> beriladi — masalan odatda 10 🪙 berilishi kerak bo'lsa, 7 🪙 beriladi. Balans 0 ga chiqishi bilan darhol normal (1x) stavkaga qaytadi.",
+      pomo_st_7days: "📈 So'nggi 7 kunlik faollik",
+      pomo_st_weekday: "📅 Haftaning qaysi kunida eng faol",
+      pomo_st_hour: "⏰ Kunning qaysi soatida eng faol",
+      pomo_st_daypart: "🌗 Kunning qaysi qismida eng unumli",
+      pomo_st_bytask: "🗂️ Vazifalar bo'yicha taqsimot",
+      pomo_st_compare: "📊 Haftalik va oylik solishtirish",
+      pin_change_title: "🔑 PIN ni o'zgartirish",
+      ielts_full_mock_btn: "🧩 Full Mock (hammasi bir yo'la)",
+      sat_full_mock_btn: "🧩 Full Mock (RW + Math bir yo'la)",
+      cefr_full_mock_btn: "🧩 Full Mock (to'liq test)",
+      exam_full_empty_hint: "Bo'sh qoldirilgan section saqlanmaydi (kamida bittasini kiriting)",
+      stat_done_title: "Bajarilgan vazifalarni ko'rish",
+      stat_total_title: "Ranglar bo'yicha taqsimotni ko'rish",
+      stat_streak_title: "Streak mukofotlarini ko'rish",
+      ph_eg_70: "masalan: 7.0",
+      ph_eg_19: "masalan: 19",
+      ph_eg_65: "masalan: 6.5",
+      ph_eg_650: "masalan: 650"
+    },
+    en: {
+      strict_b2_li4: "If your balance drops below <b>-30 🪙</b>, ALL rewards are locked and you can't add new ones until the balance is positive again.",
+      strict_b2_li5: "While you're in debt (any time the balance is negative), newly earned coins are <b>reduced 1.5x</b> — e.g. instead of 10 🪙 you get 7 🪙. As soon as the balance reaches 0, the normal (1x) rate returns.",
+      pomo_st_7days: "📈 Activity in the last 7 days",
+      pomo_st_weekday: "📅 Most active day of the week",
+      pomo_st_hour: "⏰ Most active hour of the day",
+      pomo_st_daypart: "🌗 Most productive part of the day",
+      pomo_st_bytask: "🗂️ Breakdown by task",
+      pomo_st_compare: "📊 Weekly & monthly comparison",
+      pin_change_title: "🔑 Change PIN",
+      ielts_full_mock_btn: "🧩 Full Mock (all at once)",
+      sat_full_mock_btn: "🧩 Full Mock (RW + Math at once)",
+      cefr_full_mock_btn: "🧩 Full Mock (full test)",
+      exam_full_empty_hint: "Empty sections are not saved (fill in at least one)",
+      stat_done_title: "Show completed tasks",
+      stat_total_title: "Show breakdown by color",
+      stat_streak_title: "Show streak rewards",
+      ph_eg_70: "e.g. 7.0",
+      ph_eg_19: "e.g. 19",
+      ph_eg_65: "e.g. 6.5",
+      ph_eg_650: "e.g. 650"
+    },
+    ru: {
+      strict_b2_li4: "Если баланс опустится ниже <b>-30 🪙</b>, ВСЕ награды блокируются и новые добавить нельзя, пока баланс не станет положительным.",
+      strict_b2_li5: "Пока вы в долгу (баланс отрицательный), новые монеты начисляются <b>в 1.5 раза меньше</b> — например, вместо 10 🪙 вы получите 7 🪙. Как только баланс достигнет 0, ставка снова станет обычной (1x).",
+      pomo_st_7days: "📈 Активность за последние 7 дней",
+      pomo_st_weekday: "📅 Самый активный день недели",
+      pomo_st_hour: "⏰ Самый активный час дня",
+      pomo_st_daypart: "🌗 Самое продуктивное время дня",
+      pomo_st_bytask: "🗂️ Распределение по задачам",
+      pomo_st_compare: "📊 Сравнение по неделям и месяцам",
+      pin_change_title: "🔑 Сменить PIN",
+      ielts_full_mock_btn: "🧩 Full Mock (всё сразу)",
+      sat_full_mock_btn: "🧩 Full Mock (RW + Math сразу)",
+      cefr_full_mock_btn: "🧩 Full Mock (полный тест)",
+      exam_full_empty_hint: "Пустые разделы не сохраняются (заполните хотя бы один)",
+      stat_done_title: "Показать выполненные задачи",
+      stat_total_title: "Показать распределение по цветам",
+      stat_streak_title: "Показать награды за серию",
+      ph_eg_70: "например: 7.0",
+      ph_eg_19: "например: 19",
+      ph_eg_65: "например: 6.5",
+      ph_eg_650: "например: 650"
+    }
+  };
+  Object.keys(extra).forEach(function (l) { if (I18N[l]) Object.keys(extra[l]).forEach(function (k) { if (l !== 'uz' || I18N.uz[k] === undefined) I18N[l][k] = extra[l][k]; }); });
+})();
+
 // ============================================================
 
 var COUNTRIES_LIST = [
@@ -6801,7 +6874,7 @@ function syncPomoAmbientBubbleUI() {
   var playEl = document.getElementById('pomo-ambient-bubble-play');
   if (iconEl) iconEl.textContent = info.icon;
   if (titleEl) titleEl.textContent = t(info.labelKey);
-  if (subEl) subEl.textContent = playing ? "chalinmoqda" : "tinch fon uchun bosing";
+  if (subEl) subEl.textContent = playing ? _cl("chalinmoqda", "playing", "играет") : _cl("tinch fon uchun bosing", "tap for calm background", "нажмите для фона");
   if (playEl) playEl.textContent = playing ? '⏸' : '▶';
 }
 
@@ -7768,8 +7841,8 @@ function showExportSelectModal() {
   // "all" boshqalar bilan birga tanlanmaydi — u alohida "hammasi" rejimi.
   var OPTS = [
     { id: 'ielts', label: '📚 IELTS/SAT', color: '#60A5FA', border: 'rgba(59,130,246,0.4)', bg: 'rgba(59,130,246,0.08)' },
-    { id: 'stats', label: '📊 Statistika', color: '#D8B4FE', border: 'rgba(168,85,247,0.4)', bg: 'rgba(168,85,247,0.08)' },
-    { id: 'tasks', label: '✅ Vazifalar', color: '#FDBA74', border: 'rgba(249,115,22,0.4)', bg: 'rgba(249,115,22,0.08)' },
+    { id: 'stats', label: '📊 ' + _cl("Statistika", "Statistics", "Статистика"), color: '#D8B4FE', border: 'rgba(168,85,247,0.4)', bg: 'rgba(168,85,247,0.08)' },
+    { id: 'tasks', label: '✅ ' + _cl("Vazifalar", "Tasks", "Задачи"), color: '#FDBA74', border: 'rgba(249,115,22,0.4)', bg: 'rgba(249,115,22,0.08)' },
     { id: 'all', label: '🎯 Barchasi', color: '#86EFAC', border: 'rgba(34,197,94,0.4)', bg: 'rgba(34,197,94,0.08)' }
   ];
 
@@ -7782,11 +7855,11 @@ function showExportSelectModal() {
 
   box.innerHTML =
     '<div style="font-size:var(--fs-5xl);margin-bottom:12px">📥</div>' +
-    '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:700;color:#34D399;margin-bottom:16px">Nimani eksport qilish?</h3>' +
-    '<p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:20px;line-height:1.6">Bir nechtasini birga tanlashingiz mumkin:</p>' +
+    '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:700;color:#34D399;margin-bottom:16px">' + _cl("Nimani eksport qilish?", "What to export?", "Что экспортировать?") + '</h3>' +
+    '<p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:20px;line-height:1.6">' + _cl("Bir nechtasini birga tanlashingiz mumkin:", "You can select several at once:", "Можно выбрать несколько сразу:") + '</p>' +
     '<div style="display:flex;flex-direction:column;gap:10px">' + rowsHtml + '</div>' +
-    '<button id="export-confirm" disabled style="width:100%;margin-top:16px;padding:13px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,#34D399,#10B981);color:#06251A;font-size:var(--fs-base);font-weight:700;cursor:not-allowed;opacity:0.5;font-family:\'DM Sans\',sans-serif;transition:opacity 0.2s">⬇️ Eksport qilish</button>' +
-    '<button id="export-cancel" style="width:100%;margin-top:10px;padding:12px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer;font-family:\'DM Sans\',sans-serif">Bekor qilish</button>';
+    '<button id="export-confirm" disabled style="width:100%;margin-top:16px;padding:13px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,#34D399,#10B981);color:#06251A;font-size:var(--fs-base);font-weight:700;cursor:not-allowed;opacity:0.5;font-family:\'DM Sans\',sans-serif;transition:opacity 0.2s">⬇️ ' + _cl("Eksport qilish", "Export", "Экспорт") + '</button>' +
+    '<button id="export-cancel" style="width:100%;margin-top:10px;padding:12px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('btn_cancel') + '</button>';
 
   ov.appendChild(box);
   document.body.appendChild(ov);
@@ -9332,7 +9405,7 @@ function toggleTaskInternal(id) {
     if (S.taskDoneCount && S.taskDoneCount[tsk.id] > 0) S.taskDoneCount[tsk.id]--;
     bumpLifetimeTaskStat(tsk, -1);
     var xpLoss = taskXPValue(tsk);
-    addXP(-xpLoss, tsk.name + ' (bekor qilindi)');
+    addXP(-xpLoss, tsk.name + ' (' + _cl("bekor qilindi", "undone", "отменено") + ')');
     var _pulledBack = S.tasks.filter(function(x){ return x.fromParentId === tsk.id && !x.done; });
     if (_pulledBack.length) {
       _pulledBack.forEach(function(pt) {
@@ -9356,7 +9429,7 @@ function checkDailyComplete() {
   var allDone = todayTasks.every(function(t){ return t.done || t.skipped; });
   if(allDone && S.dailyBonusDate !== today()) {
     S.dailyBonusDate = today();
-    addXP(XP_DAILY_100, 'Kunlik 100%');
+    addXP(XP_DAILY_100, _cl("Kunlik 100%", "Daily 100%", "100% за день"));
     toast('🌟 ' + t('daily_100_toast').replace('{xp}', XP_DAILY_100));
     confetti();
     SFX.firework();
@@ -10838,7 +10911,7 @@ function toggleSubtask(taskId, subId, dateStr, silent) {
       S.totalCoins = (S.totalCoins||0) - undoAmt;
     }
     if (S.totalTasksDone > 0) S.totalTasksDone--;
-    addXP(-undoXp, sub.name + ' (bekor qilindi)');
+    addXP(-undoXp, sub.name + ' (' + _cl("bekor qilindi", "undone", "отменено") + ')');
     if (!silent) SFX.click();
   }
 
@@ -11105,11 +11178,11 @@ function removeTaskNote(taskId) {
   box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:24px;width:100%;max-width:320px;text-align:center';
   box.innerHTML =
     '<div style="font-size:32px;margin-bottom:10px">📝</div>' +
-    '<div style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:700;color:var(--text);margin-bottom:6px">Izohni o\'chirish</div>' +
-    '<div style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:20px;line-height:1.5">"' + esc(tk.note) + '"<br><span style="color:var(--red)">Bu izoh butunlay o\'chiriladi</span></div>' +
+    '<div style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:700;color:var(--text);margin-bottom:6px">' + _cl("Izohni o'chirish", "Delete note", "Удалить заметку") + '</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:20px;line-height:1.5">"' + esc(tk.note) + '"<br><span style="color:var(--red)">' + _cl("Bu izoh butunlay o'chiriladi", "This note will be deleted permanently", "Заметка будет удалена навсегда") + '</span></div>' +
     '<div style="display:flex;gap:10px">' +
-      '<button id="note-del-no" style="flex:1;padding:11px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer">Bekor qilish</button>' +
-      '<button id="note-del-yes" style="flex:2;padding:11px;border-radius:var(--radius-md);border:none;background:var(--red);color:var(--surface);font-size:var(--fs-base);font-weight:600;cursor:pointer">O\'chirish</button>' +
+      '<button id="note-del-no" style="flex:1;padding:11px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer">' + t('btn_cancel') + '</button>' +
+      '<button id="note-del-yes" style="flex:2;padding:11px;border-radius:var(--radius-md);border:none;background:var(--red);color:var(--surface);font-size:var(--fs-base);font-weight:600;cursor:pointer">' + _cl("O'chirish", "Delete", "Удалить") + '</button>' +
     '</div>';
   ov.appendChild(box);
   document.body.appendChild(ov);
@@ -11119,7 +11192,7 @@ function removeTaskNote(taskId) {
     ov.remove();
     tk.note = null;
     save(); render();
-    toast("Izoh olib tashlandi");
+    toast(_cl("Izoh olib tashlandi", "Note removed", "Заметка удалена"));
   };
 }
 
@@ -11169,7 +11242,7 @@ function makeTaskEl(t, future) {
     <div class="task-card-top">
       ${(_bulkMode && !future) ? `<input type="checkbox" class="bulk-select-checkbox" style="width:18px;height:18px;flex-shrink:0;margin-right:2px" ${_bulkSelected[t.id]?'checked':''} onclick="event.stopPropagation();toggleBulkSelect(${t.id}, this.checked)" />` : ''}
       ${t.label ? `<span class="task-label-dot" style="background:${t.label}"></span>` : ''}
-      <button class="check-btn ${t.done?'checked':''}" ${future?'disabled title="Hali muddati kelmagan — kunida belgilanadi" style="opacity:0.4;cursor:not-allowed"':`onclick="toggleTask(${t.id})"`}>
+      <button class="check-btn ${t.done?'checked':''}" ${future?'disabled title="'+_cl("Hali muddati kelmagan — kunida belgilanadi", "Not due yet — mark it on its day", "Срок ещё не наступил — отметьте в свой день")+'" style="opacity:0.4;cursor:not-allowed"':`onclick="toggleTask(${t.id})"`}>
         ${t.done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}
       </button>
       <div class="task-info">
@@ -11203,7 +11276,7 @@ function makeTaskEl(t, future) {
           <button class="task-dropdown-item danger" onclick="closeAllTaskDropdowns();deleteTask(${t.id})"><span class="tdi-icon">🗑</span>${tr('delete_dd_item')}</button>
         </div>
       </div>
-      <button class="task-menu-btn" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="Amallar">⋯</button>
+      <button class="task-menu-btn" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
     </div>
     ${hasSubtasks?`<div class="task-card-bottom"><div class="task-card-bottom-spacer"></div><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
   `;
@@ -12952,8 +13025,8 @@ function openPhotoCropModal(srcDataUrl, onDone) {
     box.style.cssText = 'background:#1C1C25;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-xl);padding:18px;width:100%;max-width:360px;text-align:center';
 
     box.innerHTML =
-      '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:10px">Rasmni moslashtiring</h3>' +
-      '<div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-bottom:14px">Surish uchun ushlab torting, kattalashtirish uchun g\'ildirak / ikki barmoq</div>' +
+      '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:10px">' + _cl("Rasmni moslashtiring", "Adjust photo", "Настройте фото") + '</h3>' +
+      '<div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-bottom:14px">' + _cl("Surish uchun ushlab torting, kattalashtirish uchun g'ildirak / ikki barmoq", "Drag to move, scroll wheel / pinch to zoom", "Перетащите для сдвига, колесо / два пальца для масштаба") + '</div>' +
       '<div id="pcm-frame-wrap" style="position:relative;width:' + FRAME + 'px;height:' + FRAME + 'px;margin:0 auto 16px;border-radius:50%;overflow:hidden;background:#000;box-shadow:0 0 0 3px var(--accent),0 0 24px rgba(124,92,252,0.35);touch-action:none;cursor:grab">' +
         '<canvas id="pcm-canvas" width="' + FRAME + '" height="' + FRAME + '" style="display:block;width:' + FRAME + 'px;height:' + FRAME + 'px"></canvas>' +
       '</div>' +
@@ -12962,7 +13035,7 @@ function openPhotoCropModal(srcDataUrl, onDone) {
         '<input id="pcm-zoom-range" type="range" min="100" max="300" value="100" style="flex:1;accent-color:var(--accent)" />' +
       '</div>' +
       '<div style="display:flex;gap:10px">' +
-        '<button id="pcm-cancel" style="flex:1;padding:9px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer">Bekor qilish</button>' +
+        '<button id="pcm-cancel" style="flex:1;padding:9px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer">' + t('btn_cancel') + '</button>' +
         '<button id="pcm-save" style="flex:2;padding:9px;border-radius:var(--radius-md);border:none;background:var(--accent);color:#fff;font-size:var(--fs-sm);font-weight:600;cursor:pointer">Saqlash</button>' +
       '</div>';
 
@@ -13077,7 +13150,7 @@ function openPhotoCropModal(srcDataUrl, onDone) {
       onDone(result);
     };
   };
-  img.onerror = function () { toast('⚠️ Rasmni ochib bo\'lmadi'); };
+  img.onerror = function () { toast('⚠️ ' + _cl("Rasmni ochib bo'lmadi", "Couldn't open the image", "Не удалось открыть изображение")); };
   img.src = srcDataUrl;
 }
 
@@ -13095,11 +13168,12 @@ function _buildProfileGoalBox(examType) {
   if (goal === null) {
     etaHtml = '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">' + esc(t('exam_forecast_no_goal')) + '</div>';
   } else if (adv && adv.goalReached) {
-    etaHtml = '<div style="font-size:var(--fs-2xs);color:#34D399;margin-top:4px;font-weight:600">🎉 Maqsadga yetdingiz!</div>';
+    etaHtml = '<div style="font-size:var(--fs-2xs);color:#34D399;margin-top:4px;font-weight:600">🎉 ' + _cl("Maqsadga yetdingiz!", "Goal reached!", "Цель достигнута!") + '</div>';
   } else if (adv && adv.etaToGoal) {
     var weeks = Math.ceil(adv.etaToGoal.days / 7);
-    var etaLabel = weeks <= 1 ? '~1 hafta' : (weeks <= 8 ? ('~' + weeks + ' hafta') : ('~' + Math.round(weeks / 4.33) + ' oy'));
-    etaHtml = '<div style="font-size:var(--fs-2xs);color:var(--gold);margin-top:4px">🔮 Shu tempda maqsadga <b>' + etaLabel + '</b>da yetasiz</div>';
+    var _wk = _cl("hafta", "wk", "нед."), _mo = _cl("oy", "mo", "мес.");
+    var etaLabel = weeks <= 1 ? '~1 ' + _wk : (weeks <= 8 ? ('~' + weeks + ' ' + _wk) : ('~' + Math.round(weeks / 4.33) + ' ' + _mo));
+    etaHtml = '<div style="font-size:var(--fs-2xs);color:var(--gold);margin-top:4px">🔮 ' + _cl("Shu tempda maqsadga <b>{x}</b>da yetasiz", "At this pace you'll reach the goal in <b>{x}</b>", "В таком темпе цель будет достигнута через <b>{x}</b>").replace('{x}', etaLabel) + '</div>';
   } else if (adv && adv.etaTooFar) {
     etaHtml = '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">' + esc(t('exam_forecast_eta_too_far')) + '</div>';
   } else {
@@ -13107,7 +13181,7 @@ function _buildProfileGoalBox(examType) {
   }
 
   return '<div style="background:linear-gradient(135deg,rgba(124,92,252,0.14),rgba(180,142,255,0.05));border:1px solid rgba(124,92,252,0.3);border-radius:var(--radius-md);padding:10px 16px;text-align:center;min-width:150px;flex:1">' +
-      '<div style="font-size:var(--fs-3xs);color:#B48EFF;letter-spacing:0.05em;text-transform:uppercase">' + label + ' · O\'rtacha</div>' +
+      '<div style="font-size:var(--fs-3xs);color:#B48EFF;letter-spacing:0.05em;text-transform:uppercase">' + label + ' · ' + _cl("O'rtacha", "Average", "Среднее") + '</div>' +
       '<div style="font-family:Syne,sans-serif;font-size:var(--fs-3xl);font-weight:700;color:#B48EFF;line-height:1.15;margin-top:2px">' + current + (goal !== null ? '<span style="font-size:var(--fs-xs);color:var(--text-dim);font-weight:500"> / ' + goal + '</span>' : '') + '</div>' +
       etaHtml +
     '</div>';
@@ -13123,7 +13197,7 @@ function _buildCefrProfileGoalBox() {
   if (!goal) {
     etaHtml = '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">' + esc(t('exam_forecast_no_goal')) + '</div>';
   } else if (overall.rank !== null && cefrLevelToRank(goal) !== null && overall.rank >= cefrLevelToRank(goal)) {
-    etaHtml = '<div style="font-size:var(--fs-2xs);color:#34D399;margin-top:4px;font-weight:600">🎉 Maqsadga yetdingiz!</div>';
+    etaHtml = '<div style="font-size:var(--fs-2xs);color:#34D399;margin-top:4px;font-weight:600">🎉 ' + _cl("Maqsadga yetdingiz!", "Goal reached!", "Цель достигнута!") + '</div>';
   } else if (saved && saved.date) {
     var examDate = new Date(saved.date + 'T00:00:00');
     var nowDate = new Date(); nowDate.setHours(0,0,0,0);
@@ -13188,7 +13262,7 @@ function showProfileEdit() {
 
   box.innerHTML=
     '<button id="pe-guide-btn" title="'+t('guide_info_tooltip')+'" style="position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:var(--fs-xs);font-weight:700;font-family:Georgia,serif;font-style:italic;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0">i</button>'+
-    '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:12px;text-align:center">Profilni tahrirlash</h3>'+
+    '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:12px;text-align:center">' + _cl("Profilni tahrirlash", "Edit profile", "Редактировать профиль") + '</h3>'+
     // Photo + Name row
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'+
       '<div style="flex-shrink:0;text-align:center">'+
@@ -16920,7 +16994,7 @@ function scheduleNotifications() {
       var delay = spinTime - now;
       setTimeout(function(){
         if(!hasSpunToday()) {
-          try { new Notification('🎰 Spin vaqti!', { body: 'Bugungi tekin spiningizni unutmang!', icon: '🎰' }); } catch(e){}
+          try { new Notification('🎰 ' + _cl("Spin vaqti!", "Spin time!", "Время спина!"), { body: _cl("Bugungi tekin spiningizni unutmang!", "Don't forget today's free spin!", "Не забудьте сегодняшний бесплатный спин!"), icon: '🎰' }); } catch(e){}
         }
       }, delay);
     }
@@ -16931,7 +17005,7 @@ function scheduleNotifications() {
     setTimeout(function(){
       var todayTasks = (S.tasks||[]).filter(function(t){ return taskDueToday(t) && !t.done; });
       if(todayTasks.length > 0) {
-        try { new Notification('📋 Vazifalaringiz kutmoqda!', { body: todayTasks.length + ' ta vazifa bajarilmagan', icon: '📋' }); } catch(e){}
+        try { new Notification('📋 ' + _cl("Vazifalaringiz kutmoqda!", "Your tasks are waiting!", "Ваши задачи ждут!"), { body: _cl("{n} ta vazifa bajarilmagan", "{n} tasks not done yet", "Не выполнено задач: {n}").replace('{n}', todayTasks.length), icon: '📋' }); } catch(e){}
       }
     }, taskTime - now);
   }
@@ -17059,16 +17133,16 @@ function _diffLabelPlain(d) {
 }
 function exportStatsCSV() {
   var rows = [];
-  rows.push(['Bo\'lim', 'Ko\'rsatkich', 'Qiymat']);
-  rows.push(['Umumiy', 'Jami bajarilgan vazifalar', S.totalTasksDone || 0]);
-  rows.push(['Umumiy', 'Jami topilgan tanga (lifetime)', S.totalCoins || 0]);
-  rows.push(['Umumiy', 'Joriy tanga balansi', S.coins || 0]);
+  rows.push([_cl("Bo'lim", "Section", "Раздел"), _cl("Ko'rsatkich", "Metric", "Показатель"), _cl("Qiymat", "Value", "Значение")]);
+  rows.push([_cl("Umumiy", "General", "Общее"), _cl("Jami bajarilgan vazifalar", "Total tasks completed", "Всего выполнено задач"), S.totalTasksDone || 0]);
+  rows.push([_cl("Umumiy", "General", "Общее"), _cl("Jami topilgan tanga (lifetime)", "Total coins earned (lifetime)", "Всего заработано монет"), S.totalCoins || 0]);
+  rows.push([_cl("Umumiy", "General", "Общее"), _cl("Joriy tanga balansi", "Current coin balance", "Текущий баланс монет"), S.coins || 0]);
   rows.push(['Umumiy', 'Rekord streak', S.bestStreak || S.streak || 0]);
   rows.push(['Umumiy', 'Hozirgi streak', S.streak || 0]);
-  rows.push(['Umumiy', 'Jami XP', S.xp || 0]);
+  rows.push([_cl("Umumiy", "General", "Общее"), _cl("Jami XP", "Total XP", "Всего XP"), S.xp || 0]);
   rows.push(['Umumiy', 'Eksport sanasi', today()]);
   rows.push([]);
-  rows.push(['Vazifa nomi', 'Qiyinlik', 'Takrorlanish', 'Necha marta bajarilgan (lifetime)', 'Muhim (pin)', 'Holati']);
+  rows.push([_cl("Vazifa nomi", "Task name", "Название задачи"), _cl("Qiyinlik", "Difficulty", "Сложность"), _cl("Takrorlanish", "Repeat", "Повтор"), _cl("Necha marta bajarilgan (lifetime)", "Times completed (lifetime)", "Сколько раз выполнено"), _cl("Muhim (pin)", "Pinned", "Закреплено"), _cl("Holati", "Status", "Статус")]);
 
   var existingIds = {};
   (S.tasks || []).forEach(function(tk){
@@ -17081,8 +17155,8 @@ function exportStatsCSV() {
       _diffLabelPlain(taskDiffOrDefault(tk)),
       tk.repeat,
       lifetime,
-      tk.pinned ? 'Ha' : "Yo'q",
-      tk.done ? 'Bajarilgan' : (tk.skipped ? "O'tkazib yuborilgan" : 'Faol')
+      tk.pinned ? _cl("Ha", "Yes", "Да") : _cl("Yo'q", "No", "Нет"),
+      tk.done ? _cl("Bajarilgan", "Done", "Выполнено") : (tk.skipped ? _cl("O'tkazib yuborilgan", "Skipped", "Пропущено") : _cl("Faol", "Active", "Активно"))
     ]);
   });
 
@@ -17090,7 +17164,7 @@ function exportStatsCSV() {
     Object.keys(S.taskLifetimeStats).forEach(function(id){
       if (existingIds[id]) return;
       var rec = S.taskLifetimeStats[id];
-      rows.push([rec.name, _diffLabelPlain(rec.diff), '-', rec.count, '-', "O'chirilgan"]);
+      rows.push([rec.name, _diffLabelPlain(rec.diff), '-', rec.count, '-', _cl("O'chirilgan", "Deleted", "Удалено")]);
     });
   }
 
@@ -19014,7 +19088,7 @@ function buildDesktopShell() {
 
   var shortcutsTitle = document.createElement('div');
   shortcutsTitle.id = 'ds-aside-title';
-  shortcutsTitle.textContent = 'Tezkor kirish';
+  shortcutsTitle.textContent = _cl("Tezkor kirish", "Quick access", "Быстрый доступ");
   aside.appendChild(shortcutsTitle);
 
   // Diqqat: #header-actions-right yuqorida hali hujjatga qo'shilmagan `aside` ichiga
@@ -19037,7 +19111,7 @@ function buildDesktopShell() {
   asideResizer.id = 'ds-aside-resizer';
   asideResizer.setAttribute('role', 'separator');
   asideResizer.setAttribute('aria-orientation', 'vertical');
-  asideResizer.setAttribute('aria-label', 'O\'ng panelni kengaytirish/torraytirish');
+  asideResizer.setAttribute('aria-label', _cl("O'ng panelni kengaytirish/torraytirish", "Resize right panel", "Изменить ширину правой панели"));
 
   document.body.appendChild(sidebar);
   document.body.appendChild(aside);
@@ -19659,7 +19733,7 @@ function renderDayDetailContent(dateStr) {
     html +=
       '<div id="calrow-' + tsk.id + '" style="display:flex;flex-direction:column;gap:8px;padding:9px 12px;background:' + rowBg + ';border:1px solid ' + rowBorder + ';border-radius:var(--radius-sm)">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
-          '<button id="calicon-' + tsk.id + '" onclick="calToggleTaskDone(' + tsk.id + ',\'' + dateStr + '\')" title="Bajarilgan/bajarilmagan deb belgilash" ' +
+          '<button id="calicon-' + tsk.id + '" onclick="calToggleTaskDone(' + tsk.id + ',\'' + dateStr + '\')" title="' + _cl("Bajarilgan/bajarilmagan deb belgilash", "Mark as done / not done", "Отметить как выполнено / не выполнено") + '" ' +
             'style="background:none;border:none;padding:0;margin:0;cursor:pointer;font-size:var(--fs-md);flex-shrink:0;line-height:1">' + icon + '</button>' +
           '<span style="' + nameStyle + '"' + nameOnclick + '>' + nameHtml + '</span>' +
           '<span id="calcoin-' + tsk.id + '" style="font-size:var(--fs-xs);color:#F5A623;font-weight:600">' + coins + '</span>' +
@@ -19669,11 +19743,11 @@ function renderDayDetailContent(dateStr) {
   });
   } catch (e) {
     console.error('showDayDetail xatosi:', e);
-    html = '<div style="color:#F87171;font-size:var(--fs-xs);text-align:center;padding:12px">Xatolik yuz berdi, konsolni tekshiring.</div>';
+    html = '<div style="color:#F87171;font-size:var(--fs-xs);text-align:center;padding:12px">' + _cl("Xatolik yuz berdi, konsolni tekshiring.", "Something went wrong, check the console.", "Произошла ошибка, проверьте консоль.") + '</div>';
   }
 
   if (!anyTask && !html) {
-    html = '<div style="color:var(--text-dim);font-size:var(--fs-sm);text-align:center;padding:12px">Bu kunda vazifa yo\u2019q edi</div>';
+    html = '<div style="color:var(--text-dim);font-size:var(--fs-sm);text-align:center;padding:12px">' + _cl("Bu kunda vazifa yo‘q edi", "There were no tasks on this day", "В этот день задач не было") + '</div>';
   }
   if (isDateOffline(dateStr)) {
     html = '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;margin-bottom:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);border-radius:var(--radius-sm);font-size:var(--fs-xs);color:#ffffff;font-weight:600">⚫ ' + t('offline_day_label') + '</div>' + html;
@@ -19735,7 +19809,7 @@ function calToggleTaskDone(id, dateStr) {
   }
 
   if (isDateFrozen(dateStr) || isDateOffline(dateStr)) {
-    toast('❄️ ' + (isDateFrozen(dateStr) ? t('freeze_day_label') : t('offline_day_label')) + ' — bu kun neytral, qo\'lda o\'zgartirib bo\'lmaydi');
+    toast('❄️ ' + (isDateFrozen(dateStr) ? t('freeze_day_label') : t('offline_day_label')) + ' — ' + _cl("bu kun neytral, qo'lda o'zgartirib bo'lmaydi", "this day is neutral and can't be changed manually", "этот день нейтральный, изменить вручную нельзя"));
     return;
   }
 
@@ -19795,7 +19869,7 @@ function calToggleTaskDoneInternal(id, dateStr) {
     var totalDeduct = takeBack + reapplied;
     addTarixLog('out', t('task_cancelled_log').replace('{name}', tk.name).replace('{date}', dateStr), -takeBack, null, dateStr);
     if (reapplied > 0) addTarixLog('out', t('penalty_reapplied_log'), -reapplied, null, dateStr);
-    var msg1 = '↩️ Bekor qilindi, -' + totalDeduct + ' 🪙';
+    var msg1 = '↩️ ' + _cl("Bekor qilindi", "Undone", "Отменено") + ', -' + totalDeduct + ' 🪙';
     if (S.totalTasksDone > 0) S.totalTasksDone--;
     if (tk.diff === 3 && S.hardTasksDone > 0) S.hardTasksDone--;
     if (S.taskDoneCount && S.taskDoneCount[id] > 0) S.taskDoneCount[id]--;
@@ -19817,7 +19891,7 @@ function calToggleTaskDoneInternal(id, dateStr) {
       var _pIdx = S.calPinnedDates[id].indexOf(dateStr);
       if (_pIdx !== -1) S.calPinnedDates[id].splice(_pIdx, 1);
     }
-    addXP(-taskXPValue(tk), tk.name + ' (kalendardan bekor qilindi)');
+    addXP(-taskXPValue(tk), tk.name + ' (' + _cl("kalendardan bekor qilindi", "undone from calendar", "отменено в календаре") + ')');
     if (tk.repeat === 'interval') {
       var _iv = Number(tk.interval) || 1;
       var _remaining = (S.taskDoneLog[id] || []).slice().sort();
@@ -19836,7 +19910,7 @@ function calToggleTaskDoneInternal(id, dateStr) {
     var total = granted + refunded;
     addTarixLog('in', t('task_late_done_log').replace('{name}', tk.name).replace('{date}', dateStr), granted, null, dateStr);
     if (refunded > 0) addTarixLog('in', t('penalty_returned_log'), refunded, null, dateStr);
-    var msg1 = '✅ Belgilandi, +' + total + ' 🪙';
+    var msg1 = '✅ ' + _cl("Belgilandi", "Marked", "Отмечено") + ', +' + total + ' 🪙';
     if (!S.totalTasksDone) S.totalTasksDone = 0;
     S.totalTasksDone++;
     if (tk.diff === 3) { if (!S.hardTasksDone) S.hardTasksDone = 0; S.hardTasksDone++; }
@@ -19850,7 +19924,7 @@ function calToggleTaskDoneInternal(id, dateStr) {
     S.taskDoneHourLog[clickHour] = (S.taskDoneHourLog[clickHour] || 0) + 1;
     if (!S.calDoneHour) S.calDoneHour = {};
     S.calDoneHour[id + '|' + dateStr] = clickHour;
-    addXP(taskXPValue(tk), tk.name + ' (kalendardan bajarildi)');
+    addXP(taskXPValue(tk), tk.name + ' (' + _cl("kalendardan bajarildi", "done from calendar", "выполнено в календаре") + ')');
     if (tk.repeat === 'interval') {
       var iv = Number(tk.interval) || 1;
       var candidate = addDays(dateStr, iv);
@@ -19864,9 +19938,9 @@ function calToggleTaskDoneInternal(id, dateStr) {
   var msg = msg1;
   if (streakAfter !== streakBefore) {
     if (streakAfter > streakBefore) {
-      msg += ' | 🔥 Streak tiklandi: ' + streakAfter;
+      msg += ' | 🔥 ' + _cl("Streak tiklandi", "Streak restored", "Серия восстановлена") + ': ' + streakAfter;
     } else {
-      msg += ' | 💔 Streak uzildi: ' + streakAfter;
+      msg += ' | 💔 ' + _cl("Streak uzildi", "Streak broken", "Серия прервана") + ': ' + streakAfter;
     }
   }
   toast(msg);
@@ -20209,8 +20283,8 @@ function openChestInline() {
         '<div style="display:flex;align-items:center;gap:12px;padding:2px 0">' +
           '<div style="font-size:var(--fs-3xl);flex-shrink:0">🎉</div>' +
           '<div style="flex:1">' +
-            '<div style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:#34D399;margin-bottom:3px">Ajoyib!</div>' +
-            '<div style="font-size:var(--fs-sm);color:var(--text-muted);line-height:1.5">Chestdagi vazifalarni ham tugatdingiz, dam oling! 🎉<br><span style="font-size:var(--fs-2xs);color:var(--text-dim)">Ertaga yangi vazifalar qaytadi</span></div>' +
+            '<div style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:#34D399;margin-bottom:3px">' + _cl("Ajoyib!", "Awesome!", "Отлично!") + '</div>' +
+            '<div style="font-size:var(--fs-sm);color:var(--text-muted);line-height:1.5">' + _cl("Chestdagi vazifalarni ham tugatdingiz, dam oling! 🎉", "You finished the chest tasks too — take a rest! 🎉", "Задачи сундука тоже выполнены — отдохните! 🎉") + '<br><span style="font-size:var(--fs-2xs);color:var(--text-dim)">' + _cl("Ertaga yangi vazifalar qaytadi", "New tasks come back tomorrow", "Завтра появятся новые задачи") + '</span></div>' +
           '</div>' +
         '</div>';
       setTimeout(function() {
@@ -20726,23 +20800,23 @@ function openTaskSheet(id, future) {
     `<span class="badge ${rl.cls}">${rl.text}</span>${diffBadge(taskDiffOrDefault(t))}<span class="badge badge-coins">+${t.coins}🪙</span>`;
   let btns = '';
   if (future) {
-    btns += `<div class="sheet-btn" style="opacity:0.55;pointer-events:none">⏳ Hali muddati kelmagan — o'sha kunida belgilanadi</div>`;
+    btns += `<div class="sheet-btn" style="opacity:0.55;pointer-events:none">⏳ ${_cl("Hali muddati kelmagan — o'sha kunida belgilanadi", "Not due yet — mark it on its day", "Срок ещё не наступил — отметьте в свой день")}</div>`;
   } else {
     if (!t.done && !t.skipped) {
-      btns += `<button class="sheet-btn done-btn" onclick="closeTaskSheet();toggleTask(${id})">✅ Bajarildi deb belgilash</button>`;
-      btns += `<button class="sheet-btn" onclick="closeTaskSheet();skipTask(${id})">⏭ Otkazib yuborish</button>`;
+      btns += `<button class="sheet-btn done-btn" onclick="closeTaskSheet();toggleTask(${id})">✅ ${_cl("Bajarildi deb belgilash", "Mark as done", "Отметить выполненной")}</button>`;
+      btns += `<button class="sheet-btn" onclick="closeTaskSheet();skipTask(${id})">⏭ ${_cl("O'tkazib yuborish", "Skip", "Пропустить")}</button>`;
     }
     if (t.done) {
-      btns += `<button class="sheet-btn" onclick="closeTaskSheet();toggleTask(${id})">↩️ Bajarilmadi deb belgilash</button>`;
+      btns += `<button class="sheet-btn" onclick="closeTaskSheet();toggleTask(${id})">↩️ ${_cl("Bajarilmadi deb belgilash", "Mark as not done", "Отметить невыполненной")}</button>`;
     }
     if (t.skipped && !t.done) {
-      btns += `<button class="sheet-btn" onclick="closeTaskSheet();unskipTask(${id})">🔄 Qaytarish</button>`;
+      btns += `<button class="sheet-btn" onclick="closeTaskSheet();unskipTask(${id})">🔄 ${_cl("Qaytarish", "Restore", "Вернуть")}</button>`;
     }
   }
-  btns += `<button class="sheet-btn" onclick="closeTaskSheet();openSubtaskModal(${id})">➕ Sub-task qo'shish</button>`;
+  btns += `<button class="sheet-btn" onclick="closeTaskSheet();openSubtaskModal(${id})">➕ ${_cl("Sub-task qo'shish", "Add subtask", "Добавить подзадачу")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();freezeTask(${id})">🧊 ${tr('freeze_task_sheet_btn')}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();editTask(${id})">✏️ Tahrirlash</button>`;
-  btns += `<button class="sheet-btn danger" onclick="closeTaskSheet();deleteTask(${id})">🗑 O'chirish</button>`;
+  btns += `<button class="sheet-btn danger" onclick="closeTaskSheet();deleteTask(${id})">🗑 ${_cl("O'chirish", "Delete", "Удалить")}</button>`;
   document.getElementById('sheet-btns').innerHTML = btns;
   document.getElementById('task-action-sheet').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -20944,11 +21018,11 @@ function selectIeltsSubSection(subKey) {
 
   if (hint) {
     if (subKey === 'all') {
-      hint.textContent = 'Maksimal: 40 ta to\'g\'ri javob';
+      hint.textContent = _cl("Maksimal: {n} ta to'g'ri javob", "Max: {n} correct answers", "Максимум: {n} правильных ответов").replace('{n}', 40);
     } else if (sec === 'reading' && subKey === 'passage3') {
-      hint.textContent = 'Maksimal: 14 ta to\'g\'ri javob';
+      hint.textContent = _cl("Maksimal: {n} ta to'g'ri javob", "Max: {n} correct answers", "Максимум: {n} правильных ответов").replace('{n}', 14);
     } else {
-      hint.textContent = 'Maksimal: ' + item.max + ' ta to\'g\'ri javob';
+      hint.textContent = _cl("Maksimal: {n} ta to'g'ri javob", "Max: {n} correct answers", "Максимум: {n} правильных ответов").replace('{n}', item.max);
     }
   }
   if (rawLbl) {
@@ -21090,8 +21164,8 @@ function saveIeltsFull() {
     if (isNaN(v[k]) || v[k]<0 || v[k]>9) { bad = true; return; }
     out.push({ section:k, subSection:'all', band:Math.round(v[k]*2)/2, raw:null });
   });
-  if (bad) { toast('❗ Qiymatlar oralig\'ini tekshiring'); return; }
-  if (!out.length) { toast('Kamida bitta natijani kiriting'); return; }
+  if (bad) { toast('❗ ' + _cl("Qiymatlar oralig'ini tekshiring", "Check the value ranges", "Проверьте диапазон значений")); return; }
+  if (!out.length) { toast(_cl("Kamida bitta natijani kiriting", "Enter at least one result", "Введите хотя бы один результат")); return; }
   if (!S.ieltsResults) S.ieltsResults = [];
   var base = Date.now();
   out.forEach(function(r, i){ r.date = dateVal; r.id = base + i; S.ieltsResults.push(r); });
@@ -21655,7 +21729,7 @@ function renderIeltsTab() {
     var rawStr  = (r.raw !== null && r.raw !== undefined)
       ? ('<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:2px">' +
           r.raw + (isPartial ? ('/' + (IELTS_SUBSEC[r.section] && IELTS_SUBSEC[r.section].items.find(function(i){return i.key===r.subSection;}) ? IELTS_SUBSEC[r.section].items.find(function(i){return i.key===r.subSection;}).max : '?')) : '/40') +
-          ' to\'g\'ri</div>')
+          ' ' + _cl("to'g'ri", "correct", "верно") + '</div>')
       : '';
     var subBadge = sub
       ? '<span style="font-size:var(--fs-3xs);padding:2px 7px;border-radius:var(--radius-full);background:rgba(124,92,252,0.12);color:#B48EFF;border:1px solid rgba(124,92,252,0.2);margin-left:4px">' + sub + '</span>'
@@ -21957,7 +22031,7 @@ function renderCefrTab() {
           '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:2px">' + (h.date || '') + '</div></div>' +
           '<div style="display:flex;align-items:center;gap:10px">' +
             '<div style="font-family:Syne,sans-serif;font-size:var(--fs-xl);font-weight:700;color:#B48EFF">' + (h.level || '—') + rawSuffix + '</div>' +
-            '<button onclick="deleteCefrResultEntry(' + h.id + ')" title="O\'chirish" style="background:transparent;border:none;color:var(--text-dim);font-size:var(--fs-md);cursor:pointer;padding:4px">🗑️</button>' +
+            '<button onclick="deleteCefrResultEntry(' + h.id + ')" title="' + _cl("O'chirish", "Delete", "Удалить") + '" style="background:transparent;border:none;color:var(--text-dim);font-size:var(--fs-md);cursor:pointer;padding:4px">🗑️</button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -22090,8 +22164,8 @@ function selectCefrLevel(lvl) {
 }
 
 function saveCefrResult() {
-  if (!_cefrSection) { toast("Bo'limni tanlang"); return; }
-  if (!_cefrInputMode) { toast("Kiritish usulini tanlang"); return; }
+  if (!_cefrSection) { toast(_cl("Bo'limni tanlang", "Select a section", "Выберите раздел")); return; }
+  if (!_cefrInputMode) { toast(_cl("Kiritish usulini tanlang", "Select an input method", "Выберите способ ввода")); return; }
 
   var dateInp = document.getElementById('cefr-res-date');
   var dateVal = (dateInp && dateInp.value) ? dateInp.value : today();
@@ -22101,11 +22175,11 @@ function saveCefrResult() {
   if (_cefrInputMode === 'raw') {
     var rawInp = document.getElementById('cefr-res-raw');
     var raw = rawInp ? rawInp.value : '';
-    if (raw === '' || raw === null || isNaN(Number(raw))) { toast("Raw ballni kiriting"); return; }
+    if (raw === '' || raw === null || isNaN(Number(raw))) { toast(_cl("Raw ballni kiriting", "Enter the raw score", "Введите сырой балл")); return; }
     rawVal = Math.max(0, Math.min(35, Number(raw)));
     level = cefrRawToLevel(rawVal);
   } else {
-    if (!_cefrSelectedLevel) { toast("Darajani tanlang"); return; }
+    if (!_cefrSelectedLevel) { toast(_cl("Darajani tanlang", "Select a level", "Выберите уровень")); return; }
     level = _cefrSelectedLevel;
   }
 
@@ -22113,7 +22187,7 @@ function saveCefrResult() {
 
   closeCefrResultModal();
   renderCefrTab();
-  toast('✅ Natija saqlandi');
+  toast('✅ ' + _cl("Natija saqlandi", "Result saved", "Результат сохранён"));
 }
 
 var _cefrDetailSection = null;
@@ -22199,7 +22273,7 @@ function renderCefrDetailContent(sec) {
   var label = CEFR_SECTION_LABELS[sec];
 
   if (!hist.length) {
-    content.innerHTML = '<div style="text-align:center;padding:50px 20px;color:var(--text-dim);font-size:var(--fs-base)">Bu bo\'lim uchun hali natija kiritilmagan</div>';
+    content.innerHTML = '<div style="text-align:center;padding:50px 20px;color:var(--text-dim);font-size:var(--fs-base)">' + _cl("Bu bo'lim uchun hali natija kiritilmagan", "No results entered for this section yet", "Для этого раздела ещё нет результатов") + '</div>';
     return;
   }
 
@@ -22217,10 +22291,10 @@ function renderCefrDetailContent(sec) {
     } else if (currentRank < earliestRank) {
       trendHtml = '<span style="color:#F87171">▼ ' + earliest.level + ' → ' + current.level + ' (pasayish)</span>';
     } else {
-      trendHtml = '<span style="color:var(--text-muted)">— ' + current.level + ' (o\'zgarishsiz)</span>';
+      trendHtml = '<span style="color:var(--text-muted)">— ' + current.level + ' (' + _cl("o'zgarishsiz", "no change", "без изменений") + ')</span>';
     }
   } else {
-    trendHtml = '<span style="color:var(--text-muted)">Dinamika uchun kamida 2 ta natija kerak</span>';
+    trendHtml = '<span style="color:var(--text-muted)">' + _cl("Dinamika uchun kamida 2 ta natija kerak", "At least 2 results are needed to show progress", "Для динамики нужно минимум 2 результата") + '</span>';
   }
 
   var html = '';
@@ -22234,7 +22308,7 @@ function renderCefrDetailContent(sec) {
   html += '<div style="font-size:var(--fs-sm);margin-bottom:18px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-sm)">' + trendHtml + '</div>';
 
   var lastNLabel = (windowSize === 'all') ? 'Barchasi' : ('Oxirgi ' + windowed.length + ' ta');
-  html += '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:11px">Urinishlar tarixi (' + lastNLabel + ')</div>';
+  html += '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:11px">' + _cl("Urinishlar tarixi", "Attempt history", "История попыток") + ' (' + lastNLabel + ')</div>';
 
   var displayList = hist.slice().reverse(); // eng yangi tepada, BARCHA urinishlar (windowdan tashqarisi ham ko'rinadi, lekin xira)
   html += '<div style="display:flex;flex-direction:column;gap:8px">' +
@@ -22248,7 +22322,7 @@ function renderCefrDetailContent(sec) {
         '<span style="color:var(--text-muted)">' + _ieltsPrettyDate(h.date) + '</span>' +
         '<span style="display:flex;align-items:center;gap:10px">' +
           '<span style="color:var(--text);font-weight:700">→ ' + h.level + rawSuffix + '</span>' +
-          '<button onclick="deleteCefrResultEntry(' + h.id + ')" title="O\'chirish" style="background:transparent;border:none;color:var(--text-dim);font-size:var(--fs-md);cursor:pointer;padding:2px">🗑️</button>' +
+          '<button onclick="deleteCefrResultEntry(' + h.id + ')" title="' + _cl("O'chirish", "Delete", "Удалить") + '" style="background:transparent;border:none;color:var(--text-dim);font-size:var(--fs-md);cursor:pointer;padding:2px">🗑️</button>' +
         '</span>' +
       '</div>';
     }).join('') +
@@ -22258,10 +22332,10 @@ function renderCefrDetailContent(sec) {
 }
 
 function openCefrTargetModal() {
-  toast("CEFR maqsad daraja modali keyingi bosqichda qo'shiladi");
+  toast(_cl("CEFR maqsad daraja modali keyingi bosqichda qo'shiladi", "CEFR target level setting is coming soon", "Выбор целевого уровня CEFR появится позже"));
 }
 function openCefrDateModal() {
-  toast("CEFR imtihon sanasi modali keyingi bosqichda qo'shiladi");
+  toast(_cl("CEFR imtihon sanasi modali keyingi bosqichda qo'shiladi", "CEFR exam date setting is coming soon", "Выбор даты экзамена CEFR появится позже"));
 }
 
 // ============ SAT RESULT FUNCTIONS ============
@@ -22329,7 +22403,7 @@ function saveSatFull() {
     out.push({ section:p[0], score:v });
   });
   if (bad) { toast(t('sat_score_range_toast')); return; }
-  if (!out.length) { toast('Kamida bitta natijani kiriting'); return; }
+  if (!out.length) { toast(_cl("Kamida bitta natijani kiriting", "Enter at least one result", "Введите хотя бы один результат")); return; }
   if (!S.satResults) S.satResults = [];
   var base = Date.now();
   out.forEach(function(r,i){ r.date = dateVal; r.id = base + i; S.satResults.push(r); });
@@ -24174,9 +24248,10 @@ try {
     return d.innerHTML;
   }
   function pomoFormatLimit(min) {
-    if (min < 60) return min + ' daqiqa';
+    var _mn = _cl("daqiqa", "min", "мин"), _hr = _cl("soat", "h", "ч"), _mnS = _cl("daq", "min", "мин");
+    if (min < 60) return min + ' ' + _mn;
     var h = Math.floor(min / 60), m = min % 60;
-    return m ? (h + ' soat ' + m + ' daq') : (h + ' soat');
+    return m ? (h + ' ' + _hr + ' ' + m + ' ' + _mnS) : (h + ' ' + _hr);
   }
   function pomoFormatHMS(ms) {
     var totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -24191,9 +24266,9 @@ try {
     var totalMin = Math.max(1, Math.round(ms / 60000));
     var h = Math.floor(totalMin / 60), m = totalMin % 60;
     var parts = [];
-    if (h > 0) parts.push(h + ' soat');
-    if (m > 0 || h === 0) parts.push(m + ' daq');
-    return '+' + parts.join(' ') + " oshib ketdi";
+    if (h > 0) parts.push(h + ' ' + _cl("soat", "h", "ч"));
+    if (m > 0 || h === 0) parts.push(m + ' ' + _cl("daq", "min", "мин"));
+    return '+' + parts.join(' ') + ' ' + _cl("oshib ketdi", "over", "сверх");
   }
   // Chegara vaqtini "18:44" (SS:DD) qisqa ko'rinishda beradi — solishtirish qatori uchun
   function pomoFormatLimitShort(min) {
@@ -24298,7 +24373,7 @@ try {
     if (!box) return;
     var on = box.classList.toggle('pomo-immersive');
     if (btn) btn.classList.toggle('active', on);
-    if (btn) btn.title = on ? "To'liq ekrandan chiqish" : "To'liq ekran";
+    if (btn) btn.title = on ? _cl("To'liq ekrandan chiqish", "Exit full screen", "Выйти из полноэкранного режима") : _cl("To'liq ekran", "Full screen", "Полный экран");
   };
 
   /* ---------------- Modal ochish/yopish ---------------- */
@@ -24330,7 +24405,7 @@ try {
     var box = document.getElementById('pomo-modal-box');
     if (box) box.classList.remove('pomo-immersive');
     var fsBtn = document.getElementById('pomo-fullscreen-btn');
-    if (fsBtn) { fsBtn.classList.remove('active'); fsBtn.title = "To'liq ekran"; }
+    if (fsBtn) { fsBtn.classList.remove('active'); fsBtn.title = _cl("To'liq ekran", "Full screen", "Полный экран"); }
     try { pomoUpdateFloatUI(); } catch (e) {}
     try {
       if (typeof showFocusMiniPlayer === 'function' && typeof FocusAudio !== 'undefined' && FocusAudio.isPlaying && FocusAudio.isPlaying()) {
@@ -25156,7 +25231,7 @@ try {
       if (labelEl && info) labelEl.textContent = (typeof t === 'function') ? t(info.labelKey) : '';
       if (toggleBtn) {
         toggleBtn.textContent = playing ? '⏸️' : '▶️';
-        toggleBtn.title = playing ? "Musiqani to'xtatish" : 'Musiqani davom ettirish';
+        toggleBtn.title = playing ? _cl("Musiqani to'xtatish", "Pause music", "Остановить музыку") : _cl("Musiqani davom ettirish", "Resume music", "Продолжить музыку");
       }
     }
     if (hasSound !== wasShown) {
@@ -25195,7 +25270,7 @@ try {
     }
     floatEl.classList.toggle('break-mode', act.phase === 'break');
     floatEl.classList.toggle('running', !!act.running); // 🆕 PiP oynachadagi vaqt matnining nafas oluvchi (pulse) animatsiyasi shunga bog'liq
-    fdoc.getElementById('pomo-float-label').textContent = act.name + (act.phase === 'break' ? (act.lastBreakIsLong ? ' · 🌿 Uzoq tanaffus' : ' · ☕ Qisqa tanaffus') : '') + (act.running ? '' : ' · To\'xtatilgan');
+    fdoc.getElementById('pomo-float-label').textContent = act.name + (act.phase === 'break' ? (act.lastBreakIsLong ? ' · 🌿 ' + _cl("Uzoq tanaffus", "Long break", "Длинный перерыв") : ' · ☕ ' + _cl("Qisqa tanaffus", "Short break", "Короткий перерыв")) : '') + (act.running ? '' : ' · ' + _cl("To'xtatilgan", "Paused", "На паузе"));
     var timeMs = act.phase === 'break' ? (act.breakRemainingMs || 0) : act.elapsedMs;
     fdoc.getElementById('pomo-float-time').textContent = pomoFormatHMS(timeMs);
     fdoc.getElementById('pomo-float-toggle').textContent = act.running ? '⏸️' : '▶️';
@@ -25450,14 +25525,14 @@ try {
         var startLabel = (showDate ? pomoFormatDateShort(l.startAt) + ', ' : '') + pomoFormatClock(l.startAt);
         var stopLabel = pomoFormatClock(l.stopAt);
         var catchUpBadge = (l.catchUpMs && l.catchUpMs > 60000)
-          ? ' <span title="Bu davomiylikning bir qismi (' + pomoFormatHMS(l.catchUpMs) + ') kompyuter uyqu holatida/tab fonda uzoq turib qolgani sababli avtomatik hisoblangan" style="color:#F5A623;font-weight:700;font-size:var(--fs-2xs)">🔌 fon/oflayn</span>'
-          : (l.manual ? ' <span title="Bu yozuv taymer orqali emas, \'Vaqtni tahrirlash\' tugmasi orqali qo\'lda kiritilgan" style="color:var(--accent);font-weight:700;font-size:var(--fs-2xs)">✏️ qo\'lda kiritilgan</span>' : '');
+          ? ' <span title="' + _cl("Bu davomiylikning bir qismi ({x}) kompyuter uyqu holatida/tab fonda uzoq turib qolgani sababli avtomatik hisoblangan", "Part of this duration ({x}) was counted automatically while the computer slept / the tab was in the background", "Часть длительности ({x}) засчитана автоматически, пока компьютер спал / вкладка была в фоне").replace('{x}', pomoFormatHMS(l.catchUpMs)) + '" style="color:#F5A623;font-weight:700;font-size:var(--fs-2xs)">🔌 ' + _cl("fon/oflayn", "background/offline", "фон/офлайн") + '</span>'
+          : (l.manual ? ' <span title="' + _cl("Bu yozuv taymer orqali emas, «Vaqtni tahrirlash» tugmasi orqali qo'lda kiritilgan", "This entry was added manually via «Edit time», not by the timer", "Эта запись добавлена вручную через «Изменить время», а не таймером") + '" style="color:var(--accent);font-weight:700;font-size:var(--fs-2xs)">✏️ ' + _cl("qo'lda kiritilgan", "added manually", "добавлено вручную") + '</span>' : '');
         html += '<div class="pomo-history-session-row" style="align-items:center">';
         html += '  <div class="pomo-history-session-time">🕐 ' + startLabel + ' → ' + stopLabel + catchUpBadge + '</div>';
         html += '  <div style="display:flex;align-items:center;gap:8px">';
         html += '    <div class="pomo-history-session-dur">' + pomoFormatHMS(l.durationMs) + '</div>';
-        html += '    <button type="button" onclick="pomoEditLogEntry(\'' + l.id + '\')" title="Tahrirlash" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-sm);padding:2px 4px">✏️</button>';
-        html += '    <button type="button" onclick="pomoDeleteLogEntry(\'' + l.id + '\')" title="O\'chirish" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-sm);padding:2px 4px">🗑️</button>';
+        html += '    <button type="button" onclick="pomoEditLogEntry(\'' + l.id + '\')" title="' + _cl("Tahrirlash", "Edit", "Изменить") + '" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-sm);padding:2px 4px">✏️</button>';
+        html += '    <button type="button" onclick="pomoDeleteLogEntry(\'' + l.id + '\')" title="' + _cl("O'chirish", "Delete", "Удалить") + '" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-sm);padding:2px 4px">🗑️</button>';
         html += '  </div>';
         html += '</div>';
       });
@@ -25492,7 +25567,7 @@ try {
     if (!log) return;
     var totalMin = Math.round(log.durationMs / 60000);
     showPromptModal(
-      'Davomiylikni daqiqalarda kiriting (' + pomoEsc(log.actName) + '):',
+      _cl("Davomiylikni daqiqalarda kiriting ({x}):", "Enter the duration in minutes ({x}):", "Введите длительность в минутах ({x}):").replace('{x}', pomoEsc(log.actName)),
       totalMin,
       function (input) {
         var newMin = parseInt(input, 10);
@@ -25597,8 +25672,20 @@ try {
      Ma'lumot manbai — mavjud pomoLogs (Tarix) massivi, shu sabab
      hech qanday eski funksiyaga (taymer/ovoz) tegilmaydi.
      ============================================================ */
-  var POMO_CAL_MONTHS = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
-  var POMO_CAL_WEEKDAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
+  // Til bo'yicha (getter) — har safar joriy tilda qaytaradi
+  var _POMO_MONTHS = {
+    uz: ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"],
+    en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    ru: ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
+  };
+  var _POMO_WEEKDAYS = {
+    uz: ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"],
+    en: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
+    ru: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+  };
+  function _pomoLangKey() { var l = (typeof getLang === 'function') ? getLang() : 'uz'; return _POMO_MONTHS[l] ? l : 'uz'; }
+  var POMO_CAL_MONTHS = new Proxy([], { get: function (_, k) { var a = _POMO_MONTHS[_pomoLangKey()]; var v = a[k]; return typeof v === 'function' ? v.bind(a) : v; } });
+  var POMO_CAL_WEEKDAYS = new Proxy([], { get: function (_, k) { var a = _POMO_WEEKDAYS[_pomoLangKey()]; var v = a[k]; return typeof v === 'function' ? v.bind(a) : v; } });
   var pomoCalDate = new Date();
   var pomoCalSelectedKey = null;
   var pomoCalExpandedActId = null; // 🆕 Kalendar kun-detalida qaysi vazifa "yoyilgan" (sessiyalar ro'yxati ochiq) ekanini saqlaydi
@@ -25615,9 +25702,10 @@ try {
   function pomoCalFormatShort(ms) {
     var totalMin = Math.round(ms / 60000);
     if (totalMin <= 0) return '';
-    if (totalMin < 60) return totalMin + 'd';
+    var _d = _cl("d", "m", "м"), _s = _cl("s", "h", "ч");
+    if (totalMin < 60) return totalMin + _d;
     var h = Math.floor(totalMin / 60), m = totalMin % 60;
-    return m ? (h + 's ' + m + 'd') : (h + 's');
+    return m ? (h + _s + ' ' + m + _d) : (h + _s);
   }
 
   window.pomoOpenCalendar = function () {
@@ -25685,7 +25773,7 @@ try {
       grid.appendChild(cell);
     }
     var totalEl = document.getElementById('pomo-cal-month-total');
-    if (totalEl) totalEl.textContent = monthTotalMs > 0 ? ('Shu oyda jami: ' + pomoFormatHMS(monthTotalMs)) : "Bu oyda hali seanslar yo'q";
+    if (totalEl) totalEl.textContent = monthTotalMs > 0 ? (_cl("Shu oyda jami", "Total this month", "Всего за месяц") + ': ' + pomoFormatHMS(monthTotalMs)) : _cl("Bu oyda hali seanslar yo'q", "No sessions this month yet", "В этом месяце ещё нет сессий");
 
     pomoRenderCalendarDayDetail();
     pomoRenderStatsExtras();
@@ -25720,13 +25808,13 @@ try {
           actLogs.forEach(function (l, idx) {
             var badge = (l.catchUpMs && l.catchUpMs > 60000)
               ? ' <span class="pomo-cal-session-tag bg">🔌 fon/oflayn</span>'
-              : (l.manual ? ' <span class="pomo-cal-session-tag manual">✏️ qo\'lda kiritilgan</span>' : '');
+              : (l.manual ? ' <span class="pomo-cal-session-tag manual">✏️ ' + _cl("qo'lda kiritilgan", "added manually", "добавлено вручную") + '</span>' : '');
             html += '  <div class="pomo-cal-session-row">';
             html += '    <div class="pomo-cal-session-left"><span class="pomo-cal-session-num">#' + (idx + 1) + '</span><span class="pomo-cal-session-time">🕐 ' + pomoFormatClock(l.startAt) + ' → ' + pomoFormatClock(l.stopAt) + '</span>' + badge + '</div>';
             html += '    <div style="display:flex;align-items:center;gap:8px">';
             html += '      <span class="pomo-cal-session-dur">' + pomoFormatHMS(l.durationMs) + '</span>';
-            html += '      <button type="button" onclick="event.stopPropagation();pomoEditLogEntry(\'' + l.id + '\')" title="Tahrirlash" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-sm);padding:2px 4px">✏️</button>';
-            html += '      <button type="button" onclick="event.stopPropagation();pomoDeleteLogEntry(\'' + l.id + '\')" title="O\'chirish" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-sm);padding:2px 4px">🗑️</button>';
+            html += '      <button type="button" onclick="event.stopPropagation();pomoEditLogEntry(\'' + l.id + '\')" title="' + _cl("Tahrirlash", "Edit", "Изменить") + '" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-sm);padding:2px 4px">✏️</button>';
+            html += '      <button type="button" onclick="event.stopPropagation();pomoDeleteLogEntry(\'' + l.id + '\')" title="' + _cl("O'chirish", "Delete", "Удалить") + '" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-sm);padding:2px 4px">🗑️</button>';
             html += '    </div>';
             html += '  </div>';
           });
@@ -25827,7 +25915,7 @@ try {
     /* ---- 1) So'nggi 7 kunlik faollik grafigi ---- */
     if (weekBox) {
       if (!hasAnyData) {
-        weekBox.innerHTML = '<div class="pomo-stats-chart-empty">Hali seanslar yo\'q — birinchi Pomodoro\'ni boshlang! 🍅</div>';
+        weekBox.innerHTML = '<div class="pomo-stats-chart-empty">' + _cl("Hali seanslar yo'q — birinchi Pomodoro'ni boshlang! 🍅", "No sessions yet — start your first Pomodoro! 🍅", "Сессий пока нет — начните первый Помодоро! 🍅") + '</div>';
       } else {
         var wDays = [];
         var todayD = new Date();
@@ -25875,19 +25963,19 @@ try {
       var breaksTotal   = breaksTaken + breaksSkipped;
       var breaksTakenPct = breaksTotal > 0 ? Math.round((breaksTaken / breaksTotal) * 100) : 0;
       var html = '';
-      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">⏳</div><div class="pomo-stats-metric-value">' + (totalMs > 0 ? pomoFormatLimit(Math.round(totalMs / 60000)) : '0 daqiqa') + '</div><div class="pomo-stats-metric-label">Jami fokus</div></div>';
-      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">📅</div><div class="pomo-stats-metric-value">' + (avgMs > 0 ? pomoFormatLimit(Math.round(avgMs / 60000)) : '0 daqiqa') + '</div><div class="pomo-stats-metric-label">Kunlik o\'rtacha</div></div>';
-      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">🔥</div><div class="pomo-stats-metric-value">' + curStreak + ' kun</div><div class="pomo-stats-metric-label">Joriy seriya</div><div class="pomo-stats-metric-sub">🏆 Rekord: ' + recordStreak + ' kun</div></div>';
-      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">✅</div><div class="pomo-stats-metric-value">' + totalSessions + '</div><div class="pomo-stats-metric-label">Jami sessiyalar</div></div>';
-      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">☕</div><div class="pomo-stats-metric-value">' + breaksTaken + '</div><div class="pomo-stats-metric-label">Tanaffus olingan</div>' + (breaksTotal > 0 ? '<div class="pomo-stats-metric-sub">' + breaksTakenPct + '%</div>' : '') + '</div>';
-      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">⏭️</div><div class="pomo-stats-metric-value">' + breaksSkipped + '</div><div class="pomo-stats-metric-label">Tanaffus tashlab yuborilgan</div>' + (breaksTotal > 0 ? '<div class="pomo-stats-metric-sub">' + (100 - breaksTakenPct) + '%</div>' : '') + '</div>';
+      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">⏳</div><div class="pomo-stats-metric-value">' + (totalMs > 0 ? pomoFormatLimit(Math.round(totalMs / 60000)) : _cl("0 daqiqa", "0 min", "0 мин")) + '</div><div class="pomo-stats-metric-label">' + _cl("Jami fokus", "Total focus", "Всего фокуса") + '</div></div>';
+      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">📅</div><div class="pomo-stats-metric-value">' + (avgMs > 0 ? pomoFormatLimit(Math.round(avgMs / 60000)) : _cl("0 daqiqa", "0 min", "0 мин")) + '</div><div class="pomo-stats-metric-label">' + _cl("Kunlik o'rtacha", "Daily average", "В среднем за день") + '</div></div>';
+      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">🔥</div><div class="pomo-stats-metric-value">' + curStreak + ' ' + _cl("kun", "d", "дн.") + '</div><div class="pomo-stats-metric-label">' + _cl("Joriy seriya", "Current streak", "Текущая серия") + '</div><div class="pomo-stats-metric-sub">🏆 ' + _cl("Rekord", "Record", "Рекорд") + ': ' + recordStreak + ' ' + _cl("kun", "d", "дн.") + '</div></div>';
+      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">✅</div><div class="pomo-stats-metric-value">' + totalSessions + '</div><div class="pomo-stats-metric-label">' + _cl("Jami sessiyalar", "Total sessions", "Всего сессий") + '</div></div>';
+      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">☕</div><div class="pomo-stats-metric-value">' + breaksTaken + '</div><div class="pomo-stats-metric-label">' + _cl("Tanaffus olingan", "Breaks taken", "Перерывов взято") + '</div>' + (breaksTotal > 0 ? '<div class="pomo-stats-metric-sub">' + breaksTakenPct + '%</div>' : '') + '</div>';
+      html += '<div class="pomo-stats-metric-card"><div class="pomo-stats-metric-icon">⏭️</div><div class="pomo-stats-metric-value">' + breaksSkipped + '</div><div class="pomo-stats-metric-label">' + _cl("Tanaffus tashlab yuborilgan", "Breaks skipped", "Перерывов пропущено") + '</div>' + (breaksTotal > 0 ? '<div class="pomo-stats-metric-sub">' + (100 - breaksTakenPct) + '%</div>' : '') + '</div>';
       metricsBox.innerHTML = html;
     }
 
     /* ---- 3a) Produktivlik: haftaning kuni bo'yicha taqsimot ---- */
     if (weekdayBox) {
       if (!hasAnyData) {
-        weekdayBox.innerHTML = '<div class="pomo-stats-chart-empty">Hali maʼlumot yoʻq</div>';
+        weekdayBox.innerHTML = '<div class="pomo-stats-chart-empty">' + _cl("Hali maʼlumot yoʻq", "No data yet", "Пока нет данных") + '</div>';
       } else {
         var wdTotals = [0, 0, 0, 0, 0, 0, 0]; // Du..Ya (Dushanbadan boshlab)
         Object.keys(dayTotals).forEach(function (k) {
@@ -25912,7 +26000,7 @@ try {
     /* ---- 3b) Produktivlik: kun ichidagi soat bo'yicha taqsimot ---- */
     if (hourBox) {
       if (!hasAnyData) {
-        hourBox.innerHTML = '<div class="pomo-stats-chart-empty">Hali maʼlumot yoʻq</div>';
+        hourBox.innerHTML = '<div class="pomo-stats-chart-empty">' + _cl("Hali maʼlumot yoʻq", "No data yet", "Пока нет данных") + '</div>';
       } else {
         var hourTotals = [];
         for (var hz = 0; hz < 24; hz++) hourTotals.push(0);
@@ -25937,7 +26025,7 @@ try {
         }
         svg2 += '</svg>';
         var peakText = hMax > 0
-          ? '<div class="pomo-stats-hour-peak">Eng faol soat: <b>' + String(peakHour).padStart(2, '0') + ':00–' + String((peakHour + 1) % 24).padStart(2, '0') + ':00</b></div>'
+          ? '<div class="pomo-stats-hour-peak">' + _cl("Eng faol soat", "Most active hour", "Самый активный час") + ': <b>' + String(peakHour).padStart(2, '0') + ':00–' + String((peakHour + 1) % 24).padStart(2, '0') + ':00</b></div>'
           : '';
         hourBox.innerHTML = svg2 + peakText;
       }
@@ -25947,7 +26035,7 @@ try {
     if (catBox) {
       var allActs = pomoGroupLogsByAct(pomoLogs);
       if (!allActs.length) {
-        catBox.innerHTML = '<div class="pomo-stats-chart-empty">Hali maʼlumot yoʻq</div>';
+        catBox.innerHTML = '<div class="pomo-stats-chart-empty">' + _cl("Hali maʼlumot yoʻq", "No data yet", "Пока нет данных") + '</div>';
       } else {
         var catGrandMs = allActs.reduce(function (s, a) { return s + a.totalMs; }, 0);
         var gradParts = [], acc = 0;
@@ -25967,7 +26055,7 @@ try {
         var donutBg = allActs.length === 1 ? pomoStatsColor(0) : 'conic-gradient(' + gradParts.join(',') + ')';
         var catHtml = '<div class="pomo-stats-donut-wrap">';
         catHtml += '  <div class="pomo-stats-donut" style="background:' + donutBg + '">';
-        catHtml += '    <div class="pomo-stats-donut-hole"><div class="pomo-stats-donut-hole-val">' + pomoCalFormatShort(catGrandMs) + '</div><div class="pomo-stats-donut-hole-lbl">jami</div></div>';
+        catHtml += '    <div class="pomo-stats-donut-hole"><div class="pomo-stats-donut-hole-val">' + pomoCalFormatShort(catGrandMs) + '</div><div class="pomo-stats-donut-hole-lbl">' + _cl("jami", "total", "всего") + '</div></div>';
         catHtml += '  </div>';
         catHtml += '  <div class="pomo-stats-legend">' + legendHtml + '</div>';
         catHtml += '</div>';
@@ -25978,19 +26066,19 @@ try {
     /* ---- 5) Haftalik va oylik solishtirish (o'tgan davrga nisbatan foiz) ---- */
     if (compareBox) {
       function pomoStatsDeltaHtml(cur, prev) {
-        if (prev <= 0) return cur > 0 ? '<span class="pomo-stats-compare-delta up">🆕 Yangi faollik</span>' : '<span class="pomo-stats-compare-delta flat">— o\'zgarish yo\'q</span>';
+        if (prev <= 0) return cur > 0 ? '<span class="pomo-stats-compare-delta up">🆕 ' + _cl("Yangi faollik", "New activity", "Новая активность") + '</span>' : '<span class="pomo-stats-compare-delta flat">— ' + _cl("o'zgarish yo'q", "no change", "без изменений") + '</span>';
         var deltaPct = Math.round(((cur - prev) / prev) * 100);
         if (deltaPct > 0) return '<span class="pomo-stats-compare-delta up">▲ +' + deltaPct + '%</span>';
         if (deltaPct < 0) return '<span class="pomo-stats-compare-delta down">▼ ' + deltaPct + '%</span>';
-        return '<span class="pomo-stats-compare-delta flat">— o\'zgarish yo\'q</span>';
+        return '<span class="pomo-stats-compare-delta flat">— ' + _cl("o'zgarish yo'q", "no change", "без изменений") + '</span>';
       }
       var curWeek = pomoStatsRangeSum(dayTotals, 0, 7);
       var prevWeek = pomoStatsRangeSum(dayTotals, 7, 14);
       var curMonth = pomoStatsRangeSum(dayTotals, 0, 30);
       var prevMonth = pomoStatsRangeSum(dayTotals, 30, 60);
       var cmpHtml = '<div class="pomo-stats-compare-grid">';
-      cmpHtml += '  <div class="pomo-stats-compare-card"><div class="pomo-stats-compare-label">📆 Shu hafta</div><div class="pomo-stats-compare-val">' + (curWeek > 0 ? pomoCalFormatShort(curWeek) : '0d') + '</div><div class="pomo-stats-compare-sub">o\'tgan hafta: ' + (prevWeek > 0 ? pomoCalFormatShort(prevWeek) : '0d') + '</div>' + pomoStatsDeltaHtml(curWeek, prevWeek) + '</div>';
-      cmpHtml += '  <div class="pomo-stats-compare-card"><div class="pomo-stats-compare-label">🗓️ Shu oy</div><div class="pomo-stats-compare-val">' + (curMonth > 0 ? pomoCalFormatShort(curMonth) : '0d') + '</div><div class="pomo-stats-compare-sub">o\'tgan oy: ' + (prevMonth > 0 ? pomoCalFormatShort(prevMonth) : '0d') + '</div>' + pomoStatsDeltaHtml(curMonth, prevMonth) + '</div>';
+      cmpHtml += '  <div class="pomo-stats-compare-card"><div class="pomo-stats-compare-label">📆 ' + _cl("Shu hafta", "This week", "Эта неделя") + '</div><div class="pomo-stats-compare-val">' + (curWeek > 0 ? pomoCalFormatShort(curWeek) : _cl("0d", "0m", "0м")) + '</div><div class="pomo-stats-compare-sub">' + _cl("o'tgan hafta", "last week", "прошлая неделя") + ': ' + (prevWeek > 0 ? pomoCalFormatShort(prevWeek) : _cl("0d", "0m", "0м")) + '</div>' + pomoStatsDeltaHtml(curWeek, prevWeek) + '</div>';
+      cmpHtml += '  <div class="pomo-stats-compare-card"><div class="pomo-stats-compare-label">🗓️ ' + _cl("Shu oy", "This month", "Этот месяц") + '</div><div class="pomo-stats-compare-val">' + (curMonth > 0 ? pomoCalFormatShort(curMonth) : _cl("0d", "0m", "0м")) + '</div><div class="pomo-stats-compare-sub">' + _cl("o'tgan oy", "last month", "прошлый месяц") + ': ' + (prevMonth > 0 ? pomoCalFormatShort(prevMonth) : _cl("0d", "0m", "0м")) + '</div>' + pomoStatsDeltaHtml(curMonth, prevMonth) + '</div>';
       cmpHtml += '</div>';
       compareBox.innerHTML = cmpHtml;
     }
@@ -25998,10 +26086,10 @@ try {
     /* ---- 6) Kunning qaysi qismida eng unumli (ertalab/tushdan keyin/kechqurun) ---- */
     if (daypartBox) {
       if (!hasAnyData) {
-        daypartBox.innerHTML = '<div class="pomo-stats-chart-empty">Hali maʼlumot yoʻq</div>';
+        daypartBox.innerHTML = '<div class="pomo-stats-chart-empty">' + _cl("Hali maʼlumot yoʻq", "No data yet", "Пока нет данных") + '</div>';
       } else {
         var dpTotals = [0, 0, 0]; // 0=ertalab(05-12) 1=tushdan keyin(12-18) 2=kechqurun/tun(18-05)
-        var dpLabels = ['🌅 Ertalab (05:00–12:00)', '☀️ Tushdan keyin (12:00–18:00)', '🌙 Kechqurun (18:00–05:00)'];
+        var dpLabels = ['🌅 ' + _cl("Ertalab", "Morning", "Утро") + ' (05:00–12:00)', '☀️ ' + _cl("Tushdan keyin", "Afternoon", "День") + ' (12:00–18:00)', '🌙 ' + _cl("Kechqurun", "Evening", "Вечер") + ' (18:00–05:00)'];
         pomoLogs.forEach(function (l) {
           var h = new Date(l.startAt).getHours();
           var idx = (h >= 5 && h < 12) ? 0 : (h >= 12 && h < 18) ? 1 : 2;
@@ -26026,7 +26114,7 @@ try {
     if (rankBox) {
       var rankActs = pomoGroupLogsByAct(pomoLogs);
       if (!rankActs.length) {
-        rankBox.innerHTML = '<div class="pomo-stats-chart-empty">Hali maʼlumot yoʻq</div>';
+        rankBox.innerHTML = '<div class="pomo-stats-chart-empty">' + _cl("Hali maʼlumot yoʻq", "No data yet", "Пока нет данных") + '</div>';
       } else {
         var rankGrandMs = rankActs.reduce(function (s, a) { return s + a.totalMs; }, 0);
         var rankMaxMs = rankActs[0].totalMs || 1;
@@ -26054,7 +26142,7 @@ try {
     if (taskBarBox) {
       var barActs = pomoGroupLogsByAct(pomoLogs).slice(0, 6);
       if (!barActs.length) {
-        taskBarBox.innerHTML = '<div class="pomo-stats-chart-empty">Hali maʼlumot yoʻq</div>';
+        taskBarBox.innerHTML = '<div class="pomo-stats-chart-empty">' + _cl("Hali maʼlumot yoʻq", "No data yet", "Пока нет данных") + '</div>';
       } else {
         var barMaxMs = Math.max.apply(null, barActs.map(function (a) { return a.totalMs; }).concat([1]));
         var TBW = 350, TBH = 150, tGap = 10, tBarW = (TBW - tGap * (barActs.length + 1)) / barActs.length;
@@ -26672,7 +26760,7 @@ var worldPartyReportTaskEvent = async function(deltaDone, deltaCoins) {
     });
     if (!res.error) {
       if (res.data && res.data.finished) {
-        toast('🏁 ' + t('wp_goal_reached_toast') || '🏁 World Party yakunlandi!');
+        toast('🏁 ' + _cl("World Party yakunlandi!", "World Party finished!", "World Party завершена!"));
       }
       await worldPartySyncFromCloud();
       try { renderWorldPartyList(); } catch (e) {}
@@ -26755,7 +26843,7 @@ var worldPartySyncFromCloud = async function() {
 };
 
 var friendsSendRequest = async function(userId, reason) {
-  if (!S.cloudLinked || !S.cloudUserId) { toast('Avval tizimga kiring'); return; }
+  if (!S.cloudLinked || !S.cloudUserId) { toast(_cl("Avval tizimga kiring", "Please sign in first", "Сначала войдите в аккаунт")); return; }
   if ((S.friends.banned || []).some(function (b) { return b.id === userId; })) return;
   var user = friendsFindPersonById(userId);
   var name = (user && user.name) || '...';
@@ -26818,7 +26906,7 @@ var friendsCreateParty = async function() {
   var input = document.getElementById('friends-party-name-input');
   var name = (input && input.value || '').trim();
   if (!name) { toast(t('friends_party_name_required')); return; }
-  if (!S.cloudLinked || !S.cloudUserId) { toast('Avval tizimga kiring'); return; }
+  if (!S.cloudLinked || !S.cloudUserId) { toast(_cl("Avval tizimga kiring", "Please sign in first", "Сначала войдите в аккаунт")); return; }
   var res = await supabase.rpc('create_party', { p_name: name });
   if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
   if (input) input.value = '';
@@ -26891,7 +26979,7 @@ var friendsCancelPartyInviteOutgoing = async function(id) {
 var worldPartyCreate = async function() {
   if (S.friends.myWorldPartyId) { toast(t('wp_already_in_one')); return; }
   var cap = worldPartyMaxMembersForMe();
-  if (cap < 2) { toast(t('wp_level_too_low_toast') || '🔒 Bu daraja uchun World Party yopiq'); return; }
+  if (cap < 2) { toast('🔒 ' + _cl("Bu daraja uchun World Party yopiq", "World Party is locked at your level", "World Party недоступна на вашем уровне")); return; }
   var nameEl = document.getElementById('wp-name-input');
   var name = (nameEl && nameEl.value || '').trim();
   if (!name) { toast(t('friends_party_name_required')); return; }
@@ -27333,7 +27421,7 @@ function renderFriendsList() {
   }
   if (filterEmpty) filterEmpty.style.display = 'none';
   box.innerHTML = filtered.map(function (f) {
-    var actions = '<button class="friend-req-btn decline" onclick="friendsRemoveFriend(\'' + f.id + '\')" data-i18n="friends_remove_btn">O\'chirish</button>';
+    var actions = '<button class="friend-req-btn decline" onclick="friendsRemoveFriend(\'' + f.id + '\')" data-i18n="friends_remove_btn">' + t('friends_remove_btn') + '</button>';
     return friendCardHtml(f, actions, true, true);
   }).join('');
 }
@@ -27377,7 +27465,7 @@ function friendsRenderSearch() {
   var q = (input && input.value || '').trim();
   if (!q) { box.innerHTML = ''; _friendsSearchResults = []; return; }
   if (!S.cloudLinked || !S.cloudUserId) {
-    box.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-xs);text-align:center;padding:10px 0">' + esc('Qidirish uchun avval tizimga kiring') + '</div>';
+    box.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-xs);text-align:center;padding:10px 0">' + esc(_cl("Qidirish uchun avval tizimga kiring", "Sign in first to search", "Войдите, чтобы искать")) + '</div>';
     return;
   }
   box.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-xs);text-align:center;padding:10px 0">…</div>';
@@ -27397,7 +27485,7 @@ function friendsRenderSearch() {
     }
     var res = await query.limit(20);
     if (myReqId !== _friendsSearchReqId) return; // eskirgan so'rov, e'tiborsiz qoldiramiz
-    if (res.error) { box.innerHTML = '<div style="color:#F87171;font-size:var(--fs-xs);text-align:center;padding:10px 0">Xatolik yuz berdi</div>'; return; }
+    if (res.error) { box.innerHTML = '<div style="color:#F87171;font-size:var(--fs-xs);text-align:center;padding:10px 0">' + _cl("Xatolik yuz berdi", "Something went wrong", "Произошла ошибка") + '</div>'; return; }
     var results = (res.data || []).filter(function (u) { return excludeIds.indexOf(u.id) === -1; });
     _friendsSearchResults = results.map(function (u) { return { id: u.id, name: u.name, avatarUrl: u.photo || null, level: u.level || 1 }; });
     if (!results.length) {
@@ -27405,7 +27493,7 @@ function friendsRenderSearch() {
       return;
     }
     box.innerHTML = _friendsSearchResults.map(function (u) {
-      var actions = '<button class="friend-req-btn accept" onclick="friendsOpenAddReasonModal(\'' + u.id + '\')" aria-label="' + esc(t('friends_send_btn')) + ' — ' + esc(u.name) + '" data-i18n="friends_send_btn">Yubor</button>';
+      var actions = '<button class="friend-req-btn accept" onclick="friendsOpenAddReasonModal(\'' + u.id + '\')" aria-label="' + esc(t('friends_send_btn')) + ' — ' + esc(u.name) + '" data-i18n="friends_send_btn">' + t('friends_send_btn') + '</button>';
       return friendCardHtml(u, actions, true, false);
     }).join('');
   })();
@@ -27420,7 +27508,7 @@ function renderFriendsOutgoing() {
   if (!list.length) { box.innerHTML = ''; if (empty) empty.style.display = ''; return; }
   if (empty) empty.style.display = 'none';
   box.innerHTML = list.map(function (o) {
-    var actions = '<button class="friend-req-btn decline" onclick="friendsCancelOutgoing(\'' + o.id + '\')" aria-label="' + esc(t('friends_cancel_btn')) + ' — ' + esc(o.name) + '" data-i18n="friends_cancel_btn">Bekor qilish</button>';
+    var actions = '<button class="friend-req-btn decline" onclick="friendsCancelOutgoing(\'' + o.id + '\')" aria-label="' + esc(t('friends_cancel_btn')) + ' — ' + esc(o.name) + '" data-i18n="friends_cancel_btn">' + t('friends_cancel_btn') + '</button>';
     return friendCardHtml(o, actions, true);
   }).join('');
 }
@@ -27434,8 +27522,8 @@ function renderFriendsIncoming() {
   if (!list.length) { box.innerHTML = ''; if (empty) empty.style.display = ''; return; }
   if (empty) empty.style.display = 'none';
   box.innerHTML = list.map(function (r) {
-    var actions = '<button class="friend-req-btn accept" onclick="friendsAcceptIncoming(\'' + r.id + '\')" aria-label="' + esc(t('friends_accept_btn')) + ' — ' + esc(r.name) + '" data-i18n="friends_accept_btn">Qabul</button>'
-      + '<button class="friend-req-btn decline" onclick="friendsDeclineIncoming(\'' + r.id + '\')" aria-label="' + esc(t('friends_decline_btn')) + ' — ' + esc(r.name) + '" data-i18n="friends_decline_btn">Rad</button>';
+    var actions = '<button class="friend-req-btn accept" onclick="friendsAcceptIncoming(\'' + r.id + '\')" aria-label="' + esc(t('friends_accept_btn')) + ' — ' + esc(r.name) + '" data-i18n="friends_accept_btn">' + t('friends_accept_btn') + '</button>'
+      + '<button class="friend-req-btn decline" onclick="friendsDeclineIncoming(\'' + r.id + '\')" aria-label="' + esc(t('friends_decline_btn')) + ' — ' + esc(r.name) + '" data-i18n="friends_decline_btn">' + t('friends_decline_btn') + '</button>';
     return friendCardHtml(r, actions, true);
   }).join('');
 }
@@ -27453,7 +27541,7 @@ function renderFriendsParty() {
       noneBox.style.display = 'none'; activeBox.style.display = '';
 
       var membersHtml = party.members.map(function (m) {
-        var kickBtn = (party.leaderIsMe && !m.isMe) ? '<button class="friend-req-btn decline" onclick="friendsKickMember(\'' + m.id + '\')" aria-label="' + esc(t('friends_kick_btn')) + ' — ' + esc(m.name) + '" data-i18n="friends_kick_btn">Kick</button>' : '';
+        var kickBtn = (party.leaderIsMe && !m.isMe) ? '<button class="friend-req-btn decline" onclick="friendsKickMember(\'' + m.id + '\')" aria-label="' + esc(t('friends_kick_btn')) + ' — ' + esc(m.name) + '" data-i18n="friends_kick_btn">' + t('friends_kick_btn') + '</button>' : '';
         var actionsHtml = kickBtn ? '<div class="friend-card-actions">' + kickBtn + '</div>' : '';
         var contribPct = (party.challenge && party.challenge.target) ? Math.min(100, Math.round(100 * (m.contribution || 0) / party.challenge.target)) : null;
         var contribSub = t('friends_contribution_label') + ': ' + (m.contribution || 0) + (contribPct != null ? ' (' + contribPct + '%)' : '');
@@ -27469,10 +27557,10 @@ function renderFriendsParty() {
       var noteHtml;
       if (party.leaderIsMe) {
         noteHtml = '<div class="modal-field" style="margin-top:14px">'
-          + '<label data-i18n="friends_party_note_label">Partiya izohi</label>'
-          + '<input type="text" id="fp-note-input" maxlength="80" value="' + esc(party.note || '') + '" placeholder="Masalan: Bugun kim faol?" data-i18n-ph="friends_party_note_ph" />'
+          + '<label data-i18n="friends_party_note_label">' + t('friends_party_note_label') + '</label>'
+          + '<input type="text" id="fp-note-input" maxlength="80" value="' + esc(party.note || '') + '" placeholder="' + t('friends_party_note_ph') + '" data-i18n-ph="friends_party_note_ph" />'
           + '</div>'
-          + '<button class="friend-req-btn" style="width:100%" onclick="friendsSavePartyNote()" data-i18n="friends_party_note_save_btn">Saqlash</button>';
+          + '<button class="friend-req-btn" style="width:100%" onclick="friendsSavePartyNote()" data-i18n="friends_party_note_save_btn">' + t('friends_party_note_save_btn') + '</button>';
       } else if (party.note) {
         noteHtml = '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 14px;margin-top:14px;font-size:var(--fs-xs);color:var(--text)">📌 ' + esc(party.note) + '</div>';
       } else {
@@ -27486,19 +27574,19 @@ function renderFriendsParty() {
           + '<div style="font-size:var(--fs-sm);font-weight:700;color:var(--text);margin-bottom:8px">🎯 ' + esc(party.challenge.title) + '</div>'
           + '<div class="party-progress-track"><div class="party-progress-fill" style="width:' + pct + '%"></div></div>'
           + '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:var(--fs-2xs);color:var(--text-muted)"><span>' + party.challenge.progress + ' / ' + party.challenge.target + '</span><span style="color:var(--gold)">+' + party.challenge.reward + ' 🪙 ' + t('friends_each_member') + '</span></div>'
-          + (party.leaderIsMe ? '<button class="friend-req-btn decline" style="margin-top:10px;width:100%" onclick="friendsCancelPartyChallenge()" data-i18n="friends_cancel_challenge_btn">Bekor qilish</button>' : '')
+          + (party.leaderIsMe ? '<button class="friend-req-btn decline" style="margin-top:10px;width:100%" onclick="friendsCancelPartyChallenge()" data-i18n="friends_cancel_challenge_btn">' + t('friends_cancel_challenge_btn') + '</button>' : '')
           + '</div>';
       } else if (party.leaderIsMe) {
         challengeHtml = '<div style="margin-top:14px">'
-          + '<div class="modal-field"><label data-i18n="friends_party_challenge_title_label">Party Challenge nomi</label><input type="text" id="fpc-title" placeholder="Masalan: 100 ta vazifa!" data-i18n-ph="friends_party_challenge_title_ph" /></div>'
+          + '<div class="modal-field"><label data-i18n="friends_party_challenge_title_label">' + t('friends_party_challenge_title_label') + '</label><input type="text" id="fpc-title" placeholder="' + t('friends_party_challenge_title_ph') + '" data-i18n-ph="friends_party_challenge_title_ph" /></div>'
           + '<div style="display:flex;gap:8px">'
-          + '<div class="modal-field" style="flex:1"><label data-i18n="friends_target_label">Maqsad</label><input type="number" id="fpc-target" min="1" value="20" /></div>'
-          + '<div class="modal-field" style="flex:1"><label data-i18n="friends_reward_label">Mukofot (🪙)</label><input type="number" id="fpc-reward" min="1" value="10" /></div>'
+          + '<div class="modal-field" style="flex:1"><label data-i18n="friends_target_label">' + t('friends_target_label') + '</label><input type="number" id="fpc-target" min="1" value="20" /></div>'
+          + '<div class="modal-field" style="flex:1"><label data-i18n="friends_reward_label">' + t('friends_reward_label') + '</label><input type="number" id="fpc-reward" min="1" value="10" /></div>'
           + '</div>'
-          + '<button class="btn-save" style="width:100%" onclick="friendsStartPartyChallenge()" data-i18n="friends_start_challenge_btn">🚀 Challenge boshlash</button>'
+          + '<button class="btn-save" style="width:100%" onclick="friendsStartPartyChallenge()" data-i18n="friends_start_challenge_btn">' + t('friends_start_challenge_btn') + '</button>'
           + '</div>';
       } else {
-        challengeHtml = '<div style="text-align:center;padding:14px;color:var(--text-dim);font-size:var(--fs-xs)" data-i18n="friends_waiting_leader">Lider hali challenge boshlamadi</div>';
+        challengeHtml = '<div style="text-align:center;padding:14px;color:var(--text-dim);font-size:var(--fs-xs)" data-i18n="friends_waiting_leader">' + t('friends_waiting_leader') + '</div>';
       }
 
       // 🆕 Lider tomonidan yuborilgan, hali javob kutayotgan takliflar
@@ -27510,7 +27598,7 @@ function renderFriendsParty() {
           return '<div class="friend-card">'
             + '<div class="friend-card-info"><div class="friend-avatar">' + (inv.toIcon || '🙂') + '</div>'
             + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(inv.toName) + '</div><div class="friend-sub">' + esc(t('friends_pending_label')) + '</div></div></div>'
-            + '<div class="friend-card-actions"><button class="friend-req-btn decline" onclick="friendsCancelPartyInviteOutgoing(\'' + inv.id + '\')" data-i18n="friends_cancel_btn">Bekor qilish</button></div>'
+            + '<div class="friend-card-actions"><button class="friend-req-btn decline" onclick="friendsCancelPartyInviteOutgoing(\'' + inv.id + '\')" data-i18n="friends_cancel_btn">' + t('friends_cancel_btn') + '</button></div>'
             + '</div>';
         }).join('')
         + '</div>'
@@ -27522,7 +27610,7 @@ function renderFriendsParty() {
         + '<button type="button" class="friend-req-btn ghost" onclick="openPartyChallengeHistoryModal()" title="Tarix" data-i18n-title="friends_team_history_btn" style="flex-shrink:0">🗂</button>'
         + '</div>'
         + '<div style="display:flex;gap:8px;margin-bottom:14px">'
-        + (party.leaderIsMe ? '<button class="friend-req-btn accept" style="flex:1" onclick="openInviteModal()" data-i18n="friends_invite_btn">➕ Taklif qilish</button>' : '')
+        + (party.leaderIsMe ? '<button class="friend-req-btn accept" style="flex:1" onclick="openInviteModal()" data-i18n="friends_invite_btn">' + t('friends_invite_btn') + '</button>' : '')
         + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsLeaveParty()" data-i18n="' + (party.leaderIsMe ? 'friends_disband_btn' : 'friends_leave_btn') + '">' + (party.leaderIsMe ? 'Tarqatish' : 'Chiqish') + '</button>'
         + '</div>'
         + '<div style="display:flex;flex-direction:column;gap:8px">' + membersHtml + '</div>'
@@ -27544,8 +27632,8 @@ function renderFriendsPartyInvitesIncoming() {
   if (empty) empty.style.display = 'none';
   box.innerHTML = list.map(function (inv) {
     var sub = t('friends_party_invited_you_by').replace('{name}', inv.fromName);
-    var actions = '<button class="friend-req-btn accept" onclick="event.stopPropagation();friendsAcceptPartyInvite(\'' + inv.id + '\')" aria-label="' + esc(t('friends_accept_btn')) + ' — ' + esc(inv.partyName) + '" data-i18n="friends_accept_btn">Qabul</button>'
-      + '<button class="friend-req-btn decline" onclick="event.stopPropagation();friendsDeclinePartyInvite(\'' + inv.id + '\')" aria-label="' + esc(t('friends_decline_btn')) + ' — ' + esc(inv.partyName) + '" data-i18n="friends_decline_btn">Rad</button>';
+    var actions = '<button class="friend-req-btn accept" onclick="event.stopPropagation();friendsAcceptPartyInvite(\'' + inv.id + '\')" aria-label="' + esc(t('friends_accept_btn')) + ' — ' + esc(inv.partyName) + '" data-i18n="friends_accept_btn">' + t('friends_accept_btn') + '</button>'
+      + '<button class="friend-req-btn decline" onclick="event.stopPropagation();friendsDeclinePartyInvite(\'' + inv.id + '\')" aria-label="' + esc(t('friends_decline_btn')) + ' — ' + esc(inv.partyName) + '" data-i18n="friends_decline_btn">' + t('friends_decline_btn') + '</button>';
     return '<div class="friend-card" style="cursor:pointer" onclick="openPartyInviteDetailsModal(\'' + inv.id + '\')" role="button" tabindex="0">'
       + '<div class="friend-card-info"><div class="friend-avatar">🎉</div>'
       + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(inv.partyName) + '</div><div class="friend-sub">' + sub + '</div></div></div>'
@@ -27680,7 +27768,7 @@ function openPartyStatsModal() {
     ? ('🎯 ' + esc(party.challenge.title) + ' · ' + party.challenge.progress + ' / ' + party.challenge.target)
     : t('friends_waiting_leader');
   box.innerHTML = '<button onclick="document.getElementById(\'party-stats-modal\').remove()" style="position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer">✕</button>'
-    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:var(--fs-md);color:var(--text);margin-bottom:6px" data-i18n="friends_team_stats_title">📊 Party statistikasi</div>'
+    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:var(--fs-md);color:var(--text);margin-bottom:6px" data-i18n="friends_team_stats_title">' + t('friends_team_stats_title') + '</div>'
     + '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-bottom:14px">' + summary + '</div>'
     + '<table style="width:100%;border-collapse:collapse;font-size:var(--fs-xs)"><tbody>' + rows + '</tbody></table>';
   overlay.appendChild(box);
@@ -27696,7 +27784,7 @@ function openPartyChallengeHistoryModal() {
   box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:20px;width:100%;max-width:400px;max-height:75vh;overflow-y:auto;position:relative';
   box.innerHTML =
     '<button onclick="document.getElementById(\'friends-party-history-modal\').remove()" style="position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer">✕</button>'
-    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:var(--fs-md);color:var(--text);margin-bottom:14px" data-i18n="friends_team_history_title">🗂 Tugagan Party Challenge\'lar</div>'
+    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:var(--fs-md);color:var(--text);margin-bottom:14px" data-i18n="friends_team_history_title">' + t('friends_team_history_title') + '</div>'
     + '<div id="friends-party-history-modal-list" style="display:flex;flex-direction:column;gap:10px"></div>';
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -27704,7 +27792,7 @@ function openPartyChallengeHistoryModal() {
   var listBox = document.getElementById('friends-party-history-modal-list');
   var list = S.friends.partyChallengesHistory || [];
   if (!list.length) {
-    listBox.innerHTML = '<div style="text-align:center;padding:20px 10px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="friends_team_history_empty">Hali tugagan Party Challenge yo\'q</div>';
+    listBox.innerHTML = '<div style="text-align:center;padding:20px 10px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="friends_team_history_empty">' + t('friends_team_history_empty') + '</div>';
     return;
   }
   listBox.innerHTML = list.map(function (h) {
@@ -27730,7 +27818,7 @@ function openInviteModal() {
   } else {
     if (empty) empty.style.display = 'none';
     box.innerHTML = candidates.map(function (f) {
-      var actions = '<button class="friend-req-btn accept" onclick="friendsInviteToParty(\'' + f.id + '\')" data-i18n="friends_invite_send_btn">Taklif qilish</button>';
+      var actions = '<button class="friend-req-btn accept" onclick="friendsInviteToParty(\'' + f.id + '\')" data-i18n="friends_invite_send_btn">' + t('friends_invite_send_btn') + '</button>';
       return friendCardHtml(f, actions);
     }).join('');
   }
@@ -27800,7 +27888,7 @@ function openCreateWorldPartyModal() {
   if (S.friends.myWorldPartyId) { toast(t('wp_already_in_one')); return; }
   var cap = worldPartyMaxMembersForMe();
   if (cap < 2) {
-    toast(t('wp_level_too_low_toast') || '🔒 World Party ochish uchun avval darajangizni oshiring (Go-getter va undan yuqori)');
+    toast('🔒 ' + _cl("World Party ochish uchun avval darajangizni oshiring (Go-getter va undan yuqori)", "Level up first to open World Party (Go-getter and above)", "Чтобы открыть World Party, повысьте уровень (Go-getter и выше)"));
     return;
   }
   wpSetGoalType('percent');
@@ -28016,15 +28104,15 @@ function renderWorldPartyList() {
     if (p.status === 'finished') {
       actionBtn = '';
     } else if (amMember && amCreator) {
-      actionBtn = '<button class="friend-req-btn decline" onclick="worldPartyCancel(\'' + p.id + '\')" data-i18n="wp_cancel_btn">Bekor qilish</button>';
+      actionBtn = '<button class="friend-req-btn decline" onclick="worldPartyCancel(\'' + p.id + '\')" data-i18n="wp_cancel_btn">' + t('wp_cancel_btn') + '</button>';
     } else if (amMember) {
-      actionBtn = '<button class="friend-req-btn decline" onclick="worldPartyLeave(\'' + p.id + '\')" data-i18n="friends_leave_btn">Chiqish</button>';
+      actionBtn = '<button class="friend-req-btn decline" onclick="worldPartyLeave(\'' + p.id + '\')" data-i18n="friends_leave_btn">' + t('friends_leave_btn') + '</button>';
     } else if (S.friends.myWorldPartyId) {
       actionBtn = '';
     } else if (isFull) {
-      actionBtn = '<span style="font-size:var(--fs-2xs);color:var(--text-dim)" data-i18n="wp_full_label">To\'lgan</span>';
+      actionBtn = '<span style="font-size:var(--fs-2xs);color:var(--text-dim)" data-i18n="wp_full_label">' + t('wp_full_label') + '</span>';
     } else {
-      actionBtn = '<button class="friend-req-btn accept" onclick="worldPartyJoin(\'' + p.id + '\')" data-i18n="wp_join_btn">Qo\'shilish</button>';
+      actionBtn = '<button class="friend-req-btn accept" onclick="worldPartyJoin(\'' + p.id + '\')" data-i18n="wp_join_btn">' + t('wp_join_btn') + '</button>';
     }
     var statusChip = p.status === 'finished'
       ? '<span style="font-size:var(--fs-2xs);font-weight:700;color:var(--text-muted)">' + (p.winnerName ? ('🏆 ' + esc(p.winnerName)) : t('wp_cancelled_label')) + '</span>'
@@ -28036,7 +28124,7 @@ function renderWorldPartyList() {
       + statusChip
       + '</div>'
       + '<div style="display:flex;gap:8px;width:100%;margin-top:8px">'
-      + '<button class="friend-req-btn accept" onclick="worldPartyShowStats(\'' + p.id + '\')" data-i18n="wp_view_ranking_btn">📊 Reyting</button>'
+      + '<button class="friend-req-btn accept" onclick="worldPartyShowStats(\'' + p.id + '\')" data-i18n="wp_view_ranking_btn">' + t('wp_view_ranking_btn') + '</button>'
       + actionBtn
       + '</div>'
       + '</div>';
@@ -28077,10 +28165,10 @@ function openWorldPartyHistoryModal() {
   box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:20px;width:100%;max-width:400px;max-height:75vh;overflow-y:auto;position:relative';
   box.innerHTML =
     '<button onclick="document.getElementById(\'wp-history-modal\').remove()" style="position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer">✕</button>'
-    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:var(--fs-md);color:var(--text);margin-bottom:10px" data-i18n="wp_history_title">🗂 World Party tarixi</div>'
+    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:var(--fs-md);color:var(--text);margin-bottom:10px" data-i18n="wp_history_title">' + t('wp_history_title') + '</div>'
     + '<label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-xs);color:var(--text-muted);margin-bottom:14px;cursor:pointer">'
     + '<input type="checkbox" id="wp-history-mine-toggle" ' + (_wpHistoryMineOnly ? 'checked' : '') + ' onchange="wpHistoryToggleMine(this.checked)" />'
-    + '<span data-i18n="wp_filter_mine">Faqat mening tarixim</span></label>'
+    + '<span data-i18n="wp_filter_mine">' + t('wp_filter_mine') + '</span></label>'
     + '<div id="wp-history-modal-list" style="display:flex;flex-direction:column;gap:10px"></div>';
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -28103,7 +28191,7 @@ function renderWorldPartyHistoryModalBody() {
     });
   }
   if (!list.length) {
-    box.innerHTML = '<div style="text-align:center;padding:20px 10px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="wp_history_empty">Hali tugagan World Party yo\'q</div>';
+    box.innerHTML = '<div style="text-align:center;padding:20px 10px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="wp_history_empty">' + t('wp_history_empty') + '</div>';
     return;
   }
   box.innerHTML = list.map(function (p) {
@@ -28115,7 +28203,7 @@ function renderWorldPartyHistoryModalBody() {
       + '<div style="min-width:0;flex:1"><div class="friend-name">' + esc(p.name) + (amCreator ? ' 👑' : '') + '</div><div class="friend-sub">' + worldPartyGoalDesc(p) + ' · 🪙 ' + p.prize + '</div></div>'
       + '<span style="font-size:var(--fs-2xs);font-weight:700;color:var(--text-muted)">' + resultLabel + '</span>'
       + '</div>'
-      + '<button class="friend-req-btn" style="width:100%;margin-top:8px" onclick="worldPartyShowStats(\'' + p.id + '\')" data-i18n="wp_view_ranking_btn">📊 Reyting</button>'
+      + '<button class="friend-req-btn" style="width:100%;margin-top:8px" onclick="worldPartyShowStats(\'' + p.id + '\')" data-i18n="wp_view_ranking_btn">' + t('wp_view_ranking_btn') + '</button>'
       + '</div>';
   }).join('');
 }
@@ -28197,8 +28285,8 @@ function renderFriendsChallengeIncoming() {
   box.innerHTML = list.map(function (c) {
     var sub = friendsCriteriaLabel(c.criteria) + ' · 🪙 ' + c.stake + ' · ' + friendsDurationLabel(c.durationDays);
     var actions = '<div style="display:flex;gap:6px">'
-      + '<button class="friend-req-btn accept" onclick="friendsAcceptChallengeIncoming(\'' + c.id + '\')" data-i18n="friends_accept_btn">Qabul</button>'
-      + '<button class="friend-req-btn decline" onclick="friendsDeclineChallengeIncoming(\'' + c.id + '\')" data-i18n="friends_decline_btn">Rad</button>'
+      + '<button class="friend-req-btn accept" onclick="friendsAcceptChallengeIncoming(\'' + c.id + '\')" data-i18n="friends_accept_btn">' + t('friends_accept_btn') + '</button>'
+      + '<button class="friend-req-btn decline" onclick="friendsDeclineChallengeIncoming(\'' + c.id + '\')" data-i18n="friends_decline_btn">' + t('friends_decline_btn') + '</button>'
       + '</div>';
     return '<div class="friend-card">'
       + '<div class="friend-avatar">' + (c.fromIcon || '⚔️') + '</div>'
@@ -28394,7 +28482,7 @@ function openChallengeHistoryModal() {
   box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:20px;width:100%;max-width:400px;max-height:75vh;overflow-y:auto;position:relative';
   box.innerHTML =
     '<button onclick="document.getElementById(\'friends-history-modal\').remove()" style="position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer">✕</button>'
-    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:var(--fs-md);color:var(--text);margin-bottom:14px" data-i18n="friends_history_title">🗂 Chorlovlar tarixi</div>'
+    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:var(--fs-md);color:var(--text);margin-bottom:14px" data-i18n="friends_history_title">' + t('friends_history_title') + '</div>'
     + '<div id="friends-history-modal-list" style="display:flex;flex-direction:column;gap:10px"></div>';
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -28406,7 +28494,7 @@ function renderChallengeHistoryModalBody() {
   if (!box) return;
   var list = S.friends.challengesHistory || [];
   if (!list.length) {
-    box.innerHTML = '<div style="text-align:center;padding:20px 10px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="friends_history_empty">Hali tugagan chorlov yo\'q</div>';
+    box.innerHTML = '<div style="text-align:center;padding:20px 10px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="friends_history_empty">' + t('friends_history_empty') + '</div>';
     return;
   }
   box.innerHTML = list.map(function (c) {
@@ -28443,7 +28531,7 @@ function renderFriendsChallenges() {
       + '<div style="min-width:0;flex:1"><div class="friend-name">⚔️ ' + t('friends_you_label') + ' vs ' + esc(c.opponentName) + '</div><div class="friend-sub">' + sub + '</div></div>'
       + '<span style="font-size:var(--fs-2xs);font-weight:700;color:var(--gold)" data-i18n="friends_pending_label">' + t('friends_pending_label') + '</span>'
       + '</div>'
-      + '<button class="friend-req-btn decline" style="width:100%;margin-top:8px" onclick="friendsCancelChallenge(\'' + c.id + '\',true)" data-i18n="friends_cancel_btn">Bekor qilish</button>'
+      + '<button class="friend-req-btn decline" style="width:100%;margin-top:8px" onclick="friendsCancelChallenge(\'' + c.id + '\',true)" data-i18n="friends_cancel_btn">' + t('friends_cancel_btn') + '</button>'
       + '</div>';
   }).join('');
 
@@ -28460,8 +28548,8 @@ function renderFriendsChallenges() {
       + '<div class="duel-vs-bar" style="margin-bottom:6px"><span style="font-size:var(--fs-2xs);width:60px;color:var(--text-muted)">' + t('friends_you_label') + '</span><div class="duel-progress-track"><div class="duel-progress-fill" style="width:' + meBarPct + '%;background:var(--accent)"></div></div><span style="font-size:var(--fs-2xs);color:var(--text-dim)">' + cmp.meVal + unit + '</span></div>'
       + '<div class="duel-vs-bar"><span style="font-size:var(--fs-2xs);width:60px;color:var(--text-muted)">' + esc(c.opponentName) + '</span><div class="duel-progress-track"><div class="duel-progress-fill" style="width:' + oppBarPct + '%;background:var(--gold)"></div></div><span style="font-size:var(--fs-2xs);color:var(--text-dim)">' + cmp.oppVal + unit + '</span></div>'
       + '</div>';
-    var actions = c.status === 'finished' ? '' : '<button class="friend-req-btn accept" onclick="friendsShowChallengeStats(\'' + c.id + '\')" data-i18n="friends_view_stats_btn">📊 Statistika</button>';
-    var cancelBtn = c.status === 'finished' ? '' : '<button class="friend-req-btn decline" onclick="friendsCancelChallenge(\'' + c.id + '\',false)" data-i18n="friends_cancel_btn">Bekor qilish</button>';
+    var actions = c.status === 'finished' ? '' : '<button class="friend-req-btn accept" onclick="friendsShowChallengeStats(\'' + c.id + '\')" data-i18n="friends_view_stats_btn">' + t('friends_view_stats_btn') + '</button>';
+    var cancelBtn = c.status === 'finished' ? '' : '<button class="friend-req-btn decline" onclick="friendsCancelChallenge(\'' + c.id + '\',false)" data-i18n="friends_cancel_btn">' + t('friends_cancel_btn') + '</button>';
     return '<div class="friend-card" style="align-items:flex-start;flex-direction:column">'
       + '<div style="display:flex;width:100%;align-items:center;gap:10px">'
       + '<div class="friend-avatar">' + (c.opponentIcon || '⚔️') + '</div>'
@@ -28594,19 +28682,19 @@ function showFriendProfileModal(id) {
     actionsHtml = '<button class="friend-req-btn accept" style="width:100%" onclick="friendsUnbanUser(\'' + id + '\')" aria-label="' + esc(t('friends_unban_btn')) + ' — ' + esc(base.name) + '">' + t('friends_unban_btn') + '</button>';
   } else if (status === 'friend') {
     actionsHtml = '<div style="display:flex;gap:8px">'
-      + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsRemoveFriend(\'' + id + '\')" aria-label="' + esc(t('friends_remove_btn')) + ' — ' + esc(base.name) + '" data-i18n="friends_remove_btn">O\'chirish</button>'
+      + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsRemoveFriend(\'' + id + '\')" aria-label="' + esc(t('friends_remove_btn')) + ' — ' + esc(base.name) + '" data-i18n="friends_remove_btn">' + t('friends_remove_btn') + '</button>'
       + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsBanUser(\'' + id + '\')" aria-label="' + esc(t('friends_ban_btn')) + ' — ' + esc(base.name) + '">' + t('friends_ban_btn') + '</button>'
       + '</div>';
   } else if (status === 'outgoing') {
     actionsHtml = '<div style="display:flex;gap:8px">'
-      + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsCancelOutgoing(\'' + id + '\')" aria-label="' + esc(t('friends_cancel_btn')) + ' — ' + esc(base.name) + '" data-i18n="friends_cancel_btn">Bekor qilish</button>'
+      + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsCancelOutgoing(\'' + id + '\')" aria-label="' + esc(t('friends_cancel_btn')) + ' — ' + esc(base.name) + '" data-i18n="friends_cancel_btn">' + t('friends_cancel_btn') + '</button>'
       + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsBanUser(\'' + id + '\')" aria-label="' + esc(t('friends_ban_btn')) + ' — ' + esc(base.name) + '">' + t('friends_ban_btn') + '</button>'
       + '</div>';
   } else if (status === 'incoming') {
     actionsHtml = '<div style="display:flex;flex-direction:column;gap:8px">'
       + '<div style="display:flex;gap:8px">'
-      + '<button class="friend-req-btn accept" style="flex:1" onclick="friendsAcceptIncoming(\'' + id + '\')" aria-label="' + esc(t('friends_accept_btn')) + ' — ' + esc(base.name) + '" data-i18n="friends_accept_btn">Qabul</button>'
-      + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsDeclineIncoming(\'' + id + '\')" aria-label="' + esc(t('friends_decline_btn')) + ' — ' + esc(base.name) + '" data-i18n="friends_decline_btn">Rad</button>'
+      + '<button class="friend-req-btn accept" style="flex:1" onclick="friendsAcceptIncoming(\'' + id + '\')" aria-label="' + esc(t('friends_accept_btn')) + ' — ' + esc(base.name) + '" data-i18n="friends_accept_btn">' + t('friends_accept_btn') + '</button>'
+      + '<button class="friend-req-btn decline" style="flex:1" onclick="friendsDeclineIncoming(\'' + id + '\')" aria-label="' + esc(t('friends_decline_btn')) + ' — ' + esc(base.name) + '" data-i18n="friends_decline_btn">' + t('friends_decline_btn') + '</button>'
       + '</div>'
       + '<button class="friend-req-btn decline" style="width:100%" onclick="friendsBanUser(\'' + id + '\')" aria-label="' + esc(t('friends_ban_btn')) + ' — ' + esc(base.name) + '">' + t('friends_ban_btn') + '</button>'
       + '</div>';
@@ -28836,7 +28924,7 @@ setInterval(function () {
 // manzil satriga #admin qo'shing, masalan: sizningsayt.com/#admin
 // ============================================================
 window.openAdminPanel = async function () {
-  if (!S.cloudLinked || !S.cloudUserId) { toast('Avval tizimga (email+parol) kiring'); return; }
+  if (!S.cloudLinked || !S.cloudUserId) { toast(_cl("Avval tizimga (email+parol) kiring", "Sign in first (email + password)", "Сначала войдите (email + пароль)")); return; }
   var old = document.getElementById('admin-panel-modal'); if (old) old.remove();
   var overlay = document.createElement('div');
   overlay.id = 'admin-panel-modal';
@@ -28859,11 +28947,11 @@ window.openAdminPanel = async function () {
   try { adminRenderFeedback('new'); } catch (e) {}
 
   function statRows(list, key, labelFn) {
-    if (!list || !list.length) return '<div style="opacity:.6">— ma\'lumot yo\'q —</div>';
+    if (!list || !list.length) return '<div style="opacity:.6">— ' + _cl("ma'lumot yo'q", "no data", "нет данных") + ' —</div>';
     var total = list.reduce(function (s, x) { return s + Number(x.count || 0); }, 0) || 1;
     return list.map(function (x) {
       var pct = Math.round((Number(x.count || 0) / total) * 100);
-      var label = labelFn ? labelFn(x[key]) : (x[key] || '— (tanlanmagan)');
+      var label = labelFn ? labelFn(x[key]) : (x[key] || '— (' + _cl("tanlanmagan", "not set", "не выбрано") + ')');
       return '<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)">' +
         '<span>' + label + '</span><span style="color:var(--text);white-space:nowrap">' + x.count + ' (' + pct + '%)</span></div>';
     }).join('');
@@ -28872,38 +28960,38 @@ window.openAdminPanel = async function () {
   try {
     var res = await supabase.rpc('get_admin_stats');
     if (res.error) {
-      body.innerHTML = '<div style="color:#F87171">Ruxsat yo\'q yoki xatolik: ' + esc(res.error.message) + '</div>';
+      body.innerHTML = '<div style="color:#F87171">' + _cl("Ruxsat yo'q yoki xatolik", "No permission or error", "Нет доступа или ошибка") + ': ' + esc(res.error.message) + '</div>';
       return;
     }
     var d = res.data || {};
     var avg = d.averages || {};
     body.innerHTML =
-      '<div style="margin-bottom:14px;font-size:15px"><b style="color:var(--text)">👤 Jami foydalanuvchi:</b> ' + (d.total_users || 0) +
-      ' &nbsp; <b style="color:var(--text)">Profil to\'ldirgan:</b> ' + (d.total_profiles || 0) + '</div>' +
-      '<h4 style="color:var(--text);margin:10px 0 4px">🔐 Kirish usuli</h4>' +
-      statRows(d.by_provider, 'provider', function (v) { return v === 'google' ? '🔵 Google' : (v === 'email' ? '📧 Email/parol' : esc(v)); }) +
+      '<div style="margin-bottom:14px;font-size:15px"><b style="color:var(--text)">👤 ' + _cl("Jami foydalanuvchi", "Total users", "Всего пользователей") + ':</b> ' + (d.total_users || 0) +
+      ' &nbsp; <b style="color:var(--text)">' + _cl("Profil to'ldirgan", "Profiles filled", "Заполнили профиль") + ':</b> ' + (d.total_profiles || 0) + '</div>' +
+      '<h4 style="color:var(--text);margin:10px 0 4px">🔐 ' + _cl("Kirish usuli", "Sign-in method", "Способ входа") + '</h4>' +
+      statRows(d.by_provider, 'provider', function (v) { return v === 'google' ? '🔵 Google' : (v === 'email' ? '📧 ' + _cl("Email/parol", "Email/password", "Email/пароль") : esc(v)); }) +
       '<h4 style="color:var(--text);margin:10px 0 4px">🌍 Davlat</h4>' +
       statRows(d.by_country, 'country', function (v) {
-        return (v && v !== '—' && typeof countryName === 'function') ? (countryFlagImg(v, 14) + ' ' + esc(countryName(v))) : '— (tanlanmagan)';
+        return (v && v !== '—' && typeof countryName === 'function') ? (countryFlagImg(v, 14) + ' ' + esc(countryName(v))) : '— (' + _cl("tanlanmagan", "not set", "не выбрано") + ')';
       }) +
       '<h4 style="color:var(--text);margin:10px 0 4px">🗣️ Ilova tili</h4>' +
-      statRows(d.by_language, 'language', function (v) { return v && v !== '—' ? esc(v.toUpperCase()) : '— (tanlanmagan)'; }) +
-      '<h4 style="color:var(--text);margin:10px 0 4px">🎯 Tanlangan maqsad (IELTS/SAT/CEFR...)</h4>' +
+      statRows(d.by_language, 'language', function (v) { return v && v !== '—' ? esc(v.toUpperCase()) : '— (' + _cl("tanlanmagan", "not set", "не выбрано") + ')'; }) +
+      '<h4 style="color:var(--text);margin:10px 0 4px">🎯 ' + _cl("Tanlangan maqsad", "Selected goal", "Выбранная цель") + ' (IELTS/SAT/CEFR...)</h4>' +
       statRows(d.by_target_subject, 'subject', function (v) { return esc(String(v)); }) +
       (d.top_app_goal_other && d.top_app_goal_other.length ?
-        ('<h4 style="color:var(--text);margin:10px 0 4px">✍️ "Boshqa maqsad" — eng ko\'p yozilganlar</h4>' +
+        ('<h4 style="color:var(--text);margin:10px 0 4px">✍️ ' + _cl("«Boshqa maqsad» — eng ko'p yozilganlar", "«Other goal» — most common answers", "«Другая цель» — самые частые ответы") + '</h4>' +
           d.top_app_goal_other.map(function (x) {
             return '<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><span>' + esc(x.goal) + '</span><span>' + x.count + '</span></div>';
           }).join('')) : '') +
-      '<h4 style="color:var(--text);margin:10px 0 4px">📈 O\'rtacha ko\'rsatkichlar</h4>' +
-      '<div>XP: ' + (avg.avg_xp || 0) + ' &nbsp; Streak: ' + (avg.avg_streak || 0) + ' &nbsp; Tanga: ' + (avg.avg_coins || 0) + ' &nbsp; Jami bajarilgan tasklar: ' + (avg.total_tasks_completed || 0) + '</div>' +
-      '<h4 style="color:var(--text);margin:10px 0 4px">🆕 Oxirgi 14 kunlik ro\'yxatdan o\'tishlar</h4>' +
+      '<h4 style="color:var(--text);margin:10px 0 4px">📈 ' + _cl("O'rtacha ko'rsatkichlar", "Averages", "Средние показатели") + '</h4>' +
+      '<div>XP: ' + (avg.avg_xp || 0) + ' &nbsp; Streak: ' + (avg.avg_streak || 0) + ' &nbsp; ' + _cl("Tanga", "Coins", "Монеты") + ': ' + (avg.avg_coins || 0) + ' &nbsp; ' + _cl("Jami bajarilgan tasklar", "Total tasks completed", "Всего выполнено задач") + ': ' + (avg.total_tasks_completed || 0) + '</div>' +
+      '<h4 style="color:var(--text);margin:10px 0 4px">🆕 ' + _cl("Oxirgi 14 kunlik ro'yxatdan o'tishlar", "Sign-ups in the last 14 days", "Регистрации за последние 14 дней") + '</h4>' +
       (d.signups_last_14_days && d.signups_last_14_days.length ?
         d.signups_last_14_days.map(function (x) {
           return '<div style="display:flex;justify-content:space-between"><span>' + esc(x.date) + '</span><span>' + x.count + '</span></div>';
-        }).join('') : '<div style="opacity:.6">— ma\'lumot yo\'q —</div>');
+        }).join('') : '<div style="opacity:.6">— ' + _cl("ma'lumot yo'q", "no data", "нет данных") + ' —</div>');
   } catch (e) {
-    body.innerHTML = '<div style="color:#F87171">Xatolik: ' + esc(e.message) + '</div>';
+    body.innerHTML = '<div style="color:#F87171">' + _cl("Xatolik", "Error", "Ошибка") + ': ' + esc(e.message) + '</div>';
   }
 };
 
@@ -29331,17 +29419,17 @@ var adminRenderFeedback = async function(filter) {
   var box = document.getElementById('admin-feedback-box'); if (!box) return;
   if (filter) _fbAdminFilter = filter;
   var kindIcon = { bug: '🐞', idea: '💡', complaint: '😕', other: '💬' };
-  var chips = [['new', 'Yangi'], ['read', 'O\'qilgan'], ['done', 'Bajarilgan'], ['', 'Hammasi']].map(function (c) {
+  var chips = [['new', _cl("Yangi", "New", "Новые")], ['read', _cl("O'qilgan", "Read", "Прочитанные")], ['done', _cl("Bajarilgan", "Done", "Выполненные")], ['', _cl("Hammasi", "All", "Все")]].map(function (c) {
     var on = _fbAdminFilter === c[0];
     return '<button onclick="adminRenderFeedback(\'' + c[0] + '\')" style="padding:5px 11px;border-radius:999px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--border)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:' + (on ? '#fff' : 'var(--text-muted)') + ';font-size:12px;cursor:pointer">' + c[1] + '</button>';
   }).join('');
-  box.innerHTML = '<h4 style="color:var(--text);margin:16px 0 8px">📬 Fikrlar va takliflar</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + chips + '</div><div id="admin-feedback-list" style="color:var(--text-muted);font-size:13px">Yuklanmoqda...</div>';
+  box.innerHTML = '<h4 style="color:var(--text);margin:16px 0 8px">📬 ' + _cl("Fikrlar va takliflar", "Feedback & suggestions", "Отзывы и предложения") + '</h4><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + chips + '</div><div id="admin-feedback-list" style="color:var(--text-muted);font-size:13px">' + _cl("Yuklanmoqda...", "Loading...", "Загрузка...") + '</div>';
   var list = document.getElementById('admin-feedback-list');
   try {
     var r = await supabase.rpc('admin_list_feedback', { p_status: _fbAdminFilter || null, p_limit: 200 });
-    if (r.error) { list.innerHTML = '<div style="color:#F87171">Ruxsat yo\'q yoki SQL (supabase_feedback.sql) ishga tushirilmagan: ' + esc(r.error.message) + '</div>'; return; }
+    if (r.error) { list.innerHTML = '<div style="color:#F87171">' + _cl("Ruxsat yo'q yoki SQL (supabase_feedback.sql) ishga tushirilmagan", "No permission or SQL (supabase_feedback.sql) not run", "Нет доступа или SQL (supabase_feedback.sql) не выполнен") + ': ' + esc(r.error.message) + '</div>'; return; }
     var rows = r.data || [];
-    if (!rows.length) { list.innerHTML = '<div style="opacity:.6">— bu bo\'limda fikr yo\'q —</div>'; return; }
+    if (!rows.length) { list.innerHTML = '<div style="opacity:.6">— ' + _cl("bu bo'limda fikr yo'q", "no feedback in this section", "в этом разделе нет отзывов") + ' —</div>'; return; }
     list.innerHTML = rows.map(function (f) {
       var when = new Date(f.created_at).toLocaleString();
       var who = esc(f.user_name || 'Mehmon') + (f.contact ? ' · ' + esc(f.contact) : '') + (f.user_id ? '' : ' · (akkauntsiz)');
@@ -29350,13 +29438,13 @@ var adminRenderFeedback = async function(filter) {
         '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-dim)"><span>' + (kindIcon[f.kind] || '💬') + ' ' + st + ' ' + who + '</span><span style="white-space:nowrap">' + esc(when) + '</span></div>' +
         '<div style="color:var(--text);font-size:14px;line-height:1.5;margin:6px 0;white-space:pre-wrap;word-break:break-word">' + esc(f.message) + '</div>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
-          (f.status !== 'read' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'read\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">👁 O\'qildi</button>' : '') +
+          (f.status !== 'read' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'read\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">👁 ' + _cl("O'qildi", "Mark read", "Прочитано") + '</button>' : '') +
           (f.status !== 'done' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'done\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">✅ Bajarildi</button>' : '') +
           '<button onclick="adminFeedbackDelete(' + f.id + ')" style="padding:4px 10px;border-radius:8px;border:1px solid rgba(248,113,113,.4);background:transparent;color:#F87171;font-size:12px;cursor:pointer">🗑</button>' +
           '<span style="margin-left:auto;font-size:11px;color:var(--text-dim)">' + esc((f.lang || '').toUpperCase()) + '</span>' +
         '</div></div>';
     }).join('');
-  } catch (e) { list.innerHTML = '<div style="color:#F87171">Xatolik: ' + esc(e.message || String(e)) + '</div>'; }
+  } catch (e) { list.innerHTML = '<div style="color:#F87171">' + _cl("Xatolik", "Error", "Ошибка") + ': ' + esc(e.message || String(e)) + '</div>'; }
 };
 
 var adminFeedbackSet = async function(id, st) {
@@ -29366,7 +29454,7 @@ var adminFeedbackSet = async function(id, st) {
 };
 
 var adminFeedbackDelete = async function(id) {
-  if (!confirm('Bu fikrni o\'chirasizmi?')) return;
+  if (!confirm(_cl("Bu fikrni o'chirasizmi?", "Delete this feedback?", "Удалить этот отзыв?"))) return;
   var r = await supabase.rpc('admin_delete_feedback', { p_id: id });
   if (r.error) { toast('⚠️ ' + r.error.message); return; }
   adminRenderFeedback();
