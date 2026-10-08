@@ -5549,6 +5549,7 @@ var I18N = {
 (function () {
   var extra = {
     uz: {
+      pomo_new_title: "➕ Yangi faoliyat",
       strict_b2_li4: "Balans <b>-30 🪙</b> dan pastga tushib ketsa — BARCHA mukofotlar bloklanadi va yangi mukofot ham qo'sha olmaysiz, balans musbatga chiqmaguncha.",
       strict_b2_li5: "Qarzda ekaningizda (balans manfiy bo'lgan har qanday paytda) yangi topiladigan tanga <b>1.5x kamaytirib</b> beriladi — masalan odatda 10 🪙 berilishi kerak bo'lsa, 7 🪙 beriladi. Balans 0 ga chiqishi bilan darhol normal (1x) stavkaga qaytadi.",
       pomo_st_7days: "📈 So'nggi 7 kunlik faollik",
@@ -5571,6 +5572,7 @@ var I18N = {
       ph_eg_650: "masalan: 650"
     },
     en: {
+      pomo_new_title: "➕ New activity",
       strict_b2_li4: "If your balance drops below <b>-30 🪙</b>, ALL rewards are locked and you can't add new ones until the balance is positive again.",
       strict_b2_li5: "While you're in debt (any time the balance is negative), newly earned coins are <b>reduced 1.5x</b> — e.g. instead of 10 🪙 you get 7 🪙. As soon as the balance reaches 0, the normal (1x) rate returns.",
       pomo_st_7days: "📈 Activity in the last 7 days",
@@ -5593,6 +5595,7 @@ var I18N = {
       ph_eg_650: "e.g. 650"
     },
     ru: {
+      pomo_new_title: "➕ Новая активность",
       strict_b2_li4: "Если баланс опустится ниже <b>-30 🪙</b>, ВСЕ награды блокируются и новые добавить нельзя, пока баланс не станет положительным.",
       strict_b2_li5: "Пока вы в долгу (баланс отрицательный), новые монеты начисляются <b>в 1.5 раза меньше</b> — например, вместо 10 🪙 вы получите 7 🪙. Как только баланс достигнет 0, ставка снова станет обычной (1x).",
       pomo_st_7days: "📈 Активность за последние 7 дней",
@@ -24722,6 +24725,8 @@ try {
     var form = document.getElementById('pomo-new-form');
     var open = (typeof force === 'boolean') ? force : !form.classList.contains('open');
     form.classList.toggle('open', open);
+    var bd = document.getElementById('pomo-new-backdrop');
+    if (bd) bd.classList.toggle('open', open);
     if (open) {
       var nameInput = document.getElementById('pomo-new-name');
       nameInput.value = '';
@@ -24990,59 +24995,44 @@ try {
       var pct = limitMs > 0 ? Math.min(100, Math.round((act.elapsedMs / limitMs) * 100)) : 0;
       var isOver = limitMs > 0 && act.elapsedMs >= limitMs;
 
-      html += '<div class="pomo-act-card' + (isActive ? ' active' : '') + '" style="--accent-card:' + cardColor + '" onclick="pomoCardClick(event,\'' + act.id + '\')">';
+      var isBreak = phase === 'break';
+      var cls = 'pomo-act-card' + (isActive ? ' active' : '') + (isRunning ? ' is-running' : '') + (isOver ? ' is-over' : '') + (isBreak ? ' is-break' : '');
+      html += '<div class="' + cls + '" style="--accent-card:' + cardColor + '" onclick="pomoCardClick(event,\'' + act.id + '\')">';
 
-      // O'ng yuqori burchak: pin/board, edit, delete
-      html += '  <div class="pomo-act-icons">';
-      html += '    <button class="pomo-act-icon-btn pin' + (pomoHeroActId() === act.id ? ' pinned' : '') + '" onclick="event.stopPropagation();pomoHeroSelect(\'' + act.id + '\')" title="' + t('pomo_act_pin_title') + '">📌</button>';
-      html += '    <button class="pomo-act-icon-btn edit" onclick="pomoOpenEditTime(\'' + act.id + '\', event)" title="' + t('pomo_act_edit_title') + '">✏️</button>';
-      html += '    <button class="pomo-act-icon-btn del" onclick="pomoDeleteActivity(\'' + act.id + '\', event)" title="' + t('pomo_act_delete_title') + '">🗑️</button>';
-      html += '  </div>';
-
-      // Chapda: rangli doira ichida ikonka + holat labeli + nom
-      html += '  <div class="pomo-act-main">';
+      // Yuqori qator: ikonka · nom/holat · katta ▶/⏸ tugmasi
+      html += '  <div class="pomo-act-top">';
       html += '    <div class="pomo-act-avatar">' + emj + '</div>';
       html += '    <div class="pomo-act-info">';
-      html += '      <div class="pomo-act-status-inline ' + (isRunning ? 'running">⏱️ ' + t('pomo_act_status_running') : 'paused">⏸️ ' + t('pomo_act_status_paused')) + '</div>';
       html += '      <div class="pomo-act-name">' + pomoEsc(act.name) + '</div>';
-      if (limitMs > 0) {
-        html += isOver
-          ? '      <div class="pomo-act-limit">' + t('pomo_act_limit_label') + ': ' + pomoFormatLimit(act.limit) + '</div>'
-          : '      <div class="pomo-act-limit">' + t('pomo_act_limit_label') + ': ' + pomoFormatLimit(act.limit) + ' · ' + pct + '%</div>';
-      } else {
-        html += '      <div class="pomo-act-limit">' + t('pomo_act_no_limit') + '</div>';
-      }
+      html += '      <div class="pomo-act-meta">';
+      html += '        <span class="pomo-act-status-inline ' + (isRunning ? 'running' : 'paused') + '">' + (isBreak ? '☕ ' + t('pomo_act_break_word') : (isRunning ? t('pomo_act_status_running') : t('pomo_act_status_paused'))) + '</span>';
+      html += '        <span class="pomo-act-limit">' + (limitMs > 0 ? (pomoFormatLimit(act.limit) + (isOver ? '' : ' · ' + pct + '%')) : t('pomo_act_no_limit')) + '</span>';
+      html += '      </div>';
       html += '    </div>';
+      html += '    <button type="button" class="pomo-act-play' + (isRunning ? ' on' : '') + '" onclick="pomoMiniToggle(\'' + act.id + '\', event)" aria-label="' + (isRunning ? t('pomo_act_stop_btn') : (act.elapsedMs > 0 || isBreak ? t('pomo_act_resume_btn') : t('pomo_act_start_btn'))) + '">' +
+                (isRunning ? '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>'
+                           : '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>') +
+              '</button>';
       html += '  </div>';
 
-      if (limitMs > 0) {
-        if (isOver) {
-          html += '  <div class="pomo-act-progress-track"><div class="pomo-act-progress-fill over" style="width:100%"></div></div>';
-          html += '  <div class="pomo-act-overflow-text">🚨 ' + pomoFormatOverText(act.elapsedMs - limitMs) + '</div>';
-        } else {
-          html += '  <div class="pomo-act-progress-track' + (pct === 0 ? ' empty' : '') + '"><div class="pomo-act-progress-fill" style="width:' + pct + '%"></div></div>';
-        }
-      } else {
-        html += '  <div class="pomo-act-progress-track empty"><div class="pomo-act-progress-fill" style="width:0%"></div></div>';
-      }
+      // Progress
+      html += '  <div class="pomo-act-progress-track' + (limitMs > 0 && pct === 0 && !isOver ? ' empty' : '') + (limitMs > 0 ? '' : ' empty') + '"><div class="pomo-act-progress-fill' + (isOver ? ' over' : '') + '" style="width:' + (limitMs > 0 ? (isOver ? 100 : pct) : 0) + '%"></div></div>';
 
-      // Vaqt/chegara — o'ng tomonda, "hozirgi/maqsad" formatida
-      if (phase === 'break') {
-        html += '  <div class="pomo-act-elapsed-row"><span class="pomo-act-elapsed">☕ ' + pomoFormatHMS(act.breakRemainingMs || 0) + '</span><span class="pomo-act-elapsed-cmp">' + t('pomo_act_break_word') + '</span></div>';
+      // Pastki qator: vaqt · asboblar
+      html += '  <div class="pomo-act-bottom">';
+      if (isBreak) {
+        html += '    <div class="pomo-act-elapsed-row"><span class="pomo-act-elapsed">☕ ' + pomoFormatHMS(act.breakRemainingMs || 0) + '</span></div>';
       } else {
-        html += '  <div class="pomo-act-elapsed-row' + (isOver ? ' over' : '') + '"><span class="pomo-act-elapsed">' + pomoFormatHMS(act.elapsedMs) + '</span>' + (limitMs > 0 ? '<span class="pomo-act-elapsed-cmp">/ ' + pomoFormatLimitShort(act.limit) + ' ' + t('pomo_hours_short') + '</span>' : '') + '</div>';
+        html += '    <div class="pomo-act-elapsed-row' + (isOver ? ' over' : '') + '"><span class="pomo-act-elapsed">' + pomoFormatHMS(act.elapsedMs) + '</span>' +
+                (limitMs > 0 ? '<span class="pomo-act-elapsed-cmp">/ ' + pomoFormatLimitShort(act.limit) + '</span>' : '') +
+                (isOver ? '<span class="pomo-act-overflow-text">🚨 ' + pomoFormatOverText(act.elapsedMs - limitMs) + '</span>' : '') + '</div>';
       }
-
-      if (showCtrl) {
-        if (act.running) {
-          html += '  <div class="pomo-act-controls"><button class="pomo-ctrl-btn pomo-ctrl-stop" onclick="pomoStopActivity(event)">⏸️ ' + t('pomo_act_stop_btn') + '</button></div>';
-        } else if (act.elapsedMs > 0 || phase === 'break') {
-          // 🟢 To'liq kenglikdagi yashil overlay-panel + "Davom ettirish" tugmasi
-          html += '  <div class="pomo-act-resume-bar" onclick="event.stopPropagation();pomoStartOrResume(\'' + act.id + '\', event)"><span class="pomo-act-resume-icon">▶️</span><span>' + t('pomo_act_resume_btn') + '</span></div>';
-        } else {
-          html += '  <div class="pomo-act-controls"><button class="pomo-ctrl-btn pomo-ctrl-start" onclick="pomoStartOrResume(\'' + act.id + '\', event)">▶️ ' + t('pomo_act_start_btn') + '</button></div>';
-        }
-      }
+      html += '    <div class="pomo-act-icons">';
+      html += '      <button type="button" class="pomo-act-icon-btn pin' + (pomoHeroActId() === act.id ? ' pinned' : '') + '" onclick="event.stopPropagation();pomoHeroSelect(\'' + act.id + '\')" title="' + t('pomo_act_pin_title') + '" aria-label="' + t('pomo_act_pin_title') + '">📌</button>';
+      html += '      <button type="button" class="pomo-act-icon-btn edit" onclick="pomoOpenEditTime(\'' + act.id + '\', event)" title="' + t('pomo_act_edit_title') + '" aria-label="' + t('pomo_act_edit_title') + '">✏️</button>';
+      html += '      <button type="button" class="pomo-act-icon-btn del" onclick="pomoDeleteActivity(\'' + act.id + '\', event)" title="' + t('pomo_act_delete_title') + '" aria-label="' + t('pomo_act_delete_title') + '">🗑️</button>';
+      html += '    </div>';
+      html += '  </div>';
       html += '</div>';
     });
     list.innerHTML = html;
@@ -25057,6 +25047,11 @@ try {
     if (act.running) { window.pomoStopActivity(ev); }
     else { window.pomoStartOrResume(id, ev); }
   };
+
+  function pomoActEmoji(actId) {
+    var a = pomoFindAct(actId);
+    return (a && a.emoji) || '🎯';
+  }
 
   /* ---------------- 🌆 PomoTimer — hero (katta soat) UI ---------------- */
   function pomoHeroActId() {
@@ -25355,6 +25350,37 @@ try {
     if (toggleEl) toggleEl.textContent = act.running ? t('pomo_btn_stop') : (act.elapsedMs > 0 ? t('pomo_btn_resume') : t('pomo_btn_start'));
     var skipBtn = document.getElementById('pomo-hero-skip-btn');
     if (skipBtn) skipBtn.style.display = isBreak ? 'inline-block' : 'none';
+    pomoRenderNowBar(act);
+  }
+
+  // 📌 Ro'yxat pastga aylantirilganda tepada ko'rinib turadigan ixcham
+  // "hozir ishlayapti" paneli — katta soat ko'rinmay qolganda ham vaqt va
+  // pauza tugmasi qo'l ostida bo'ladi.
+  var _pomoHeroVisible = true, _pomoHeroObserver = null;
+  function pomoEnsureHeroObserver() {
+    if (_pomoHeroObserver || typeof IntersectionObserver !== 'function') return;
+    var hero = document.getElementById('pomo-hero');
+    if (!hero) return;
+    _pomoHeroObserver = new IntersectionObserver(function (entries) {
+      _pomoHeroVisible = entries[0] && entries[0].intersectionRatio > 0.25;
+      pomoRenderNowBar();
+    }, { threshold: [0, 0.25, 0.5] });
+    _pomoHeroObserver.observe(hero);
+  }
+  function pomoRenderNowBar(act) {
+    var bar = document.getElementById('pomo-now-bar');
+    if (!bar) return;
+    pomoEnsureHeroObserver();
+    act = act || pomoFindAct(pomoHeroActId());
+    var show = !!(act && (act.running || act.phase === 'break') && !_pomoHeroVisible);
+    bar.classList.toggle('show', show);
+    if (!show) return;
+    var isBreak = act.phase === 'break';
+    var html = '<span class="pomo-now-emoji">' + (act.emoji || '🎯') + '</span>' +
+      '<span class="pomo-now-name">' + pomoEsc(act.name) + (isBreak ? ' · ☕' : '') + '</span>' +
+      '<span class="pomo-now-time' + (isBreak ? ' break' : '') + '">' + pomoFormatHMS(isBreak ? (act.breakRemainingMs || 0) : (act.elapsedMs || 0)) + '</span>' +
+      '<button type="button" class="pomo-now-btn" onclick="pomoMiniToggle(\'' + act.id + '\', event)" aria-label="' + (act.running ? t('pomo_act_stop_btn') : t('pomo_act_resume_btn')) + '">' + (act.running ? '⏸' : '▶') + '</button>';
+    if (bar._last !== html) { bar.innerHTML = html; bar._last = html; }
   }
 
   /* ---------------- Start / Stop / Resume ---------------- */
@@ -25784,7 +25810,7 @@ try {
       html += '  <div class="pomo-history-day-body">';
       dg.actsList.forEach(function (a) {
         html += '    <div class="pomo-history-day-row" onclick="event.stopPropagation();pomoOpenHistoryDetail(\'' + a.actId + '\')">';
-        html += '      <div class="pomo-history-day-row-left"><span class="pomo-history-day-row-icon">🎯</span><span class="pomo-history-day-row-name">' + pomoEsc(a.actName) + '</span></div>';
+        html += '      <div class="pomo-history-day-row-left"><span class="pomo-history-day-row-icon">' + pomoActEmoji(a.actId) + '</span><span class="pomo-history-day-row-name">' + pomoEsc(a.actName) + '</span></div>';
         html += '      <span class="pomo-history-time-badge">' + pomoFormatHMS(a.totalMs) + '</span>';
         html += '    </div>';
       });
@@ -25937,6 +25963,7 @@ try {
   window.pomoSetActiveNav = pomoSetActiveNav;
 
   window.pomoNavProjects = function () {
+    try { window.pomoToggleNewForm(false); } catch (e) {}
     pomoSetActiveNav('pomo-nav-projects');
     try { window.pomoCloseCalendar(); } catch (e) {}
     try { window.pomoCloseSettingsModal(); } catch (e) {}
@@ -25947,6 +25974,7 @@ try {
   };
 
   window.pomoNavSettings = function () {
+    try { window.pomoToggleNewForm(false); } catch (e) {}
     pomoSetActiveNav('pomo-nav-settings');
     window.pomoOpenSettingsModal();
   };
@@ -25959,11 +25987,13 @@ try {
   };
 
   window.pomoNavStats = function () {
+    try { window.pomoToggleNewForm(false); } catch (e) {}
     pomoSetActiveNav('pomo-nav-stats');
     window.pomoOpenCalendar();
   };
 
   window.pomoNavMusic = function () {
+    try { window.pomoToggleNewForm(false); } catch (e) {}
     pomoSetActiveNav('pomo-nav-music');
     if (typeof openFocusPlayer === 'function') openFocusPlayer();
   };
@@ -26103,7 +26133,7 @@ try {
       byAct.forEach(function (a) {
         var isOpen = pomoCalExpandedActId === a.actId;
         html += '<div class="pomo-history-day-row' + (isOpen ? ' open' : '') + '" onclick="pomoToggleCalActDetail(\'' + a.actId + '\')">';
-        html += '  <div class="pomo-history-day-row-left"><span class="pomo-history-day-row-icon">🎯</span><span class="pomo-history-day-row-name">' + pomoEsc(a.actName) + '</span><span class="pomo-cal-act-count">🔁 ' + a.count + ' marta</span></div>';
+        html += '  <div class="pomo-history-day-row-left"><span class="pomo-history-day-row-icon">' + pomoActEmoji(a.actId) + '</span><span class="pomo-history-day-row-name">' + pomoEsc(a.actName) + '</span><span class="pomo-cal-act-count">🔁 ' + a.count + '' + ' ' + _cl('marta', (a.count === 1 ? 'time' : 'times'), 'раз') + '</span></div>';
         html += '  <span class="pomo-history-time-badge">' + pomoFormatHMS(a.totalMs) + '</span>';
         html += '</div>';
         if (isOpen) {
@@ -26434,7 +26464,7 @@ try {
           rankHtml += '  <div class="pomo-stats-rank-body">';
           rankHtml += '    <div class="pomo-stats-rank-top"><span class="pomo-stats-rank-name">' + pomoEsc(a.actName) + '</span><span class="pomo-stats-rank-time">' + pomoFormatHMS(a.totalMs) + '</span></div>';
           rankHtml += '    <div class="pomo-stats-rank-track"><div class="pomo-stats-rank-fill" style="width:' + barPct + '%;background:' + pomoStatsColor(idx) + '"></div></div>';
-          rankHtml += '    <div class="pomo-stats-rank-pct">' + sharePct + '% • 🔁 ' + a.count + ' marta</div>';
+          rankHtml += '    <div class="pomo-stats-rank-pct">' + sharePct + '% • 🔁 ' + a.count + '' + ' ' + _cl('marta', (a.count === 1 ? 'time' : 'times'), 'раз') + '</div>';
           rankHtml += '  </div>';
           rankHtml += '</div>';
         });
