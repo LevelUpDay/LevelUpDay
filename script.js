@@ -12957,7 +12957,9 @@ function renderLevel() {
   const nextLv = LEVELS.find(l => l.level === lv.level + 1);
 
   // Badge in header
-  document.getElementById('level-icon').textContent = lv.icon;
+  // 👤 belgisi (avvalgi alohida 👤 doira-tugmasi olib tashlandi — nik uchun joy ochiladi)
+  document.getElementById('level-icon').textContent = '👤';
+  var _lvb = document.getElementById('level-badge'); if (_lvb) _lvb.title = lv.icon + ' ' + (lv.name || ('Lv' + lv.level));
   document.getElementById('level-num').textContent = 'Lv' + lv.level;
 
   // Panel details
