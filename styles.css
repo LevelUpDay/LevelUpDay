@@ -2836,12 +2836,13 @@ html.layout-desktop #ds-aside .gems-text { font-size: var(--fs-xs) !important; }
 .pf-kpi-gems .pf-kpi-label, .pf-kpi-gems .pf-kpi-val { color: #38BDF8; }
 .pf-kpi-streak { background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.3); }
 .pf-kpi-streak .pf-kpi-label, .pf-kpi-streak .pf-kpi-val { color: #FB923C; }
-@media (min-width: 700px) { .pf-kpis { grid-template-columns: repeat(4, 1fr) !important; } }
+@media (min-width: 700px) { .pf-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } }
+.pf-kpis > div { min-width: 0; }
 #profile-subtab-stats > div { border-radius: var(--radius-lg); }
 @media (min-width: 1000px) {
-  #profile-subtab-stats:not([style*="display: none"]):not([style*="display:none"]) { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
-  #profile-subtab-stats > div { margin-bottom: 0 !important; }
-  #profile-subtab-stats > .pf-kpis, #profile-subtab-stats > #pomo-stats-card { grid-column: 1 / -1; }
+  #profile-subtab-stats:not([style*="display: none"]):not([style*="display:none"]) { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+  #profile-subtab-stats > div { margin-bottom: 0 !important; min-width: 0; }
+  #profile-subtab-stats > .pf-kpis, #profile-subtab-stats > #pomo-stats-card, #profile-subtab-stats > .xst-reports { grid-column: 1 / -1; }
 }
 
 /* ============================================================
