@@ -1564,7 +1564,7 @@
   html.layout-desktop #ds-sidebar .header-left {
     padding: 0 4px 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
   }
-  html.layout-desktop #ds-sidebar .header-left #user-title { max-width: 130px; overflow: hidden; text-overflow: ellipsis; display: inline-block; white-space: nowrap; vertical-align: middle; font-size:var(--fs-xs); }
+  html.layout-desktop #ds-sidebar .header-left #user-title { max-width: 150px; overflow: hidden; text-overflow: ellipsis; display: inline-block; white-space: nowrap; vertical-align: middle; font-size:var(--fs-xs); }
   html.layout-desktop #ds-sidebar .header-left #date-label { font-size:var(--fs-2xs); }
   /* Notebook/desktop dizaynda 👤 profil doira-tugmasiga kirish qiyin bo'lgani
      uchun u yashiriladi, o'rniga "Tasks / Rewards / ..." ro'yxati oxiriga
@@ -2589,7 +2589,7 @@ body.light .gems-pill { color: #0284C7; background: rgba(2,132,199,0.1); border-
 @media (max-width: 400px) {
   .header { gap: 6px; }
   .header-left { min-width: 0; flex: 1 1 auto; }
-  .header-left #user-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70px; display: inline-block; vertical-align: middle; }
+  .header-left #user-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; display: inline-block; vertical-align: middle; }
   .header-left #profile-nav-btn { display: none !important; }
   #header-right-wrap, #header-actions-right { gap: 5px !important; }
   .gems-pill { padding: 6px 8px; }
@@ -3187,3 +3187,7 @@ body.light .undo-toast { background: #fff; }
 .tbl-now span { position: absolute; right: 0; top: -18px; font-size: 10px; font-weight: 700; color: #fff; background: #ef4444; border-radius: 6px; padding: 1px 5px; }
 .tbl-empty { text-align: center; font-size: var(--fs-sm); color: var(--text-dim); margin-top: 10px; }
 .tk-chip-ontime { background: color-mix(in srgb, #22c55e 16%, transparent); color: #16a34a; }
+
+/* 👤 Profil belgisi endi Lv tugmasi ichida — alohida doira-tugma kerak emas */
+#profile-nav-btn { display: none !important; }
+#level-icon { filter: grayscale(.15); }
