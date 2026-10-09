@@ -28343,6 +28343,17 @@ try {
 // ---------- Blok 7/10 ----------
 try {
 // async funksiyalar try{} ichida block-scoped bo'lib qolmasligi uchun global var qilib, blok boshiga ko'chirildi
+// Yangi server funksiyasi hali o'rnatilmagan bo'lsa — eski nom/parametrlar bilan chaqiradi
+// (eskilari jsonb qaytarmaydi, shuning uchun xatosiz natija {ok:true} deb olinadi).
+var sbRpcFallback = async function (name, args, oldName, oldArgs) {
+  var res = await supabase.rpc(name, args);
+  if (res.error && oldName && /could not find|does not exist|schema cache|PGRST202/i.test((res.error.message || '') + ' ' + (res.error.code || ''))) {
+    var r2 = await supabase.rpc(oldName, oldArgs);
+    return r2.error ? r2 : { data: { ok: true }, error: null };
+  }
+  return res;
+};
+
 var friendsSyncFromCloud = async function() {
   if (!S.cloudLinked || !S.cloudUserId) return;
   if (_friendsCloudSyncing) return;
@@ -28616,7 +28627,7 @@ var friendsAcceptIncoming = async function(userId) {
   if (!entry || !entry._requestId) return;
   var name = entry.name;
   closeFriendProfileModal();
-  var res = await supabase.rpc('respond_friend_request', { p_request_id: entry._requestId, p_accept: true });
+  var res = await supabase.rpc('friend_respond', { p_request_id: entry._requestId, p_accept: true });
   if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : 'Xatolik')); return; }
   await friendsSyncFromCloud();
   try { confetti(); } catch (e) {}
@@ -28627,7 +28638,7 @@ var friendsDeclineIncoming = async function(userId) {
   var entry = (S.friends.incoming || []).find(function (r) { return r.id === userId; });
   if (!entry || !entry._requestId) return;
   closeFriendProfileModal();
-  var res = await supabase.rpc('respond_friend_request', { p_request_id: entry._requestId, p_accept: false });
+  var res = await supabase.rpc('friend_respond', { p_request_id: entry._requestId, p_accept: false });
   if (res.error) { toast('❌ ' + res.error.message); return; }
   await friendsSyncFromCloud();
 };
@@ -28821,7 +28832,7 @@ var friendsCancelChallenge = async function(id, isPending) {
   if (!c || c.status !== 'active') return;
   showConfirmModal(esc(t('friends_surrender_confirm')), function () {
     (async function () {
-      var res = await supabase.rpc('surrender_duel', { p_duel_id: id });
+      var res = await supabase.rpc('duel_surrender', { p_duel_id: id });
       if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : 'Xatolik')); return; }
       toast('🏳️ ' + t('friends_surrendered_toast').replace('{name}', c.opponentName));
       await duelsSyncFromCloud();
@@ -28833,7 +28844,7 @@ var friendsCancelChallenge = async function(id, isPending) {
 var friendsUnbanUser = async function(id) {
   var base = friendsFindPersonById(id);
   closeFriendProfileModal();
-  var res = await supabase.rpc('unblock_user', { p_target_id: id });
+  var res = await sbRpcFallback('friend_unblock', { p_target_id: id }, 'unblock_user', { p_user_id: id });
   if (res.error) { toast('❌ ' + res.error.message); return; }
   await friendsSyncFromCloud();
   try { renderBannedModalBody(); } catch (e) {}
@@ -29195,7 +29206,7 @@ function friendsRemoveFriend(userId) {
     friendsPurgeRelatedRecords(userId);
     closeFriendProfileModal();
     (async function () {
-      var res = await supabase.rpc('remove_friend', { p_other_id: userId });
+      var res = await sbRpcFallback('friend_remove', { p_other_id: userId }, 'remove_friend', { p_friend_id: userId });
       if (res.error) { toast('❌ ' + res.error.message); return; }
       await friendsSyncFromCloud();
     })();
@@ -30607,7 +30618,7 @@ function friendsBanUser(id) {
     friendsPurgeRelatedRecords(id);
     closeFriendProfileModal();
     (async function () {
-      var res = await supabase.rpc('block_user', { p_target_id: id });
+      var res = await sbRpcFallback('friend_block', { p_target_id: id }, 'block_user', { p_user_id: id });
       if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : 'Xatolik')); return; }
       await friendsSyncFromCloud();
       toast(t('friends_banned_toast').replace('{name}', base.name));
@@ -31026,7 +31037,7 @@ function _cloudWaitBooted() {
 // ---------- 1) app_state ----------
 var _CLOUD_LOCAL_ONLY = ['tasks', 'cloudLinked', 'cloudUserId', 'cloudEmail', '_serverSavedAt',
   '_localUpdatedAt', '_cloudSyncedAt', 'lastCloudUserId', 'friends', 'showWelcomeSurveyPending'];
-var _CLOUD_LS_KEYS = ['pomoActivities', 'pomoSettings'];
+var _CLOUD_LS_KEYS = ['pomoActivities', 'pomoSettings', 'appTheme', 'sfxVolume'];
 var _appStateTimer = null, _appStateLastCmp = '';
 
 function _appStatePayload() {
