@@ -3137,3 +3137,20 @@ body.light .undo-toast { background: #fff; }
   #view-tasks .search-wrap .all-toggle { flex: 1 1 0; justify-content: center; }
   #view-tasks .search-wrap .search-icon { top: 23px !important; transform: translateY(-50%) !important; }
 }
+
+/* 📐 Notebook rejimi 900–1199px (planshet/kichik noutbuk): yon panellar torroq */
+@media (min-width: 900px) and (max-width: 1199px) {
+  html.layout-desktop .wrapper { max-width: none; margin: 0; padding: 16px 16px 56px; }
+  html.layout-desktop #ds-sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--ds-sidebar-w, 176px);
+    margin: 0; border-radius: 0; border-right: 1px solid var(--border); border-top: none; border-left: none; border-bottom: none;
+    padding: 14px 10px; overflow-y: auto; z-index: 30;
+  }
+  html.layout-desktop #ds-aside {
+    position: fixed; top: 0; right: 0; bottom: 0; width: var(--ds-aside-w, 210px);
+    margin: 0; border-radius: 0; border-left: 1px solid var(--border); border-top: none; border-right: none; border-bottom: none;
+    padding: 14px 10px; overflow-y: auto; z-index: 30;
+  }
+  body.layout-shell-ready { padding-left: var(--ds-sidebar-w, 176px); padding-right: var(--ds-aside-w, 210px); }
+  html.layout-desktop .stats { grid-template-columns: repeat(2, 1fr) !important; }
+}

@@ -20341,12 +20341,27 @@ function isPhoneUserAgent(ua) {
   return /iPhone|iPod|Windows Phone|IEMobile|Opera Mini/i.test(ua) ||
     (/Android/i.test(ua) && /Mobile/i.test(ua));
 }
+// Asosan barmoq bilan boshqariladigan qurilma (planshet "desktop sayt" rejimida
+// ham o'zini kompyuter deb tanitadi — UA'ga ishonib bo'lmaydi)
+function isTouchPrimaryDevice() {
+  try {
+    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var noFine = window.matchMedia && !window.matchMedia('(any-pointer: fine)').matches;
+    return !!(coarse && noFine);
+  } catch (e) { return false; }
+}
+var LAYOUT_DESKTOP_MIN_WIDTH = 900; // bundan tor ekranda notebook umuman sig'maydi
 function detectDeviceLayout() {
   var ua = navigator.userAgent || '';
   var isPhoneUA = isPhoneUserAgent(ua);
   var isTabletUA = isTabletUserAgent(ua);
   var isNarrowScreen = window.innerWidth <= LAYOUT_AUTO_BREAKPOINT;
-  return (isPhoneUA || isTabletUA || isNarrowScreen) ? 'mobile' : 'desktop';
+  var isTouchTablet = isTouchPrimaryDevice() && window.innerWidth < 1400;
+  return (isPhoneUA || isTabletUA || isNarrowScreen || isTouchTablet) ? 'mobile' : 'desktop';
+}
+// Qo'lda "notebook" tanlangan bo'lsa ham, juda tor ekranda kompakt ko'rsatamiz
+function effectiveLayout(mode) {
+  return (mode === 'desktop' && window.innerWidth < LAYOUT_DESKTOP_MIN_WIDTH) ? 'mobile' : mode;
 }
 
 function getLayoutPreference() {
@@ -20359,6 +20374,11 @@ function hasManualLayoutPreference() {
 }
 
 function applyAppLayout(mode, persist) {
+  if (persist) { try { localStorage.setItem(LAYOUT_PREF_KEY, mode); } catch (e) {} persist = false; }
+  if (mode === 'desktop' && effectiveLayout(mode) !== mode) {
+    try { toast(_cl("Ekran notebook uchun juda tor — kompakt ko'rinish ishlatiladi", 'Screen is too narrow for notebook — using compact', 'Экран слишком узкий для notebook — используется компактный')); } catch (e) {}
+  }
+  mode = effectiveLayout(mode);
   var isDesktop = mode === 'desktop';
   document.documentElement.classList.toggle('layout-desktop', isDesktop);
   document.documentElement.classList.toggle('layout-mobile', !isDesktop);
@@ -20402,7 +20422,7 @@ function updateLayoutSettingUI(mode) {
 
 (function initAppLayout() {
   var manual = getLayoutPreference(); // 'desktop' | 'mobile' | null
-  var mode = manual || detectDeviceLayout();
+  var mode = effectiveLayout(manual || detectDeviceLayout());
   document.documentElement.classList.toggle('layout-desktop', mode === 'desktop');
   document.documentElement.classList.toggle('layout-mobile', mode !== 'desktop');
   document.addEventListener('DOMContentLoaded', function () {
@@ -20416,11 +20436,10 @@ function updateLayoutSettingUI(mode) {
 
   var _layoutResizeTimer = null;
   window.addEventListener('resize', function () {
-    if (hasManualLayoutPreference()) return; // qo'lda tanlangan — resize e'tiborsiz qoldiriladi
     clearTimeout(_layoutResizeTimer);
     _layoutResizeTimer = setTimeout(function () {
-      if (hasManualLayoutPreference()) return; // debounce ichida qo'lda tanlangan bo'lishi mumkin
-      var newMode = detectDeviceLayout();
+      // Qo'lda tanlangan bo'lsa ham: notebook juda tor ekranga sig'masa kompaktga o'tamiz
+      var newMode = effectiveLayout(getLayoutPreference() || detectDeviceLayout());
       var currentIsDesktop = document.documentElement.classList.contains('layout-desktop');
       var currentMode = currentIsDesktop ? 'desktop' : 'mobile';
       if (newMode !== currentMode) applyAppLayout(newMode, false);
