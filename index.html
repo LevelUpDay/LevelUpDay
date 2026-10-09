@@ -992,6 +992,18 @@
           <span class="settings-sub-arrow-wrap"><span class="settings-sub-arrow">▾</span></span>
         </button>
         <div class="settings-sub-body" style="display:none">
+      <!-- 💸 Qarz jazosi turi -->
+      <div class="dm-card" id="debt-mode-card" style="padding:6px 0 14px;border-bottom:1px solid var(--border);margin-bottom:8px">
+        <div style="font-size:var(--fs-base);font-weight:600;color:var(--text)" data-i18n="dm_title">💸 Qarz jazosi turi</div>
+        <div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px;line-height:1.5" data-i18n="dm_desc">Tanga balansi manfiyga tushganda qanday jazo berilishini tanlang.</div>
+        <div id="debt-mode-list" class="dm-list"></div>
+        <div class="dm-tasks" style="display:none">
+          <label class="dm-tasks-lbl" data-i18n="dm_tasks_lbl">🏋️ Jazo vazifalari (har qatorga bittadan)</label>
+          <textarea id="debt-task-list-input" rows="5"></textarea>
+          <button type="button" class="kbs-btn" onclick="saveDebtTaskList(document.getElementById('debt-task-list-input').value)" data-i18n="dm_tasks_save">💾 Saqlash</button>
+        </div>
+      </div>
+
 
           <!-- Game Difficulty (select) — endi faqat Coin/XP ko'paytiruvchisiga ta'sir qiladi -->
           <div style="padding:6px 0">

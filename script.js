@@ -5558,6 +5558,10 @@ var I18N = {
       task_remind_start: "Boshlanishida eslat",
       task_auto_pomo: "🍅 Boshlanganda Pomodoro'ni avto-yoqish",
       time_view_btn: "🕒 Vaqt",
+      dm_title: "💸 Qarz jazosi turi",
+      dm_desc: "Tanga balansi manfiyga tushganda qanday jazo berilishini tanlang.",
+      dm_tasks_lbl: "🏋️ Jazo vazifalari (har qatorga bittadan)",
+      dm_tasks_save: "💾 Saqlash",
       kbs_title: "Klaviatura yorliqlari",
       kbs_desc: "Tugmani bosing va yangi tugmani tanlang. 1–7 bo'limlar uchun band.",
       kbs_view_btn: "👀 Ro'yxatni ko'rish",
@@ -5598,6 +5602,10 @@ var I18N = {
       task_remind_start: "Remind me at the start",
       task_auto_pomo: "🍅 Auto-start Pomodoro at the start",
       time_view_btn: "🕒 Time",
+      dm_title: "💸 Debt penalty type",
+      dm_desc: "Choose what happens when your coin balance goes negative.",
+      dm_tasks_lbl: "🏋️ Penalty tasks (one per line)",
+      dm_tasks_save: "💾 Save",
       kbs_title: "Keyboard shortcuts",
       kbs_desc: "Click a key and press a new one. 1–7 are reserved for sections.",
       kbs_view_btn: "👀 View list",
@@ -5638,6 +5646,10 @@ var I18N = {
       task_remind_start: "Напомнить в начале",
       task_auto_pomo: "🍅 Автозапуск Pomodoro в начале",
       time_view_btn: "🕒 Время",
+      dm_title: "💸 Тип штрафа за долг",
+      dm_desc: "Выберите, что происходит, когда баланс монет уходит в минус.",
+      dm_tasks_lbl: "🏋️ Штрафные задания (по одному в строке)",
+      dm_tasks_save: "💾 Сохранить",
       kbs_title: "Горячие клавиши",
       kbs_desc: "Нажмите на клавишу и выберите новую. 1–7 заняты под разделы.",
       kbs_view_btn: "👀 Показать список",
@@ -7241,6 +7253,7 @@ function toggleSettingsSubCard(cardId) {
   body.style.display = isOpen ? 'none' : 'block';
   card.classList.toggle('open', !isOpen);
   try { if (typeof SFX !== 'undefined' && SFX.click) SFX.click(); } catch (e) {}
+  if (cardId === 'gamification-rules-card' && !isOpen) { try { renderDebtModeSettings(); } catch (e) {} }
 }
 
 // ⚠️ Strict Rules & Penalties — accordion: bosilganda hamma qoidalar ochiladi/yopiladi
@@ -7380,6 +7393,7 @@ function getLevel(xp) {
 
 function addXP(amount, reason) {
   if(!S.xp) S.xp = 0;
+  if (amount > 0 && (S.coins || 0) < 0 && typeof debtMode === 'function' && debtMode() === 'xp') amount = Math.ceil(amount / 2);
   const oldLevel = getLevel(S.xp).level;
   S.xp += amount;
   if(S.xp < 0) S.xp = 0; // XP manfiy bo'lib qolmasin (Undone qaytarilganda)
@@ -7516,7 +7530,10 @@ function applyDebtEarningPenalty(amount) {
   var amt = Number(amount) || 0;
   if (amt <= 0) return amt;
   if ((S.coins || 0) >= 0) return amt;
-  return Math.ceil(amt / 1.5);
+  var m = debtMode();
+  if (m === 'hardcore') return Math.ceil(amt / 2);
+  if (m === 'lock') return Math.ceil(amt / 1.5);
+  return amt; // foiz / jazo vazifasi / XP rejimlarida tanga kamaytirilmaydi
 }
 function addLifetimeCoins(amount) {
   // Faqat musbat qiymatlar S.totalCoins ga qo'shiladi — manfiy/nol qiymat
@@ -10967,7 +10984,7 @@ function renderProfileQuick() {
 }
 
 function showProfileSubtab(name) {
-  if (name === 'settings') { try { renderAutoSnapshots(); } catch (e) {} try { renderKbSettings(); } catch (e) {} }
+  if (name === 'settings') { try { renderAutoSnapshots(); } catch (e) {} try { renderKbSettings(); } catch (e) {} try { renderDebtModeSettings(); } catch (e) {} }
   ['overview','stats','badges','settings'].forEach(function(n){
     var panel = document.getElementById('profile-subtab-'+n);
     if (panel) panel.style.display = (n===name) ? '' : 'none';
@@ -12643,7 +12660,7 @@ function renderDebtBanner() {
   if (!el) return;
   var c = S.coins || 0;
   var tier = getDebtTier();
-  if (tier === 0) { el.style.display = 'none'; el.innerHTML=''; return; }
+  if (c >= 0 || (debtMode() === 'lock' && tier === 0)) { el.style.display = 'none'; el.innerHTML=''; return; }
 
   var debt = Math.abs(c); // yopish uchun kerakli miqdor
   var scaleMax = Math.max(debt, Math.abs(DEBT_TIER2_THRESHOLD));
@@ -12654,6 +12671,15 @@ function renderDebtBanner() {
   var barColor = tier === 2 ? 'var(--red)' : 'var(--gold)';
   var title = tier === 2 ? t('debt_banner_tier2_title') : t('debt_banner_tier1_title');
   var subtitle = t('debt_banner_remaining').replace('{amount}', debt);
+  var _dm = debtMode(), _di = debtModeInfo(_dm);
+  if (_dm !== 'lock') {
+    title = _di.icon + ' ' + _di.name + ' · ' + _cl('qarzdasiz', 'in debt', 'в долгу');
+    if (_dm === 'task') { var _dt = debtTaskToday(); subtitle = (_dt && !_dt.done) ? ('🏋️ ' + _cl('Bugungi jazo', "Today's penalty", 'Штраф на сегодня') + ': <b>' + esc((_dt.emoji ? _dt.emoji + ' ' : '') + _dt.name) + '</b> — ' + _cl('bajarsangiz mukofotlar ochiladi', 'complete it to unlock rewards', 'выполните, чтобы открыть награды')) : ('✅ ' + _cl('Bugungi jazo bajarildi — mukofotlar ochiq', "Today's penalty done — rewards unlocked", 'Штраф выполнен — награды открыты')); }
+    else if (_dm === 'interest') subtitle = '📈 ' + _cl('Ertaga qarz', 'Tomorrow debt grows by', 'Завтра долг вырастет на') + ' +' + Math.min(20, Math.max(1, Math.round(debt * 0.1))) + ' 🪙 ' + _cl("ga o'sadi", '', '') + ' · ' + subtitle;
+    else if (_dm === 'xp') subtitle = '⭐ ' + _cl('Ertaga', 'Tomorrow you lose', 'Завтра потеряете') + ' −' + Math.min(50, debt) + ' XP · ' + subtitle;
+    else if (_dm === 'hardcore') subtitle = '💀 ' + _cl('Mukofotlar, Spin va Chest yopiq', 'Rewards, Spin and Chest are locked', 'Награды, Spin и Chest закрыты') + ' · ' + subtitle;
+  }
+  if (tier === 0) tier = 1; // bloklanmaydigan rejimlarda ham banner sariq rangda ko'rinadi
 
   el.style.display = '';
   el.style.background = bg;
@@ -12850,6 +12876,10 @@ var DEBT_TIER2_THRESHOLD = -30;
 
 function getDebtTier() {
   var c = S.coins || 0;
+  var m = debtMode();
+  if (m === 'hardcore') return c < 0 ? 2 : 0;          // har qanday qarzda — hammasi bloklangan
+  if (m === 'task') return (c < 0 && !debtTaskDoneToday()) ? 2 : 0;
+  if (m === 'interest' || m === 'xp') return 0;        // mukofotlar bloklanmaydi
   if (c > DEBT_TIER1_THRESHOLD) return 0;
   if (c <= DEBT_TIER2_THRESHOLD) return 2;
   return 1;
@@ -12863,6 +12893,119 @@ function isRewardBlockedByDebt(rewardId) {
   var problemId = getMostProblematicRewardId();
   return problemId !== null && rewardId === problemId;
 }
+
+// =====================================================================
+// 💸 QARZ JAZOSI TURLARI — foydalanuvchi 5 tadan birini tanlaydi
+// =====================================================================
+var DEBT_MODES = ['lock', 'interest', 'task', 'xp', 'hardcore'];
+function debtMode() { return DEBT_MODES.indexOf(S.debtMode) !== -1 ? S.debtMode : 'lock'; }
+function debtModeInfo(m) {
+  m = m || debtMode();
+  var I = {
+    lock: { icon: '🔒', name: _cl('Klassik bloklash', 'Classic lock', 'Классическая блокировка'),
+      desc: _cl("−10 🪙 dan eng ko'p ishlatgan mukofotingiz bloklanadi, −30 dan pastda — hammasi. Qarzda tanga 1.5x kam beriladi.", 'At −10 🪙 your most-used reward is locked, below −30 all of them. Coins earned are reduced 1.5x while in debt.', 'При −10 🪙 блокируется самая используемая награда, ниже −30 — все. В долгу монеты начисляются в 1.5 раза меньше.') },
+    interest: { icon: '📈', name: _cl('Foiz (kredit)', 'Interest (loan)', 'Проценты (кредит)'),
+      desc: _cl("Mukofotlar ochiq, lekin qarz har kuni 10% ga o'sadi (kamida 1, ko'pi bilan 20 🪙). Tezroq yoping!", 'Rewards stay open, but your debt grows 10% every day (min 1, max 20 🪙). Pay it off fast!', 'Награды открыты, но долг растёт на 10% в день (мин. 1, макс. 20 🪙).') },
+    task: { icon: '🏋️', name: _cl('Jazo vazifasi', 'Penalty task', 'Штрафное задание'),
+      desc: _cl("Qarzda ekaningizda har kuni bitta jazo vazifasi qo'shiladi. Uni bajarmaguningizcha barcha mukofotlar o'sha kuni yopiq.", 'While in debt, a penalty task is added every day. All rewards stay locked that day until you complete it.', 'В долгу каждый день добавляется штрафное задание. Пока не выполните — все награды закрыты.') },
+    xp: { icon: '⭐', name: _cl('XP jarimasi', 'XP penalty', 'Штраф XP'),
+      desc: _cl("Mukofotlar ochiq, lekin har kuni qarz miqdoricha XP yo'qotasiz (ko'pi bilan 50) va XP 2x kam beriladi — daraja tushishi mumkin!", 'Rewards stay open, but you lose XP equal to your debt every day (max 50) and earn XP at half rate — you can drop a level!', 'Награды открыты, но каждый день теряете XP по размеру долга (макс. 50), XP начисляется вдвое меньше.') },
+    hardcore: { icon: '💀', name: _cl('Qattiq rejim', 'Hardcore', 'Хардкор'),
+      desc: _cl("Balans 0 dan pastga tushishi bilan BARCHA mukofotlar, Spin va Chest yopiladi, tanga 2x kam beriladi.", 'As soon as the balance drops below 0, ALL rewards, Spin and Chest are locked and coins are earned at half rate.', 'Как только баланс ниже 0 — закрыты ВСЕ награды, Spin и Chest, монеты вдвое меньше.') }
+  };
+  return I[m] || I.lock;
+}
+var DEBT_TASK_DEFAULTS = [
+  ['🏋️', "20 ta o'tirib-turish", '20 squats', '20 приседаний'],
+  ['📵', '1 soat telefonsiz', '1 hour without phone', '1 час без телефона'],
+  ['🧹', "Xonani yig'ishtirish", 'Tidy up your room', 'Убраться в комнате'],
+  ['📖', "20 daqiqa kitob o'qish", 'Read for 20 minutes', 'Читать 20 минут'],
+  ['🚶', '30 daqiqa piyoda yurish', 'Walk for 30 minutes', 'Прогулка 30 минут'],
+  ['💪', '15 ta otjimaniya', '15 push-ups', '15 отжиманий'],
+  ['🧊', 'Sovuq dush', 'Cold shower', 'Холодный душ']
+];
+function debtTaskList() {
+  if (Array.isArray(S.debtTaskList) && S.debtTaskList.length) return S.debtTaskList;
+  return DEBT_TASK_DEFAULTS.map(function (x) { return x[0] + ' ' + _cl(x[1], x[2], x[3]); });
+}
+function debtTaskToday() {
+  var td = today();
+  return (S.tasks || []).find(function (t) { return t.isDebtTask && t.debtDate === td; }) || null;
+}
+function debtTaskDoneToday() { var t = debtTaskToday(); return !!(t && t.done); }
+// Jazo vazifasi rejimi: qarzda bo'lsa bugungi jazo vazifasini qo'shadi, qarz yopilsa olib tashlaydi
+function ensureDebtTask() {
+  var td = today(), inDebt = (S.coins || 0) < 0 && debtMode() === 'task';
+  var changed = false;
+  // eski (bajarilmagan) jazo vazifalari va qarz yopilgandagilar olib tashlanadi
+  var before = S.tasks.length;
+  S.tasks = S.tasks.filter(function (t) { return !t.isDebtTask || (t.done && t.debtDate === td) || (inDebt && t.debtDate === td); });
+  if (S.tasks.length !== before) changed = true;
+  if (inDebt && !debtTaskToday()) {
+    var list = debtTaskList();
+    var idx = Math.floor(new Date(td + 'T00:00:00').getTime() / 864e5) % list.length;
+    var nm = String(list[idx] || list[0]);
+    var em = (nm.match(/^(\p{Extended_Pictographic}\uFE0F?)\s*/u) || [])[1] || '⚖️';
+    S.tasks.push({ id: S.nextId++, name: nm.replace(/^(\p{Extended_Pictographic}\uFE0F?)\s*/u, ''), emoji: em, diff: 0, coins: 0, penalty: 0,
+      repeat: 'once', days: null, interval: null, nextDate: null, strictSchedule: false, dueDate: null, remindAt: null,
+      startTime: null, endTime: null, pinned: true, done: false, doneDate: null, skipped: false, skippedDate: null, lastDoneDate: null,
+      createdAt: td, label: '#ef4444', note: _cl('Qarz jazosi — bajarsangiz bugun mukofotlar ochiladi', 'Debt penalty — complete it to unlock rewards today', 'Штраф за долг — выполните, чтобы открыть награды'),
+      isFrozen: false, frozenAt: null, subtasks: [], isDebtTask: true, debtDate: td });
+    try { ensureFullTaskOrder(); } catch (e) {}
+    changed = true;
+    setTimeout(function () { try { toast('🏋️ ' + _cl('Qarz jazosi: bugungi jazo vazifasi qo\'shildi', 'Debt penalty: today\'s penalty task was added', 'Штраф: добавлено штрафное задание')); } catch (e) {} }, 800);
+  }
+  return changed;
+}
+// Kunlik jazo (foiz / XP) — kuniga bir marta, ilova ochilganda
+function debtDailyTick() {
+  var td = today();
+  if (S.debtTickDate === td) return false;
+  S.debtTickDate = td;
+  var c = S.coins || 0;
+  if (c >= 0) return true;
+  var m = debtMode();
+  if (m === 'interest') {
+    var add = Math.min(20, Math.max(1, Math.round(Math.abs(c) * 0.1)));
+    S.coins = c - add;
+    addTarixLog('out', '📈 ' + _cl('Qarz foizi (10%)', 'Debt interest (10%)', 'Проценты по долгу (10%)'), -add, 'debt-interest');
+    setTimeout(function () { try { toast('📈 ' + _cl('Qarz foizi', 'Debt interest', 'Проценты по долгу') + ': −' + add + ' 🪙'); } catch (e) {} }, 1500);
+  } else if (m === 'xp') {
+    var lose = Math.min(50, Math.abs(c), S.xp || 0);
+    if (lose > 0) {
+      addXP(-lose, _cl('Qarz jarimasi', 'Debt penalty', 'Штраф за долг'));
+      setTimeout(function () { try { toast('⭐ ' + _cl('Qarz jarimasi', 'Debt penalty', 'Штраф за долг') + ': −' + lose + ' XP'); } catch (e) {} }, 1500);
+    }
+  }
+  return true;
+}
+function setDebtMode(m) {
+  if (DEBT_MODES.indexOf(m) === -1) return;
+  if ((S.coins || 0) < 0 && m !== debtMode()) {
+    toast('🚫 ' + _cl("Qarzda ekaningizda jazo turini o'zgartirib bo'lmaydi — avval qarzni yoping", "You can't change the penalty type while in debt — pay it off first", 'Нельзя менять тип штрафа, пока вы в долгу'));
+    return;
+  }
+  S.debtMode = m; S.debtTickDate = today(); save();
+  renderDebtModeSettings(); try { render(); } catch (e) {}
+  toast(debtModeInfo(m).icon + ' ' + debtModeInfo(m).name);
+}
+function renderDebtModeSettings() {
+  var box = document.getElementById('debt-mode-list'); if (!box) return;
+  var cur = debtMode(), locked = (S.coins || 0) < 0;
+  box.innerHTML = DEBT_MODES.map(function (m) {
+    var I = debtModeInfo(m);
+    return '<button type="button" class="dm-opt' + (m === cur ? ' sel' : '') + (locked && m !== cur ? ' dis' : '') + '" onclick="setDebtMode(\'' + m + '\')">' +
+      '<span class="dm-ic">' + I.icon + '</span><span class="dm-tx"><b>' + I.name + '</b><span>' + I.desc + '</span></span><span class="dm-radio"></span></button>';
+  }).join('') + (locked ? '<div class="dm-note">🔒 ' + _cl("Qarzda ekaningizda o'zgartirib bo'lmaydi", "Locked while you're in debt", 'Нельзя изменить в долгу') + '</div>' : '');
+  var ta = document.getElementById('debt-task-list-input');
+  if (ta) { ta.value = debtTaskList().join('\n'); ta.parentNode.style.display = cur === 'task' ? '' : 'none'; }
+}
+function saveDebtTaskList(val) {
+  var arr = String(val || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 30);
+  S.debtTaskList = arr.length ? arr : null; save();
+  toast('✅ ' + _cl('Jazo vazifalari saqlandi', 'Penalty tasks saved', 'Штрафные задания сохранены'));
+}
+window.setDebtMode = setDebtMode; window.saveDebtTaskList = saveDebtTaskList; window.renderDebtModeSettings = renderDebtModeSettings;
 
 function checkDebtTransition() {
   var c = S.coins || 0;
@@ -13092,6 +13235,7 @@ function render() {
   try { renderProfileQuick(); } catch (e) {}
   try { renderQuests(); } catch (e) {}
   setTimeout(function () { try { initSubtaskSortables(); } catch (e) {} }, 0);
+  try { if (debtDailyTick() | ensureDebtTask()) save(); } catch (e) { console.warn('debt', e); }
   checkDebtTransition();
   (function(){
     var pill = document.getElementById('header-coins-pill');
@@ -15602,6 +15746,7 @@ function renderSpin() {
 // tizilib, chapga siljib boradi va markaziy ko'rsatkich ostida to'xtaydi.
 function doSpin() {
   if(spinRunning) return;
+  if (debtMode() === 'hardcore' && (S.coins || 0) < 0) { toast('💀 ' + _cl('Qattiq rejim: qarzda Spin yopiq', 'Hardcore: Spin is locked while in debt', 'Хардкор: Spin закрыт в долгу')); return; }
   if(hasSpunToday()){ toast(t('spin_already_used_toast')); return; }
 
   markSpunToday();
@@ -21596,6 +21741,7 @@ function deleteChestTask(id) {
 }
 
 function openChestInline() {
+  if (debtMode() === 'hardcore' && (S.coins || 0) < 0) { toast('💀 ' + _cl('Qattiq rejim: qarzda Chest yopiq', 'Hardcore: Chest is locked while in debt', 'Хардкор: Chest закрыт в долгу')); return; }
   if (!S.chestTasks || S.chestTasks.length === 0) {
     toast(t('chest_add_first_toast'));
     return;
@@ -21749,6 +21895,7 @@ function claimChestTask(btn, bonusCoins, uid) {
 }
 
 function openChest() {
+  if (debtMode() === 'hardcore' && (S.coins || 0) < 0) { toast('💀 ' + _cl('Qattiq rejim: qarzda Chest yopiq', 'Hardcore: Chest is locked while in debt', 'Хардкор: Chest закрыт в долгу')); return; }
   if (!S.chestTasks || S.chestTasks.length === 0) {
     toast(t('chest_no_tasks_toast'));
     return;
