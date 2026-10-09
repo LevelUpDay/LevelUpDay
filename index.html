@@ -1580,89 +1580,62 @@
     </div>
 
     <!-- Actual content (shown after PIN) -->
-    <div id="secret-content" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div id="secret-content" class="pc-wrap" style="display:none">
+      <div class="pc-head">
         <div>
-          <div style="font-family:Syne,sans-serif;font-size:var(--fs-xl);font-weight:700;color:var(--text)" data-i18n="sec_page_title">🔐 Shaxsiy nazorat</div>
-          <div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px" data-i18n="sec_page_subtitle">Shaxsiy odat kuzatuvi</div>
+          <div class="pc-title" data-i18n="sec_page_title">🔐 Shaxsiy nazorat</div>
+          <div class="pc-sub" data-i18n="sec_page_subtitle">Shaxsiy odat kuzatuvi</div>
         </div>
-        <div id="secret-streak-badge" style="background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3);border-radius:var(--radius-full);padding:6px 14px;font-size:var(--fs-sm);font-weight:600;color:#34D399"></div>
-      </div>
-
-      <!-- Log section: kecha (agar kiritilmagan) yoki bugun (agar kecha allaqachon kiritilgan) -->
-      <div id="secret-log-section" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:14px">
-        <div id="secret-log-label" style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px">Kecha</div>
-        <!-- Tugmalar avtomatik/majburiy chiqmaydi — foydalanuvchi o'zi "Belgilash" tugmasini bossagina ko'rinadi.
-             Bu "notification"ga o'xshab har safar majburan savol berilishining oldini oladi. -->
-        <div id="secret-log-buttons" style="display:none;gap:10px">
-          <button id="sec-btn-yes" onclick="secretLogCurrent('clean')" style="flex:1;padding:14px 10px;border-radius:var(--radius-md);border:2px solid rgba(52,211,153,0.3);background:rgba(52,211,153,0.08);color:#34D399;font-size:var(--fs-base);font-weight:600;cursor:pointer;font-family:DM Sans,sans-serif;transition:all 0.2s" data-i18n="sec_btn_yes">✅ Qilmadim (yaxshi)</button>
-          <button id="sec-btn-no"  onclick="secretLogCurrent('fail')"  style="flex:1;padding:14px 10px;border-radius:var(--radius-md);border:2px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.08);color:#F87171;font-size:var(--fs-base);font-weight:600;cursor:pointer;font-family:DM Sans,sans-serif;transition:all 0.2s" data-i18n="sec_btn_no">❌ Qildim (yiqildim)</button>
-        </div>
-        <div id="secret-today-status" style="text-align:center;margin-top:0;font-size:var(--fs-sm);color:var(--text-muted)"></div>
-      </div>
-
-      <!-- Calendar last 30 days -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:14px">
-        <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px" data-i18n="sec_last30_title">Oxirgi 30 kun</div>
-        <div id="secret-calendar" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px"></div>
-        <div style="display:flex;gap:12px;margin-top:12px;justify-content:center">
-          <span style="font-size:var(--fs-xs);color:var(--text-muted);display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:var(--radius-2xs);background:#34D399;display:inline-block"></span><span data-i18n="sec_legend_clean">Qilmadim</span></span>
-          <span style="font-size:var(--fs-xs);color:var(--text-muted);display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:var(--radius-2xs);background:#F87171;display:inline-block"></span><span data-i18n="sec_legend_fail">Qildim</span></span>
-          <span style="font-size:var(--fs-xs);color:var(--text-muted);display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:var(--radius-2xs);background:var(--surface2);display:inline-block"></span><span data-i18n="sec_legend_empty">Kiritilmagan</span></span>
+        <div class="pc-head-btns">
+          <button class="pc-icon" onclick="openChangePinModal()" title="PIN">🔑</button>
+          <button class="pc-icon" onclick="lockSecret()" title="Lock">🔒</button>
         </div>
       </div>
+      <div id="secret-streak-badge" style="display:none"></div>
+      <span id="sec-stat-streak" style="display:none"></span>
 
-      <!-- Tanga mukofotlari jadvali -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:14px">
-        <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px" data-i18n="sec_coin_system_title">🪙 Tanga tizimi</div>
-        <div id="sec-coin-table" style="display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm);color:var(--text-muted)"></div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button id="sec-cfg-edit-btn" type="button" onclick="secCfgToggleEdit()" style="flex:1;padding:9px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text);font-size:var(--fs-xs);cursor:pointer">✏️</button>
-          <button id="sec-cfg-reset-btn" type="button" onclick="secCfgReset()" style="display:none;padding:9px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-xs);cursor:pointer">↺</button>
-        </div>
-      </div>
+      <!-- Streak halqasi -->
+      <div id="pc-hero" class="pc-hero"></div>
 
-      <!-- Stats -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;text-align:center">
-          <div id="sec-stat-streak" style="font-size:var(--fs-2xl);font-weight:700;color:#34D399;font-family:Syne,sans-serif">0</div>
-          <div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-top:3px" data-i18n="sec_streak_label">🔥 Streak</div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;text-align:center">
-          <div id="sec-stat-total" style="font-size:var(--fs-2xl);font-weight:700;color:var(--accent);font-family:Syne,sans-serif">0</div>
-          <div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-top:3px" data-i18n="sec_total_days_label">Jami kun</div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;text-align:center">
-          <div id="sec-stat-best" style="font-size:var(--fs-2xl);font-weight:700;color:var(--gold);font-family:Syne,sans-serif">0</div>
-          <div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-top:3px" data-i18n="sec_record_label">🏆 Record</div>
-        </div>
+      <!-- Belgilash: bir bosishda -->
+      <div id="secret-log-section" class="pc-card pc-log"></div>
+      <div id="secret-log-buttons" style="display:none"></div>
+      <div id="secret-today-status" style="display:none"></div>
+      <div id="secret-log-label" style="display:none"></div>
+
+      <!-- Kalendar -->
+      <div class="pc-card">
+        <div class="pc-card-t" data-i18n="sec_last30_title">Oxirgi 30 kun</div>
+        <div id="secret-calendar" class="pc-cal"></div>
       </div>
 
       <!-- Haftalik trend -->
-      <div id="sec-weekly-trend" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:14px">
-        <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px" data-i18n="sec_weekly_trend_title">📈 Haftalik trend</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="text-align:center">
-            <div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-bottom:4px" data-i18n="sec_last_week_label">O'tgan hafta</div>
-            <div id="sec-trend-last" style="font-size:var(--fs-xl);font-weight:700;font-family:Syne,sans-serif;color:var(--text)">0/7</div>
-          </div>
-          <div id="sec-trend-arrow" style="font-size:var(--fs-3xl)">➡️</div>
-          <div style="text-align:center">
-            <div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-bottom:4px" data-i18n="sec_this_week_label">Bu hafta</div>
-            <div id="sec-trend-this" style="font-size:var(--fs-xl);font-weight:700;font-family:Syne,sans-serif;color:var(--text)">0/7</div>
-          </div>
+      <div id="sec-weekly-trend" class="pc-card">
+        <div class="pc-card-t" data-i18n="sec_weekly_trend_title">📈 Haftalik trend</div>
+        <div class="pc-trend">
+          <div><span data-i18n="sec_last_week_label">O'tgan hafta</span><b id="sec-trend-last">0/7</b></div>
+          <div id="sec-trend-arrow" class="pc-trend-arrow">➡️</div>
+          <div><span data-i18n="sec_this_week_label">Bu hafta</span><b id="sec-trend-this">0/7</b></div>
         </div>
-        <div id="sec-trend-msg" style="text-align:center;font-size:var(--fs-sm);font-weight:600;padding:8px 12px;border-radius:var(--radius-sm)"></div>
+        <div id="sec-trend-bars" class="pc-trend-bars"></div>
+        <div id="sec-trend-msg" class="pc-trend-msg"></div>
       </div>
 
-      <!-- Tarix -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:14px">
-        <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:10px" data-i18n="sec_history_title">📋 Tarix</div>
-        <div id="secret-history-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto"></div>
-      </div>
+      <!-- Tanga tizimi (yig'iladigan) -->
+      <details class="pc-card pc-det">
+        <summary class="pc-card-t" data-i18n="sec_coin_system_title">🪙 Tanga tizimi</summary>
+        <div id="sec-coin-table" style="display:flex;flex-direction:column;gap:6px;font-size:var(--fs-sm);color:var(--text-muted);margin-top:10px"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="sec-cfg-edit-btn" type="button" class="pc-sbtn" onclick="secCfgToggleEdit()" style="flex:1">✏️</button>
+          <button id="sec-cfg-reset-btn" type="button" class="pc-sbtn" onclick="secCfgReset()" style="display:none">↺</button>
+        </div>
+      </details>
 
-      <button onclick="openChangePinModal()" style="width:100%;padding:12px;border-radius:var(--radius-md);border:1px solid rgba(124,92,252,0.3);background:rgba(124,92,252,0.08);color:var(--accent);font-size:var(--fs-sm);cursor:pointer;font-family:DM Sans,sans-serif;margin-bottom:8px" data-i18n="sec_change_pin_btn">🔑 PIN ni o'zgartirish</button>
-      <button onclick="lockSecret()" style="width:100%;padding:12px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer;font-family:DM Sans,sans-serif" data-i18n="sec_lock_btn">🔒 Qulflash</button>
+      <!-- Tarix (yig'iladigan) -->
+      <details class="pc-card pc-det">
+        <summary class="pc-card-t" data-i18n="sec_history_title">📋 Tarix</summary>
+        <div id="secret-history-list" class="pc-hist-list"></div>
+      </details>
     </div>
   </div>
 

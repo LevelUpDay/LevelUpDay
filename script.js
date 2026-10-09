@@ -6038,6 +6038,7 @@ var SFX = (function () {
   var STORAGE_KEY = 'soundEnabled';
   var VOLUME_STORAGE_KEY = 'sfxVolume'; // 0..1 oralig'ida saqlanadi (Master Volume slider)
   var ctx = null;
+  var _noiseBuf = null;
   var master = null;      // barcha tovushlar shu orqali o'tadi — umumiy balandlik shu yerda cheklanadi
   var MASTER_CEILING = 0.25; // mayin, bezovta qilmaydigan umumiy balandlik (100% volume'dagi tepa nuqta)
   var enabled = true; // Alohida on/off switch olib tashlandi — endi mute faqat Master Volume (0%) orqali
@@ -6055,7 +6056,14 @@ var SFX = (function () {
         ctx = new AC();
         master = ctx.createGain();
         master.gain.value = MASTER_CEILING * volume;
-        master.connect(ctx.destination);
+        // 🔊 Limiter: bir vaqtda ko'p tovush chalinganda (masalan ko'p vazifa birdan
+        // belgilanganda) ovoz chegaradan oshib xirillamasligi uchun
+        try {
+          var lim = ctx.createDynamicsCompressor();
+          lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12;
+          lim.attack.value = 0.003; lim.release.value = 0.2;
+          master.connect(lim); lim.connect(ctx.destination);
+        } catch (e2) { master.connect(ctx.destination); }
       } catch (e) { ctx = null; master = null; }
     }
     if (ctx && ctx.state === 'suspended') {
@@ -6064,14 +6072,20 @@ var SFX = (function () {
     return ctx;
   }
 
-  function unlockOnFirstGesture() {
-    var c = getCtx();
-    if (c && c.state === 'suspended') {
-      try { c.resume(); } catch (e) {}
-    }
+  // Har bir foydalanuvchi harakatida context to'xtab qolgan bo'lsa qayta yoqiladi
+  // (iOS'da qo'ng'iroq/boshqa ilovadan keyin 'interrupted' holatiga o'tadi va
+  // avval faqat birinchi bosishda yoqilgani uchun tovush butunlay yo'qolardi).
+  function unlockOnGesture() {
+    if (!ctx) { if (volume > 0) getCtx(); return; }
+    if (ctx.state !== 'running') { try { ctx.resume(); } catch (e) {} }
   }
-  ['pointerdown', 'touchstart', 'keydown'].forEach(function (evt) {
-    document.addEventListener(evt, unlockOnFirstGesture, { once: true, passive: true });
+  ['pointerdown', 'touchend', 'keydown'].forEach(function (evt) {
+    document.addEventListener(evt, unlockOnGesture, { passive: true, capture: true });
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (!ctx) return;
+    if (document.hidden) { try { ctx.suspend(); } catch (e) {} }
+    else { try { ctx.resume(); } catch (e) {} }
   });
 
   function isOn() { return enabled; }
@@ -6126,8 +6140,9 @@ var SFX = (function () {
   }
 
   function tone(opts) {
+    if (!enabled || volume <= 0.001) return;
     var c = getCtx();
-    if (!c || !enabled) return;
+    if (!c) return;
     var t0 = c.currentTime + (opts.delay || 0);
     var osc = c.createOscillator();
     osc.type = 'sine'; // faqat sinus — robotsimon square/sawtooth ishlatilmaydi
@@ -6164,8 +6179,9 @@ var SFX = (function () {
   }
 
   function noiseBurst(opts) {
+    if (!enabled || volume <= 0.001) return;
     var c = getCtx();
-    if (!c || !enabled) return;
+    if (!c) return;
     var dur    = opts.dur || 0.1;
     var start  = opts.delay || 0;
     var peak   = (opts.gain !== undefined) ? opts.gain : 0.15;
@@ -6174,13 +6190,16 @@ var SFX = (function () {
     var filterFreqEnd   = opts.filterEnd !== undefined ? opts.filterEnd : filterFreqStart;
     var t0 = c.currentTime + start;
 
-    var bufferSize = Math.max(1, Math.floor(c.sampleRate * dur));
-    var buffer = c.createBuffer(1, bufferSize, c.sampleRate);
-    var data = buffer.getChannelData(0);
-    for (var i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    // Shovqin buferi bir marta yaratiladi (har safar yangisini to'ldirish o'rniga)
+    if (!_noiseBuf || _noiseBuf.sampleRate !== c.sampleRate) {
+      var bufferSize = Math.floor(c.sampleRate * 1);
+      _noiseBuf = c.createBuffer(1, bufferSize, c.sampleRate);
+      var data = _noiseBuf.getChannelData(0);
+      for (var i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    }
 
     var src = c.createBufferSource();
-    src.buffer = buffer;
+    src.buffer = _noiseBuf;
 
     var filter = c.createBiquadFilter();
     filter.type = 'lowpass'; // faqat lowpass — mayin, quloqni cho'zmaydigan tembr
@@ -6296,6 +6315,18 @@ var SFX = (function () {
            sustain: 0.15, hold: 0, release: 0.13, filterFreq: 1600, filterFreqEnd: 850 });
   }
 
+  // Bir xil tovush juda tez-tez chalinmasin (masalan ommaviy "Bajarildi" — 10 ta
+  // akkord ustma-ust tushib, quloqni bezovta qilardi). Har bir tovush o'z oralig'iga ega.
+  var _lastPlay = {};
+  function throttled(name, fn, gapMs) {
+    return function () {
+      var now = Date.now();
+      if (_lastPlay[name] && now - _lastPlay[name] < gapMs) return;
+      _lastPlay[name] = now;
+      try { fn.apply(null, arguments); } catch (e) {}
+    };
+  }
+
   return {
     isOn: isOn,
     toggle: toggle,
@@ -6303,16 +6334,16 @@ var SFX = (function () {
     getVolume: getVolume,
     setVolume: setVolume,
     test: playTest,
-    taskCheck: playTaskCheck,
-    delete: playDelete,
-    firework: playFirework,
-    spinTick: playSpinTick,
-    spinWin: playSpinWin,
-    damage: playDamage,
-    gameOver: playGameOver,
-    coin: playCoin,
-    levelUp: playLevelUp,
-    click: playClick
+    taskCheck: throttled('taskCheck', playTaskCheck, 120),
+    delete: throttled('delete', playDelete, 100),
+    firework: throttled('firework', playFirework, 400),
+    spinTick: throttled('spinTick', playSpinTick, 35),
+    spinWin: throttled('spinWin', playSpinWin, 400),
+    damage: throttled('damage', playDamage, 90),
+    gameOver: throttled('gameOver', playGameOver, 800),
+    coin: throttled('coin', playCoin, 150),
+    levelUp: throttled('levelUp', playLevelUp, 800),
+    click: throttled('click', playClick, 45)
   };
 })();
 
@@ -6356,8 +6387,15 @@ var FocusAudio = (function () {
       master = actx.createGain();
       master.gain.value = 0.0001;
       master.connect(actx.destination);
+      // Fon tovushi o'ynayotganda context to'xtab qolsa (iOS qo'ng'iroq, boshqa ilova),
+      // keyingi bosishda avtomatik davom etadi.
+      ['pointerdown', 'touchend', 'keydown'].forEach(function (evt) {
+        document.addEventListener(evt, function () {
+          if (actx && playing && actx.state !== 'running') { try { actx.resume(); } catch (e) {} }
+        }, { passive: true, capture: true });
+      });
     }
-    if (actx.state === 'suspended') { try { actx.resume(); } catch (e) {} }
+    if (actx.state !== 'running') { try { actx.resume(); } catch (e) {} }
     return actx;
   }
 
@@ -17164,6 +17202,7 @@ function secretEditLog() {
   saveSecretData(d);
   if(statusEl) statusEl.textContent = t('ki_select_answer');
   render();
+  try { renderSecretContent(); } catch (e) {}
 }
 
 function secretLogCurrent(status) {
@@ -17177,162 +17216,123 @@ function renderSecretContent() {
   var t = today();
   var yday = yesterday();
   var ydMode = isYesterdayMode();
+  function dk(x) { return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
 
   if(ydMode && !log[yday] && log[t]) { delete log[t]; d.log = log; saveSecretData(d); }
   _secretLogTarget = 'yesterday';
   var activeDate = trackDate();
   var activeStatus = log[activeDate];
-  var labelEl = document.getElementById('secret-log-label');
-  if(labelEl) {
-    var adParts = activeDate.split('-');
-    var adNice = adParts[2] + '.' + adParts[1];
-    labelEl.textContent = tr(ydMode ? 'ki_yesterday_caps' : 'ki_today_caps') + ' (' + adNice + ')';
+  var cfg = secCfg();
+
+  // ---- statistika ----
+  var streak = calcSecretStreak(log);
+  var best = 0, total = 0, tmpStreak = 0, prevK = null;
+  var allDays = Object.keys(log).sort();
+  allDays.forEach(function(k){
+    if (log[k] === 'clean') {
+      total++;
+      tmpStreak = (prevK && log[prevK] === 'clean' && addDays(prevK, 1) === k) ? tmpStreak + 1 : 1;
+      if (tmpStreak > best) best = tmpStreak;
+    } else tmpStreak = 0;
+    prevK = k;
+  });
+  // 🐛 Boshlanish sanasi — saqlangan sana yoki eng birinchi yozuv (qaysi biri oldinroq bo'lsa)
+  var startDateStr = d.startDate || t;
+  if (allDays[0] && allDays[0] < startDateStr) startDateStr = allDays[0];
+  var daysSinceStart = Math.max(1, Math.round((new Date(t + 'T00:00:00') - new Date(startDateStr + 'T00:00:00')) / 86400000) + 1);
+
+  // ---- streak halqasi + keyingi daraja ----
+  var tiers = [5, 10, 20, 40, 75], next = null, prevTier = 0, curIcon = '🌱';
+  for (var ti = 0; ti < tiers.length; ti++) { if (streak < tiers[ti]) { next = tiers[ti]; break; } prevTier = tiers[ti]; curIcon = SEC_STREAK_TIER_ICON[tiers[ti]]; }
+  var ringPct = next ? (streak - prevTier) / (next - prevTier) : 1;
+  var C = 2 * Math.PI * 52;
+  var hero = document.getElementById('pc-hero');
+  if (hero) {
+    hero.innerHTML =
+      '<div class="pc-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="bg"/><circle cx="60" cy="60" r="52" class="fg" style="stroke-dasharray:' + C + ';stroke-dashoffset:' + (C * (1 - ringPct)) + '"/></svg>' +
+      '<div class="pc-ring-in"><b>' + streak + '</b><span>' + _cl('kun toza', 'clean days', 'дней чисто') + '</span></div></div>' +
+      '<div class="pc-hero-r"><div class="pc-tier">' + curIcon + ' ' + (streak > 0 ? tr('sec_streak_badge_active').replace('{n}', streak) : tr('sec_streak_badge_none')) + '</div>' +
+      (next ? '<div class="pc-next">' + _cl('Keyingi daraja', 'Next level', 'Следующий уровень') + ': ' + SEC_STREAK_TIER_ICON[next] + ' ' + next + ' ' + _cl('kun', 'days', 'дн.') +
+        ' · <b>' + (next - streak) + ' ' + _cl('kun qoldi', 'to go', 'осталось') + '</b> · +' + cfg.tiers[next] + ' 🪙</div>'
+        : '<div class="pc-next">👑 ' + _cl('Eng yuqori daraja!', 'Top level reached!', 'Высший уровень!') + '</div>') +
+      '<div class="pc-mini"><div><b id="sec-stat-best">' + best + '</b><span>🏆 ' + _cl('Rekord', 'Record', 'Рекорд') + '</span></div>' +
+      '<div><b id="sec-stat-total">' + total + '/' + daysSinceStart + '</b><span>✅ ' + _cl('Toza kunlar', 'Clean days', 'Чистые дни') + '</span></div>' +
+      '<div><b>' + (daysSinceStart ? Math.round(total / daysSinceStart * 100) : 0) + '%</b><span>📊 ' + _cl('Natija', 'Success', 'Успех') + '</span></div></div></div>';
   }
-  var statusEl = document.getElementById('secret-today-status');
-  var btnRow = document.getElementById('secret-log-buttons');
-  var btnYes = document.getElementById('sec-btn-yes');
-  var btnNo  = document.getElementById('sec-btn-no');
-  if(activeStatus === 'clean') {
-    if(btnRow) btnRow.style.display = 'flex';
-    statusEl.style.marginTop = '12px';
-    statusEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="color:#34D399;font-weight:600">✅ '+tr(ydMode ? 'ki_yesterday_clean' : 'ki_today_clean')+'</span><button onclick="secretEditLog()" style="padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-2xs);cursor:pointer;font-family:DM Sans,sans-serif">✏️ '+tr('btn_edit')+'</button></div>';
-    if(btnYes){btnYes.style.borderWidth='2px';btnYes.style.borderColor='#34D399';btnYes.style.background='rgba(52,211,153,0.2)';btnYes.style.opacity='1';btnYes.disabled=true;}
-    if(btnNo){btnNo.style.opacity='0.35';btnNo.disabled=true;}
-  } else if(activeStatus === 'fail' || activeStatus === 'fail2x') {
-    if(btnRow) btnRow.style.display = 'flex';
-    statusEl.style.marginTop = '12px';
-    var realPenalty = Math.abs(d.logCoins && d.logCoins[activeDate] || 5);
-    var penText = realPenalty >= 10 ? tr('ki_pen_2x') : tr('ki_pen_normal');
-    statusEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="color:#F87171;font-weight:600">'+tr('ki_fail_label')+' '+penText+'</span><button onclick="secretEditLog()" style="padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-2xs);cursor:pointer;font-family:DM Sans,sans-serif">✏️ '+tr('btn_edit')+'</button></div>';
-    if(btnNo){btnNo.style.borderWidth='2px';btnNo.style.borderColor='#F87171';btnNo.style.background='rgba(248,113,113,0.2)';btnNo.style.opacity='1';btnNo.disabled=true;}
-    if(btnYes){btnYes.style.opacity='0.35';btnYes.disabled=true;}
-  } else {
-    if(btnRow) btnRow.style.display = 'none';
-    if(btnYes){btnYes.style.opacity='1';btnYes.style.background='rgba(52,211,153,0.08)';btnYes.style.borderColor='rgba(52,211,153,0.3)';btnYes.disabled=false;}
-    if(btnNo){btnNo.style.opacity='1';btnNo.style.background='rgba(248,113,113,0.08)';btnNo.style.borderColor='rgba(248,113,113,0.3)';btnNo.disabled=false;}
-    statusEl.style.marginTop = '0';
-    statusEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>'+tr(ydMode ? 'ki_not_entered_yet' : 'ki_not_entered_today')+'</span><button onclick="revealSecretLogButtons()" style="padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border-hover);background:var(--surface2);color:var(--text);font-size:var(--fs-2xs);font-weight:600;cursor:pointer;font-family:DM Sans,sans-serif">✏️ '+tr('sec_mark_btn')+'</button></div>';
+
+  // ---- belgilash kartasi (bir bosishda) ----
+  var adParts = activeDate.split('-'), adNice = adParts[2] + '.' + adParts[1];
+  var card = document.getElementById('secret-log-section');
+  if (card) {
+    var q = ydMode ? _cl('Kecha qanday o\'tdi?', 'How was yesterday?', 'Как прошёл вчерашний день?') : _cl('Bugun qanday o\'tyapti?', 'How is today going?', 'Как проходит сегодня?');
+    var h = '<div class="pc-log-top"><span class="pc-log-date">' + tr(ydMode ? 'ki_yesterday_caps' : 'ki_today_caps') + ' · ' + adNice + '</span></div>';
+    if (activeStatus === 'clean' || activeStatus === 'fail' || activeStatus === 'fail2x') {
+      var ok = activeStatus === 'clean';
+      var amt = d.logCoins && d.logCoins[activeDate];
+      if (amt === undefined) amt = ok ? cfg.daily : -cfg.fail;
+      h += '<div class="pc-done ' + (ok ? 'ok' : 'bad') + '"><div class="pc-done-e">' + (ok ? '🛡️' : '💔') + '</div><div class="pc-done-t"><b>' +
+        (ok ? tr(ydMode ? 'ki_yesterday_clean' : 'ki_today_clean').replace(/\s*[+-]?\d+\s*🪙.*$/, '') : tr('ki_fail_label')) + '</b><span>' + (amt > 0 ? '+' : '') + amt + ' 🪙' +
+        (ok ? '' : ' · ' + _cl('Hech gap emas — bugun yangi kun 💪', 'It\'s okay — today is a new day 💪', 'Ничего — сегодня новый день 💪')) + '</span></div>' +
+        '<button class="pc-edit" onclick="secretEditLog()">✏️ ' + tr('btn_edit') + '</button></div>';
+    } else {
+      h += '<div class="pc-q">' + q + '</div><div class="pc-btns">' +
+        '<button class="pc-btn ok" data-pc="clean" onclick="secretLogCurrent(\'clean\')"><span class="pc-btn-e">🛡️</span><b>' + _cl('Bardosh berdim', 'Stayed strong', 'Устоял(а)') + '</b><i>+' + cfg.daily + ' 🪙</i></button>' +
+        '<button class="pc-btn bad" data-pc="fail" onclick="secretLogCurrent(\'fail\')"><span class="pc-btn-e">💔</span><b>' + _cl('Yiqildim', 'Slipped', 'Сорвался(ась)') + '</b><i>−' + cfg.fail + ' 🪙</i></button></div>';
+    }
+    card.innerHTML = h;
   }
-    // Calendar — last 30 days
+
+  // ---- kalendar: oxirgi 5 hafta, hafta kunlari bo'yicha ----
   var cal = document.getElementById('secret-calendar');
-  if(cal) {
-    var html = '';
-    var now = new Date();
-    for(var i=29;i>=0;i--){
-      var d2 = new Date(now); d2.setDate(now.getDate()-i);
-      var key = d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(d2.getDate()).padStart(2,'0');
-      var val = log[key];
-      var bg = val==='clean' ? '#34D399' : val==='fail2x' ? '#FF8C00' : val==='fail' ? '#F87171' : 'var(--surface2)';
-      var opacity = val ? '1' : '0.5';
-      var day = d2.getDate();
-      html += '<div title="'+key+'" style="aspect-ratio:1;border-radius:var(--radius-2xs);background:'+bg+';opacity:'+opacity+';display:flex;align-items:center;justify-content:center;font-size:var(--fs-3xs);color:'+(val?'rgba(0,0,0,0.6)':'var(--text-dim)')+'">'+day+'</div>';
+  if (cal) {
+    var wd = [_cl('Du','Mo','Пн'), _cl('Se','Tu','Вт'), _cl('Ch','We','Ср'), _cl('Pa','Th','Чт'), _cl('Ju','Fr','Пт'), _cl('Sh','Sa','Сб'), _cl('Ya','Su','Вс')];
+    var html = wd.map(function (w) { return '<div class="pc-wd">' + w + '</div>'; }).join('');
+    var now = new Date(); now.setHours(0, 0, 0, 0);
+    var start = new Date(now); start.setDate(now.getDate() - 28 - ((now.getDay() + 6) % 7));
+    for (var c = new Date(start); c <= now; c.setDate(c.getDate() + 1)) {
+      var key = dk(c), val = log[key];
+      var cls = val === 'clean' ? 'ok' : val === 'fail2x' ? 'bad2' : val === 'fail' ? 'bad' : '';
+      if (key === t) cls += ' today';
+      if (key === activeDate) cls += ' active';
+      html += '<div class="pc-day ' + cls + '" title="' + key + '">' + (val === 'clean' ? '✓' : val ? '✕' : c.getDate()) + '</div>';
     }
     cal.innerHTML = html;
   }
 
-  // Streak & stats
-  var streak = calcSecretStreak(log);
-  var best = 0; var total = 0;
-  var allDays = Object.keys(log).sort();
-  allDays.forEach(function(k){ if(log[k]==='clean') total++; });
-  var tmpStreak = 0;
-  allDays.forEach(function(k){
-    if(log[k]==='clean'){ tmpStreak++; if(tmpStreak>best) best=tmpStreak; }
-    else tmpStreak=0;
-  });
-
-  var startDateStr = d.startDate || allDays[0] || t;
-  var startDateObj = new Date(startDateStr + 'T00:00:00');
-  var todayObj = new Date(t + 'T00:00:00');
-  var daysSinceStart = Math.round((todayObj - startDateObj) / 86400000) + 1;
-  if (daysSinceStart < 1) daysSinceStart = 1;
-
-  var el1=document.getElementById('sec-stat-streak'); if(el1) el1.textContent=streak;
-  var el2=document.getElementById('sec-stat-total');  if(el2) el2.textContent=total + '/' + daysSinceStart;
-  var el3=document.getElementById('sec-stat-best');   if(el3) el3.textContent=best;
-  var badge=document.getElementById('secret-streak-badge');
-  if(badge) {
-    var tierIcon = '';
-    var tierThresholds = [75,40,20,10,5];
-    for (var ti=0; ti<tierThresholds.length; ti++) {
-      if (streak >= tierThresholds[ti]) { tierIcon = SEC_STREAK_TIER_ICON[tierThresholds[ti]] + ' '; break; }
-    }
-    badge.textContent = streak>0 ? (tierIcon + tr('sec_streak_badge_active').replace('{n}', streak)) : tr('sec_streak_badge_none');
-  }
-
-  // History list
+  // ---- tarix ----
   var histEl = document.getElementById('secret-history-list');
-  if(histEl) {
+  if (histEl) {
     var hist = d.history || [];
-    if(hist.length === 0) {
-      histEl.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-sm);text-align:center;padding:12px 0">'+tr('sec_history_empty')+'</div>';
-    } else {
-      var hhtml = '';
-      hist.forEach(function(item) {
-        var isClean = item.status === 'clean';
-        var is2x = item.status === 'fail2x';
-        var color = isClean ? '#34D399' : '#F87171';
-        var icon = isClean ? '✅' : (is2x ? '⚠️' : '❌');
-        var coinStr = (item.coins > 0 ? '+' : '') + item.coins + ' 🪙';
-        var coinColor = item.coins > 0 ? '#34D399' : '#F87171';
-        var streakStr = isClean && item.streak > 0 ? ' · 🔥'+item.streak : (is2x ? ' · '+tr('sec_history_2x_label') : '');
-        hhtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface2);border-radius:var(--radius-sm)">'
-          + '<div style="display:flex;align-items:center;gap:8px">'
-          + '<span style="font-size:var(--fs-base)">'+icon+'</span>'
-          + '<div><div style="font-size:var(--fs-sm);color:var(--text)">'+item.date+streakStr+'</div>'
-          + '</div></div>'
-          + '<span style="font-size:var(--fs-sm);font-weight:700;color:'+coinColor+'">'+coinStr+'</span>'
-          + '</div>';
-      });
-      histEl.innerHTML = hhtml;
-    }
+    if (!hist.length) histEl.innerHTML = '<div class="pc-empty">' + tr('sec_history_empty') + '</div>';
+    else histEl.innerHTML = hist.map(function (item) {
+      var isClean = item.status === 'clean', is2x = item.status === 'fail2x';
+      return '<div class="pc-hist ' + (isClean ? 'ok' : 'bad') + '"><span>' + (isClean ? '🛡️' : is2x ? '⚠️' : '💔') + ' ' + item.date +
+        (isClean && item.streak > 0 ? ' · 🔥' + item.streak : is2x ? ' · ' + tr('sec_history_2x_label') : '') + '</span><b>' + (item.coins > 0 ? '+' : '') + item.coins + ' 🪙</b></div>';
+    }).join('');
   }
 
-  // Haftalik trend
-  (function() {
-    var now = new Date();
-    function dateKey(d2) {
-      return d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(d2.getDate()).padStart(2,'0');
-    }
-    // Bu hafta: bugundan 6 kun oldin (0..6)
-    var thisWeek = 0, lastWeek = 0;
+  // ---- haftalik trend ----
+  (function () {
+    var now = new Date(), thisWeek = 0, lastWeek = 0;
     for (var i = 0; i < 7; i++) {
-      var d2 = new Date(now); d2.setDate(now.getDate() - i);
-      if (log[dateKey(d2)] === 'clean') thisWeek++;
-      var d3 = new Date(now); d3.setDate(now.getDate() - i - 7);
-      if (log[dateKey(d3)] === 'clean') lastWeek++;
+      var d2 = new Date(now); d2.setDate(now.getDate() - i); if (log[dk(d2)] === 'clean') thisWeek++;
+      var d3 = new Date(now); d3.setDate(now.getDate() - i - 7); if (log[dk(d3)] === 'clean') lastWeek++;
     }
-
-    var elLast  = document.getElementById('sec-trend-last');
-    var elThis  = document.getElementById('sec-trend-this');
-    var elArrow = document.getElementById('sec-trend-arrow');
-    var elMsg   = document.getElementById('sec-trend-msg');
+    var elLast = document.getElementById('sec-trend-last'), elThis = document.getElementById('sec-trend-this'), elArrow = document.getElementById('sec-trend-arrow'), elMsg = document.getElementById('sec-trend-msg');
     if (!elLast || !elThis || !elArrow || !elMsg) return;
-
-    elLast.textContent = lastWeek + '/7';
-    elThis.textContent = thisWeek + '/7';
-
-    var diff = thisWeek - lastWeek;
-    var arrow, color, bg, msg;
-    if (diff > 0) {
-      arrow = '📈'; color = '#34D399'; bg = 'rgba(52,211,153,0.1)';
-      msg = tr('sec_trend_up').replace('{diff}', diff);
-    } else if (diff < 0) {
-      arrow = '📉'; color = '#F87171'; bg = 'rgba(248,113,113,0.1)';
-      msg = tr('sec_trend_down').replace('{diff}', Math.abs(diff));
-    } else if (thisWeek === 0 && lastWeek === 0) {
-      arrow = '➡️'; color = 'var(--text-muted)'; bg = 'var(--surface2)';
-      msg = tr('sec_trend_no_data');
-    } else {
-      arrow = '➡️'; color = '#F5A623'; bg = 'rgba(245,166,35,0.1)';
-      msg = tr('sec_trend_same').replace('{n}', thisWeek);
+    elLast.textContent = lastWeek + '/7'; elThis.textContent = thisWeek + '/7';
+    var diff = thisWeek - lastWeek, arrow, color, msg;
+    if (diff > 0) { arrow = '📈'; color = '#34D399'; msg = tr('sec_trend_up').replace('{diff}', diff); }
+    else if (diff < 0) { arrow = '📉'; color = '#F87171'; msg = tr('sec_trend_down').replace('{diff}', Math.abs(diff)); }
+    else if (thisWeek === 0 && lastWeek === 0) { arrow = '➡️'; color = 'var(--text-muted)'; msg = tr('sec_trend_no_data'); }
+    else { arrow = '➡️'; color = '#F5A623'; msg = tr('sec_trend_same').replace('{n}', thisWeek); }
+    elArrow.textContent = arrow; elThis.style.color = color; elMsg.textContent = msg; elMsg.style.color = color;
+    var bar = document.getElementById('sec-trend-bars');
+    if (bar) {
+      var cells = '';
+      for (var j = 13; j >= 0; j--) { var dd = new Date(now); dd.setDate(now.getDate() - j); var v = log[dk(dd)]; cells += '<i class="' + (v === 'clean' ? 'ok' : v ? 'bad' : '') + (j === 6 ? ' sep' : '') + '"></i>'; }
+      bar.innerHTML = cells;
     }
-
-    elArrow.textContent = arrow;
-    elThis.style.color  = color;
-    elMsg.textContent   = msg;
-    elMsg.style.background = bg;
-    elMsg.style.color   = color;
   })();
 }
 
@@ -20355,6 +20355,11 @@ function _dsMove(el, target) {
   target.appendChild(el);
   _dsMoved.push({ el: el, marker: marker });
 }
+// Telefonda faqat 🕵️ belgisi ko'rinadi (nik siqilib qolmasin), kengroq ekranda yozuv ham
+function _pcQuickBtnHtml() {
+  var lbl = String(t('pc_quickaccess_btn') || ''), i = lbl.indexOf(' ');
+  return i > 0 ? '<span>' + esc(lbl.slice(0, i)) + '</span><span class="hs-lbl">' + esc(lbl.slice(i + 1)) + '</span>' : esc(lbl);
+}
 function renderDsShortcuts() {
   var showQuickAccess = !!(S.personalCheckEnabled && !S.pcHiddenFromQuickAccess);
 
@@ -20378,10 +20383,10 @@ function renderDsShortcuts() {
       btn.title = t('pc_info_title');
       btn.onclick = function(){ showTab('secret'); };
       btn.style.cssText = "height:36px;padding:0 12px;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--theme-toggle-bg);cursor:pointer;display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);font-weight:600;color:var(--text);transition:all 0.2s;flex-shrink:0;font-family:'DM Sans',sans-serif";
-      btn.textContent = t('pc_quickaccess_btn');
+      btn.innerHTML = _pcQuickBtnHtml();
       headerContainer.insertBefore(btn, headerContainer.firstChild);
     } else {
-      existingHeaderBtn.textContent = t('pc_quickaccess_btn');
+      existingHeaderBtn.innerHTML = _pcQuickBtnHtml();
     }
   } else if (existingHeaderBtn) {
     existingHeaderBtn.remove();
@@ -25249,9 +25254,25 @@ try {
     }
     return _pomoCtx;
   }
-  ['pointerdown', 'touchstart', 'keydown'].forEach(function (evt) {
-    document.addEventListener(evt, function () { pomoGetCtx(); }, { once: true, passive: true });
+  // Har bir harakatda (faqat birinchisida emas) to'xtagan context qayta yoqiladi —
+  // aks holda tanaffus signali jim qolishi mumkin edi.
+  ['pointerdown', 'touchend', 'keydown'].forEach(function (evt) {
+    document.addEventListener(evt, function () {
+      if (!_pomoCtx) { pomoGetCtx(); return; }
+      if (_pomoCtx.state !== 'running') { try { _pomoCtx.resume(); } catch (e) {} }
+    }, { passive: true, capture: true });
   });
+  var _pomoLimiter = null;
+  function pomoOut(ctx) {
+    if (_pomoLimiter && _pomoLimiter.context === ctx) return _pomoLimiter;
+    try {
+      _pomoLimiter = ctx.createDynamicsCompressor();
+      _pomoLimiter.threshold.value = -8; _pomoLimiter.knee.value = 6; _pomoLimiter.ratio.value = 12;
+      _pomoLimiter.attack.value = 0.003; _pomoLimiter.release.value = 0.25;
+      _pomoLimiter.connect(ctx.destination);
+      return _pomoLimiter;
+    } catch (e) { return ctx.destination; }
+  }
 
   function pomoTone(ctx, bus, n, now) {
     var osc = ctx.createOscillator();
@@ -25283,7 +25304,7 @@ try {
       var vol = typeof volume === 'number' ? Math.max(0, Math.min(1, volume)) : 0.7;
       var bus = ctx.createGain();
       bus.gain.value = vol * 4; // eski kod bilan bir xil umumiy balandlik darajasi
-      bus.connect(ctx.destination);
+      bus.connect(pomoOut(ctx)); // limiter orqali — balandlikda xirillamaydi
       notes.forEach(function (n) { pomoTone(ctx, bus, n, now); });
     }
     try {
@@ -25679,16 +25700,12 @@ try {
 
   /* ---------------- "Raqamli" (digital) ovozli signal — Web Audio API ---------------- */
   function pomoPlayDigitalBeep() {
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    var ctx;
-    try { ctx = new AC(); } catch (e) { return; }
-    var closed = false;
-    function safeClose() {
-      if (closed) return;
-      closed = true;
-      setTimeout(function () { try { ctx.close(); } catch (e) {} }, 1300);
-    }
+    // Umumiy Pomodoro context'i qayta ishlatiladi: avval har chaqiruvda yangi
+    // AudioContext ochilardi — taymer ichidan (foydalanuvchi bosmasdan) ochilgan
+    // context brauzer tomonidan to'xtatilgan holda qolib, signal eshitilmasdi.
+    var ctx = pomoGetCtx();
+    if (!ctx) return;
+    function safeClose() {}
     function playNow() {
       try {
         var now = ctx.currentTime;
@@ -25701,7 +25718,7 @@ try {
           gain.gain.linearRampToValueAtTime(0.16, now + start + 0.015);
           gain.gain.linearRampToValueAtTime(0, now + start + dur);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(pomoOut(ctx));
           osc.start(now + start);
           osc.stop(now + start + dur + 0.03);
         }
