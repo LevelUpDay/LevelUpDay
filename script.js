@@ -5556,6 +5556,7 @@ var I18N = {
     uz: {
       task_time_label: "🕒 Vaqt oralig'i (ixtiyoriy)",
       task_remind_start: "Boshlanishida eslat",
+      task_auto_pomo: "🍅 Boshlanganda Pomodoro'ni avto-yoqish",
       time_view_btn: "🕒 Vaqt",
       kbs_title: "Klaviatura yorliqlari",
       kbs_desc: "Tugmani bosing va yangi tugmani tanlang. 1–7 bo'limlar uchun band.",
@@ -5595,6 +5596,7 @@ var I18N = {
     en: {
       task_time_label: "🕒 Time block (optional)",
       task_remind_start: "Remind me at the start",
+      task_auto_pomo: "🍅 Auto-start Pomodoro at the start",
       time_view_btn: "🕒 Time",
       kbs_title: "Keyboard shortcuts",
       kbs_desc: "Click a key and press a new one. 1–7 are reserved for sections.",
@@ -5634,6 +5636,7 @@ var I18N = {
     ru: {
       task_time_label: "🕒 Время (необязательно)",
       task_remind_start: "Напомнить в начале",
+      task_auto_pomo: "🍅 Автозапуск Pomodoro в начале",
       time_view_btn: "🕒 Время",
       kbs_title: "Горячие клавиши",
       kbs_desc: "Нажмите на клавишу и выберите новую. 1–7 заняты под разделы.",
@@ -9545,6 +9548,7 @@ function openModal(e) {
   var _mr = document.getElementById('m-remind'); if (_mr) _mr.value = '';
   ['m-start', 'm-end'].forEach(function (i) { var el = document.getElementById(i); if (el) el.value = ''; });
   var _mrs = document.getElementById('m-remind-start'); if (_mrs) _mrs.checked = false;
+  var _map = document.getElementById('m-auto-pomo'); if (_map) _map.checked = false;
   setTaskEmoji('');
   document.getElementById('m-interval').value='4';
   selLabel('');
@@ -9573,6 +9577,7 @@ function editTask(id) {
   var _ms = document.getElementById('m-start'); if (_ms) _ms.value = tk.startTime || '';
   var _me = document.getElementById('m-end'); if (_me) _me.value = tk.endTime || '';
   var _mrs2 = document.getElementById('m-remind-start'); if (_mrs2) _mrs2.checked = !!(tk.startTime && tk.remindAt === tk.startTime);
+  var _map2 = document.getElementById('m-auto-pomo'); if (_map2) _map2.checked = !!(tk.startTime && tk.autoPomo);
   document.getElementById('m-interval').value = tk.interval || 4;
   document.getElementById('m-startdate').value = tk.nextDate || today();
   document.getElementById('m-strict-schedule').checked = !!tk.strictSchedule;
@@ -9766,6 +9771,7 @@ function saveTask() {
   if (startTime && endTime && endTime <= startTime) { toast('🕒 ' + _cl("Tugash vaqti boshlanishdan keyin bo'lishi kerak", "End time must be after the start", "Время окончания должно быть позже начала")); return; }
   if (startTime && (document.getElementById('m-remind-start') || {}).checked) remindAt = startTime;
   if (remindAt) tkEnsureNotifyPermission();
+  const autoPomo = !!(startTime && (document.getElementById('m-auto-pomo') || {}).checked);
   try { var _clash = tbFindConflict(_editingTaskId, startTime, endTime); if (_clash) setTimeout(function () { toast('⚠️ ' + _cl("Vaqti ustma-ust tushadi", "Time overlaps with", "Время пересекается с") + ': «' + _clash.name + '» (' + _clash.startTime + (_clash.endTime ? '–' + _clash.endTime : '') + ')'); }, 900); } catch (e) {}
 
   if (_editingTaskId !== null) {
@@ -9795,6 +9801,8 @@ function saveTask() {
       tk.remindAt = remindAt;
       tk.startTime = startTime;
       tk.endTime = endTime;
+      if (!!tk.autoPomo !== autoPomo && S.pomoAutoSent) delete S.pomoAutoSent[tk.id];
+      tk.autoPomo = autoPomo;
       tk.emoji = mEmoji || null;
       try { refreshStalePenaltyAmts(S.taskDayFlags && S.taskDayFlags[tk.id], tk); } catch (e) {}
     }
@@ -9820,6 +9828,7 @@ function saveTask() {
     remindAt: remindAt,
     startTime: startTime,
     endTime: endTime,
+    autoPomo: autoPomo,
     pinned: false,
     done:false, doneDate:null, skipped:false, skippedDate:null, lastDoneDate:null,
     createdAt: mRepeat==='interval' ? startDate : today(),
@@ -10010,6 +10019,8 @@ function toggleTaskInternal(id) {
     S.taskDoneCount[tsk.id] = (S.taskDoneCount[tsk.id]||0) + 1;
     bumpLifetimeTaskStat(tsk, 1);
     var _grantedCoins = grantTaskReward(tsk, td0);
+    var _onTimeBonus = tbGrantOnTimeBonus(tsk, td0);
+    _grantedCoins += _onTimeBonus;
     if (typeof friendsRecordTaskEvent === 'function') friendsRecordTaskEvent(1, _grantedCoins);
     if(!S.totalTasksDone) S.totalTasksDone=0; S.totalTasksDone++;
     // Haftalik haqiqiy counter (log emas, har bajarilganda +1)
@@ -10022,6 +10033,7 @@ function toggleTaskInternal(id) {
     var xpGain = taskXPValue(tsk);
     addXP(xpGain, tsk.name);
     toast(t('task_done_xp_toast').replace('{coins}', _grantedCoins).replace('{xp}', xpGain)); confetti();
+    if (_onTimeBonus) setTimeout(function () { toast('⏱ ' + _cl("O'z vaqtida bajarildi", "Done on time", "Выполнено вовремя") + ' · +' + _onTimeBonus + ' 🪙'); }, 1400);
     // Kunlik 100% tekshiruvi (kechiktirib)
     setTimeout(checkDailyComplete, 300);
 
@@ -10050,7 +10062,7 @@ function toggleTaskInternal(id) {
       var td1 = today();
       S.taskDoneLog[tsk.id] = S.taskDoneLog[tsk.id].filter(function(d){ return d !== td1; });
     }
-    var _revokedCoins = revokeTaskReward(tsk, today());
+    var _revokedCoins = revokeTaskReward(tsk, today()) + tbRevokeOnTimeBonus(tsk, today());
     if (typeof friendsRecordTaskEvent === 'function') friendsRecordTaskEvent(-1, -_revokedCoins);
     if(S.totalTasksDone>0) S.totalTasksDone--;
     if(S.weekDoneLog && S.weekDoneLog[today()] > 0) S.weekDoneLog[today()]--;
@@ -12122,6 +12134,212 @@ setInterval(function () {
   if (v && v.style.display !== 'none' && !document.querySelector('.modal-overlay.open')) { try { renderTaskList(); } catch (e) {} }
 }, 60000);
 
+
+// ⏱ O'z vaqtida bajarish bonusi
+var TB_ONTIME_BONUS = 1;
+function tbIsOnTimeNow(tsk) {
+  if (!tsk || !tsk.startTime) return false;
+  var now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
+  var a = _tbMin(tsk.startTime), b = tsk.endTime ? _tbMin(tsk.endTime) : a + 60;
+  return nm >= a && nm <= b;
+}
+function tbGrantOnTimeBonus(tsk, dateStr) {
+  if (!tbIsOnTimeNow(tsk)) return 0;
+  var f = getTaskDayFlag(tsk.id, dateStr);
+  if (f.onTimeGiven) return 0;
+  f.onTimeGiven = true; f.onTimeAmt = TB_ONTIME_BONUS;
+  S.coins = (S.coins || 0) + TB_ONTIME_BONUS;
+  S.totalCoins = (S.totalCoins || 0) + TB_ONTIME_BONUS;
+  S.onTimeDoneCount = (S.onTimeDoneCount || 0) + 1;
+  return TB_ONTIME_BONUS;
+}
+function tbRevokeOnTimeBonus(tsk, dateStr) {
+  var f = getTaskDayFlag(tsk.id, dateStr);
+  if (!f.onTimeGiven) return 0;
+  var amt = f.onTimeAmt || TB_ONTIME_BONUS;
+  f.onTimeGiven = false;
+  S.coins = (S.coins || 0) - amt;
+  S.totalCoins = (S.totalCoins || 0) - amt;
+  if (S.onTimeDoneCount > 0) S.onTimeDoneCount--;
+  return amt;
+}
+
+// 🍅 Vaqt bloki boshlanganda Pomodoro avtomatik yoqiladi
+function tbCheckAutoPomo() {
+  if (typeof S === 'undefined' || !S || !Array.isArray(S.tasks)) return;
+  if (typeof window.pomoAutoStartForTask !== 'function') return;
+  var now = new Date(), td = today(), nm = now.getHours() * 60 + now.getMinutes();
+  if (!S.pomoAutoSent) S.pomoAutoSent = {};
+  var changed = false;
+  S.tasks.forEach(function (tk) {
+    if (!tk.autoPomo || !tk.startTime || tk.done || tk.skipped || tk.isFrozen) return;
+    if (S.pomoAutoSent[tk.id] === td) return;
+    if (tk.postponedTo && tk.postponedTo > td) return;
+    if (!(taskDueToday(tk) || tk.repeat === 'once')) return;
+    var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
+    if (nm < a || nm >= b) return;
+    S.pomoAutoSent[tk.id] = td; changed = true;
+    if (nm - a > 15) return; // ilova yopiq bo'lgan — kech qolgan avto-start o'tkazib yuboriladi
+    try {
+      var act = window.pomoAutoStartForTask(tk);
+      if (act) {
+        var msg = '🍅 ' + _cl("Pomodoro boshlandi", "Pomodoro started", "Pomodoro запущен") + ': ' + tk.name;
+        toast(msg);
+        if (typeof tkShowNotification === 'function') tkShowNotification(msg, (tk.startTime || '') + (tk.endTime ? '–' + tk.endTime : ''));
+      }
+    } catch (e) { console.warn('auto pomo', e); }
+  });
+  if (changed) save();
+}
+setInterval(tbCheckAutoPomo, 20000);
+setTimeout(tbCheckAutoPomo, 5000);
+
+// 📅 Kun jadvali (timeline)
+var TB_PX_PER_MIN = 1.1;
+function _tbHM(min) { min = Math.max(0, Math.min(24 * 60 - 1, Math.round(min))); return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+function tbTodayTimedTasks() {
+  var td = today();
+  return (S.tasks || []).filter(function (tk) {
+    if (!tk.startTime || tk.isFrozen) return false;
+    if (tk.postponedTo && tk.postponedTo > td) return false;
+    if (tk.repeat === 'once') return !tk.done || tk.doneDate === td;
+    return taskDueToday(tk);
+  });
+}
+function renderTimeline() {
+  var box = document.getElementById('tb-timeline');
+  if (!box) return;
+  var q = ((document.getElementById('task-search') || {}).value || '').trim();
+  if (!S.timeView || q) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  if (_tbDrag && _tbDrag.moved) return; // sudrash davomida qayta chizilmaydi
+  var tasks = tbTodayTimedTasks().map(function (tk) {
+    var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
+    return { tk: tk, a: a, b: Math.max(b, a + 10) };
+  }).sort(function (x, y) { return x.a - y.a || x.b - y.b; });
+  box.style.display = '';
+  var now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
+  var h0 = 8, h1 = 20;
+  tasks.forEach(function (it) { h0 = Math.min(h0, Math.floor(it.a / 60)); h1 = Math.max(h1, Math.ceil(it.b / 60)); });
+  h0 = Math.max(0, Math.min(h0, Math.floor(nm / 60))); h1 = Math.min(24, Math.max(h1, Math.ceil((nm + 1) / 60)));
+  var r0 = h0 * 60, r1 = h1 * 60, px = TB_PX_PER_MIN;
+  // ustma-ust bloklar uchun ustunlar (lanes)
+  var lanesEnd = [], groups = [], cur = null;
+  tasks.forEach(function (it) {
+    var lane = 0; while (lanesEnd[lane] !== undefined && lanesEnd[lane] > it.a) lane++;
+    lanesEnd[lane] = it.b; it.lane = lane;
+    if (!cur || it.a >= cur.end) { cur = { end: it.b, items: [] }; groups.push(cur); }
+    cur.end = Math.max(cur.end, it.b); cur.items.push(it);
+  });
+  groups.forEach(function (g) { var n = 1; g.items.forEach(function (it) { n = Math.max(n, it.lane + 1); }); g.items.forEach(function (it) { it.lanes = n; }); });
+  // bo'sh vaqtlar (busy oraliqlarni birlashtirib)
+  var busy = 0, gaps = [], cursor = r0;
+  groups.forEach(function (g) {
+    var gs = g.items[0].a;
+    if (gs - cursor >= 30) gaps.push({ a: cursor, b: gs });
+    busy += g.end - gs; cursor = Math.max(cursor, g.end);
+  });
+  if (r1 - cursor >= 30) gaps.push({ a: cursor, b: r1 });
+  var freeLeft = 0;
+  var dayEnd = Math.max(r1, 22 * 60);
+  // hozirdan kun oxirigacha qolgan bo'sh vaqt
+  (function () {
+    var c = nm; groups.forEach(function (g) { var gs = g.items[0].a; if (g.end <= c) return; if (gs > c) freeLeft += gs - c; c = Math.max(c, g.end); });
+    if (dayEnd > c) freeLeft += dayEnd - c;
+  })();
+  var H = (r1 - r0) * px;
+  var html = '<div class="tbl-head"><div class="tbl-title">📅 ' + _cl('Kun jadvali', 'Day schedule', 'Расписание дня') + '</div>' +
+    '<div class="tbl-sum"><span>🟦 ' + _cl('Band', 'Busy', 'Занято') + ': <b>' + (busy ? tbRelLabel(busy) : '0') + '</b></span>' +
+    '<span>🟩 ' + _cl("Bo'sh (bugun qolgan)", 'Free (rest of today)', 'Свободно (до конца дня)') + ': <b>' + (freeLeft ? tbRelLabel(freeLeft) : '0') + '</b></span></div></div>';
+  html += '<div class="tbl-grid" style="height:' + H + 'px" data-r0="' + r0 + '">';
+  for (var h = h0; h <= h1; h++) {
+    html += '<div class="tbl-hour" style="top:' + ((h * 60 - r0) * px) + 'px"><span>' + String(h).padStart(2, '0') + ':00</span></div>';
+  }
+  gaps.forEach(function (g) {
+    var top = (g.a - r0) * px, hh = (g.b - g.a) * px;
+    html += '<button class="tbl-gap" style="top:' + (top + 3) + 'px;height:' + Math.max(0, hh - 6) + 'px" onclick="tbAddInGap(\'' + _tbHM(g.a) + '\',\'' + _tbHM(Math.min(g.b, g.a + 60)) + '\')">' +
+      '<span>＋ ' + _cl("Bo'sh vaqt", 'Free time', 'Свободно') + ' · ' + tbRelLabel(g.b - g.a) + '</span></button>';
+  });
+  tasks.forEach(function (it) {
+    var tk = it.tk, st = tbState(tk, false), cls = 'tbl-block';
+    if (tk.done) cls += ' done'; else if (tk.skipped) cls += ' skipped'; else if (st && st.state === 'now') cls += ' now'; else if (st && st.state === 'past') cls += ' missed';
+    var top = (it.a - r0) * px, hh = (it.b - it.a) * px;
+    var w = 100 / it.lanes, left = w * it.lane;
+    var col = tk.label || '';
+    html += '<div class="' + cls + (hh < 34 ? ' short' : '') + '" data-id="' + tk.id + '" style="top:' + top + 'px;height:' + (hh - 2) + 'px;left:calc(' + left + '% + 2px);width:calc(' + w + '% - 4px)' + (col ? ';--tbl-c:' + col : '') + '">' +
+      '<span class="tbl-grip" title="' + _cl('Sudrab vaqtini o\'zgartiring', 'Drag to reschedule', 'Перетащите, чтобы изменить время') + '">⠿</span>' +
+      '<div class="tbl-b-main"><div class="tbl-b-name">' + (tk.done ? '✅ ' : '') + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</div>' +
+      '<div class="tbl-b-time">' + tk.startTime + (tk.endTime ? '–' + tk.endTime : '') + (tk.autoPomo ? ' · 🍅' : '') + '</div></div>' +
+      '<span class="tbl-resize" title="' + _cl('Tugash vaqtini o\'zgartirish', 'Change end time', 'Изменить время окончания') + '"></span></div>';
+  });
+  if (nm >= r0 && nm <= r1) html += '<div class="tbl-now" style="top:' + ((nm - r0) * px) + 'px"><span>' + _tbHM(nm) + '</span></div>';
+  html += '</div>';
+  if (!tasks.length) html += '<div class="tbl-empty">' + _cl("Bugun vaqtli vazifa yo'q. Bo'sh joyni bosib vazifa qo'shing.", 'No timed tasks today. Tap a free slot to add one.', 'Сегодня нет задач со временем. Нажмите на свободный слот.') + '</div>';
+  box.innerHTML = html;
+  tbBindTimeline(box);
+  if (!box._scrolled) {
+    box._scrolled = true;
+    var grid = box.querySelector('.tbl-grid');
+    if (grid && grid.parentNode === box) { try { box.scrollTop = Math.max(0, (nm - r0) * px - 80); } catch (e) {} }
+  }
+}
+function tbAddInGap(start, end) {
+  try { openModal(); } catch (e) { return; }
+  var a = document.getElementById('m-start'), b = document.getElementById('m-end');
+  if (a) a.value = start; if (b) b.value = end;
+}
+var _tbDrag = null;
+function tbBindTimeline(box) {
+  box.querySelectorAll('.tbl-block').forEach(function (el) {
+    el.addEventListener('pointerdown', function (e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      var onGrip = !!e.target.closest('.tbl-grip'), onResize = !!e.target.closest('.tbl-resize');
+      // sensorli ekranda faqat ⠿ yoki pastki tutqichdan sudraladi (aks holda sahifa aylanadi)
+      if (e.pointerType === 'touch' && !onGrip && !onResize) { _tbDrag = { el: el, id: +el.dataset.id, tapOnly: true, y0: e.clientY }; return; }
+      var tk = S.tasks.find(function (x) { return x.id === +el.dataset.id; });
+      if (!tk) return;
+      var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
+      _tbDrag = { el: el, id: tk.id, mode: onResize ? 'resize' : 'move', y0: e.clientY, a0: a, b0: b, hadEnd: !!tk.endTime, a: a, b: b, moved: false, top0: parseFloat(el.style.top), h0: parseFloat(el.style.height) };
+      try { el.setPointerCapture(e.pointerId); } catch (er) {}
+      if (onGrip || onResize) e.preventDefault();
+    });
+    el.addEventListener('pointermove', function (e) {
+      var d = _tbDrag; if (!d || d.el !== el || d.tapOnly) return;
+      var dy = e.clientY - d.y0;
+      if (!d.moved && Math.abs(dy) < 5) return;
+      d.moved = true; el.classList.add('dragging');
+      var dm = Math.round(dy / TB_PX_PER_MIN / 5) * 5;
+      if (d.mode === 'move') {
+        var len = d.b0 - d.a0;
+        d.a = Math.max(0, Math.min(24 * 60 - len, d.a0 + dm)); d.b = d.a + len;
+        el.style.top = (d.top0 + (d.a - d.a0) * TB_PX_PER_MIN) + 'px';
+      } else {
+        d.b = Math.max(d.a0 + 10, Math.min(24 * 60 - 1, d.b0 + dm));
+        el.style.height = (d.h0 + (d.b - d.b0) * TB_PX_PER_MIN) + 'px';
+      }
+      var lbl = el.querySelector('.tbl-b-time'); if (lbl) lbl.textContent = _tbHM(d.a) + '–' + _tbHM(d.b);
+    });
+    var end = function (e) {
+      var d = _tbDrag; if (!d || d.el !== el) return;
+      _tbDrag = null;
+      if (d.tapOnly) { if (e.type === 'pointerup' && Math.abs(e.clientY - d.y0) < 8) editTask(d.id); return; }
+      if (!d.moved) { if (e.type === 'pointerup' && !e.target.closest('.tbl-resize')) editTask(d.id); return; }
+      if (e.type === 'pointercancel') { renderTaskList(); return; }
+      var tk = S.tasks.find(function (x) { return x.id === d.id; }); if (!tk) return;
+      var ns = _tbHM(d.a), ne = (d.mode === 'resize' || d.hadEnd) ? _tbHM(d.b) : null;
+      if (ns === tk.startTime && ne === (tk.endTime || null)) { renderTaskList(); return; }
+      var remindWasStart = tk.remindAt && tk.remindAt === tk.startTime;
+      tk.startTime = ns; tk.endTime = ne;
+      if (remindWasStart) { tk.remindAt = ns; if (S.remindSent) delete S.remindSent[tk.id]; }
+      if (S.pomoAutoSent) delete S.pomoAutoSent[tk.id];
+      save(); renderTaskList();
+      var clash = tbFindConflict(tk.id, ns, ne);
+      toast('🕒 ' + tk.name + ': ' + ns + (ne ? '–' + ne : '') + (clash ? ' · ⚠️ ' + _cl('ustma-ust', 'overlaps', 'пересекается') + ': «' + clash.name + '»' : ''));
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  });
+}
+
 function tkShortDate(ds) {
   if (!ds) return '';
   var td = today();
@@ -12209,7 +12427,7 @@ function makeTaskEl(t, future) {
         <div class="task-name">${t.pinned ? '<span class="tk-pin" title="' + esc(tr('task_pinned_badge')) + '">📌</span>' : ''}${t.fromParentName ? `<span class="task-parent-badge">${esc(t.fromParentName)} ›</span> ` : ''}${t.emoji ? `<span class="tk-emoji">${t.emoji}</span>` : ''}${esc(t.name)}</div>
         ${t.note ? `<div class="task-note task-note-collapsed" id="note-${t.id}">📝 ${esc(t.note)}</div><button class="task-note-toggle" onclick="event.stopPropagation();toggleNote(${t.id},this)">${tr('note_more_btn')}</button>` : ''}
         <div class="tk-meta">
-          ${tbChip}${tbDur}
+          ${tbChip}${tbDur}${(t.done && t.startTime && !future && getTaskDayFlag(t.id, today()).onTimeGiven) ? `<span class="tk-chip tk-chip-ontime">⏱ ${_cl("O'z vaqtida", 'On time', 'Вовремя')} +${TB_ONTIME_BONUS}🪙</span>` : ''}${(t.autoPomo && t.startTime && !t.done) ? `<span class="tk-chip tk-chip-info" title="${_cl("Boshlanganda Pomodoro avtomatik yoqiladi", "Pomodoro auto-starts at the start time", "Pomodoro запустится автоматически")}">🍅 ${_cl('Avto', 'Auto', 'Авто')}</span>` : ''}
           ${t.skipped && !t.done ? `<span class="tk-chip tk-chip-skip">⏭ ${_cl("O'tkazildi", 'Skipped', 'Пропущено')}</span>` : ''}
           ${subTextF ? `<span class="tk-chip ${subOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${subOverdue ? '⏰ ' : ''}${subTextF}</span>` : ''}
           ${dueLineF ? `<span class="tk-chip ${dueOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${dueOverdue ? '' : '📅 '}${dueLineF}</span>` : ''}
@@ -13291,6 +13509,7 @@ function daysBadge(days) {
 
 function renderTaskList() {
   var _tvb = document.getElementById('time-view-btn'); if (_tvb) _tvb.classList.toggle('active', !!S.timeView);
+  try { renderTimeline(); } catch (e) { console.warn('timeline', e); }
   var q = (document.getElementById('task-search')||{value:''}).value.toLowerCase().trim();
   var td = today();
 
@@ -26241,6 +26460,32 @@ try {
     pomoStartTicking();
     pomoShowFloat();
     pomoRenderActivityList();
+  };
+
+  // 🍅 Vaqt bloki boshlanganda Pomodoro'ni avtomatik yoqish
+  window.pomoAutoStartForTask = function (tk) {
+    if (!tk) return null;
+    var act = tk.pomoActId ? pomoFindAct(tk.pomoActId) : null;
+    if (!act) {
+      var nm = String(tk.name || '').trim().toLowerCase();
+      for (var i = 0; i < pomoActivities.length; i++) {
+        if (String(pomoActivities[i].name || '').trim().toLowerCase() === nm) { act = pomoActivities[i]; break; }
+      }
+    }
+    if (!act) {
+      var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
+      act = {
+        id: 'pomo_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        name: String(tk.name || 'Task').slice(0, 60), limit: Math.max(5, b - a),
+        elapsedMs: 0, cycleMs: 0, breakRemainingMs: 0, phase: 'work', running: false, lastTickAt: null,
+        emoji: tk.emoji || '🎯', color: '#e2564b'
+      };
+      pomoActivities.push(act);
+      pomoSaveActivities();
+    }
+    tk.pomoActId = act.id;
+    if (!act.running) window.pomoStartOrResume(act.id);
+    return act;
   };
 
   window.pomoStopActivity = function (ev) {
