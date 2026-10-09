@@ -145,6 +145,7 @@
         <span class="all-check" id="all-check-icon"></span>
         ALL
       </button>
+      <button class="all-toggle" id="time-view-btn" onclick="toggleTimeView()" data-i18n="time_view_btn">🕒 Vaqt</button>
       <button class="all-toggle" id="bulk-toggle-btn" onclick="toggleBulkMode()" data-i18n="bulk_select_btn">☑️ Tanlash</button>
     </div>
     <!-- Ommaviy amallar paneli (faqat "Tanlash" rejimida ko'rinadi) -->
@@ -1177,6 +1178,18 @@
         <div id="frozen-tasks-list"></div>
       </div>
 
+      <!-- ⌨️ Klaviatura yorliqlari -->
+      <div class="settings-info-card kbs-card" id="kb-settings-card">
+        <span class="settings-sub-icon icon-blue">⌨️</span>
+        <div class="settings-info-card-title" data-i18n="kbs_title">Klaviatura yorliqlari</div>
+        <div class="settings-info-card-desc" data-i18n="kbs_desc">Tugmani bosing va yangi tugmani tanlang. 1–7 bo'limlar uchun band.</div>
+        <div id="kb-settings-list" class="kbs-list"></div>
+        <div class="kbs-actions">
+          <button type="button" class="kbs-btn" onclick="showShortcutsHelp()" data-i18n="kbs_view_btn">👀 Ro'yxatni ko'rish</button>
+          <button type="button" class="kbs-btn" onclick="kbResetDefaults()" data-i18n="kbs_reset_btn">↺ Standartga qaytarish</button>
+        </div>
+      </div>
+
       <!-- 7b + 8. Ma'lumotlarni zaxiralash va Xavfli zona — bitta qatorda -->
       <div class="settings-groups-grid">
         <div id="data-backup-section" class="settings-info-card">
@@ -1939,6 +1952,16 @@
       <label data-i18n="task_remind_label">⏰ Eslatma vaqti (ixtiyoriy)</label>
       <input type="time" id="m-remind" />
       <div class="tk-remind-hint" data-i18n="task_remind_hint">Vazifa bajarilmagan bo'lsa, shu vaqtda eslatamiz (ilova ochiq yoki fonda bo'lsa).</div>
+    </div>
+
+    <div class="modal-field">
+      <label data-i18n="task_time_label">🕒 Vaqt oralig'i (ixtiyoriy)</label>
+      <div class="tk-time-row">
+        <input type="time" id="m-start" aria-label="start" />
+        <span class="tk-time-sep">—</span>
+        <input type="time" id="m-end" aria-label="end" />
+      </div>
+      <label class="tk-time-check"><input type="checkbox" id="m-remind-start" /> <span data-i18n="task_remind_start">Boshlanishida eslat</span></label>
     </div>
 
     <div class="modal-field">
