@@ -3156,7 +3156,7 @@ body.light .undo-toast { background: #fff; }
 }
 
 /* 📅 Kun jadvali (timeline) */
-.tb-timeline { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 12px 14px; margin-bottom: 14px; max-height: 480px; overflow-y: auto; overscroll-behavior: contain; }
+.tb-timeline { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 12px 14px; margin: 18px 0 14px; max-height: 360px; overflow-y: auto; overscroll-behavior: contain; }
 .tbl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; position: sticky; top: -12px; background: var(--surface); z-index: 5; padding: 4px 0 6px; }
 .tbl-title { font-weight: 700; font-size: var(--fs-md); color: var(--text); }
 .tbl-sum { display: flex; gap: 10px; flex-wrap: wrap; font-size: var(--fs-xs); color: var(--text-muted); }
@@ -3191,3 +3191,8 @@ body.light .undo-toast { background: #fff; }
 /* 👤 Profil belgisi endi Lv tugmasi ichida — alohida doira-tugma kerak emas */
 #profile-nav-btn { display: none !important; }
 #level-icon { filter: grayscale(.15); }
+
+.tbl-head { cursor: pointer; user-select: none; }
+.tbl-caret { font-size: 12px; color: var(--text-muted); }
+.tb-timeline.collapsed { padding-bottom: 6px; }
+.tb-timeline.collapsed .tbl-head { margin-bottom: 0; }

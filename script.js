@@ -7349,6 +7349,7 @@ function addXP(amount, reason) {
   if(newLevel > oldLevel) {
     const lv = getLevel(S.xp);
     setTimeout(function(){ showLevelUpModal(lv); }, 400);
+    try { if (typeof window.xFeedPost === 'function') window.xFeedPost('level', _cl("yangi darajaga chiqdi", "reached a new level", "достиг(ла) нового уровня") + ': Lv' + lv.level + ' ' + lv.icon, '⭐'); } catch (e) {}
   }
 }
 
@@ -10021,6 +10022,7 @@ function toggleTaskInternal(id) {
     var _grantedCoins = grantTaskReward(tsk, td0);
     var _onTimeBonus = tbGrantOnTimeBonus(tsk, td0);
     _grantedCoins += _onTimeBonus;
+    try { if (typeof window.xOnTaskDone === 'function') window.xOnTaskDone(tsk, true); } catch (e) {}
     if (typeof friendsRecordTaskEvent === 'function') friendsRecordTaskEvent(1, _grantedCoins);
     if(!S.totalTasksDone) S.totalTasksDone=0; S.totalTasksDone++;
     // Haftalik haqiqiy counter (log emas, har bajarilganda +1)
@@ -10062,6 +10064,7 @@ function toggleTaskInternal(id) {
       var td1 = today();
       S.taskDoneLog[tsk.id] = S.taskDoneLog[tsk.id].filter(function(d){ return d !== td1; });
     }
+    try { if (typeof window.xOnTaskDone === 'function') window.xOnTaskDone(tsk, false); } catch (e) {}
     var _revokedCoins = revokeTaskReward(tsk, today()) + tbRevokeOnTimeBonus(tsk, today());
     if (typeof friendsRecordTaskEvent === 'function') friendsRecordTaskEvent(-1, -_revokedCoins);
     if(S.totalTasksDone>0) S.totalTasksDone--;
@@ -10095,6 +10098,7 @@ function checkDailyComplete() {
   if(allDone && S.dailyBonusDate !== today()) {
     S.dailyBonusDate = today();
     addXP(XP_DAILY_100, _cl("Kunlik 100%", "Daily 100%", "100% за день"));
+    try { if (typeof window.xFeedPost === 'function') window.xFeedPost('daily100', _cl("bugungi barcha vazifalarini bajardi", "completed all of today's tasks", "выполнил(а) все задачи на сегодня"), '🌟'); } catch (e) {}
     toast('🌟 ' + t('daily_100_toast').replace('{xp}', XP_DAILY_100));
     confetti();
     SFX.firework();
@@ -10946,7 +10950,7 @@ function showTab(tab) {
     if (typeof _pcClearAutoLockTimer === 'function') _pcClearAutoLockTimer();
   }
   if (tab !== 'stats' && tab !== 'calendar') SFX.click();
-  ['tasks','rewards','spin','profile','tarix','secret','goals','chest','ielts','sat','cefr','reyting'].forEach(function(t){
+  ['tasks','rewards','spin','profile','tarix','secret','goals','chest','ielts','sat','cefr','reyting','hub'].forEach(function(t){
     var el=document.getElementById('view-'+t);
     if(el) el.style.display=tab===t?'':'none';
     var tb=document.getElementById('tab-'+t);
@@ -10966,6 +10970,7 @@ function showTab(tab) {
   if(tab==='ielts') renderIeltsTab();
   if(tab==='sat') renderSatTab();
   if(tab==='cefr') renderCefrTab();
+  if(tab==='hub' && typeof window.xRenderHub==='function') window.xRenderHub();
   if(tab==='stats') { showTab('profile'); return; }
   if(tab==='calendar') { showTab('profile'); return; }
 }
@@ -12195,7 +12200,7 @@ setInterval(tbCheckAutoPomo, 20000);
 setTimeout(tbCheckAutoPomo, 5000);
 
 // 📅 Kun jadvali (timeline)
-var TB_PX_PER_MIN = 1.1;
+var TB_PX_PER_MIN = 0.8;
 function _tbHM(min) { min = Math.max(0, Math.min(24 * 60 - 1, Math.round(min))); return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
 function tbTodayTimedTasks() {
   var td = today();
@@ -12218,9 +12223,15 @@ function renderTimeline() {
   }).sort(function (x, y) { return x.a - y.a || x.b - y.b; });
   box.style.display = '';
   var now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
-  var h0 = 8, h1 = 20;
+  // Faqat vazifalar bor oraliq ko'rsatiladi (+ hozirgi vaqt yaqin bo'lsa) — keraksiz bo'sh soatlar yo'q
+  var h0 = 24, h1 = 0;
   tasks.forEach(function (it) { h0 = Math.min(h0, Math.floor(it.a / 60)); h1 = Math.max(h1, Math.ceil(it.b / 60)); });
-  h0 = Math.max(0, Math.min(h0, Math.floor(nm / 60))); h1 = Math.min(24, Math.max(h1, Math.ceil((nm + 1) / 60)));
+  if (!tasks.length) { h0 = Math.floor(nm / 60); h1 = h0 + 1; }
+  var nh = Math.floor(nm / 60);
+  if (nh >= h0 - 1 && nh < h0) h0 = nh;
+  if (nh >= h1 && nh <= h1) h1 = nh + 1;
+  if (h1 - h0 < 3) h1 = Math.min(24, h0 + 3);
+  h0 = Math.max(0, h0); h1 = Math.min(24, h1);
   var r0 = h0 * 60, r1 = h1 * 60, px = TB_PX_PER_MIN;
   // ustma-ust bloklar uchun ustunlar (lanes)
   var lanesEnd = [], groups = [], cur = null;
@@ -12247,9 +12258,15 @@ function renderTimeline() {
     if (dayEnd > c) freeLeft += dayEnd - c;
   })();
   var H = (r1 - r0) * px;
-  var html = '<div class="tbl-head"><div class="tbl-title">📅 ' + _cl('Kun jadvali', 'Day schedule', 'Расписание дня') + '</div>' +
+  var collapsed = !!S.tbCollapsed;
+  box.classList.toggle('collapsed', collapsed);
+  var html = '<div class="tbl-head" onclick="tbToggleCollapse()"><div class="tbl-title">📅 ' + _cl('Kun jadvali', 'Day schedule', 'Расписание дня') + ' <span class="tbl-caret">' + (collapsed ? '▸' : '▾') + '</span></div>' +
     '<div class="tbl-sum"><span>🟦 ' + _cl('Band', 'Busy', 'Занято') + ': <b>' + (busy ? tbRelLabel(busy) : '0') + '</b></span>' +
     '<span>🟩 ' + _cl("Bo'sh (bugun qolgan)", 'Free (rest of today)', 'Свободно (до конца дня)') + ': <b>' + (freeLeft ? tbRelLabel(freeLeft) : '0') + '</b></span></div></div>';
+  if (collapsed || !tasks.length) {
+    if (!tasks.length) html += '<div class="tbl-empty">' + _cl("Bugun vaqtli vazifa yo'q. Vazifa qo'shganda vaqtini kiriting.", 'No timed tasks today. Add a time when creating a task.', 'Сегодня нет задач со временем.') + '</div>';
+    box.innerHTML = html; return;
+  }
   html += '<div class="tbl-grid" style="height:' + H + 'px" data-r0="' + r0 + '">';
   for (var h = h0; h <= h1; h++) {
     html += '<div class="tbl-hour" style="top:' + ((h * 60 - r0) * px) + 'px"><span>' + String(h).padStart(2, '0') + ':00</span></div>';
@@ -12273,7 +12290,6 @@ function renderTimeline() {
   });
   if (nm >= r0 && nm <= r1) html += '<div class="tbl-now" style="top:' + ((nm - r0) * px) + 'px"><span>' + _tbHM(nm) + '</span></div>';
   html += '</div>';
-  if (!tasks.length) html += '<div class="tbl-empty">' + _cl("Bugun vaqtli vazifa yo'q. Bo'sh joyni bosib vazifa qo'shing.", 'No timed tasks today. Tap a free slot to add one.', 'Сегодня нет задач со временем. Нажмите на свободный слот.') + '</div>';
   box.innerHTML = html;
   tbBindTimeline(box);
   if (!box._scrolled) {
@@ -12282,6 +12298,8 @@ function renderTimeline() {
     if (grid && grid.parentNode === box) { try { box.scrollTop = Math.max(0, (nm - r0) * px - 80); } catch (e) {} }
   }
 }
+function tbToggleCollapse() { S.tbCollapsed = !S.tbCollapsed; save(); renderTimeline(); }
+window.tbToggleCollapse = tbToggleCollapse;
 function tbAddInGap(start, end) {
   try { openModal(); } catch (e) { return; }
   var a = document.getElementById('m-start'), b = document.getElementById('m-end');
@@ -12427,7 +12445,7 @@ function makeTaskEl(t, future) {
         <div class="task-name">${t.pinned ? '<span class="tk-pin" title="' + esc(tr('task_pinned_badge')) + '">📌</span>' : ''}${t.fromParentName ? `<span class="task-parent-badge">${esc(t.fromParentName)} ›</span> ` : ''}${t.emoji ? `<span class="tk-emoji">${t.emoji}</span>` : ''}${esc(t.name)}</div>
         ${t.note ? `<div class="task-note task-note-collapsed" id="note-${t.id}">📝 ${esc(t.note)}</div><button class="task-note-toggle" onclick="event.stopPropagation();toggleNote(${t.id},this)">${tr('note_more_btn')}</button>` : ''}
         <div class="tk-meta">
-          ${tbChip}${tbDur}${(t.done && t.startTime && !future && getTaskDayFlag(t.id, today()).onTimeGiven) ? `<span class="tk-chip tk-chip-ontime">⏱ ${_cl("O'z vaqtida", 'On time', 'Вовремя')} +${TB_ONTIME_BONUS}🪙</span>` : ''}${(t.autoPomo && t.startTime && !t.done) ? `<span class="tk-chip tk-chip-info" title="${_cl("Boshlanganda Pomodoro avtomatik yoqiladi", "Pomodoro auto-starts at the start time", "Pomodoro запустится автоматически")}">🍅 ${_cl('Avto', 'Auto', 'Авто')}</span>` : ''}
+          ${tbChip}${tbDur}${window.xTaskChips ? window.xTaskChips(t, future) : ''}${(t.done && t.startTime && !future && getTaskDayFlag(t.id, today()).onTimeGiven) ? `<span class="tk-chip tk-chip-ontime">⏱ ${_cl("O'z vaqtida", 'On time', 'Вовремя')} +${TB_ONTIME_BONUS}🪙</span>` : ''}${(t.autoPomo && t.startTime && !t.done) ? `<span class="tk-chip tk-chip-info" title="${_cl("Boshlanganda Pomodoro avtomatik yoqiladi", "Pomodoro auto-starts at the start time", "Pomodoro запустится автоматически")}">🍅 ${_cl('Avto', 'Auto', 'Авто')}</span>` : ''}
           ${t.skipped && !t.done ? `<span class="tk-chip tk-chip-skip">⏭ ${_cl("O'tkazildi", 'Skipped', 'Пропущено')}</span>` : ''}
           ${subTextF ? `<span class="tk-chip ${subOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${subOverdue ? '⏰ ' : ''}${subTextF}</span>` : ''}
           ${dueLineF ? `<span class="tk-chip ${dueOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${dueOverdue ? '' : '📅 '}${dueLineF}</span>` : ''}
@@ -13512,6 +13530,7 @@ function daysBadge(days) {
 function renderTaskList() {
   var _tvb = document.getElementById('time-view-btn'); if (_tvb) _tvb.classList.toggle('active', !!S.timeView);
   try { renderTimeline(); } catch (e) { console.warn('timeline', e); }
+  try { if (typeof window.xRenderTasksExtras === 'function') window.xRenderTasksExtras(); } catch (e) {}
   var q = (document.getElementById('task-search')||{value:''}).value.toLowerCase().trim();
   var td = today();
 
@@ -19450,7 +19469,7 @@ document.addEventListener('DOMContentLoaded', function(){
 setInterval(function(){ if(document.getElementById('view-spin') && document.getElementById('view-spin').style.display!=='none') renderSpin(); }, 60000);
 
 (function setupTabDrag() {
-  var DEFAULT_ORDER = ['tasks','rewards','goals','chest','ielts','sat','pomo','reyting'];
+  var DEFAULT_ORDER = ['tasks','rewards','goals','chest','ielts','sat','pomo','reyting','hub'];
   var LONG_PRESS_MS = 300;
   var MOVE_CANCEL_PX = 8;
 
