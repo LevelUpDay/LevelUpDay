@@ -25155,6 +25155,14 @@ function _cloudTasksCompletedCount() {
   return n;
 }
 
+function _cloudDeviceType() {
+  try {
+    var ua = navigator.userAgent || '';
+    if (/iPad|Tablet|PlayBook|Silk/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua)) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua))) return 'tablet';
+    if (/Mobi|iPhone|iPod|Android/i.test(ua)) return 'mobile';
+  } catch (e) {}
+  return 'desktop';
+}
 var _cloudSyncTimer = null;
 function scheduleCloudSync(immediate) {
   if (!S.cloudLinked || !S.cloudUserId) return;
@@ -25188,10 +25196,26 @@ function scheduleCloudSync(immediate) {
       tasks_completed: _cloudTasksCompletedCount(),
       updated_at: stamp
     };
+    // 📊 Admin analitikasi: qayerdan bilgani va qurilma turi
+    if (!window._noAnalyticsColumns) {
+      row.referral_source = (S.profile && S.profile.referralSource) ? String(S.profile.referralSource).slice(0, 20) : null;
+      row.referral_other = (S.profile && S.profile.referralOther) ? String(S.profile.referralOther).slice(0, 120) : null;
+      row.device_type = _cloudDeviceType();
+    }
+    // Kunlik faollik (DAU/MAU) — kuniga bir marta
+    try {
+      if (S._activityPingDate !== today()) {
+        supabase.rpc('touch_activity', { p_device: _cloudDeviceType() }).then(function (r) { if (!r.error) { S._activityPingDate = today(); } });
+      }
+    } catch (e) {}
     // 💎 `gems` ustuni bazaga qo'shilgan bo'lsa yozamiz; yo'q bo'lsa (hali SQL
     // yangilanmagan) — usiz qayta yuboramiz, profil sinxronizatsiyasi buzilmasin.
     if (!window._noGemsColumn) row.gems = S.gems || 0;
     supabase.from('profiles').upsert(row).then(function (r) {
+      if (r.error && /referral_|device_type/i.test(r.error.message || '')) {
+        window._noAnalyticsColumns = true; delete row.referral_source; delete row.referral_other; delete row.device_type;
+        return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
+      }
       if (r.error && row.gems !== undefined && /gems/i.test(r.error.message || '')) {
         window._noGemsColumn = true; delete row.gems;
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
@@ -31036,7 +31060,7 @@ function _cloudWaitBooted() {
 
 // ---------- 1) app_state ----------
 var _CLOUD_LOCAL_ONLY = ['tasks', 'cloudLinked', 'cloudUserId', 'cloudEmail', '_serverSavedAt',
-  '_localUpdatedAt', '_cloudSyncedAt', 'lastCloudUserId', 'friends', 'showWelcomeSurveyPending'];
+  '_localUpdatedAt', '_cloudSyncedAt', 'lastCloudUserId', 'friends', 'showWelcomeSurveyPending', '_activityPingDate'];
 var _CLOUD_LS_KEYS = ['pomoActivities', 'pomoSettings', 'appTheme', 'sfxVolume'];
 var _appStateTimer = null, _appStateLastCmp = '';
 

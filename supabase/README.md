@@ -26,3 +26,11 @@ panelida fikrni o'chirish ishlamaydi.
 - **Authentication → URL Configuration**: Site URL va Redirect URLs ga
   `https://levelupday.github.io/LevelUpDay/` qo'shing.
 - **Authentication → Providers → Email → Leaked password protection**: yoqing.
+
+## Admin analitikasi
+| Migratsiya | Nima qiladi |
+|---|---|
+| `admin_dashboard_analytics` | `profiles` ga `referral_source`, `referral_other`, `device_type`, `last_active_at`; `user_activity_days` (DAU/MAU); `touch_activity()`; `get_admin_dashboard()` |
+| `am_i_admin` | ilova admin tugmasini ko'rsatishi uchun |
+
+Admin qo'shish: `insert into public.admins (user_id) values ('<user uuid>');`
