@@ -283,6 +283,7 @@
   }
   function bossName(b) { var B = BOSSES[b.idx] || BOSSES[0]; return B.e + ' ' + L(B.n[0], B.n[1], B.n[2]); }
   function bossReward(b) { return { gems: 2 + Math.floor((b.level - 1) / 2), coins: 10 + (b.level - 1) * 2 }; }
+  var _bossRwTimer = null;
   function bossHit(tsk, on) {
     var b = bossEnsure();
     var key = tsk.id + '_' + today();
@@ -299,9 +300,12 @@
         var rw = bossReward(b);
         S.bossHistory = S.bossHistory || [];
         S.bossHistory.unshift({ week: b.week, idx: b.idx, won: true, hp: 0, maxHp: b.maxHp, at: Date.now() });
-        setTimeout(function () {
+        _bossRwTimer = setTimeout(function () {
+          _bossRwTimer = null;
+          if (!b.defeated) return;
           try { gemsAdd(rw.gems, 'boss', L('Boss yengildi', 'Boss defeated', 'Босс побеждён'), true); } catch (e) {}
           addCoins(rw.coins, '🐉 ' + L('Boss yengildi', 'Boss defeated', 'Босс побеждён'));
+          b.rewarded = { gems: rw.gems, coins: rw.coins };
           try { confetti(); confetti(); SFX.firework(); } catch (e) {}
           toast('🏆 ' + bossName(b) + ' ' + L('yengildi!', 'defeated!', 'побеждён!') + ' +' + rw.gems + ' 💎 +' + rw.coins + ' 🪙');
           feedPost('boss', L('haftalik bossni yengdi', 'defeated the weekly boss', 'победил(а) босса недели') + ': ' + bossName(b), '🏆');
@@ -311,7 +315,23 @@
     } else {
       var d = b.hits[key]; if (!d) return;
       delete b.hits[key];
-      if (!b.defeated) b.hp = Math.min(b.maxHp, b.hp + d);
+      if (b.defeated) {
+        // ↩ Yenguvchi zarba bekor qilindi — boss tiriladi, mukofot qaytarib olinadi
+        b.defeated = false; b.defeatedAt = null;
+        if (_bossRwTimer) { clearTimeout(_bossRwTimer); _bossRwTimer = null; }
+        if (b.rewarded) {
+          try { gemsAdd(-b.rewarded.gems, 'boss', '↩ ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'), true); } catch (e) {}
+          addCoins(-b.rewarded.coins, '↩ 🐉 ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'));
+          b.rewarded = null;
+        }
+        S.bossWins = Math.max(0, (S.bossWins || 0) - 1);
+        var hi = (S.bossHistory || []).findIndex(function (x) { return x.week === b.week && x.won; });
+        if (hi !== -1) S.bossHistory.splice(hi, 1);
+        toast('↩ ' + bossName(b) + ' ' + L('qayta tirildi', 'is back', 'вернулся'));
+      }
+      b.hp = Math.min(b.maxHp, b.hp + d);
+      var li = (b.log || []).findIndex(function (l) { return l.n === tsk.name && l.d === d; });
+      if (li !== -1) b.log.splice(li, 1);
     }
     renderBossStrip(on);
   }
@@ -360,9 +380,50 @@
     { id: 't_owl', kind: 'title', v: '🦉 ' + 'Night Owl', icon: '🦉', n: ['Unvon: Tungi boyo\'g\'li', 'Title: Night Owl', 'Титул: Сова'], coins: 120, tv: ['🦉 Tungi boyo\'g\'li', '🦉 Night Owl', '🦉 Сова'] },
     { id: 't_early', kind: 'title', v: 'early', icon: '🌅', n: ['Unvon: Erta turuvchi', 'Title: Early Bird', 'Титул: Жаворонок'], coins: 120, tv: ['🌅 Erta turuvchi', '🌅 Early Bird', '🌅 Жаворонок'] },
     { id: 't_machine', kind: 'title', v: 'machine', icon: '⚡', n: ['Unvon: Ish mashinasi', 'Title: Machine', 'Титул: Машина'], gems: 6, tv: ['⚡ Ish mashinasi', '⚡ Machine', '⚡ Машина'] },
-    { id: 't_legend', kind: 'title', v: 'legend', icon: '👑', n: ['Unvon: Afsona', 'Title: Legend', 'Титул: Легенда'], gems: 20, tv: ['👑 Afsona', '👑 Legend', '👑 Легенда'] }
+    { id: 't_legend', kind: 'title', v: 'legend', icon: '👑', n: ['Unvon: Afsona', 'Title: Legend', 'Титул: Легенда'], gems: 20, tv: ['👑 Afsona', '👑 Legend', '👑 Легенда'] },
+    // ➕ yangi ramkalar
+    { id: 'f_ocean', kind: 'frame', v: 'ocean', icon: '🌊', n: ['Okean ramka', 'Ocean frame', 'Океанская рамка'], coins: 180 },
+    { id: 'f_sakura', kind: 'frame', v: 'sakura', icon: '🌸', n: ['Sakura ramka', 'Sakura frame', 'Рамка сакура'], coins: 250 },
+    { id: 'f_matrix', kind: 'frame', v: 'matrix', icon: '💚', n: ['Matritsa ramka', 'Matrix frame', 'Рамка матрица'], coins: 300 },
+    { id: 'f_lava', kind: 'frame', v: 'lava', icon: '🌋', n: ['Lava ramka', 'Lava frame', 'Лавовая рамка'], gems: 10 },
+    { id: 'f_galaxy', kind: 'frame', v: 'galaxy', icon: '🌌', n: ['Galaktika ramka', 'Galaxy frame', 'Рамка галактика'], gems: 12 },
+    // ➕ yangi nik ranglari
+    { id: 'n_ocean', kind: 'nick', v: 'ocean', icon: '🔵', n: ['Okean nik', 'Ocean nickname', 'Океанский ник'], coins: 80 },
+    { id: 'n_lava', kind: 'nick', v: 'lava', icon: '🟠', n: ['Lava nik', 'Lava nickname', 'Лавовый ник'], coins: 100 },
+    { id: 'n_ice', kind: 'nick', v: 'ice', icon: '🧊', n: ['Muz nik', 'Ice nickname', 'Ледяной ник'], coins: 120 },
+    { id: 'n_neon', kind: 'nick', v: 'neon', icon: '💡', n: ['Neon nik', 'Neon nickname', 'Неоновый ник'], gems: 8 },
+    { id: 'n_aurora', kind: 'nick', v: 'aurora', icon: '🌌', n: ['Shimol shafag\'i nik', 'Aurora nickname', 'Ник аврора'], gems: 12 },
+    // ➕ yangi unvonlar
+    { id: 't_book', kind: 'title', v: 'book', icon: '📚', n: ['Unvon: Kitobxon', 'Title: Bookworm', 'Титул: Книголюб'], coins: 100, tv: ['📚 Kitobxon', '📚 Bookworm', '📚 Книголюб'] },
+    { id: 't_sniper', kind: 'title', v: 'sniper', icon: '🎯', n: ['Unvon: Mergan', 'Title: Sharpshooter', 'Титул: Снайпер'], coins: 150, tv: ['🎯 Mergan', '🎯 Sharpshooter', '🎯 Снайпер'] },
+    { id: 't_zen', kind: 'title', v: 'zen', icon: '🧘', n: ['Unvon: Zen ustasi', 'Title: Zen master', 'Титул: Мастер дзен'], coins: 150, tv: ['🧘 Zen ustasi', '🧘 Zen master', '🧘 Мастер дзен'] },
+    { id: 't_rocket', kind: 'title', v: 'rocket', icon: '🚀', n: ['Unvon: Raketa', 'Title: Rocket', 'Титул: Ракета'], coins: 200, tv: ['🚀 Raketa', '🚀 Rocket', '🚀 Ракета'] },
+    { id: 't_lion', kind: 'title', v: 'lion', icon: '🦁', n: ['Unvon: Sher yurak', 'Title: Lionheart', 'Титул: Львиное сердце'], gems: 8, tv: ['🦁 Sher yurak', '🦁 Lionheart', '🦁 Львиное сердце'] },
+    { id: 't_genius', kind: 'title', v: 'genius', icon: '🧠', n: ['Unvon: Daho', 'Title: Genius', 'Титул: Гений'], gems: 12, tv: ['🧠 Daho', '🧠 Genius', '🧠 Гений'] },
+    // 🎨 ilova rangi (accent)
+    { id: 'c_ocean', kind: 'theme', v: '#0ea5e9', icon: '🌊', n: ['Okean rangi', 'Ocean theme', 'Тема океан'], coins: 200 },
+    { id: 'c_forest', kind: 'theme', v: '#22c55e', icon: '🌲', n: ['O\'rmon rangi', 'Forest theme', 'Тема лес'], coins: 200 },
+    { id: 'c_sunset', kind: 'theme', v: '#f97316', icon: '🌅', n: ['Shafaq rangi', 'Sunset theme', 'Тема закат'], coins: 200 },
+    { id: 'c_rose', kind: 'theme', v: '#ec4899', icon: '🌹', n: ['Atirgul rangi', 'Rose theme', 'Тема роза'], coins: 200 },
+    { id: 'c_gold', kind: 'theme', v: '#eab308', icon: '🏆', n: ['Oltin rang', 'Gold theme', 'Золотая тема'], gems: 6 },
+    { id: 'c_crimson', kind: 'theme', v: '#ef4444', icon: '🍒', n: ['Qirmizi rang', 'Crimson theme', 'Тема кармин'], gems: 6 },
+    // 🎉 bajarilganda effekt
+    { id: 'e_stars', kind: 'effect', v: '⭐✨🌟', icon: '⭐', n: ['Yulduzlar', 'Stars', 'Звёзды'], coins: 150 },
+    { id: 'e_hearts', kind: 'effect', v: '💖💗💕', icon: '💖', n: ['Yuraklar', 'Hearts', 'Сердечки'], coins: 150 },
+    { id: 'e_coins', kind: 'effect', v: '🪙💰🪙', icon: '🪙', n: ['Tangalar yomg\'iri', 'Coin rain', 'Дождь монет'], coins: 200 },
+    { id: 'e_petals', kind: 'effect', v: '🌸🌺🌼', icon: '🌸', n: ['Gul barglari', 'Petals', 'Лепестки'], coins: 200 },
+    { id: 'e_fire', kind: 'effect', v: '🔥💥🔥', icon: '🔥', n: ['Olov', 'Fire', 'Огонь'], gems: 6 },
+    { id: 'e_party', kind: 'effect', v: '🎉🎊🥳', icon: '🎉', n: ['Bayram', 'Party', 'Праздник'], gems: 8 },
+    // 🏅 nik yonidagi nishon
+    { id: 'b_star', kind: 'badge', v: '⭐', icon: '⭐', n: ['Yulduz nishon', 'Star badge', 'Значок звезда'], coins: 100 },
+    { id: 'b_fire', kind: 'badge', v: '🔥', icon: '🔥', n: ['Olov nishon', 'Fire badge', 'Значок огонь'], coins: 100 },
+    { id: 'b_bolt', kind: 'badge', v: '⚡', icon: '⚡', n: ['Chaqmoq nishon', 'Bolt badge', 'Значок молния'], coins: 120 },
+    { id: 'b_moon', kind: 'badge', v: '🌙', icon: '🌙', n: ['Oy nishon', 'Moon badge', 'Значок луна'], coins: 120 },
+    { id: 'b_unicorn', kind: 'badge', v: '🦄', icon: '🦄', n: ['Yagona shox', 'Unicorn badge', 'Значок единорог'], gems: 6 },
+    { id: 'b_gem', kind: 'badge', v: '💎', icon: '💎', n: ['Olmos nishon', 'Diamond badge', 'Значок алмаз'], gems: 10 },
+    { id: 'b_crown', kind: 'badge', v: '👑', icon: '👑', n: ['Toj nishon', 'Crown badge', 'Значок корона'], gems: 15 }
   ];
-  function shopState() { S.shop = S.shop || { owned: [], frame: null, nick: null, title: null }; if (!Array.isArray(S.shop.owned)) S.shop.owned = []; return S.shop; }
+  function shopState() { S.shop = S.shop || { owned: [], frame: null, nick: null, title: null, theme: null, effect: null, badge: null }; if (!Array.isArray(S.shop.owned)) S.shop.owned = []; return S.shop; }
   function shopBuy(id) {
     var it = SHOP.find(function (x) { return x.id === id; }); if (!it) return;
     var st = shopState(); if (st.owned.indexOf(id) !== -1) return shopEquip(id);
@@ -387,6 +448,20 @@
     save(); shopApply(); try { render(); } catch (e) {} renderHubSection('shop');
     if (!silent) toast(st[it.kind] ? '✅ ' + L('Kiyildi', 'Equipped', 'Надето') : L('Olib tashlandi', 'Removed', 'Снято'));
   }
+  function fxBurst(chars, x, y) {
+    var arr = Array.from(chars || '🎉'); var n = 16;
+    var cx = x != null ? x : window.innerWidth / 2, cy = y != null ? y : window.innerHeight * 0.45;
+    for (var i = 0; i < n; i++) {
+      var e = document.createElement('span'); e.className = 'x-fx';
+      e.textContent = arr[i % arr.length];
+      var ang = Math.random() * Math.PI * 2, dist = 70 + Math.random() * 130;
+      e.style.left = cx + 'px'; e.style.top = cy + 'px';
+      e.style.setProperty('--dx', Math.cos(ang) * dist + 'px'); e.style.setProperty('--dy', (Math.sin(ang) * dist - 60) + 'px');
+      e.style.setProperty('--rot', (Math.random() * 360 - 180) + 'deg'); e.style.fontSize = (14 + Math.random() * 14) + 'px';
+      document.body.appendChild(e); setTimeout(function (el) { return function () { el.remove(); }; }(e), 1200);
+    }
+  }
+  function shopEffectBurst(x, y) { var st = shopState(), it = SHOP.find(function (z) { return z.id === st.effect; }); if (it) fxBurst(it.v, x, y); }
   function shopTitleText() {
     var st = shopState(); var it = SHOP.find(function (x) { return x.id === st.title; });
     return it ? L(it.tv[0], it.tv[1], it.tv[2]) : '';
@@ -396,6 +471,19 @@
     var f = SHOP.find(function (x) { return x.id === st.frame; }), n = SHOP.find(function (x) { return x.id === st.nick; });
     if (f) root.setAttribute('data-x-frame', f.v); else root.removeAttribute('data-x-frame');
     if (n) root.setAttribute('data-x-nick', n.v); else root.removeAttribute('data-x-nick');
+    var th = SHOP.find(function (x) { return x.id === st.theme; });
+    if (th) { root.style.setProperty('--accent', th.v); root.style.setProperty('--accent-glow', th.v + '33'); root.setAttribute('data-x-theme', th.id); }
+    else if (root.getAttribute('data-x-theme')) { root.style.removeProperty('--accent'); root.style.removeProperty('--accent-glow'); root.removeAttribute('data-x-theme'); }
+    var bd = SHOP.find(function (x) { return x.id === st.badge; });
+    if (bd) root.setAttribute('data-x-badge', bd.v); else root.removeAttribute('data-x-badge');
+    ['user-title', 'profile-name-big'].forEach(function (id) {
+      var el0 = document.getElementById(id); if (!el0) return;
+      var bEl = el0.parentNode && el0.parentNode.querySelector('.x-nbadge[data-for="' + id + '"]');
+      if (bd) {
+        if (!bEl) { bEl = document.createElement('span'); bEl.className = 'x-nbadge'; bEl.setAttribute('data-for', id); el0.insertAdjacentElement('afterend', bEl); }
+        bEl.textContent = bd.v;
+      } else if (bEl) bEl.remove();
+    });
     var tt = shopTitleText();
     var host = document.getElementById('profile-header-text');
     var el = document.getElementById('x-profile-title');
@@ -406,7 +494,9 @@
   });
   function shopHtml() {
     var st = shopState();
-    var groups = [['frame', '🖼 ' + L('Avatar ramkalari', 'Avatar frames', 'Рамки аватара')], ['nick', '🎨 ' + L('Nik rangi', 'Nickname color', 'Цвет ника')], ['title', '🏷 ' + L('Unvonlar', 'Titles', 'Титулы')]];
+    var groups = [['frame', '🖼 ' + L('Avatar ramkalari', 'Avatar frames', 'Рамки аватара')], ['nick', '✏️ ' + L('Nik rangi', 'Nickname color', 'Цвет ника')],
+      ['badge', '🏅 ' + L('Nik yonidagi nishon', 'Nickname badge', 'Значок у ника')], ['title', '🏷 ' + L('Unvonlar', 'Titles', 'Титулы')],
+      ['theme', '🎨 ' + L('Ilova rangi', 'App color', 'Цвет приложения')], ['effect', '🎉 ' + L('Bajarilganda effekt', 'Task-done effect', 'Эффект выполнения')]];
     var h = '<div class="x-shop-bal"><span>🪙 <b>' + (S.coins || 0) + '</b></span><span>💎 <b>' + (S.gems || 0) + '</b></span></div>';
     groups.forEach(function (g) {
       h += '<div class="x-sec-t">' + g[1] + '</div><div class="x-shop-grid">';
@@ -414,6 +504,9 @@
         var own = st.owned.indexOf(it.id) !== -1, on = st[it.kind] === it.id;
         var prev = it.kind === 'frame' ? '<div class="x-shop-av xf-' + it.v + '">' + H((getDisplayUsername() || '?').charAt(0).toUpperCase()) + '</div>'
           : it.kind === 'nick' ? '<div class="x-shop-nk xn-' + it.v + '">' + H(getDisplayUsername() || 'Nick') + '</div>'
+          : it.kind === 'theme' ? '<div class="x-shop-th" style="--tc:' + it.v + '"><i></i><i></i><i></i></div>'
+          : it.kind === 'effect' ? '<div class="x-shop-fx" data-fx="' + it.id + '">' + it.v + '</div>'
+          : it.kind === 'badge' ? '<div class="x-shop-nk">' + H(getDisplayUsername() || 'Nick') + ' ' + it.v + '</div>'
           : '<div class="x-shop-tt">' + L(it.tv[0], it.tv[1], it.tv[2]) + '</div>';
         h += '<button class="x-shop-it ' + (on ? 'on' : own ? 'own' : '') + '" data-shop="' + it.id + '">' + prev +
           '<div class="x-shop-n">' + L(it.n[0], it.n[1], it.n[2]).replace(/^[^:]+:\s*/, '') + '</div>' +
@@ -975,7 +1068,10 @@
     }
     body.innerHTML = h;
     if (sec === 'health') bindHealth(body);
-    if (sec === 'shop') body.querySelectorAll('[data-shop]').forEach(function (b) { b.onclick = function () { shopBuy(b.dataset.shop); }; });
+    if (sec === 'shop') {
+      body.querySelectorAll('[data-shop]').forEach(function (b) { b.onclick = function () { shopBuy(b.dataset.shop); }; });
+      body.querySelectorAll('.x-shop-fx').forEach(function (f) { f.onmouseenter = function () { var r = f.getBoundingClientRect(); var it = SHOP.find(function (z) { return z.id === f.dataset.fx; }); if (it) fxBurst(it.v, r.left + r.width / 2, r.top + r.height / 2); }; });
+    }
     if (sec === 'boss') { var c = body.querySelector('#x-boss-strip-on'); if (c) c.onchange = function () { S.xBossHidden = !this.checked; save(); renderBossStrip(); }; }
     if (sec === 'together') { if (sharedCache && !force) renderShared(); else loadShared(); }
     if (sec === 'feed') { if (feedCache && !force) renderFeed(); else loadFeed(); }
@@ -998,12 +1094,99 @@
     }
   }
 
+  // =========================================================
+  // ↕️ TOTAL panelidagi saralash turlari
+  // =========================================================
+  function subCount(t) { try { return (ensureSubtasks(t) || []).length; } catch (e) { return (t.subtasks || []).length; } }
+  function coinOf(t) { try { return taskCoinValue(t) || 0; } catch (e) { return t.coins || 0; } }
+  var SORTS = {
+    color: { icon: '🎨', n: ['Rang', 'Color', 'Цвет'] },
+    diff: { icon: '💪', n: ['Qiyinchilik', 'Difficulty', 'Сложность'],
+      groups: function () { return [[3, '🔴 ' + L('Qiyin', 'Hard', 'Сложно')], [2, '🟠 ' + L('O\'rtacha', 'Medium', 'Средне')], [1, '🟢 ' + L('Oson', 'Easy', 'Легко')], [0, '⚪ ' + L('Bepul', 'Free', 'Бесплатно')]]; },
+      key: function (t) { var d = t.diff; if (d == null) d = 1; return Math.max(0, Math.min(3, d)); }, desc: true },
+    time: { icon: '🕒', n: ['Vaqt', 'Time', 'Время'],
+      groups: function () { return [[0, '🌅 ' + L('Ertalab (12:00 gacha)', 'Morning (before 12)', 'Утро (до 12)')], [1, '☀️ ' + L('Kunduzi (12–17)', 'Afternoon (12–17)', 'День (12–17)')], [2, '🌙 ' + L('Kechqurun (17 dan)', 'Evening (17+)', 'Вечер (с 17)')], [3, '⏳ ' + L('Vaqtsiz', 'No time', 'Без времени')]]; },
+      key: function (t) { var m = hm2m(t.startTime); return m == null ? 3 : m < 720 ? 0 : m < 1020 ? 1 : 2; },
+      fine: function (t) { var m = hm2m(t.startTime); return m == null ? 9999 : m; } },
+    subs: { icon: '☑️', n: ['Sub-tasklar', 'Subtasks', 'Подзадачи'],
+      groups: function () { return [[2, '📚 ' + L('5 va undan ko\'p', '5 or more', '5 и больше')], [1, '📝 1–4'], [0, '▫️ ' + L('Sub-tasksiz', 'No subtasks', 'Без подзадач')]]; },
+      key: function (t) { var n = subCount(t); return n >= 5 ? 2 : n >= 1 ? 1 : 0; }, fine: function (t) { return -subCount(t); }, desc: true },
+    imp: { icon: '⭐', n: ['Muhimlik', 'Importance', 'Важность'],
+      groups: function () { return [[0, '📌 ' + L('Muhim (pin)', 'Pinned', 'Закреплённые')], [1, '🔥 ' + L('Muhim va shoshilinch', 'Urgent & important', 'Срочно и важно')], [2, '📅 ' + L('Muhim', 'Important', 'Важно')], [3, '⚡ ' + L('Shoshilinch', 'Urgent', 'Срочно')], [5, '▫️ ' + L('Oddiy', 'Normal', 'Обычные')], [4, '🗑 ' + L('Muhim emas', 'Not important', 'Неважно')]]; },
+      key: function (t) { if (t.pinned) return 0; return t.quad ? t.quad : 5; },
+      rank: function (k) { return [0, 1, 2, 3, 5, 4].indexOf(k); } },
+    coins: { icon: '🪙', n: ['Tanga', 'Coins', 'Монеты'], key: function (t) { return coinOf(t); }, desc: true, dyn: true },
+    name: { icon: '🔤', n: ['Nom (A–Z)', 'Name (A–Z)', 'Имя (А–Я)'], key: function () { return 0; }, fine: function (t) { return String(t.name || '').toLowerCase(); } }
+  };
+  var SORT_ORDER = ['color', 'diff', 'time', 'subs', 'imp', 'coins', 'name'];
+  function sortMode() { return SORTS[S.taskSortMode] ? S.taskSortMode : 'color'; }
+  function applySortMode(mode) {
+    var M = SORTS[mode]; if (!M || mode === 'color') return;
+    try { ensureFullTaskOrder(); } catch (e) {}
+    var byId = {}; S.tasks.forEach(function (t) { byId[t.id] = t; });
+    var rev = !!(S.taskSortRev && S.taskSortRev[mode]);
+    var rank = function (t) { var k = M.key(t); if (M.rank) k = M.rank(k); return M.desc ? -k : k; };
+    var arr = S.taskOrder.map(function (id, i) { return { id: id, i: i, t: byId[id] }; });
+    arr.sort(function (a, b) {
+      if (!a.t || !b.t) return (a.t ? -1 : 0) - (b.t ? -1 : 0) || a.i - b.i;
+      var ra = rank(a.t), rb = rank(b.t);
+      if (ra !== rb) return rev ? rb - ra : ra - rb;
+      if (M.fine) { var fa = M.fine(a.t), fb = M.fine(b.t); if (fa !== fb) return (fa < fb ? -1 : 1) * (rev ? -1 : 1); }
+      return a.i - b.i;
+    });
+    S.taskOrder = arr.map(function (x) { return x.id; });
+  }
+  function setSortMode(mode) {
+    if (!SORTS[mode]) return;
+    S.taskSortRev = S.taskSortRev || {};
+    if (sortMode() === mode && mode !== 'color') S.taskSortRev[mode] = !S.taskSortRev[mode];
+    S.taskSortMode = mode;
+    if (mode === 'color') { try { applyColorSortOrder(); } catch (e) {} } else applySortMode(mode);
+    save(); render();
+    var M = SORTS[mode];
+    toast('↕️ ' + M.icon + ' ' + L(M.n[0], M.n[1], M.n[2]) + (mode !== 'color' && S.taskSortRev[mode] ? ' ↑' : mode !== 'color' ? ' ↓' : ''));
+  }
+  window.xSetSortMode = setSortMode;
+  window.xRenderSortPanel = function (tasks) {
+    var bar = document.getElementById('xs-modes'), cw = document.getElementById('xs-color-wrap'), gw = document.getElementById('xs-groups');
+    if (!bar || !cw || !gw) return;
+    var mode = sortMode(), rev = !!(S.taskSortRev && S.taskSortRev[mode]);
+    bar.innerHTML = '<div class="xs-lbl">↕️ ' + L('Saralash', 'Sort by', 'Сортировка') + '</div><div class="xs-chips">' + SORT_ORDER.map(function (k) {
+      var M = SORTS[k];
+      return '<button type="button" class="xs-chip' + (k === mode ? ' on' : '') + '" onclick="xSetSortMode(\'' + k + '\')">' + M.icon + ' ' + L(M.n[0], M.n[1], M.n[2]) + (k === mode && k !== 'color' ? ' <i>' + (rev ? '↑' : '↓') + '</i>' : '') + '</button>';
+    }).join('') + '</div>';
+    if (mode === 'color') { cw.style.display = ''; gw.style.display = 'none'; return; }
+    cw.style.display = 'none'; gw.style.display = '';
+    var M = SORTS[mode], list = tasks || [];
+    var groups;
+    if (M.dyn) {
+      var vals = {}; list.forEach(function (t) { vals[coinOf(t)] = 1; });
+      groups = Object.keys(vals).map(Number).sort(function (a, b) { return b - a; }).map(function (v) { return [v, '🪙 ' + v + ' ' + L('tangalik', 'coins', 'монет')]; });
+    } else if (M.groups) groups = M.groups();
+    else groups = [[0, '🔤 ' + L('Barcha vazifalar', 'All tasks', 'Все задачи')]];
+    if (rev) groups = groups.slice().reverse();
+    var h = '<div class="xs-gt">' + M.icon + ' ' + L('Bugungi vazifalar', 'Today\'s tasks', 'Задачи на сегодня') + ' — ' + L(M.n[0], M.n[1], M.n[2]).toLowerCase() + ' ' + L('bo\'yicha', '', '') + '</div>';
+    groups.forEach(function (g) {
+      var inG = list.filter(function (t) { return M.key(t) === g[0]; });
+      if (!inG.length && M.dyn) return;
+      var dn = inG.filter(function (t) { return t.done; }).length;
+      var coins = inG.reduce(function (a, t) { return a + coinOf(t); }, 0);
+      var pct = inG.length ? Math.round(dn / inG.length * 100) : 0;
+      h += '<div class="xs-row' + (inG.length ? '' : ' empty') + '"><div class="xs-row-t"><span>' + g[1] + '</span><b>' + dn + '/' + inG.length + '</b></div>' +
+        '<div class="xs-bar"><i style="width:' + pct + '%"></i></div>' +
+        (inG.length ? '<div class="xs-row-s">' + inG.slice(0, 4).map(function (t) { return '<span class="' + (t.done ? 'd' : '') + '">' + (t.emoji ? t.emoji + ' ' : '') + H(t.name) + '</span>'; }).join('') + (inG.length > 4 ? '<span>+' + (inG.length - 4) + '</span>' : '') + (coins ? '<em>' + coins + ' 🪙</em>' : '') + '</div>' : '') + '</div>';
+    });
+    h += '<div class="xs-hint">' + L('Vazifalar ro\'yxati shu tartibda saralandi. Qayta bossangiz — teskari tartib.', 'Your task list is sorted this way. Tap again to reverse.', 'Список задач отсортирован. Нажмите ещё раз — обратный порядок.') + '</div>';
+    gw.innerHTML = h;
+  };
+
   // ---------- script.js ulanish nuqtalari ----------
   window.xRenderHub = safe(renderHub);
   window.xRenderTasksExtras = safe(renderTasksExtras);
   window.xOnTaskDone = safe(function (tsk, on) {
     bossHit(tsk, on);
     if (on) {
+      try { var cb = document.querySelector('.task-card[data-id="' + tsk.id + '"] .check-btn'); var rr = cb && cb.getBoundingClientRect(); shopEffectBurst(rr ? rr.left + rr.width / 2 : null, rr ? rr.top + rr.height / 2 : null); } catch (e) {}
       var n = (S.weekDoneLog || {})[today()] || 0;
       if ([5, 10, 20].indexOf(n) !== -1 && S.xFeedMilestone !== today() + ':' + n) {
         S.xFeedMilestone = today() + ':' + n;

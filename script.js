@@ -7925,9 +7925,24 @@ function mqClaim(key) {
   try { confetti(); SFX.coin(); } catch (e) {}
   save(); renderQuests();
 }
+// ↩ Mukofoti olingan kvest sharti keyin bekor qilinsa (masalan vazifa "undone"),
+// mukofot qaytarib olinadi va kvest yana ochiladi — cheksiz mukofot olishning oldi olinadi.
+function mqReconcile() {
+  var Q = mqGetQuests(), claims = S.questClaims || {}, changed = false;
+  Q.daily.concat(Q.weekly).forEach(function (q) {
+    if (!q.claimed || q.done) return;
+    delete claims[q.key];
+    gemsAdd(-q.reward, 'quest', '↩ ' + q.text, true);
+    try { toast('↩ ' + _cl('Kvest sharti bekor qilindi', 'Quest condition undone', 'Условие квеста отменено') + ': −' + q.reward + ' 💎'); } catch (e) {}
+    changed = true;
+  });
+  if (changed) { S.questClaims = claims; save(); }
+  return changed;
+}
 function renderQuests() {
   var box = document.getElementById('quests-card');
   if (!box || typeof S === 'undefined' || !S) return;
+  try { mqReconcile(); } catch (e) {}
   var Q = mqGetQuests();
   var collapsed = !!S.questsCollapsed;
   var doneN = Q.daily.filter(function (q) { return q.claimed; }).length;
@@ -13439,6 +13454,7 @@ function render() {
       '</div>';
     }).join('');
     initLabelBreakdownSortable();
+    try { if (typeof window.xRenderSortPanel === 'function') window.xRenderSortPanel(lbSourceTasks); } catch (e) {}
   })();
 
   const pct=total>0?Math.round(done/total*100):0;
@@ -20948,8 +20964,15 @@ function renderCalMonthSummary() {
   var summary = getMonthSummary(_calYear, _calMonth);
   if (summary.due === 0) { el.style.display = 'none'; return; }
   el.style.display = '';
-  el.textContent = getMonthsFullArr()[_calMonth] + ': ' + summary.pct + '% ' +
-    t('cal_summary_done') + ' • ' + summary.coins + ' 🪙 ' + t('cal_summary_earned');
+  var perfect = 0, active = 0, dim = new Date(_calYear, _calMonth + 1, 0).getDate();
+  for (var dd = 1; dd <= dim; dd++) {
+    var ds = getDateStr(_calYear, _calMonth, dd); if (ds > today()) break;
+    var st = getDayStats(ds); if (st.due > 0) { active++; if (st.done + st.skipped >= st.due) perfect++; }
+  }
+  el.className = 'calx-sum';
+  el.innerHTML = '<div><b>' + summary.pct + '%</b><span>✅ ' + esc(t('cal_summary_done')) + '</span></div>' +
+    '<div><b>' + (summary.coins > 0 ? '+' : '') + summary.coins + '</b><span>🪙 ' + esc(t('cal_summary_earned')) + '</span></div>' +
+    '<div><b>' + perfect + '/' + active + '</b><span>🌟 ' + _cl('mukammal kun', 'perfect days', 'идеальных дней') + '</span></div>';
 }
 
 function getDateStr(y, m, d) {
@@ -21058,28 +21081,32 @@ function renderCalendar() {
 
     var cell = document.createElement('div');
     cell.dataset.date = dateStr;
-    cell.style.cssText =
-      'aspect-ratio:1;max-height:48px;border-radius:var(--radius-sm);background:' + bg +
-      ';opacity:' + opacity +
-      ';display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:var(--fs-2xs);font-weight:600' +
-      ';color:' + (isOfflineDay ? 'rgba(255,255,255,0.75)' : (bg === 'transparent' || bg === 'var(--surface2)' ? 'var(--text-dim)' : 'rgba(0,0,0,0.75)')) +
-      ';cursor:' + (isFuture ? 'default' : 'pointer') +
-      ';transition:transform 0.15s;position:relative;' +
-      (isToday ? 'box-shadow:0 0 0 2px var(--accent);' : '');
+    // 🎨 Yumshoq ko'rinish: to'liq bo'yalgan katak o'rniga och fon + rangli chegara,
+    // pastida bajarilganlik chizig'i va kayfiyat emojisi
+    var solid = (bg && bg !== 'transparent' && bg !== 'var(--surface2)');
+    var donePct = (!isFuture && stats.due > 0) ? Math.round((stats.done + stats.skipped) / stats.due * 100) : 0;
+    cell.className = 'calx-day' + (isFuture ? ' future' : '') + (isToday ? ' today' : '') + (!isFuture && stats.due === 0 && !isFrozenDay && !isOfflineDay ? ' empty' : '') + (donePct >= 100 && !isFrozenDay ? ' perfect' : '');
+    if (solid) cell.style.setProperty('--cc', bg);
+    cell.style.cursor = isFuture ? 'default' : 'pointer';
 
     var dayNumEl = document.createElement('span');
-    dayNumEl.style.cssText = 'line-height:1';
+    dayNumEl.className = 'calx-num';
     dayNumEl.textContent = day;
     cell.appendChild(dayNumEl);
 
     var dayCoins = !isFuture ? getDayCoins(dateStr) : 0;
 
-    if (!isFuture && !isFrozenDay && !isOfflineDay && stats.due > 0) {
+    if (!isFuture && !isFrozenDay && !isOfflineDay && stats.due > 0 && dayCoins !== 0) {
       var miniEl = document.createElement('span');
-      miniEl.style.cssText = 'font-size:7px;line-height:1;font-weight:700;opacity:0.85';
-      miniEl.textContent = dayCoins > 0 ? ('+' + dayCoins) : (dayCoins < 0 ? String(dayCoins) : '0');
+      miniEl.className = 'calx-coin' + (dayCoins < 0 ? ' neg' : '');
+      miniEl.textContent = dayCoins > 0 ? ('+' + dayCoins) : String(dayCoins);
       cell.appendChild(miniEl);
     }
+    if (isFrozenDay) { var fz = document.createElement('span'); fz.className = 'calx-coin'; fz.textContent = '❄️'; cell.appendChild(fz); }
+    if (!isFuture && stats.due > 0 && !isFrozenDay && !isOfflineDay) {
+      var bar = document.createElement('i'); bar.className = 'calx-bar'; bar.style.width = donePct + '%'; cell.appendChild(bar);
+    }
+    try { var _md = (S.moods || {})[dateStr]; if (_md && _md.emoji) { var me = document.createElement('span'); me.className = 'calx-mood'; me.textContent = _md.emoji; cell.appendChild(me); } } catch (e) {}
 
     if (!isFuture) {
       var coinTip = dayCoins > 0 ? ('🪙 +' + dayCoins) : dayCoins < 0 ? ('🪙 ' + dayCoins) : '🪙 0';
@@ -22141,6 +22168,7 @@ function todayKey() {
 
 function openMoodCalendar() {
   _moodCalDate = new Date();
+  _moodTargetDate = todayKey();
   _selectedMood = null;
   _selectedMoodLabel = '';
   document.getElementById('mood-note-input').value = '';
@@ -22174,45 +22202,68 @@ function moodNextMonth() {
   renderMoodCal();
 }
 
+var _moodTargetDate = null; // kayfiyat qaysi kun uchun belgilanmoqda (standart — bugun)
+var MOOD_TONE = { '🙂': 'pos', '😇': 'pos', '🥳': 'pos', '😑': 'neu', '🧐': 'neu', '😭': 'neg', '🤯': 'neg', '🥵': 'neg', '😡': 'neg', '🤮': 'neg' };
+function moodPickDate(key) {
+  if (key > todayKey()) return;
+  _moodTargetDate = key;
+  var moods = getMoods(), e = moods[key];
+  _selectedMood = e ? e.emoji : null; _selectedMoodLabel = e ? e.label : '';
+  var ni = document.getElementById('mood-note-input'); if (ni) ni.value = e ? (e.note || '') : '';
+  document.querySelectorAll('.mood-pick-btn').forEach(function (b) { b.classList.toggle('sel', !!e && b.dataset.mood === e.emoji); });
+  renderMoodCal();
+}
 function renderMoodCal() {
-  var MONTHS = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+  var MONTHS = getMonthsFullArr();
   var y = _moodCalDate.getFullYear(), m = _moodCalDate.getMonth();
   document.getElementById('mood-cal-title').textContent = MONTHS[m] + ' ' + y;
   var moods = getMoods();
-  var firstDay = new Date(y, m, 1).getDay();
+  var startOffset = (new Date(y, m, 1).getDay() + 6) % 7; // dushanbadan boshlanadi
   var daysInMonth = new Date(y, m+1, 0).getDate();
   var todayStr = todayKey();
+  if (!_moodTargetDate || _moodTargetDate > todayStr) _moodTargetDate = todayStr;
   var grid = document.getElementById('mood-cal-grid');
-  grid.innerHTML = '';
-  for (var i = 0; i < firstDay; i++) {
-    var empty = document.createElement('div');
-    empty.className = 'mood-cal-day other-month';
-    grid.appendChild(empty);
-  }
+  var sd = getShortDaysArr(), order = [1, 2, 3, 4, 5, 6, 0];
+  var html = order.map(function (d) { return '<div class="moodx-wd' + (d === 0 ? ' sun' : '') + '">' + esc(sd[d]) + '</div>'; }).join('');
+  for (var i = 0; i < startOffset; i++) html += '<div></div>';
+  var cnt = {}, logged = 0, tones = { pos: 0, neu: 0, neg: 0 }, passed = 0;
   for (var d = 1; d <= daysInMonth; d++) {
     var key = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-    var moodEntry = moods[key];
-    var isToday = key === todayStr;
-    var cell = document.createElement('div');
-    cell.className = 'mood-cal-day' + (isToday ? ' today' : '');
-    cell.innerHTML = '<span class="day-num">' + d + '</span>'
-      + (moodEntry ? '<span class="day-emoji">' + moodEntry.emoji + '</span>' : '<span class="day-emoji" style="opacity:0.15;font-size:var(--fs-xs)">·</span>');
-    if (moodEntry) {
-      (function(k, entry){
-        cell.onclick = function(){ openMoodDetail(k, entry); };
-      })(key, moodEntry);
-    }
-    grid.appendChild(cell);
+    var e = moods[key], fut = key > todayStr;
+    if (!fut) passed++;
+    if (e) { logged++; cnt[e.emoji] = (cnt[e.emoji] || 0) + 1; var tn = MOOD_TONE[e.emoji] || 'neu'; tones[tn]++; }
+    var cls = 'moodx-day' + (e ? ' has ' + (MOOD_TONE[e.emoji] || 'neu') : '') + (key === todayStr ? ' today' : '') + (fut ? ' fut' : '') + (key === _moodTargetDate ? ' target' : '') + (e && e.note ? ' note' : '');
+    html += '<div class="' + cls + '" data-k="' + key + '"><span class="moodx-n">' + d + '</span>' + (e ? '<span class="moodx-e">' + e.emoji + '</span>' : '') + '</div>';
   }
-  var todayInView = (new Date().getMonth() === _moodCalDate.getMonth() && new Date().getFullYear() === _moodCalDate.getFullYear());
-  var lbl = document.getElementById('mood-select-label');
-  if (lbl) lbl.textContent = todayInView ? (moods[todayStr] ? t('mood_change_label') : t('mood_select_label')) : t('mood_only_today_label');
-  var saveBtn = document.querySelector('#mood-modal button[onclick="saveMoodEntry()"]');
-  if (saveBtn) saveBtn.style.display = todayInView ? '' : 'none';
-  document.querySelectorAll('.mood-pick-btn').forEach(function(b){
-    b.style.opacity = todayInView ? '1' : '0.4';
-    b.style.pointerEvents = todayInView ? '' : 'none';
+  grid.innerHTML = html;
+  grid.querySelectorAll('.moodx-day[data-k]').forEach(function (c) {
+    c.onclick = function () {
+      var k = c.dataset.k, e = moods[k];
+      if (k > todayStr) return;
+      if (e && k === _moodTargetDate) { openMoodDetail(k, e); return; }
+      moodPickDate(k);
+    };
   });
+  // 📊 Oylik xulosa
+  var st = document.getElementById('mood-month-stats');
+  if (!st) { st = document.createElement('div'); st.id = 'mood-month-stats'; grid.parentNode.appendChild(st); }
+  var top = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; });
+  var bar = logged ? ['pos', 'neu', 'neg'].map(function (k) { return tones[k] ? '<i class="' + k + '" style="flex:' + tones[k] + '"></i>' : ''; }).join('') : '<i style="flex:1"></i>';
+  st.className = 'moodx-stats';
+  st.innerHTML = '<div class="moodx-st-row"><div><b>' + logged + '/' + (passed || daysInMonth) + '</b><span>📝 ' + _cl('belgilangan kun', 'days logged', 'дней отмечено') + '</span></div>' +
+    '<div><b>' + (top[0] || '—') + '</b><span>⭐ ' + _cl('eng ko\'p', 'most often', 'чаще всего') + '</span></div>' +
+    '<div><b>' + (logged ? Math.round(tones.pos / logged * 100) : 0) + '%</b><span>😊 ' + _cl('yaxshi kunlar', 'good days', 'хороших дней') + '</span></div></div>' +
+    '<div class="moodx-bar">' + bar + '</div>' +
+    (top.length ? '<div class="moodx-top">' + top.slice(0, 5).map(function (k) { return '<span>' + k + ' ' + cnt[k] + '</span>'; }).join('') + '</div>' : '');
+  // Belgilash qismi — tanlangan kun uchun
+  var isTodayT = _moodTargetDate === todayStr;
+  var tp = _moodTargetDate.split('-');
+  var nice = parseInt(tp[2], 10) + ' ' + (getMonthsArr()[parseInt(tp[1], 10) - 1] || '');
+  var lbl = document.getElementById('mood-select-label');
+  if (lbl) lbl.textContent = isTodayT ? (moods[todayStr] ? t('mood_change_label') : t('mood_select_label')) : ('📅 ' + nice + ' — ' + _cl('kayfiyatni belgilang', 'set the mood', 'отметьте настроение'));
+  var saveBtn = document.querySelector('#mood-modal button[onclick="saveMoodEntry()"]');
+  if (saveBtn) saveBtn.style.display = '';
+  document.querySelectorAll('.mood-pick-btn').forEach(function(b){ b.style.opacity = '1'; b.style.pointerEvents = ''; });
 }
 
 function selectMood(emoji, label) {
@@ -22227,7 +22278,8 @@ function saveMoodEntry() {
   if (!_selectedMood) { toast(t('mood_select_first_toast')); return; }
   var moods = getMoods();
   var note = document.getElementById('mood-note-input').value.trim();
-  moods[todayKey()] = { emoji: _selectedMood, label: _selectedMoodLabel, note: note, ts: Date.now() };
+  var _mk = (_moodTargetDate && _moodTargetDate <= todayKey()) ? _moodTargetDate : todayKey();
+  moods[_mk] = { emoji: _selectedMood, label: _selectedMoodLabel, note: note, ts: Date.now() };
   saveMoods(moods);
   updateMoodBtn();
   renderMoodCal();
