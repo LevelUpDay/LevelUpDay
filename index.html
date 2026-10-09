@@ -23,6 +23,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="extras.css">
 </head>
 <body>
 
@@ -131,10 +132,13 @@
     <button class="tab"        id="tab-sat"     data-tab="sat"     onclick="showTab('sat')" data-i18n="tab_sat">📐 SAT</button>
     <button class="tab"        id="tab-cefr"    data-tab="cefr"    onclick="showTab('cefr')" style="display:none">📘 CEFR</button>
     <button class="tab"        id="tab-pomo"    data-tab="pomo"    onclick="pomoOpenModal()" data-i18n-title="pomo_nav_tab_title">⏱️ <span id="pomo-header-label">Pomodoro</span></button>
+    <button class="tab"        id="tab-hub"     data-tab="hub"     onclick="showTab('hub')">🚀 Hub</button>
     <button class="tab" id="tab-profile" data-tab="profile" onclick="showTab('profile')" data-i18n="guide_step_profile_title">👤 Profil</button>
   </div>
 
   <div id="view-tasks">
+    <div id="x-review-banner" class="x-review-banner" style="display:none"><span>🌙 <b class="x-rb-t">Kun yakuni</b></span><button class="x-btn sm" onclick="xOpenReview()">✍️</button><button class="x-link" onclick="xDismissReview()" aria-label="close">✕</button></div>
+    <div id="x-boss-strip" class="x-boss-strip" onclick="xOpenHub('boss')"></div>
     <div id="quests-card" class="quests-card"></div>
     <button class="add-task-btn" onclick="openModal(event)" data-i18n="add_task_btn">+ Yangi vazifa qo'shish</button>
     <!-- Search bar -->
@@ -147,6 +151,13 @@
       </button>
       <button class="all-toggle" id="time-view-btn" onclick="toggleTimeView()" data-i18n="time_view_btn">🕒 Vaqt</button>
       <button class="all-toggle" id="bulk-toggle-btn" onclick="toggleBulkMode()" data-i18n="bulk_select_btn">☑️ Tanlash</button>
+    </div>
+    <div class="x-tools-row" id="x-tools-row">
+      <button class="x-tool" onclick="xOpenFocus()">🎯 <span class="x-tl" data-x="focus">Fokus</span></button>
+      <button class="x-tool" onclick="xOpenMatrix()">▦ <span class="x-tl" data-x="matrix">Matritsa</span></button>
+      <button class="x-tool" onclick="xOpenTemplates()">📑 <span class="x-tl" data-x="tpl">Shablonlar</span></button>
+      <button class="x-tool" onclick="xOpenReview()">🌙 <span class="x-tl" data-x="review">Kun yakuni</span></button>
+      <button class="x-tool x-water" id="x-water-pill" onclick="xWaterAdd(1)" title="+1">💧 0/8</button>
     </div>
     <!-- Ommaviy amallar paneli (faqat "Tanlash" rejimida ko'rinadi) -->
     <div id="bulk-action-bar" style="display:none;position:sticky;top:0;z-index:12;background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
@@ -171,11 +182,11 @@
     </div>
     <!-- Chest inline natija -->
     <div id="chest-inline-result" style="display:none;border-radius:var(--radius-md);padding:14px 16px;margin-bottom:8px;animation:slideIn 0.25s ease"></div>
-    <div id="tb-timeline" class="tb-timeline" style="display:none"></div>
     <div id="daily-section"><div class="section-title" data-i18n="section_today">Bugungi vazifalar</div><div class="task-list" id="daily-list"></div></div>
     <div id="once-section"><div class="section-title" data-i18n="section_once">Bir martalik</div><div class="task-list" id="once-list"></div></div>
     <div id="future-section" style="display:none"><div class="section-title" style="color:rgba(124,92,252,0.85)" data-i18n="section_future">🔮 Kelajakdagi vazifalar</div><div class="task-list" id="future-list"></div></div>
     <div class="empty" id="empty-msg" style="display:none"><div class="empty-icon">📝</div><span data-i18n-html="task_empty_msg">Hali vazifa yo'q.<br>Yuqoridagi tugma bilan boshlang!</span></div>
+    <div id="tb-timeline" class="tb-timeline" style="display:none"></div>
   </div>
 
   <div id="view-spin" style="display:none">
@@ -277,6 +288,7 @@
 
   <!-- view-stats removed — merged into view-profile -->
   <div id="view-stats" style="display:none"></div>
+  <div id="view-hub" class="x-hub" style="display:none"></div>
 
   <div id="view-profile" style="display:none;padding:8px 0">
 
@@ -3425,5 +3437,6 @@
 
 
   <script src="script.js"></script>
+  <script src="extras.js"></script>
 </body>
 </html>
