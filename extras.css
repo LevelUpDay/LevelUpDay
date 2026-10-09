@@ -363,3 +363,48 @@ html.x-focus-on, html.x-focus-on body { overflow: hidden; }
 .ad-tip { position: fixed; z-index: 470; display: none; transform: translate(-50%, -100%); background: var(--surface2); color: var(--text); border: 1px solid var(--border-hover, var(--border)); font-size: 12px; font-weight: 600; padding: 5px 9px; border-radius: 8px; pointer-events: none; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.3); }
 .ad-open-btn { width: 100%; margin-bottom: 12px; padding: 13px; border-radius: 14px; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
 @media (max-width: 520px) { .ad-box { padding: 12px; } .ad-grid { grid-template-columns: 1fr; } .ad-kpis { grid-template-columns: 1fr 1fr; } .ad-tile { padding: 10px; } .ad-tile-v { font-size: 22px; } }
+
+/* 🧭 Asosiy menyuda faqat 5 ta bo'lim — qolganlari Hub → Bo'limlar */
+#tabs-bar .tab.x-moved { display: none !important; }
+.x-secs-t { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin: 2px 2px 8px; }
+.x-secs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.x-sec { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.x-sec span { font-size: 24px; line-height: 1; }
+.x-sec:hover { border-color: var(--accent); }
+
+/* 📱 Telefon: pastki navigatsiya paneli */
+#x-bnav { display: none; }
+html.layout-mobile #x-bnav {
+  display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border); padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+}
+#x-bnav button { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: none; background: none; color: var(--text-muted); font-family: inherit; cursor: pointer; border-radius: 12px; -webkit-tap-highlight-color: transparent; }
+#x-bnav .x-bn-i { font-size: 21px; line-height: 1; transition: transform .15s; }
+#x-bnav .x-bn-l { font-size: 10.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#x-bnav button.on { color: var(--accent); }
+#x-bnav button.on .x-bn-i { transform: translateY(-1px) scale(1.08); }
+#x-bnav button:active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+html.layout-mobile #tabs-bar { display: none !important; }
+html.layout-mobile body { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+html.layout-mobile .toast { bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important; }
+html.layout-mobile #undo-toast { bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important; }
+html.layout-mobile #focus-mini-player { bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important; }
+/* Pomodoro oynasi ochiq bo'lsa pastki panel uning ostida qoladi */
+html.layout-mobile body:has(#pomo-modal-overlay.open) #x-bnav { display: none; }
+
+/* 📱 Telefon qulayligi: gorizontal "qimirlash"ning oldini olish, katta bosish maydonlari */
+html.layout-mobile, html.layout-mobile body { overflow-x: hidden; max-width: 100%; }
+html.layout-mobile .wrapper { overflow-x: clip; }
+html.layout-mobile .check-btn { min-width: 30px; min-height: 30px; }
+html.layout-mobile input, html.layout-mobile select, html.layout-mobile textarea { font-size: 16px; } /* iOS avtomatik zoom qilmasin */
+
+/* 📲 O'rnatish */
+.x-install-banner { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--surface)), var(--surface)); }
+.x-install-banner img { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; }
+.x-ib-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.x-ib-t b { font-size: 14px; color: var(--text); }
+.x-ib-t span { font-size: 11.5px; color: var(--text-muted); line-height: 1.35; }
+.x-inst-steps { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.x-inst-steps > div { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--text); line-height: 1.45; }
+.x-inst-steps b:first-child { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }

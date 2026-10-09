@@ -10,7 +10,7 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v22';
+const CACHE_VERSION = 'v23';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 
 // Pre-cache qilinadigan asosiy fayllar
@@ -22,9 +22,12 @@ const PRECACHE_URLS = [
   './extras.js',
   './extras.css',
   './manifest.json',
-  './icon-180.png',
-  './icon-192.png',
-  './icon-512.png',
+  './icons/logo.svg',
+  './icons/favicon-32.png',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js'
 ];
 
@@ -135,6 +138,13 @@ self.addEventListener('fetch', (event) => {
     (request.headers.get('accept') && request.headers.get('accept').includes('text/html'));
 
   if (isNavigation) {
+    event.respondWith(networkFirstFallingBackToCache(request));
+    return;
+  }
+
+  // 1.1 Ilovaning o'z kodi (JS/CSS/manifest): ham Network-First — yangilanish chiqqanda
+  // telefon eski script.js ni keshdan olib qolmasligi (HTML bilan nomuvofiqlik) uchun.
+  if (url.origin === self.location.origin && /\.(js|css|json|webmanifest)$/.test(url.pathname) && !url.pathname.endsWith('/sw.js')) {
     event.respondWith(networkFirstFallingBackToCache(request));
     return;
   }

@@ -1,22 +1,77 @@
 {
+  "id": "./",
   "name": "LevelUpDay",
   "short_name": "LevelUpDay",
-  "start_url": ".",
+  "description": "Vazifalar, odatlar va maqsadlarni o'yin kabi bajaring — tanga, daraja, streak va do'stlar bilan.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#0F0E17",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#0B0B12",
   "theme_color": "#7C5CFC",
+  "lang": "uz",
+  "categories": [
+    "productivity",
+    "education",
+    "lifestyle"
+  ],
   "icons": [
     {
-      "src": "icon.png",
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Yangi vazifa",
+      "short_name": "Vazifa",
+      "url": "./?action=new-task",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Pomodoro",
+      "url": "./?action=pomodoro",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

@@ -1041,11 +1041,12 @@
     var tools = [['tpl', '📑', L('Shablonlar', 'Templates', 'Шаблоны')], ['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')], ['review', '🌙', L('Kun yakuni', 'Evening review', 'Итоги дня')],
       ['stats', '📊', L('Statistika', 'Statistics', 'Статистика')]];
     if (window._isAdmin) tools.push(['admin', '👑', L('Admin', 'Admin', 'Админ')]);
-    v.innerHTML = '<div class="x-hub-tools">' + tools.map(function (t) { return '<button data-tool="' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</div>' +
+    v.innerHTML = sectionsGrid() + '<div class="x-hub-tools">' + tools.map(function (t) { return '<button data-tool="' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</div>' +
       '<div class="x-hub-nav">' + HUB_SECS.map(function (s) { return '<button class="' + (s[0] === sec ? 'on' : '') + '" data-sec="' + s[0] + '">' + s[1] + ' ' + L(s[2][0], s[2][1], s[2][2]) + '</button>'; }).join('') + '</div>' +
       '<div id="x-hub-body"></div>';
     v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ review: openReview, tpl: openTemplates, matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} }, admin: function () { window.openAdminPanel(); } })[b.dataset.tool](); }; });
     v.querySelectorAll('[data-sec]').forEach(function (b) { b.onclick = function () { S.xHubSec = b.dataset.sec; save(); renderHub(); }; });
+    bindSections(v);
     renderHubSection(sec, true);
   }
   function renderHubSection(sec, force) {
@@ -1349,6 +1350,130 @@
   }
   setInterval(function () { try { adminButtonCheck(); } catch (e) {} }, 5000);
 
+  // =========================================================
+  // 🧭 ASOSIY NAVIGATSIYA: 5 ta bo'lim, qolganlari Hub → "Bo'limlar"
+  // =========================================================
+  var MAIN_TABS = ['tasks', 'goals', 'hub', 'rewards', 'profile'];
+  var MOVED_TABS = ['chest', 'reyting', 'ielts', 'sat', 'cefr', 'pomo'];
+  function tabAvailable(id) {
+    var t = document.getElementById('tab-' + id);
+    return !!(t && t.style.display !== 'none');
+  }
+  function markMovedTabs() {
+    MOVED_TABS.forEach(function (id) { var t = document.getElementById('tab-' + id); if (t) t.classList.add('x-moved'); });
+  }
+  function sectionsGrid() {
+    var items = [
+      ['pomo', '🍅', L('Pomodoro', 'Pomodoro', 'Pomodoro'), function () { pomoOpenModal(); }],
+      ['reyting', '🏆', L('Reyting', 'Leaderboard', 'Рейтинг'), function () { showTab('reyting'); }],
+      ['friends', '👥', L('Do\'stlar', 'Friends', 'Друзья'), function () { openFriendsModal(); }],
+      ['chest', '🎲', 'Chest', function () { showTab('chest'); }],
+      ['spin', '🎰', 'Spin', function () { showTab('spin'); }],
+      ['ielts', '📊', 'IELTS', function () { showTab('ielts'); }],
+      ['sat', '📐', 'SAT', function () { showTab('sat'); }],
+      ['cefr', '📘', 'CEFR', function () { showTab('cefr'); }],
+      ['secret', '🕵️', L('Shaxsiy nazorat', 'Personal check', 'Личный контроль'), function () { showTab('secret'); }]
+    ].filter(function (x) {
+      if (x[0] === 'friends' || x[0] === 'spin') return true;
+      if (x[0] === 'secret') return !!S.personalCheckEnabled;
+      return tabAvailable(x[0]);
+    });
+    window._xSecActions = {}; items.forEach(function (x) { window._xSecActions[x[0]] = x[3]; });
+    return '<div class="x-secs-t">🧩 ' + L('Bo\'limlar', 'Sections', 'Разделы') + '</div><div class="x-secs">' + items.map(function (x) {
+      return '<button type="button" class="x-sec" data-sec-go="' + x[0] + '"><span>' + x[1] + '</span>' + x[2] + '</button>';
+    }).join('') + '</div>';
+  }
+  function bindSections(root) {
+    root.querySelectorAll('[data-sec-go]').forEach(function (b) { b.onclick = function () { var f = (window._xSecActions || {})[b.dataset.secGo]; if (f) f(); }; });
+  }
+  // 📱 Telefonda pastki navigatsiya paneli
+  function buildBottomNav() {
+    if (document.getElementById('x-bnav')) return;
+    var nav = document.createElement('nav'); nav.id = 'x-bnav'; nav.setAttribute('aria-label', 'main');
+    document.body.appendChild(nav);
+    renderBottomNav();
+  }
+  function renderBottomNav() {
+    var nav = document.getElementById('x-bnav'); if (!nav) return;
+    var cur = document.documentElement.getAttribute('data-tab') || 'tasks';
+    if (MAIN_TABS.indexOf(cur) === -1 && cur !== 'secret') cur = 'hub';
+    if (cur === 'secret') cur = 'profile';
+    var it = [['tasks', '📋', L('Vazifalar', 'Tasks', 'Задачи')], ['goals', '🎯', L('Maqsadlar', 'Goals', 'Цели')], ['hub', '🚀', 'Hub'],
+      ['rewards', '🎁', L('Mukofot', 'Rewards', 'Награды')], ['profile', '👤', L('Profil', 'Profile', 'Профиль')]];
+    nav.innerHTML = it.map(function (x) {
+      return '<button type="button" class="' + (x[0] === cur ? 'on' : '') + '" data-bn="' + x[0] + '"><span class="x-bn-i">' + x[1] + '</span><span class="x-bn-l">' + x[2] + '</span></button>';
+    }).join('');
+    nav.querySelectorAll('[data-bn]').forEach(function (b) {
+      b.onclick = function () { showTab(b.dataset.bn); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } };
+    });
+  }
+
+  // =========================================================
+  // 📲 ILOVANI O'RNATISH (kompyuter / telefon)
+  // =========================================================
+  var _installEvt = null;
+  function isStandalone() {
+    try { return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches || navigator.standalone === true; } catch (e) { return false; }
+  }
+  function isIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent || '')); }
+  function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS()); }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); _installEvt = e; renderInstallUI(); });
+  window.addEventListener('appinstalled', function () { _installEvt = null; toast('🎉 ' + L('LevelUpDay o\'rnatildi!', 'LevelUpDay installed!', 'LevelUpDay установлен!')); renderInstallUI(); });
+  function doInstall() {
+    if (_installEvt) {
+      _installEvt.prompt();
+      _installEvt.userChoice.then(function (c) { if (c && c.outcome === 'accepted') { _installEvt = null; } renderInstallUI(); }).catch(function () {});
+      return;
+    }
+    var html = '<h3 class="x-h">📲 ' + L('Ilovani o\'rnatish', 'Install the app', 'Установить приложение') + '</h3>';
+    if (isIOS()) {
+      html += '<div class="x-inst-steps"><div><b>1</b>' + L('Safari pastidagi <b>Ulashish ⬆️</b> tugmasini bosing', 'Tap the <b>Share ⬆️</b> button in Safari', 'Нажмите <b>Поделиться ⬆️</b> в Safari') + '</div>' +
+        '<div><b>2</b>' + L('<b>«Bosh ekranga qo\'shish»</b> ni tanlang', 'Choose <b>“Add to Home Screen”</b>', 'Выберите <b>«На экран Домой»</b>') + '</div>' +
+        '<div><b>3</b>' + L('<b>Qo\'shish</b> ni bosing — tayyor!', 'Tap <b>Add</b> — done!', 'Нажмите <b>Добавить</b> — готово!') + '</div></div>';
+    } else {
+      html += '<div class="x-inst-steps"><div><b>1</b>' + L('Chrome yoki Edge\'da manzil satrining o\'ng tomonidagi <b>⊕ / 🖥 O\'rnatish</b> belgisini bosing', 'In Chrome or Edge, click the <b>⊕ / 🖥 Install</b> icon at the right of the address bar', 'В Chrome или Edge нажмите значок <b>⊕ Установить</b> в адресной строке') + '</div>' +
+        '<div><b>2</b>' + L('Yoki menyu <b>⋮ → «LevelUpDay\'ni o\'rnatish»</b>', 'Or menu <b>⋮ → “Install LevelUpDay”</b>', 'Или меню <b>⋮ → «Установить LevelUpDay»</b>') + '</div>' +
+        '<div><b>3</b>' + L('Ilova alohida oynada ochiladi va ish stolida belgisi paydo bo\'ladi', 'It opens in its own window with an icon on your desktop', 'Приложение откроется в отдельном окне со значком на рабочем столе') + '</div></div>';
+    }
+    xModal(html, 'x-inst-box');
+  }
+  window.xInstallApp = doInstall;
+  function renderInstallUI() {
+    var show = canOfferInstall();
+    // 1) Vazifalar sahifasidagi banner (yopib qo'ysa qaytib chiqmaydi)
+    var bn = document.getElementById('x-install-banner');
+    var want = show && !S.xInstallDismissed;
+    if (want && !bn) {
+      var host = document.getElementById('view-tasks');
+      if (host) {
+        bn = document.createElement('div'); bn.id = 'x-install-banner'; bn.className = 'x-install-banner';
+        bn.innerHTML = '<img src="icons/icon-192.png" alt=""><div class="x-ib-t"><b>' + L('LevelUpDay\'ni o\'rnating', 'Install LevelUpDay', 'Установите LevelUpDay') + '</b><span>' +
+          L('Ish stoli / bosh ekrandan bir bosishda ochiladi, oflayn ham ishlaydi', 'Open it in one tap from your desktop / home screen, works offline', 'Открывается в одно касание, работает офлайн') + '</span></div>' +
+          '<button class="x-btn sm" id="x-ib-go">📲 ' + L('O\'rnatish', 'Install', 'Установить') + '</button><button class="x-link" id="x-ib-x" aria-label="close">✕</button>';
+        host.insertBefore(bn, host.firstChild);
+        bn.querySelector('#x-ib-go').onclick = doInstall;
+        bn.querySelector('#x-ib-x').onclick = function () { S.xInstallDismissed = true; save(); bn.remove(); };
+      }
+    } else if (!want && bn) bn.remove();
+    // 2) Profil → Sozlamalar tugmasi (doim, o'rnatilmagan bo'lsa)
+    var st = document.getElementById('profile-subtab-settings'), sb = document.getElementById('x-install-settings');
+    if (show && st && !sb) {
+      sb = document.createElement('button'); sb.id = 'x-install-settings'; sb.type = 'button'; sb.className = 'ad-open-btn x-inst-btn';
+      sb.innerHTML = '📲 ' + L('Ilovani kompyuter / telefonga o\'rnatish', 'Install the app on this device', 'Установить приложение на устройство');
+      sb.onclick = doInstall; st.insertBefore(sb, st.firstChild);
+    } else if (!show && sb) sb.remove();
+  }
+
+  // ?action=… (manifest shortcuts)
+  function handleLaunchAction() {
+    try {
+      var a = new URLSearchParams(location.search).get('action'); if (!a) return;
+      history.replaceState(null, '', location.pathname + location.hash);
+      if (a === 'new-task') setTimeout(function () { showTab('tasks'); openModal(); }, 400);
+      if (a === 'pomodoro') setTimeout(function () { pomoOpenModal(); }, 400);
+    } catch (e) {}
+  }
+
   // ---------- script.js ulanish nuqtalari ----------
   window.xRenderHub = safe(renderHub);
   window.xRenderTasksExtras = safe(renderTasksExtras);
@@ -1379,6 +1504,8 @@
   window.xOpenHub = function (sec) { if (sec) S.xHubSec = sec; showTab('hub'); };
 
   function boot() {
+    try { markMovedTabs(); buildBottomNav(); renderInstallUI(); handleLaunchAction(); } catch (e) { console.warn('[extras nav]', e); }
+    try { new MutationObserver(function () { renderBottomNav(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tab'] }); } catch (e) {}
     try { bossEnsure(); } catch (e) {}
     shopApply();
     renderTasksExtras();
