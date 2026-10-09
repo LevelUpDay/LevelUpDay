@@ -3277,3 +3277,20 @@ body.light .undo-toast { background: #fff; }
 @media (max-width: 380px) { .pc-hero { flex-direction: column; text-align: center; } }
 
 @media (max-width: 560px) { #header-secret-btn { padding: 0 10px !important; } #header-secret-btn .hs-lbl { display: none; } }
+
+/* 💸 Qarz jazosi turlari */
+.dm-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.dm-opt { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px; border-radius: var(--radius-md); border: 1.5px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-family: inherit; transition: border-color .15s, background .15s; }
+.dm-opt:hover { border-color: var(--border-hover); }
+.dm-opt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface2)); }
+.dm-opt.dis { opacity: .45; cursor: not-allowed; }
+.dm-ic { font-size: 24px; width: 40px; height: 40px; border-radius: 12px; background: var(--surface); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dm-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dm-tx b { font-size: var(--fs-sm); }
+.dm-tx span { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.4; }
+.dm-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border-hover); flex-shrink: 0; }
+.dm-opt.sel .dm-radio { border-color: var(--accent); box-shadow: inset 0 0 0 4px var(--surface2); background: var(--accent); }
+.dm-note { font-size: var(--fs-xs); color: var(--gold); text-align: center; margin-top: 2px; }
+.dm-tasks { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.dm-tasks-lbl { font-size: var(--fs-xs); color: var(--text-muted); font-weight: 600; }
+.dm-tasks textarea { width: 100%; box-sizing: border-box; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font: inherit; font-size: var(--fs-sm); resize: vertical; }
