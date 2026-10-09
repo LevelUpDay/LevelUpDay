@@ -679,7 +679,7 @@
         return '<div><span>' + ['🥇', '🥈', '🥉'][i] + ' ' + (x.t.emoji || '') + ' ' + H(x.t.name) + '</span><b>×' + x.n + '</b></div>';
       }).join('') + '</div>' : '') +
       (s.mood ? '<div class="x-wrap-foot">' + L('Oyning kayfiyati', 'Mood of the month', 'Настроение месяца') + ': ' + s.mood + '</div>' : '') +
-      '<div class="x-wrap-brand">ToDoList · todolistorg.github.io</div></div>';
+      '<div class="x-wrap-brand">LevelUpDay · todolistorg.github.io</div></div>';
     var html = '<div class="x-wrap-nav"><button class="x-btn ghost sm" id="x-wr-prev">‹</button><b>' + ymLabel(ym) + '</b><button class="x-btn ghost sm" id="x-wr-next" ' + (ym >= today().slice(0, 7) ? 'disabled' : '') + '>›</button></div>' + card +
       '<div class="x-row"><button class="x-btn" id="x-wr-save">📸 ' + L('Rasm qilib saqlash', 'Save as image', 'Сохранить картинку') + '</button>' +
       '<button class="x-btn ghost" id="x-wr-share">📰 ' + L('Lentaga ulashish', 'Share to feed', 'В ленту') + '</button></div>';
@@ -711,11 +711,11 @@
     });
     var y = 1010; F(40, 700);
     s.top.forEach(function (t, i) { x.fillText(['🥇', '🥈', '🥉'][i] + ' ' + String(t.t.name).slice(0, 26) + '  ×' + t.n, 80, y); y += 62; });
-    F(30, 500); x.globalAlpha = .75; x.fillText('ToDoList · todolistorg.github.io', 80, Hh - 70); x.globalAlpha = 1;
+    F(30, 500); x.globalAlpha = .75; x.fillText('LevelUpDay · todolistorg.github.io', 80, Hh - 70); x.globalAlpha = 1;
     c.toBlob(function (blob) {
       if (!blob) return;
-      var file = new File([blob], 'todolist-' + s.ym + '.png', { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: 'ToDoList ' + ymLabel(s.ym) }).catch(function () {}); return; }
+      var file = new File([blob], 'levelupday-' + s.ym + '.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: 'LevelUpDay ' + ymLabel(s.ym) }).catch(function () {}); return; }
       var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
       toast('📸 ' + L('Rasm saqlandi', 'Image saved', 'Изображение сохранено'));
     }, 'image/png');
@@ -773,7 +773,7 @@
       fg.style.strokeDasharray = C; fg.style.strokeDashoffset = C * (1 - left / FX.total);
       ov.querySelector('.x-fc-play').textContent = FX.running ? '⏸' : '▶';
       ov.querySelector('.x-fc-ph').textContent = FX.running ? L('diqqat...', 'focusing...', 'фокус...') : (left < FX.total ? L('pauza', 'paused', 'пауза') : '');
-      try { document.title = (FX.running ? '🎯 ' + pad2(m) + ':' + pad2(s) + ' · ' : '') + 'ToDoList'; } catch (e) {}
+      try { document.title = (FX.running ? '🎯 ' + pad2(m) + ':' + pad2(s) + ' · ' : '') + 'LevelUpDay'; } catch (e) {}
       if (FX.running && left <= 0) finish();
     };
     var credit = function () {
@@ -823,7 +823,7 @@
     try { FX.wake && FX.wake.release(); } catch (e) {}
     var ov = FX.ov; FX = null; ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 200);
     document.documentElement.classList.remove('x-focus-on');
-    try { document.title = 'ToDoList'; } catch (e) {}
+    try { document.title = 'LevelUpDay'; } catch (e) {}
   }
 
   // =========================================================
