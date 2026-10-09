@@ -9,25 +9,8 @@
 // ---------- Blok 1/10 ----------
 try {
 
-(function() {
-  var manifest = {
-    name: "LevelUpDay",
-    short_name: "LevelUpDay",
-    start_url: ".",
-    scope: ".",
-    display: "standalone",
-    background_color: "#0B0B12",
-    theme_color: "#7C5CFC",
-    icons: [
-      { src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAFBElEQVR4nO3dS27bSBQF0PJnmfEqMo1H9rRXYS8zRnrQUNpxKFEkq8Qq3nMmBvKRCONeviJFqO5KZ358+/lr72Ogndf3x7u9j+GzXQ9G2Cll31Lc/I2FnktuXYabvZngs8StitD8TQSfLVoXodmLCz41tSpC9RcVfFqqXYT7mi8m/LRWO2NV2iT47KHGNNg8AYSfvdTI3qYCCD9725rB1QUQfnqxJYurCiD89GZtJhcXQPjp1ZpsLiqA8NO7pRm9ugDCzyiWZPWqAgg/o7k2s7MFEH5GdU12qz4KAaO5WABnf0Y3l+GzBRB+juJSli2BiDZZAGd/juZcpk0Aov1VAGd/jmoq2yYA0f4ogLM/R/c14yYA0X4XwNmfFJ+zbgIQTQGIdl+K5Q95Tpk3AYimAERTAKIpANHuXACTzAQg2uPeB3CNl7eH1f/3+emj4pFwNN1PgC3hr/H/ObauC1ArvErAOd1eBH8N7ZKlzMvbQ3l++tj0GmToegKcLA3/6afAM2eIAqxl6cOcQxXAkoelDlMAZ3vWGOJzgDlT4d9y9lem+nqdxkNNgGuD2esvm/4MU4DPd3em/vxE+FliiAKcC72lClsNUYCps3rtdT+ZhrkInvpk9+vf13wvMgwxAeYILGsNVQBBp7ahClDK/yX4+hPWGKIA5251zoXfXSLmdPs4dCl1A2xSMKXrCVArtMLPOV0XoJTt4RV+Lul6CQStdT8BoCUFIJoCEE0BiKYARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDRFIBoCkA0BSCaAhBNAYg2xJfj2imeVrqfAHaKp6WuC2CneFrr9nuB1m59dKs9BDiGrifAieDSyhAFuJYN81jqMAWwzmeNIW6DzrFRdv96ncaHmQCf9frLpj9DFWDqzGzdzxbDFGBqc2xLFbYa4hrg3E7xXzn7s9QQBZjbJPv0b2q+HxmGWQJdCqXAstYwBShF0KlvqAKUYqNs6hqiADbKppVunwYtxUbZtNf1BLBRNq11XYBSbJRNW10vgaC17icAtKQARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDRFIBoCkA0BSCaAhBNAYimAERTAKIpANGG+HJcG2XTSvcTwEbZtNR1AWyUTWvdfi9Qja2PbJ/EnK4nwMna4Ao8c4YoALSiAEQb4jborb28Pfyz9zEczfPTx/e9j2GKCUA0BSCaAhBNAYjmInhCrxds1GcCEE0BiKYARBuiAGuf5vQUKHO6fRq0FBtl017XE8BG2bTWdQFKsVE2bXW9BILWup8A0JICEE0BiKYARFMAoikA0RSAaApANAUgmgIQTQGIpgBEUwCiKQDR7l/fH+/2PgjYw+v7450JQDQFIJoCEE0BiHZfyn8XA3sfCNzSKfMmANEUgGi/C2AZRIrPWTcBiPZHAUwBju5rxk0Aov1VAFOAo5rKtglAtMkCmAIczblMmwBEO1sAU4CjuJTlixNACRjdXIYtgYg2WwBTgFFdk92rJoASMJprM3v1EkgJGMWSrC66BlACerc0o4svgpWAXq3J5qq7QEpAb9ZmcvVtUCWgF1uyuOlzACVgb1szuPmDMCVgLzWyVzW8P779/FXz9WBKzZNu1UchTANaq52xZoE1Daip1cm1+RlbEdii9ariZksWRWCJWy2nb75mVwQuufV15K4XrcpAKfvePOnuro1SHFtvdwr/BXDBpKCBDCFXAAAAAElFTkSuQmCC", sizes: "192x192", type: "image/png", purpose: "any maskable" },
-      { src: "data:image/png;base64,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", sizes: "512x512", type: "image/png", purpose: "any maskable" }
-    ]
-  };
-  try {
-    var blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-    document.getElementById('app-manifest-link').setAttribute('href', URL.createObjectURL(blob));
-  } catch (e) { /* eski brauzerlarda manifest shunchaki ishlamaydi, ilova o'zi baribir ishlayveradi */ }
-})();
+// Manifest endi alohida manifest.json faylida (index.html <link rel="manifest">) — blob URL bilan ilovani o'rnatib bo'lmasdi.
+
 
 } catch (_blockErr1) {
   console.error('[script.js] Blok 1 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr1);
@@ -36,20 +19,13 @@ try {
 // ---------- Blok 2/10 ----------
 try {
 
-if ('serviceWorker' in navigator) {
+// 📲 Haqiqiy sw.js ro'yxatdan o'tkaziladi (avval blob: URL ishlatilardi — brauzerlar uni rad etardi,
+// shuning uchun offline kesh ham, ilovani o'rnatish ham ishlamasdi).
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', function() {
-    try {
-      var swCode = [
-        "self.addEventListener('install', function(e){ self.skipWaiting(); });",
-        "self.addEventListener('activate', function(e){ e.waitUntil(self.clients.claim()); });",
-        "self.addEventListener('fetch', function(e){ /* pass-through */ });"
-      ].join('\\n');
-      var blob = new Blob([swCode], { type: 'application/javascript' });
-      var swUrl = URL.createObjectURL(blob);
-      navigator.serviceWorker.register(swUrl)
-        .then(function(reg) { console.log('SW registered (inline)'); })
-        .catch(function(err) { console.log('SW error:', err); });
-    } catch (e) { console.log('SW inline setup failed:', e); }
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      try { reg.update(); } catch (e) {}
+    }).catch(function (err) { console.log('SW error:', err); });
   });
 }
 
@@ -10639,7 +10615,7 @@ function initTaskSortable() {
       draggable: '.task-card',
       filter: '.check-btn, .act-btn, .task-menu-btn, .subtask-item, .subtask-skip-chip, .subtask-dots-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
       preventOnFilter: false,
-      delay: 160,             // bosib turish kerak bo'lgan vaqt (ms)
+      delay: 320,             // bosib turish kerak bo'lgan vaqt (ms) — telefonda surish (scroll) bilan adashmasligi uchun
       delayOnTouchOnly: true, // sichqonchada (desktop) darhol, mobil ekranda ushlab turish talab qilinadi
       touchStartThreshold: 6,
       animation: 180,
@@ -10700,7 +10676,7 @@ function initLabelBreakdownSortable() {
   _lbSortableInited = true;
   Sortable.create(el, {
     draggable: '.lb-row',
-    delay: 120,
+    delay: 300,
     delayOnTouchOnly: true,
     touchStartThreshold: 6,
     animation: 180,
@@ -11026,7 +11002,7 @@ function showTab(tab) {
     var el=document.getElementById('view-'+t);
     if(el) el.style.display=tab===t?'':'none';
     var tb=document.getElementById('tab-'+t);
-    if(tb) tb.className='tab'+(tab===t?' active':'');
+    if(tb) tb.classList.toggle('active', tab===t);
   });
   var _reytingPanel = document.getElementById('reyting-myrank-panel');
   if (_reytingPanel) _reytingPanel.style.display = (tab==='reyting') ? '' : 'none';
@@ -11117,7 +11093,7 @@ function initSubtaskSortables() {
       draggable: '.subtask-item',
       filter: '.subtask-check, .subtask-dots-btn, .subtask-skip-chip, .task-dropdown-menu, .task-dropdown-item',
       preventOnFilter: false,
-      delay: 160, delayOnTouchOnly: true, touchStartThreshold: 6, animation: 160,
+      delay: 320, delayOnTouchOnly: true, touchStartThreshold: 6, animation: 160,
       ghostClass: 'drag-over', chosenClass: 'dragging',
       onEnd: function () {
         var tk = S.tasks.find(function (x) { return x.id === tid; });

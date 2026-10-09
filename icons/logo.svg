@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- LevelUpDay: chiqayotgan quyosh (Day) + uchta daraja chevroni (Level Up) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#5B3BFF"/>
+      <stop offset="0.6" stop-color="#9A4DFF"/>
+      <stop offset="1" stop-color="#FF4F9A"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFF4B0"/>
+      <stop offset="0.7" stop-color="#FFD23F"/>
+      <stop offset="1" stop-color="#FFB020"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFD23F" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#FFD23F" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect class="bgr" width="512" height="512" rx="116" fill="url(#bg)"/>
+  <g class="art">
+    <circle cx="256" cy="150" r="118" fill="url(#halo)"/>
+    <circle cx="256" cy="150" r="62" fill="url(#sun)"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="40">
+      <path d="M150 300 L256 222 L362 300" stroke="#FFFFFF"/>
+      <path d="M150 372 L256 294 L362 372" stroke="#FFFFFF" stroke-opacity="0.78"/>
+      <path d="M150 444 L256 366 L362 444" stroke="#FFFFFF" stroke-opacity="0.5"/>
+    </g>
+  </g>
+</svg>
