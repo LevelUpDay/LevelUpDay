@@ -11,8 +11,8 @@ try {
 
 (function() {
   var manifest = {
-    name: "ToDoList",
-    short_name: "ToDoList",
+    name: "LevelUpDay",
+    short_name: "LevelUpDay",
     start_url: ".",
     scope: ".",
     display: "standalone",
@@ -157,7 +157,7 @@ var performExport = async function(exportTypes, pin) {
     var backup = {
       type: 'todolist_export',
       version: 3,
-      app: 'ToDoList',
+      app: 'LevelUpDay',
       exported_at: new Date().toISOString(),
       exportType: exportTypes, // array — kelajakda ham bir nechta turni birga saqlaydi
       secretEncrypted: false,
@@ -20563,7 +20563,7 @@ function buildDesktopShell() {
 
   var brand = document.createElement('div');
   brand.id = 'ds-brand';
-  brand.innerHTML = '<span>📋</span><span>ToDoList</span>';
+  brand.innerHTML = '<span>🚀</span><span>LevelUpDay</span>';
   sidebar.appendChild(brand);
 
   _dsMove(document.querySelector('.header-left'), sidebar);
