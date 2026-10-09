@@ -1040,10 +1040,11 @@
     if (!HUB_SECS.some(function (x) { return x[0] === sec; })) sec = 'boss'; // eski "Tahlil" bo'limi Statistikaga ko'chdi
     var tools = [['tpl', '📑', L('Shablonlar', 'Templates', 'Шаблоны')], ['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')], ['review', '🌙', L('Kun yakuni', 'Evening review', 'Итоги дня')],
       ['stats', '📊', L('Statistika', 'Statistics', 'Статистика')]];
+    if (window._isAdmin) tools.push(['admin', '👑', L('Admin', 'Admin', 'Админ')]);
     v.innerHTML = '<div class="x-hub-tools">' + tools.map(function (t) { return '<button data-tool="' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</div>' +
       '<div class="x-hub-nav">' + HUB_SECS.map(function (s) { return '<button class="' + (s[0] === sec ? 'on' : '') + '" data-sec="' + s[0] + '">' + s[1] + ' ' + L(s[2][0], s[2][1], s[2][2]) + '</button>'; }).join('') + '</div>' +
       '<div id="x-hub-body"></div>';
-    v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ review: openReview, tpl: openTemplates, matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} } })[b.dataset.tool](); }; });
+    v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ review: openReview, tpl: openTemplates, matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} }, admin: function () { window.openAdminPanel(); } })[b.dataset.tool](); }; });
     v.querySelectorAll('[data-sec]').forEach(function (b) { b.onclick = function () { S.xHubSec = b.dataset.sec; save(); renderHub(); }; });
     renderHubSection(sec, true);
   }
@@ -1187,6 +1188,166 @@
     if (b) b.innerHTML = card('⏰', L('Eng samarali vaqt', 'Productive time', 'Продуктивное время'), productiveHtml());
     if (c) c.innerHTML = card('🔗', L('Odatlar bog\'liqligi', 'Habit links', 'Связи привычек'), correlationHtml());
   });
+
+  // =========================================================
+  // 📊 ADMIN DASHBOARD (faqat admins jadvalidagi foydalanuvchilar uchun)
+  // =========================================================
+  function adFmt(n) { n = Number(n) || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'k' : String(n); }
+  function adDelta(cur, prev) {
+    cur = Number(cur) || 0; prev = Number(prev) || 0;
+    if (!prev) return cur ? '<span class="ad-delta up">▲ ' + L('yangi', 'new', 'новое') + '</span>' : '';
+    var p = Math.round((cur - prev) / prev * 100);
+    return '<span class="ad-delta ' + (p >= 0 ? 'up' : 'down') + '">' + (p >= 0 ? '▲' : '▼') + ' ' + Math.abs(p) + '%</span>';
+  }
+  function adTile(icon, label, val, sub) {
+    return '<div class="ad-tile"><div class="ad-tile-l">' + icon + ' ' + label + '</div><div class="ad-tile-v">' + val + '</div>' + (sub ? '<div class="ad-tile-s">' + sub + '</div>' : '') + '</div>';
+  }
+  var MON = function (ym) { var m = +ym.slice(5, 7) - 1; try { return String(getMonthsArr()[m]).slice(0, 3); } catch (e) { return ym.slice(5); } };
+  // Ustunli grafik (bitta seriya, bitta rang): hover'da qiymat
+  function adBars(list, key, labelFn, every) {
+    var mx = Math.max.apply(null, list.map(function (x) { return x.n; }).concat([1]));
+    return '<div class="ad-bars">' + list.map(function (x, i) {
+      var lbl = labelFn(x[key]);
+      return '<div class="ad-bar" data-tip="' + H(lbl + ': ' + x.n) + '"><i style="height:' + Math.max(x.n ? 4 : 1, x.n / mx * 100) + '%"></i>' +
+        '<span>' + ((every && i % every !== 0 && i !== list.length - 1) ? '' : H(lbl)) + '</span></div>';
+    }).join('') + '</div>';
+  }
+  // Gorizontal ro'yxat-chiziqlar (kategoriyalar)
+  function adList(list, labelFn, max) {
+    list = (list || []).slice(0, max || 12);
+    if (!list.length) return '<div class="ad-empty">— ' + L('ma\'lumot yo\'q', 'no data', 'нет данных') + ' —</div>';
+    var tot = list.reduce(function (a, x) { return a + (Number(x.n) || 0); }, 0) || 1, mx = Math.max.apply(null, list.map(function (x) { return x.n; }));
+    return list.map(function (x) {
+      var pct = Math.round(x.n / tot * 100);
+      return '<div class="ad-row"><div class="ad-row-t"><span>' + labelFn(x.k) + '</span><b>' + x.n + ' <em>' + pct + '%</em></b></div><div class="ad-row-b"><i style="width:' + (x.n / mx * 100) + '%"></i></div></div>';
+    }).join('');
+  }
+  var notSet = function () { return '<span class="ad-dim">— ' + L('ko\'rsatilmagan', 'not set', 'не указано') + '</span>'; };
+  var REF = { ai: '🤖 AI', youtube: '▶️ YouTube', instagram: '📸 Instagram', friend: '👥 ' + L('Do\'st / oila', 'Friend / family', 'Друг / семья'), other: '✍️ ' + L('Boshqa', 'Other', 'Другое') };
+  var SUBJ = { ielts: '🗣 IELTS', sat: '🎯 SAT', cefr: '📘 CEFR', other: '✨ ' + L('Boshqa', 'Other', 'Другое') };
+  var DEV = { mobile: '📱 ' + L('Telefon', 'Phone', 'Телефон'), tablet: '📲 ' + L('Planshet', 'Tablet', 'Планшет'), desktop: '💻 ' + L('Kompyuter', 'Computer', 'Компьютер') };
+  var LANG = { uz: '🇺🇿 O\'zbek', en: '🇬🇧 English', ru: '🇷🇺 Русский' };
+  function adCountry(k) { if (!k) return notSet(); try { return countryFlagImg(k, 14) + ' ' + H(countryName(k) || k); } catch (e) { return H(k); } }
+  function adCard(title, body, cls) { return '<div class="ad-card ' + (cls || '') + '"><div class="ad-card-t">' + title + '</div>' + body + '</div>'; }
+
+  function renderAdminDashboard(box, d) {
+    var T = d.totals || {}, E = d.engagement || {}, Sx = d.social || {};
+    var sm = d.signups_by_month || [], am = d.active_by_month || [], sd = d.signups_by_day || [], ad = d.active_by_day || [];
+    var thisM = am.length ? am[am.length - 1].n : 0, prevM = am.length > 1 ? am[am.length - 2].n : 0;
+    var thisS = sm.length ? sm[sm.length - 1].n : 0, prevS = sm.length > 1 ? sm[sm.length - 2].n : 0;
+    var dayLbl = function (v) { var p = String(v).split('-'); return +p[2] + '.' + p[1]; };
+    var h = '<div class="ad-kpis">' +
+      adTile('👥', L('Jami foydalanuvchi', 'Total users', 'Всего пользователей'), adFmt(T.users), adDelta(T.new_30d, T.new_prev_30d) + ' ' + L('30 kunda', 'in 30d', 'за 30 дн') + ' +' + (T.new_30d || 0)) +
+      adTile('🔥', L('Bugun faol', 'Active today', 'Активны сегодня'), adFmt(T.dau), 'WAU ' + adFmt(T.wau) + ' · MAU ' + adFmt(T.mau)) +
+      adTile('📆', L('Bu oy faol', 'Active this month', 'Активны в этом месяце'), adFmt(thisM), adDelta(thisM, prevM) + ' ' + L('o\'tgan oyga nisbatan', 'vs last month', 'к прошлому месяцу')) +
+      adTile('🆕', L('Bu oy qo\'shildi', 'Joined this month', 'Новых в этом месяце'), adFmt(thisS), adDelta(thisS, prevS) + ' · ' + L('bugun', 'today', 'сегодня') + ' +' + (T.new_today || 0)) +
+      adTile('🔐', L('Ro\'yxatdan o\'tgan', 'Signed up', 'Зарегистрированы'), adFmt(T.confirmed), L('tasdiqlangan', 'confirmed', 'подтверждено') + ' · ' + L('kirgan', 'signed in', 'входили') + ' ' + adFmt(T.ever_signed_in)) +
+      adTile('🔁', L('7 kunlik qaytish', '7-day retention', 'Удержание 7 дн'), d.retention_7d == null ? '—' : d.retention_7d + '%', L('7+ kun oldin qo\'shilib, shu hafta faol', 'joined 7+ days ago & active this week', 'пришли 7+ дн назад и активны')) +
+      '</div>';
+    h += '<div class="ad-grid">' +
+      adCard('📈 ' + L('Oylik faol foydalanuvchilar', 'Monthly active users', 'Активные по месяцам'), adBars(am, 'm', MON)) +
+      adCard('🆕 ' + L('Oylik yangi foydalanuvchilar', 'New users per month', 'Новые по месяцам'), adBars(sm, 'm', MON)) +
+      adCard('🔥 ' + L('Kunlik faollik (30 kun)', 'Daily active (30 days)', 'Активность по дням (30 дн)'), adBars(ad, 'd', dayLbl, 5)) +
+      adCard('👤 ' + L('Kunlik ro\'yxatdan o\'tish (30 kun)', 'Daily sign-ups (30 days)', 'Регистрации по дням (30 дн)'), adBars(sd, 'd', dayLbl, 5)) +
+      '</div>';
+    h += '<div class="ad-grid">' +
+      adCard('🌍 ' + L('Davlatlar', 'Countries', 'Страны'), adList(d.by_country, adCountry, 12)) +
+      adCard('🗣 ' + L('Ilova tili', 'App language', 'Язык приложения'), adList(d.by_language, function (k) { return k ? (LANG[k] || H(k.toUpperCase())) : notSet(); })) +
+      adCard('📣 ' + L('Qayerdan bilishgan', 'How they found us', 'Откуда узнали'), adList(d.by_referral, function (k) { return k ? (REF[k] || H(k)) : notSet(); }) +
+        ((d.referral_other || []).length ? '<div class="ad-sub-t">✍️ ' + L('"Boshqa" javoblari', '"Other" answers', 'Ответы «Другое»') + '</div>' + adList(d.referral_other, function (k) { return H(k); }, 8) : '')) +
+      adCard('🎯 ' + L('Qaysi fan uchun', 'Studying for', 'Для какого предмета'), adList(d.by_subject, function (k) { return SUBJ[k] || H(k); }) +
+        ((d.goal_other || []).length ? '<div class="ad-sub-t">✍️ ' + L('"Boshqa maqsad"', '"Other goal"', '«Другая цель»') + '</div>' + adList(d.goal_other, function (k) { return H(k); }, 8) : '')) +
+      adCard('🔐 ' + L('Kirish usuli', 'Sign-in method', 'Способ входа'), adList(d.by_provider, function (k) { return k === 'google' ? '🔵 Google' : k === 'email' ? '📧 Email' : H(k); })) +
+      adCard('📱 ' + L('Qurilma', 'Device', 'Устройство'), adList(d.by_device, function (k) { return k ? (DEV[k] || H(k)) : notSet(); })) +
+      adCard('⭐ ' + L('Darajalar', 'Levels', 'Уровни'), adList(d.by_level, function (k) { return 'Lv ' + k + (k >= 8 ? '+' : ''); }, 8)) +
+      '</div>';
+    h += '<div class="ad-grid">' +
+      adCard('⚡ ' + L('Faollik', 'Engagement', 'Вовлечённость'), '<div class="ad-mini">' +
+        '<div><b>' + adFmt(E.tasks_total) + '</b><span>✅ ' + L('bajarilgan vazifa', 'tasks done', 'задач выполнено') + '</span></div>' +
+        '<div><b>' + (E.tasks_avg || 0) + '</b><span>📊 ' + L('o\'rtacha / odam', 'avg / user', 'в среднем') + '</span></div>' +
+        '<div><b>' + (E.streak_avg || 0) + '</b><span>🔥 ' + L('o\'rtacha streak', 'avg streak', 'средний стрик') + '</span></div>' +
+        '<div><b>' + (E.streak_max || 0) + '</b><span>🏆 ' + L('rekord streak', 'best streak', 'рекорд') + '</span></div>' +
+        '<div><b>' + adFmt(E.pomo_minutes) + '</b><span>🍅 ' + L('Pomodoro daqiqa', 'Pomodoro min', 'мин Pomodoro') + '</span></div>' +
+        '<div><b>' + adFmt(E.coins_total) + '</b><span>🪙 ' + L('jami tanga', 'coins earned', 'монет всего') + '</span></div>' +
+        '<div><b>' + adFmt(E.gems_total) + '</b><span>💎 ' + L('jami gem', 'gems', 'гемов') + '</span></div>' +
+        '<div><b>' + adFmt(E.xp_avg) + '</b><span>⭐ ' + L('o\'rtacha XP', 'avg XP', 'средний XP') + '</span></div></div>') +
+      adCard('🤝 ' + L('Ijtimoiy', 'Social', 'Социальное'), '<div class="ad-mini">' +
+        '<div><b>' + (Sx.friendships || 0) + '</b><span>👥 ' + L('do\'stlik', 'friendships', 'дружб') + '</span></div>' +
+        '<div><b>' + (Sx.friend_requests_pending || 0) + '</b><span>📨 ' + L('kutilayotgan so\'rov', 'pending requests', 'заявок') + '</span></div>' +
+        '<div><b>' + (Sx.duels_active || 0) + ' / ' + (Sx.duels_total || 0) + '</b><span>⚔️ ' + L('duel (faol/jami)', 'duels (active/all)', 'дуэли') + '</span></div>' +
+        '<div><b>' + (Sx.parties || 0) + '</b><span>🎉 ' + L('partiya', 'parties', 'пати') + '</span></div>' +
+        '<div><b>' + (Sx.world_parties_active || 0) + '</b><span>🌍 World Party</span></div>' +
+        '<div><b>' + (Sx.shared_tasks || 0) + '</b><span>🤝 ' + L('umumiy vazifa', 'shared tasks', 'общих задач') + '</span></div>' +
+        '<div><b>' + (Sx.feed_posts_7d || 0) + '</b><span>📰 ' + L('lenta (7 kun)', 'feed posts (7d)', 'постов (7 дн)') + '</span></div>' +
+        '<div><b>' + (Sx.feedback_new || 0) + '</b><span>💬 ' + L('yangi fikr', 'new feedback', 'новых отзывов') + '</span></div></div>') +
+      '</div>';
+    var tbl = function (rows, cols) {
+      return '<div class="ad-tbl-w"><table class="ad-tbl"><thead><tr>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        rows.map(function (r) { return '<tr>' + cols.map(function (c) { return '<td>' + c[1](r) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+    };
+    var when = function (v) { if (!v) return '—'; try { return new Date(v).toLocaleDateString(); } catch (e) { return String(v).slice(0, 10); } };
+    h += '<div class="ad-grid">' +
+      adCard('🏆 ' + L('Eng faol foydalanuvchilar', 'Top users', 'Топ пользователей'), tbl(d.top_users || [], [
+        ['#', function (r) { return (d.top_users.indexOf(r) + 1); }], [L('Ism', 'Name', 'Имя'), function (r) { return H(r.name || '—'); }],
+        ['Lv', function (r) { return r.level || 1; }], ['XP', function (r) { return adFmt(r.xp); }], ['✅', function (r) { return r.tasks || 0; }], ['🔥', function (r) { return r.streak || 0; }]])) +
+      adCard('🆕 ' + L('So\'nggi qo\'shilganlar', 'Recent sign-ups', 'Недавние регистрации'), tbl(d.recent_users || [], [
+        [L('Ism', 'Name', 'Имя'), function (r) { return H(r.name || '—'); }], [L('Davlat', 'Country', 'Страна'), function (r) { return r.country ? adCountry(r.country) : '—'; }],
+        [L('Qo\'shilgan', 'Joined', 'Дата'), function (r) { return when(r.created_at); }], [L('Oxirgi faollik', 'Last active', 'Активность'), function (r) { return when(r.last_active); }],
+        ['', function (r) { return r.provider === 'google' ? '🔵' : '📧'; }]])) +
+      '</div>';
+    box.innerHTML = h;
+    // tooltip
+    var tip = document.getElementById('ad-tip');
+    box.querySelectorAll('[data-tip]').forEach(function (el) {
+      el.onmouseenter = el.onfocus = function () { if (!tip) return; tip.textContent = el.dataset.tip; tip.style.display = 'block'; var r = el.getBoundingClientRect(); tip.style.left = (r.left + r.width / 2) + 'px'; tip.style.top = (r.top - 8) + 'px'; };
+      el.onmouseleave = el.onblur = function () { if (tip) tip.style.display = 'none'; };
+      el.ontouchstart = function () { el.onmouseenter(); setTimeout(function () { if (tip) tip.style.display = 'none'; }, 1500); };
+    });
+  }
+
+  window.openAdminPanel = async function () {
+    if (!cloudOk()) { toast('🔐 ' + L('Avval hisobingizga kiring', 'Sign in first', 'Сначала войдите')); return; }
+    var old = document.getElementById('admin-panel-modal'); if (old) old.remove();
+    var ov = document.createElement('div'); ov.id = 'admin-panel-modal'; ov.className = 'ad-ov';
+    ov.innerHTML = '<div class="ad-box"><div class="ad-head"><div><div class="ad-title">📊 ' + L('Admin paneli', 'Admin dashboard', 'Панель администратора') + '</div><div class="ad-upd" id="ad-upd"></div></div>' +
+      '<div class="ad-head-b"><button class="x-btn ghost sm" id="ad-refresh">↻</button><button class="x-close" id="ad-close" aria-label="close" style="position:static">✕</button></div></div>' +
+      '<div id="ad-body"><div class="ad-empty">⏳ ' + L('Yuklanmoqda...', 'Loading...', 'Загрузка...') + '</div></div>' +
+      '<div class="ad-card"><div id="admin-feedback-box"></div></div></div><div id="ad-tip" class="ad-tip"></div>';
+    document.body.appendChild(ov);
+    var close = function () { ov.remove(); if (location.hash === '#admin') history.replaceState(null, '', location.pathname + location.search); };
+    ov.querySelector('#ad-close').onclick = close;
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    var load = async function () {
+      var body = ov.querySelector('#ad-body');
+      var r = await supabase.rpc('get_admin_dashboard');
+      if (r.error) { body.innerHTML = '<div class="ad-empty" style="color:#F87171">⚠️ ' + H(r.error.message) + '</div>'; return; }
+      renderAdminDashboard(body, r.data || {});
+      var u = ov.querySelector('#ad-upd'); if (u) u.textContent = L('Yangilangan', 'Updated', 'Обновлено') + ': ' + new Date().toLocaleTimeString();
+    };
+    ov.querySelector('#ad-refresh').onclick = load;
+    load();
+    try { if (typeof adminRenderFeedback === 'function') adminRenderFeedback('new'); } catch (e) {}
+  };
+
+  // Admin bo'lsa — Profil → Sozlamalar va Hub'da "Admin paneli" tugmasi chiqadi
+  var _adminChecked = false;
+  function adminButtonCheck() {
+    if (_adminChecked || !cloudOk()) return;
+    _adminChecked = true;
+    supabase.rpc('am_i_admin').then(function (r) {
+      if (r.error || r.data !== true) return;
+      window._isAdmin = true;
+      var host = document.getElementById('profile-subtab-settings');
+      if (host && !document.getElementById('ad-open-btn')) {
+        var b = document.createElement('button'); b.id = 'ad-open-btn'; b.className = 'ad-open-btn'; b.type = 'button';
+        b.innerHTML = '📊 ' + L('Admin paneli — statistika', 'Admin dashboard — statistics', 'Панель администратора — статистика');
+        b.onclick = function () { window.openAdminPanel(); };
+        host.insertBefore(b, host.firstChild);
+      }
+      try { renderHub(); } catch (e) {}
+    });
+  }
+  setInterval(function () { try { adminButtonCheck(); } catch (e) {} }, 5000);
 
   // ---------- script.js ulanish nuqtalari ----------
   window.xRenderHub = safe(renderHub);
