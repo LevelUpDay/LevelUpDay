@@ -10,21 +10,21 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v21';
+const CACHE_VERSION = 'v22';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 
 // Pre-cache qilinadigan asosiy fayllar
 const PRECACHE_URLS = [
-  '/ToDoList/',
-  '/ToDoList/index.html',
-  '/ToDoList/styles.css',
-  '/ToDoList/script.js',
-  '/ToDoList/extras.js',
-  '/ToDoList/extras.css',
-  '/ToDoList/manifest.json',
-  '/ToDoList/icon-180.png',
-  '/ToDoList/icon-192.png',
-  '/ToDoList/icon-512.png',
+  './',
+  './index.html',
+  './styles.css',
+  './script.js',
+  './extras.js',
+  './extras.css',
+  './manifest.json',
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js'
 ];
 
@@ -176,7 +176,7 @@ async function networkFirstFallingBackToCache(request) {
     if (cached) return cached;
 
     // Offline zaxira sahifasi
-    const fallback = await cache.match('/ToDoList/index.html');
+    const fallback = await cache.match('./index.html');
     if (fallback) return fallback;
 
     return new Response('Offline: Sahifa keshda topilmadi.', {

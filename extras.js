@@ -679,7 +679,7 @@
         return '<div><span>' + ['🥇', '🥈', '🥉'][i] + ' ' + (x.t.emoji || '') + ' ' + H(x.t.name) + '</span><b>×' + x.n + '</b></div>';
       }).join('') + '</div>' : '') +
       (s.mood ? '<div class="x-wrap-foot">' + L('Oyning kayfiyati', 'Mood of the month', 'Настроение месяца') + ': ' + s.mood + '</div>' : '') +
-      '<div class="x-wrap-brand">LevelUpDay · todolistorg.github.io</div></div>';
+      '<div class="x-wrap-brand">LevelUpDay · levelupday.github.io/LevelUpDay</div></div>';
     var html = '<div class="x-wrap-nav"><button class="x-btn ghost sm" id="x-wr-prev">‹</button><b>' + ymLabel(ym) + '</b><button class="x-btn ghost sm" id="x-wr-next" ' + (ym >= today().slice(0, 7) ? 'disabled' : '') + '>›</button></div>' + card +
       '<div class="x-row"><button class="x-btn" id="x-wr-save">📸 ' + L('Rasm qilib saqlash', 'Save as image', 'Сохранить картинку') + '</button>' +
       '<button class="x-btn ghost" id="x-wr-share">📰 ' + L('Lentaga ulashish', 'Share to feed', 'В ленту') + '</button></div>';
@@ -711,7 +711,7 @@
     });
     var y = 1010; F(40, 700);
     s.top.forEach(function (t, i) { x.fillText(['🥇', '🥈', '🥉'][i] + ' ' + String(t.t.name).slice(0, 26) + '  ×' + t.n, 80, y); y += 62; });
-    F(30, 500); x.globalAlpha = .75; x.fillText('LevelUpDay · todolistorg.github.io', 80, Hh - 70); x.globalAlpha = 1;
+    F(30, 500); x.globalAlpha = .75; x.fillText('LevelUpDay · levelupday.github.io/LevelUpDay', 80, Hh - 70); x.globalAlpha = 1;
     c.toBlob(function (blob) {
       if (!blob) return;
       var file = new File([blob], 'levelupday-' + s.ym + '.png', { type: 'image/png' });
@@ -1029,21 +1029,21 @@
   // =========================================================
   var HUB_SECS = [
     ['boss', '🐉', ['Boss', 'Boss', 'Босс']],
-    ['insights', '📊', ['Tahlil', 'Insights', 'Аналитика']],
-    ['health', '💧', ['Salomatlik', 'Health', 'Здоровье']],
     ['shop', '🛍', ['Do\'kon', 'Shop', 'Магазин']],
+    ['health', '🧘', ['Salomatlik', 'Wellbeing', 'Самочувствие']],
     ['together', '🤝', ['Birga', 'Together', 'Вместе']],
     ['feed', '📰', ['Lenta', 'Feed', 'Лента']]
   ];
   function renderHub() {
     var v = document.getElementById('view-hub'); if (!v) return;
     var sec = S.xHubSec || 'boss';
-    var tools = [['wrap', '📅', L('Oylik yakun', 'Monthly wrap', 'Итоги месяца')], ['focus', '🎯', L('Fokus', 'Focus', 'Фокус')], ['review', '🌙', L('Kun yakuni', 'Evening review', 'Итоги дня')],
-      ['tpl', '📑', L('Shablonlar', 'Templates', 'Шаблоны')], ['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')]];
+    if (!HUB_SECS.some(function (x) { return x[0] === sec; })) sec = 'boss'; // eski "Tahlil" bo'limi Statistikaga ko'chdi
+    var tools = [['tpl', '📑', L('Shablonlar', 'Templates', 'Шаблоны')], ['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')], ['review', '🌙', L('Kun yakuni', 'Evening review', 'Итоги дня')],
+      ['stats', '📊', L('Statistika', 'Statistics', 'Статистика')]];
     v.innerHTML = '<div class="x-hub-tools">' + tools.map(function (t) { return '<button data-tool="' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</div>' +
       '<div class="x-hub-nav">' + HUB_SECS.map(function (s) { return '<button class="' + (s[0] === sec ? 'on' : '') + '" data-sec="' + s[0] + '">' + s[1] + ' ' + L(s[2][0], s[2][1], s[2][2]) + '</button>'; }).join('') + '</div>' +
       '<div id="x-hub-body"></div>';
-    v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ wrap: function () { openWrap(); }, focus: function () { openFocus(); }, review: openReview, tpl: openTemplates, matrix: openMatrix })[b.dataset.tool](); }; });
+    v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ review: openReview, tpl: openTemplates, matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} } })[b.dataset.tool](); }; });
     v.querySelectorAll('[data-sec]').forEach(function (b) { b.onclick = function () { S.xHubSec = b.dataset.sec; save(); renderHub(); }; });
     renderHubSection(sec, true);
   }
@@ -1053,12 +1053,10 @@
     var h = '';
     if (sec === 'boss') {
       h = '<div class="x-card" id="x-hub-boss">' + bossHtml(true) + '</div><label class="x-chk"><input type="checkbox" id="x-boss-strip-on" ' + (S.xBossHidden ? '' : 'checked') + '> ' + L('Vazifalar sahifasida boss panelini ko\'rsatish', 'Show boss bar on the Tasks page', 'Показывать босса на странице задач') + '</label>';
-    } else if (sec === 'insights') {
-      h = '<div class="x-card"><div class="x-card-h"><b>🔥 ' + L('Yillik faollik', 'Yearly activity', 'Активность за год') + '</b></div>' + heatmapHtml() + '</div>' +
-        '<div class="x-card"><div class="x-card-h"><b>⏰ ' + L('Eng samarali vaqt', 'Productive time', 'Продуктивное время') + '</b></div>' + productiveHtml() + '</div>' +
-        '<div class="x-card"><div class="x-card-h"><b>🔗 ' + L('Odatlar bog\'liqligi', 'Habit links', 'Связи привычек') + '</b></div>' + correlationHtml() + '</div>';
     } else if (sec === 'health') {
-      h = healthHtml();
+      var md = (S.moods || {})[today()];
+      h = '<button type="button" class="x-card x-mood-card" onclick="openMoodCalendar()"><span class="x-mood-e">' + (md ? md.emoji : '🙂') + '</span><span class="x-mood-t"><b>' + L('Kayfiyat kundaligi', 'Mood journal', 'Дневник настроения') + '</b><span>' +
+        (md ? L('Bugun belgilangan', 'Logged today', 'Отмечено сегодня') : L('Bugun qanday? Belgilang', 'How are you today? Log it', 'Как вы сегодня?')) + '</span></span><span class="x-mood-go">›</span></button>' + healthHtml();
     } else if (sec === 'shop') {
       h = '<div class="x-card">' + shopHtml() + '</div>';
     } else if (sec === 'together') {
@@ -1075,7 +1073,7 @@
     if (sec === 'boss') { var c = body.querySelector('#x-boss-strip-on'); if (c) c.onchange = function () { S.xBossHidden = !this.checked; save(); renderBossStrip(); }; }
     if (sec === 'together') { if (sharedCache && !force) renderShared(); else loadShared(); }
     if (sec === 'feed') { if (feedCache && !force) renderFeed(); else loadFeed(); }
-    if (sec === 'insights') { var sc = body.querySelector('.x-hm-scroll'); if (sc) sc.scrollLeft = sc.scrollWidth; }
+
   }
 
   // =========================================================
@@ -1179,6 +1177,16 @@
     h += '<div class="xs-hint">' + L('Vazifalar ro\'yxati shu tartibda saralandi. Qayta bossangiz — teskari tartib.', 'Your task list is sorted this way. Tap again to reverse.', 'Список задач отсортирован. Нажмите ещё раз — обратный порядок.') + '</div>';
     gw.innerHTML = h;
   };
+
+  // 📊 Profil → Statistika: yillik faollik, samarali vaqt, bog'liqlik (avval Hub'da edi)
+  window.xRenderStatsInsights = safe(function () {
+    var a = document.getElementById('xst-heatmap'), b = document.getElementById('xst-productive'), c = document.getElementById('xst-links');
+    var wl = document.querySelector('.xst-wrap-lbl'); if (wl) wl.textContent = L('Oylik yakun', 'Monthly wrap', 'Итоги месяца');
+    var card = function (icon, title, body) { return '<div class="x-card-h"><b>' + icon + ' ' + title + '</b></div>' + body; };
+    if (a) { a.innerHTML = card('🔥', L('Yillik faollik', 'Yearly activity', 'Активность за год'), heatmapHtml()); var sc = a.querySelector('.x-hm-scroll'); if (sc) sc.scrollLeft = sc.scrollWidth; }
+    if (b) b.innerHTML = card('⏰', L('Eng samarali vaqt', 'Productive time', 'Продуктивное время'), productiveHtml());
+    if (c) c.innerHTML = card('🔗', L('Odatlar bog\'liqligi', 'Habit links', 'Связи привычек'), correlationHtml());
+  });
 
   // ---------- script.js ulanish nuqtalari ----------
   window.xRenderHub = safe(renderHub);
