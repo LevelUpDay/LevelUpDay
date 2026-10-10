@@ -414,8 +414,50 @@
     el.style.display = '';
     var f = bossState().fight;
     el.innerHTML = f && (f.status === 'active' || f.status === 'won') ? bossFightHtml(f, false) : bossPickHtml();
+    try { renderToday(); } catch (e) {}
     if (hit) { var e = el.querySelector('.x-boss-e'); if (e) { e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit'); } }
   }
+  // 📌 Vazifalar sahifasining tepasidagi ixcham qator — sahifa asosan vazifalar uchun,
+  // boss / kvestlar / uyqu kichik chiplar sifatida turadi va bosilganda to'liq ochiladi
+  function renderToday() {
+    var el = document.getElementById('x-today'); if (!el) return;
+    var chips = [];
+    if (!S.xBossHidden) {
+      var f = bossState().fight, B = f ? bossById(f.id) : null;
+      if (f && f.status === 'active') {
+        var pct = Math.max(0, Math.round((f.hp / Math.max(1, f.maxHp)) * 100));
+        chips.push('<button class="x-tchip x-tchip-boss" data-tc="boss" title="' + H(bossNm(B)) + '"><span>' + (B ? B.e : '⚔️') + '</span><b>' + f.hp + '/' + f.maxHp + '</b><i class="x-tchip-bar"><i style="width:' + pct + '%"></i></i></button>');
+      } else chips.push('<button class="x-tchip" data-tc="boss"><span>⚔️</span><b>' + L('Boss', 'Boss', 'Босс') + '</b></button>');
+    }
+    try {
+      var Q = mqGetQuests(), dn = Q.daily.filter(function (q) { return q.claimed; }).length;
+      var ready = Q.daily.concat(Q.weekly).filter(function (q) { return q.done && !q.claimed; }).length;
+      chips.push('<button class="x-tchip' + (ready ? ' x-tchip-hot' : '') + '" data-tc="quests"><span>🎯</span><b>' + dn + '/' + Q.daily.length + '</b>' + (ready ? '<em>' + ready + '</em>' : '') + '</button>');
+    } catch (e) {}
+    var sl = (S.health && S.health[today()] && S.health[today()].sleep) || null;
+    chips.push('<button class="x-tchip" data-tc="sleep"><span>😴</span><b>' + (sl ? sl + L(' s', 'h', ' ч') : '—') + '</b></button>');
+    chips.push('<button class="x-tchip" data-tc="matrix"><span>▦</span><b>' + L('Matritsa', 'Matrix', 'Матрица') + '</b></button>');
+    el.innerHTML = chips.join('');
+    el.querySelectorAll('[data-tc]').forEach(function (b) { b.onclick = function () { todayOpen(b.dataset.tc); }; });
+  }
+  // Yashirin kartani oynaga ko'chirib ochamiz, yopilganda joyiga qaytaramiz (render funksiyalari id bo'yicha topadi)
+  function todayOpen(k) {
+    if (k === 'boss') { xOpenHub('boss'); return; }
+    if (k === 'matrix') { xOpenMatrix(); return; }
+    var node = document.getElementById(k === 'quests' ? 'quests-card' : 'x-sleep-card'); if (!node) return;
+    if (k === 'quests') { S.questsCollapsed = false; try { renderQuests(); } catch (e) {} }
+    var ov = xModal('<div class="x-today-sheet"></div>', 'x-today-box');
+    var pool = document.getElementById('x-today-pool');
+    ov.querySelector('.x-today-sheet').appendChild(node);
+    var orig = ov._close;
+    ov._close = function () { if (pool) pool.appendChild(node); renderToday(); orig(); };
+    ov.querySelector('.x-close').onclick = ov._close;
+    ov.addEventListener('click', function (e) { if (e.target === ov) { if (pool && node.parentNode !== pool) pool.appendChild(node); renderToday(); } }, true);
+    var onKey = function (e) { if (e.key === 'Escape' && pool && node.parentNode !== pool) { pool.appendChild(node); renderToday(); document.removeEventListener('keydown', onKey, true); } };
+    document.addEventListener('keydown', onKey, true);
+  }
+  window.xRenderToday = safe(renderToday);
+
   function renderBossAll(hit) {
     renderBossStrip(hit);
     if (document.getElementById('x-hub-boss') && (S.xHubSec || 'boss') === 'boss') renderHubSection('boss', true);
@@ -947,6 +989,7 @@
   }
   function renderSleepCards() {
     document.querySelectorAll('.x-sleep-card').forEach(function (el) { var sh = sleepCardHtml(); el._h = sh; el.innerHTML = sh; bindSleep(el); });
+    try { renderToday(); } catch (e) {}
   }
   function healthHtml() { return '<div class="x-card x-sleep-card">' + sleepCardHtml() + '</div>'; }
   function bindHealth(root) { bindSleep(root); }

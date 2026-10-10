@@ -142,8 +142,14 @@
   </div>
 
   <div id="view-tasks">
-    <div id="x-boss-strip" class="x-boss-strip" onclick="xOpenHub('boss')"></div>
-    <div id="quests-card" class="quests-card"></div>
+    <!-- Bugungi ixcham qator: boss · kvestlar · uyqu · matritsa (bosilsa to'liq ochiladi) -->
+    <div id="x-today" class="x-today"></div>
+    <!-- To'liq kartalar shu yerda yashirin turadi va chip bosilganda oynada ochiladi -->
+    <div id="x-today-pool" hidden>
+      <div id="x-boss-strip" class="x-boss-strip" onclick="xOpenHub('boss')"></div>
+      <div id="quests-card" class="quests-card"></div>
+      <div class="x-card x-sleep-card" id="x-sleep-card"></div>
+    </div>
     <button class="add-task-btn" onclick="openModal(event)" data-i18n="add_task_btn">+ Yangi vazifa qo'shish</button>
     <!-- Search bar -->
     <div class="search-wrap">
@@ -156,10 +162,6 @@
       <button class="all-toggle" id="time-view-btn" onclick="toggleTimeView()" data-i18n="time_view_btn">🕒 Vaqt</button>
       <button class="all-toggle" id="bulk-toggle-btn" onclick="toggleBulkMode()" data-i18n="bulk_select_btn">☑️ Tanlash</button>
     </div>
-    <div class="x-tools-row" id="x-tools-row">
-      <button class="x-tool" onclick="xOpenMatrix()">▦ <span class="x-tl" data-x="matrix">Matritsa</span></button>
-    </div>
-    <div class="x-card x-sleep-card" id="x-sleep-card"></div>
     <!-- Ommaviy amallar paneli (faqat "Tanlash" rejimida ko'rinadi) -->
     <div id="bulk-action-bar" style="display:none;position:sticky;top:0;z-index:12;background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
       <span id="bulk-selected-label" style="font-size:var(--fs-sm);color:var(--text);font-weight:600">0</span>
