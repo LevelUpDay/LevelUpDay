@@ -30975,6 +30975,14 @@ var cloudResolveAvatarUrl = async function() {
 var cloudGoogleSignIn = async function() {
   try {
     try { save(); } catch (e) {}
+    // Google provayderi Supabase'da yoqilmagan bo'lsa, xom JSON xato sahifasiga yubormaymiz
+    try {
+      var st = await (await fetch('https://zzcvpenkevxlurgpjltz.supabase.co/auth/v1/settings', { headers: { apikey: 'sb_publishable_KbjJQoICYY8BoIqeBw_OKQ_xTTk_yu8' } })).json();
+      if (st && st.external && st.external.google === false) {
+        _cloudToast(_cl('Google orqali kirish hozircha yoqilmagan — email va parol bilan kiring', 'Google sign-in is not enabled yet — please use email and password', 'Вход через Google пока не включён — используйте email и пароль'));
+        return;
+      }
+    } catch (e) {}
     var r = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: location.origin + location.pathname }

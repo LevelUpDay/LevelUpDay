@@ -308,7 +308,7 @@ html.x-focus-on, html.x-focus-on body { overflow: hidden; }
 @keyframes xFx { 0% { opacity: 1; transform: translate(-50%, -50%) scale(.4); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 80px)) rotate(var(--rot)) scale(1); } }
 
 /* 📊 Statistika bo'limiga ko'chirilgan kartalar */
-.xst-reports { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.xst-reports { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
 .xst-reports .wr-open-btn { margin: 0 !important; width: 100%; }
 .xst-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 12px; }
 .xst-card:empty { display: none; }
