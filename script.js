@@ -246,8 +246,33 @@ var performExport = async function(exportTypes, pin) {
   }
 };
 
+// 🔒 Bir qurilmada ilova bir nechta tab/oynada ochilganda "kuniga bir marta"
+// ishlaydigan mantiq (checkReset: jarima, streak, interval surish va h.k.)
+// ikki marta qo'llanib ketmasligi uchun — Web Locks bilan navbatma-navbat
+// bajaramiz. Qulf mavjud bo'lmasa yoki osilib qolsa, baribir (bir marta) ishlaydi.
+var _ludWithLock = function(fn) {
+  return new Promise(function(resolve) {
+    var started = false;
+    function run() {
+      if (started) return Promise.resolve();
+      started = true;
+      var r;
+      try { r = fn(); } catch (e) { console.warn('[tab-lock]', e); }
+      return Promise.resolve(r).catch(function(e) { console.warn('[tab-lock]', e); }).then(function() { resolve(); });
+    }
+    var lk = null;
+    try { lk = navigator.locks && typeof navigator.locks.request === 'function' ? navigator.locks : null; } catch (e) {}
+    if (!lk) { run(); return; }
+    var timer = setTimeout(run, 4000);
+    try {
+      lk.request('levelupday-daily-state', function() { clearTimeout(timer); return run(); })
+        .catch(function() { clearTimeout(timer); run(); });
+    } catch (e) { clearTimeout(timer); run(); }
+  });
+};
+
 var bootSharedApp = async function() {
-  try { await loadUserDataAndInit(); } finally { window._appBooted = true; }
+  try { await _ludWithLock(function() { return loadUserDataAndInit(); }); } finally { window._appBooted = true; }
 };
 
 var pushRewardLogToCloud = async function(kind, reward, extra) {
@@ -5540,6 +5565,7 @@ var I18N = {
       dm_tasks_save: "💾 Saqlash",
       kbs_title: "Klaviatura yorliqlari",
       kbs_desc: "Tugmani bosing va yangi tugmani tanlang. 1–7 bo'limlar uchun band.",
+      kbs_sub: "Tezkor tugmalarni ko'rish va o'zgartirish",
       kbs_view_btn: "👀 Ro'yxatni ko'rish",
       kbs_reset_btn: "↺ Standartga qaytarish",
       weekly_report_btn: "Haftalik hisobot",
@@ -5584,6 +5610,7 @@ var I18N = {
       dm_tasks_save: "💾 Save",
       kbs_title: "Keyboard shortcuts",
       kbs_desc: "Click a key and press a new one. 1–7 are reserved for sections.",
+      kbs_sub: "View and change shortcut keys",
       kbs_view_btn: "👀 View list",
       kbs_reset_btn: "↺ Reset to defaults",
       weekly_report_btn: "Weekly report",
@@ -5628,6 +5655,7 @@ var I18N = {
       dm_tasks_save: "💾 Сохранить",
       kbs_title: "Горячие клавиши",
       kbs_desc: "Нажмите на клавишу и выберите новую. 1–7 заняты под разделы.",
+      kbs_sub: "Просмотр и изменение горячих клавиш",
       kbs_view_btn: "👀 Показать список",
       kbs_reset_btn: "↺ Сбросить",
       weekly_report_btn: "Отчёт за неделю",
@@ -7066,6 +7094,7 @@ function openFocusPlayer() {
 function closeFocusPlayer() {
   var ov = document.getElementById('focus-player-modal-overlay');
   if (ov) ov.classList.remove('open');
+  try { if (typeof window.pomoSetActiveNav === 'function' && document.getElementById('pomo-modal-overlay').classList.contains('open')) window.pomoSetActiveNav('pomo-nav-projects'); } catch (e) {}
   if (FocusAudio.isPlaying()) {
     showFocusMiniPlayer();
   }
@@ -7328,21 +7357,34 @@ var defaultRewards = [
   {id:5,name:'Muzqaymoq yoki shirinlik',icon:'🍦',cost:12,rtype:'count',amount:1},
   {id:6,name:"Film ko'rish 1 soat",icon:'🎬',cost:25,rtype:'time',amount:60},
   {id:7,name:"Uxlash vaqtini 30 daqiqa kechiktirish",icon:'😴',cost:18,rtype:'time',amount:30},
-  {id:8,name:"Choy/kofe dam olish",icon:'?',cost:4,rtype:'count',amount:1},
+  {id:8,name:"Choy/kofe dam olish",icon:'☕',cost:4,rtype:'count',amount:1},
 ];
 
 
 // Level tizimi (XP asosida, tangadan alohida)
-// Kuniga ~15 vazifa (~175 XP/kun), Lv2 uchun ~3 kun
+// Kuniga ~15 vazifa (~175 XP/kun), Lv2 uchun ~4 kun (darajalar ~1.33x qiyinlashtirildi)
 var LEVELS = [
-  {min:0,    max:524,  level:1, name:"Yangi boshlagan",  icon:'🌱', reward:0},
-  {min:525,  max:1574, level:2, name:"Harakat qiluvchi", icon:'🔥', reward:50},
-  {min:1575, max:3674, level:3, name:"Izchil o'quvchi",  icon:'📚', reward:100},
-  {min:3675, max:7874, level:4, name:"Intizomli",         icon:'⚡', reward:200},
-  {min:7875, max:16274,level:5, name:"Ustoz darajasi",    icon:'🎓', reward:400},
-  {min:16275,max:33074,level:6, name:"Chempion",          icon:'🏆', reward:800},
-  {min:33075,max:999999,level:7,name:"Legenda",           icon:'👑', reward:1500},
+  {min:0,    max:699,   level:1, name:"Yangi boshlagan",  icon:'🌱', reward:0},
+  {min:700,  max:2099,  level:2, name:"Harakat qiluvchi", icon:'🔥', reward:50},
+  {min:2100, max:4899,  level:3, name:"Izchil o'quvchi",  icon:'📚', reward:100},
+  {min:4900, max:10499, level:4, name:"Intizomli",         icon:'⚡', reward:200},
+  {min:10500,max:21699, level:5, name:"Ustoz darajasi",    icon:'🎓', reward:400},
+  {min:21700,max:44099, level:6, name:"Chempion",          icon:'🏆', reward:800},
+  {min:44100,max:999999,level:7, name:"Legenda",           icon:'👑', reward:1500},
 ];
+// Eski chegaralar (525/1575/...) — oldin erishilgan darajalar mukofoti qayta berilmasligi uchun
+var LEVELS_OLD_MINS = [0, 525, 1575, 3675, 7875, 16275, 33075];
+function levelRewardClaimed(level) {
+  if (!S.levelRewardsClaimed) {
+    // Birinchi marta: hozirgi XP bo'yicha eski va yangi jadvaldagi eng yuqori darajagacha "olingan" deb belgilaymiz
+    S.levelRewardsClaimed = {};
+    var xp = S.xp || 0, oldLv = 1;
+    LEVELS_OLD_MINS.forEach(function (m, i) { if (xp >= m) oldLv = i + 1; });
+    var upTo = Math.max(oldLv, getLevel(xp).level);
+    for (var l = 1; l <= upTo; l++) S.levelRewardsClaimed[l] = true;
+  }
+  return !!S.levelRewardsClaimed[level];
+}
 // XP manbalari — kuniga ~15 vazifa + 100% bonus = ~175 XP/kun
 var XP_PER_TASK_EASY = 3;
 var XP_PER_TASK_MED  = 6;
@@ -7369,6 +7411,7 @@ function getLevel(xp) {
 
 function addXP(amount, reason) {
   if(!S.xp) S.xp = 0;
+  try { levelRewardClaimed(0); } catch (e) {} // olingan darajalar ro'yxatini XP qo'shilishidan OLDIN tayyorlaymiz
   if (amount > 0 && (S.coins || 0) < 0 && typeof debtMode === 'function' && debtMode() === 'xp') amount = Math.ceil(amount / 2);
   const oldLevel = getLevel(S.xp).level;
   S.xp += amount;
@@ -7376,6 +7419,8 @@ function addXP(amount, reason) {
   const newLevel = getLevel(S.xp).level;
   if(newLevel > oldLevel) {
     const lv = getLevel(S.xp);
+    // Undo → qayta bajarish orqali bir darajaga qayta chiqilsa, mukofot va xabar takrorlanmasin
+    if (levelRewardClaimed(lv.level)) return;
     setTimeout(function(){ showLevelUpModal(lv); }, 400);
     try { if (typeof window.xFeedPost === 'function') window.xFeedPost('level', _cl("yangi darajaga chiqdi", "reached a new level", "достиг(ла) нового уровня") + ': Lv' + lv.level + ' ' + lv.icon, '⭐'); } catch (e) {}
   }
@@ -7404,6 +7449,7 @@ function showLevelUpModal(lv) {
       '<button class="levelup-btn" id="lu-close">' + t('levelup_btn') + '</button>' +
     '</div>';
   document.body.appendChild(ov);
+  try { levelRewardClaimed(lv.level); S.levelRewardsClaimed[lv.level] = true; } catch (e) {}
   if(reward > 0) {
     S.coins += reward;
     if(!S.totalCoins) S.totalCoins = 0;
@@ -8997,76 +9043,83 @@ if (document.readyState === 'complete') {
   window.addEventListener('load', bootSharedApp);
 }
 
+// ===== Bir qurilmada bir nechta tab/oyna (yoki PWA + brauzer) sinxronizatsiyasi =====
+// LocalStorage — yagona haqiqat manbai. Boshqa tab saqlaganda (storage hodisasi)
+// yoki shu tab qayta faollashganda, xotiradagi S diskdagi so'nggi nusxaga
+// yangilanadi — shunda keyingi save() boshqa tabdagi o'zgarishlarni o'chirib
+// yubormaydi. Qo'llash paytida save() o'chiriladi (cheksiz "ping-pong" bo'lmasin).
+function _ludAdoptDiskState() {
+  var raw = localStorage.getItem(LOCAL_STATE_KEY);
+  if (!raw) return false;
+  var parsed = JSON.parse(raw);
+  if (!parsed || !parsed.data) return false;
+  if (parsed.updated_at && parsed.updated_at === S._serverSavedAt) return false; // allaqachon shu nusxa
+  var savedTasks = S.tasks, savedOrder = S.taskOrder; // tasks alohida kalitda boshqariladi
+  S = Object.assign({}, S, parsed.data);
+  S.tasks = savedTasks;
+  S.taskOrder = Array.isArray(parsed.data.taskOrder) ? parsed.data.taskOrder.slice() : savedOrder;
+  try { ensureFullTaskOrder(); } catch (e) {}
+  S._serverSavedAt = parsed.updated_at || S._serverSavedAt;
+  return true;
+}
+
+function _ludAdoptDiskTasks() {
+  var raw = localStorage.getItem(LOCAL_TASKS_KEY);
+  if (raw == null) return false; // kalit yo'q — xotiradagini o'chirib yubormaymiz
+  var diskAt = Number(localStorage.getItem(LOCAL_TASKS_UPDATED_KEY)) || 0;
+  var fresh = JSON.parse(raw);
+  if (!Array.isArray(fresh)) return false;
+  if (diskAt > _lastAcceptedTasksWriteAt) _lastAcceptedTasksWriteAt = diskAt;
+  if (raw === JSON.stringify(S.tasks || [])) return false;
+  S.tasks = fresh;
+  try {
+    var st = JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || 'null');
+    if (st && st.data && Array.isArray(st.data.taskOrder)) S.taskOrder = st.data.taskOrder.slice();
+  } catch (e) {}
+  ensureFullTaskOrder();
+  // Bu tasklarni boshqa tab allaqachon saqlagan (va bulutga o'zi yuboradi) — qayta yubormaymiz
+  _lastSyncedTasks = {};
+  fresh.forEach(function(tk) { _lastSyncedTasks[tk.id] = JSON.stringify(tk); });
+  return true;
+}
+
+var _ludTabSyncTimer = null;
+function _ludSyncFromOtherTab() {
+  _ludTabSyncTimer = null;
+  if (!window._appBooted) { _ludTabSyncTimer = setTimeout(_ludSyncFromOtherTab, 300); return; }
+  var changed = false;
+  try { if (_ludAdoptDiskState()) changed = true; } catch (err) { console.warn('Boshqa oynadan holatni sinxronlashda xatolik:', err); }
+  try { if (_ludAdoptDiskTasks()) changed = true; } catch (err) { console.warn('Boshqa oynadan tasklarni sinxronlashda xatolik:', err); }
+  if (!changed) return;
+  console.log('🔄 Boshqa oynada ma\'lumotlar o\'zgardi — sinxronlandi (' + (S.tasks || []).length + ' ta task).');
+  window._ludApplyingRemote = true;
+  try {
+    try { render(); } catch (e) { console.warn('[tab-sync] render', e); }
+    try { refreshAllModulesFromState(); } catch (e) {}
+  } finally {
+    window._ludApplyingRemote = false;
+  }
+  // Boshqa tabda javob berilgan "Personal Check" savoli bu tabda ochiq qolmasin
+  try {
+    var kd = window._kiOvDate;
+    if (window._kiOv && kd && ((S.kiAns || {})[kd] || (S.kiSkipped || {})[kd])) {
+      window._kiOv.remove(); window._kiOv = null;
+    }
+  } catch (e) {}
+}
+
 window.addEventListener('storage', function(e) {
   if (!e.key) return; // ba'zi brauzerlarda localStorage.clear() da key=null keladi
-
-  if (e.key === LOCAL_TASKS_KEY) {
-    try {
-      var incomingAt = Number(localStorage.getItem(LOCAL_TASKS_UPDATED_KEY)) || 0;
-      if (incomingAt && incomingAt <= _lastAcceptedTasksWriteAt) {
-        console.warn('🛡️ Eskiroq/fon oynadan kelgan tasklar yozuvi rad etildi (vaqt tamg\'asi eski).');
-        return;
-      }
-      const fresh = e.newValue ? JSON.parse(e.newValue) : [];
-      if (Array.isArray(fresh)) {
-        console.log('🔄 Boshqa oynada tasklar o\'zgardi — sinxronlanmoqda (' + fresh.length + ' ta).');
-        S.tasks = fresh;
-        ensureFullTaskOrder();
-        _lastSyncedTasks = {};
-        fresh.forEach(function(t){ _lastSyncedTasks[t.id] = JSON.stringify(t); });
-        _lastAcceptedTasksWriteAt = incomingAt || Date.now();
-        render();
-      }
-    } catch(err) { console.warn('Boshqa oynadan tasklarni sinxronlashda xatolik:', err); }
-  }
-
-  if (e.key === LOCAL_STATE_KEY) {
-    try {
-      const parsed = e.newValue ? JSON.parse(e.newValue) : null;
-      if (parsed && parsed.data) {
-        console.log('🔄 Boshqa oynada umumiy holat (tanga, streak va h.k.) o\'zgardi — sinxronlanmoqda.');
-        const savedTasks = S.tasks, savedOrder = S.taskOrder; // tasks alohida sinxronlanadi, bu yerda saqlab qolamiz
-        S = Object.assign({}, S, parsed.data);
-        S.tasks = savedTasks; S.taskOrder = savedOrder;
-        render();
-        refreshAllModulesFromState();
-      }
-    } catch(err) { console.warn('Boshqa oynadan holatni sinxronlashda xatolik:', err); }
-  }
+  if (e.key !== LOCAL_STATE_KEY && e.key !== LOCAL_TASKS_KEY && e.key !== LOCAL_TASKS_UPDATED_KEY) return;
+  // Bitta save() bir nechta kalitni yozadi — ularni bitta qayta chizishga birlashtiramiz
+  if (_ludTabSyncTimer) clearTimeout(_ludTabSyncTimer);
+  _ludTabSyncTimer = setTimeout(_ludSyncFromOtherTab, 40);
 });
 
 document.addEventListener('visibilitychange', function() {
   if (document.hidden) return;
-  try {
-    const diskAt = Number(localStorage.getItem(LOCAL_TASKS_UPDATED_KEY)) || 0;
-    const fresh = readLocalTasks();
-    const freshJson = JSON.stringify(fresh);
-    const mineJson = JSON.stringify(S.tasks || []);
-    const isNewer = diskAt ? (diskAt > _lastAcceptedTasksWriteAt) : (fresh.length >= (S.tasks || []).length);
-    if (freshJson !== mineJson && isNewer) {
-      // Diskdagi nusxa bizniki bilan farq qiladi va chindan ham yangiroq —
-      // demak boshqa oynada/tabda yangilanish bo'lgan, o'shani olamiz.
-      console.log('🔄 Oyna faollashdi — tasklar diskdagi so\'nggi nusxa bilan sinxronlandi.');
-      S.tasks = fresh;
-      ensureFullTaskOrder();
-      _lastAcceptedTasksWriteAt = diskAt || Date.now();
-      render();
-    }
-  } catch(err) { console.warn('Faollashuvda sinxronlash xatosi:', err); }
-
-  loadFromLocalStorage().then(function(fresh) {
-    if (!fresh || !fresh.data) return;
-    var diskTime = fresh.updatedAt ? new Date(fresh.updatedAt).getTime() : 0;
-    var mineTime = S._serverSavedAt ? new Date(S._serverSavedAt).getTime() : 0;
-    if (diskTime > mineTime) {
-      console.log('🔄 Oyna faollashdi — umumiy holat diskdagi so\'nggi nusxa bilan sinxronlandi.');
-      var savedTasks = S.tasks, savedOrder = S.taskOrder; // tasks alohida boshqarilgani uchun saqlab qolamiz
-      S = Object.assign({}, S, fresh.data);
-      S.tasks = savedTasks; S.taskOrder = savedOrder;
-      render();
-      refreshAllModulesFromState();
-    }
-  }).catch(function(err) { console.warn('Faollashuvda umumiy holatni sinxronlashda xatolik:', err); });
+  if (_ludTabSyncTimer) clearTimeout(_ludTabSyncTimer);
+  _ludSyncFromOtherTab();
 });
 
 function _restoreTasksFromPlainKeyIfNeeded() {
@@ -9101,6 +9154,9 @@ function load() {
 }
 
 function save() {
+  // Boshqa tabdan kelgan holatni qo'llayotganda (render ichidagi save'lar) diskka
+  // qayta yozmaymiz — aks holda ikki tab bir-birini cheksiz qayta yozib turadi.
+  if (window._ludApplyingRemote) return;
   S._savedAt = Date.now();
   S._localUpdatedAt = new Date().toISOString();
   saveToLocalStorage(S);
@@ -10816,6 +10872,12 @@ function toggleAddReward() {
   arrow.style.transform = open ? '' : 'rotate(-90deg)';
 }
 
+// Vaqtli mukofot nomiga qo'shiladigan davomiylik (mas: "1 soat 30 daqiqa")
+function rewardTimeSuffix(amount) {
+  var h = Math.floor(amount/60), m = amount%60;
+  return h>0 ? (h+' '+t('time_hour_unit')+(m>0?' '+m+' '+t('time_min_unit'):'')) : amount+' '+t('time_min_unit');
+}
+
 var _addingRewardInProgress = false;
 
 function addReward() {
@@ -10856,9 +10918,7 @@ function addReward() {
 
     var fullName;
     if(_rewardType === 'time') {
-      var h = Math.floor(amount/60), m = amount%60;
-      var timeStr = h>0 ? (h+' '+t('time_hour_unit')+(m>0?' '+m+' '+t('time_min_unit'):'')) : amount+' '+t('time_min_unit');
-      fullName = name + ' ' + timeStr;
+      fullName = name + ' ' + rewardTimeSuffix(amount);
     } else {
       fullName = name;
     }
@@ -11155,6 +11215,24 @@ function taskDiffOrDefault(t) {
 
 var editingRewardId = null;
 var _editRewardType = '';
+// Tahrirlash oynasida nom davomiyliksiz ko'rsatilsa (true), saqlashda yangi
+// davomiylik nom oxiriga qayta qo'shiladi — aks holda nom ("YouTube 15 daqiqa")
+// va haqiqiy miqdor (amount) bir-biridan ajralib qolardi.
+var _editRewardAutoSuffix = false;
+var _editRewardShownName = '';
+
+// Vaqtli mukofot nomining oxiridagi davomiylikni (istalgan til birliklarida)
+// olib tashlaydi — faqat u r.amount'ga mos kelsagina. Mos kelmasa null.
+function rewardNameWithoutTimeSuffix(r) {
+  var name = String(r.name || '');
+  var mins = null, base = null, m;
+  if ((m = name.match(/^(.*\S)\s+(\d+)\s*(?:soat|hr|час)(?:\s+(\d+)\s*(?:daqiqa|min|мин))?$/i))) {
+    base = m[1]; mins = parseInt(m[2], 10) * 60 + (m[3] ? parseInt(m[3], 10) : 0);
+  } else if ((m = name.match(/^(.*\S)\s+(\d+)\s*(?:daqiqa|min|мин)$/i))) {
+    base = m[1]; mins = parseInt(m[2], 10);
+  }
+  return (base && mins === r.amount) ? base : null;
+}
 
 function selEditRewardType(type) {
   _editRewardType = type;
@@ -11178,7 +11256,11 @@ function openRewardEditModal(id) {
     return;
   }
   editingRewardId = id;
-  document.getElementById('er-name').value = r.name;
+  var baseName = r.rtype === 'time' ? rewardNameWithoutTimeSuffix(r) : null;
+  // Donali mukofot vaqtliga o'tkazilsa ham davomiylik qo'shiladi (addReward kabi)
+  _editRewardAutoSuffix = r.rtype !== 'time' || baseName !== null;
+  _editRewardShownName = baseName !== null ? baseName : r.name;
+  document.getElementById('er-name').value = _editRewardShownName;
   document.getElementById('er-cost').value = r.cost;
   document.getElementById('er-icon').value = r.icon;
   document.getElementById('er-amount').value = r.amount || '';
@@ -11193,11 +11275,13 @@ function closeRewardModal() {
 function saveRewardEdit() {
   const r = S.rewards.find(x=>x.id===editingRewardId); if(!r) return;
   const name = document.getElementById('er-name').value.trim();
-  const costRaw = parseIntSafe(document.getElementById('er-cost').value);
-  const cost = (costRaw > 0) ? costRaw : r.cost;
+  const cost = parseIntSafe(document.getElementById('er-cost').value);
   const icon = document.getElementById('er-icon').value.trim()||r.icon;
   const amount = parseIntSafe(document.getElementById('er-amount').value);
   if(!name){ document.getElementById('er-name').focus(); toast(t('reward_name_required_toast')); return; }
+  // XATOLIK TUZATILDI: 0/manfiy/bo'sh narx jimgina eski narxga qaytarilib,
+  // "yangilandi" deyilardi. Endi addReward() kabi xato ko'rsatiladi.
+  if(!(cost>0)){ document.getElementById('er-cost').focus(); toast(t('reward_cost_required_toast')); return; }
   // XATOLIK TUZATILDI: `!amount` faqat 0/NaN'ni ushlardi, manfiy sonni
   // (masalan -10 daqiqa) o'tkazib yuborardi. Endi `amount>0` tekshiriladi.
   if(!(amount>0)){ document.getElementById('er-amount').focus(); toast(_editRewardType==='time'?t('reward_minutes_required_toast'):t('reward_amount_required_toast')); return; }
@@ -11212,9 +11296,18 @@ function saveRewardEdit() {
     S.usageLog[r.id] = [];
     if (hadClaims || hadUsage) toast('⚠️ ' + t('reward_type_changed_reset_toast'));
   }
+  var nameUnchanged = name === _editRewardShownName && newRtype === r.rtype && amount === r.amount;
   r.rtype = newRtype;
   r.amount = amount;
-  r.name=name; r.cost=cost; r.icon=icon;
+  if (nameUnchanged) {
+    // faqat narx/emoji o'zgardi — nom (va uning tili) o'z holicha qoladi
+  } else if (_editRewardAutoSuffix) {
+    r.baseName = name;
+    r.name = newRtype === 'time' ? name + ' ' + rewardTimeSuffix(amount) : name;
+  } else {
+    r.name = name;
+  }
+  r.cost=cost; r.icon=icon;
   save(); renderRewards(); closeRewardModal();
   toast(t('reward_updated_toast'));
 }
@@ -11246,6 +11339,10 @@ function migrateLegacyRewards() {
   if (!S.rewardClaims) S.rewardClaims = {};
   if (!S.usageLog) S.usageLog = {};
   var changed = false;
+  // Standart "Choy/kofe" mukofotining emojisi buzilib '?' bo'lib saqlangan edi
+  S.rewards.forEach(function(r) {
+    if (r.id === 8 && r.icon === '?' && r.name === 'Choy/kofe dam olish') { r.icon = '☕'; changed = true; }
+  });
   S.rewards.forEach(function(r) {
     if (r.rtype) return; // yangi formatda — tegilmaydi
     changed = true;
@@ -11328,11 +11425,68 @@ function kbFocusedTaskId() {
   var c = document.querySelector('.task-card.kb-focus');
   return c ? Number(c.dataset.id) : null;
 }
-function kbCloseTopOverlay() {
-  var open = Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.open'));
-  if (open.length) { var o = open[open.length - 1]; o.classList.remove('open'); return true; }
+// Hozir ochiq turgan barcha oyna/overlaylar (eng ustidagisi — oxirida).
+// .modal-overlay.open dan tashqari skip/o'chirish tasdiqlari kabi body'ga
+// qo'lda qo'shiladigan klass-siz to'liq ekranli overlaylarni ham topadi —
+// aks holda yorliqlar ular ustidan ishlab, oynalar ustma-ust ochilib qolardi.
+function kbOpenOverlays() {
+  var list = [];
+  var vis = function (el) {
+    if (!el || !el.isConnected) return false;
+    var cs = getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.pointerEvents !== 'none' && parseFloat(cs.opacity || '1') > 0.05;
+  };
+  document.querySelectorAll('.modal-overlay.open').forEach(function (o) { if (vis(o)) list.push(o); });
+  Array.prototype.forEach.call(document.body.children, function (el) {
+    if (list.indexOf(el) !== -1 || el.id === 'onboarding-overlay' || !vis(el)) return;
+    if (getComputedStyle(el).position !== 'fixed') return;
+    if (el.offsetWidth >= window.innerWidth * 0.9 && el.offsetHeight >= window.innerHeight * 0.9) list.push(el);
+  });
   var ts = document.getElementById('task-action-sheet');
-  if (ts && ts.classList.contains('open')) { closeTaskSheet(); return true; }
+  if (ts && ts.classList.contains('open') && list.indexOf(ts) === -1) list.push(ts);
+  if (list.length < 2) return list;
+  var all = Array.prototype.slice.call(document.querySelectorAll('*'));
+  var z = function (el) { var v = parseInt(getComputedStyle(el).zIndex, 10); return isNaN(v) ? 0 : v; };
+  list.sort(function (a, b) { return (z(a) - z(b)) || (all.indexOf(a) - all.indexOf(b)); });
+  return list;
+}
+// Eng ustidagi oynani o'zining odatiy yo'li bilan yopadi (fon bosish / ✕ / Bekor),
+// shunchaki .classList.remove('open') qilib holatini buzib qoldirmaydi.
+function kbCloseTopOverlay() {
+  var list = kbOpenOverlays();
+  if (!list.length) return false;
+  var o = list[list.length - 1];
+  var stillOpen = function () { return o.isConnected && kbOpenOverlays().indexOf(o) !== -1; };
+  if (o.id === 'kb-help') { o.remove(); return true; }
+  if (o.id === 'task-action-sheet') { closeTaskSheet(); return true; }
+  // Pomodoro / musiqa oynalari o'z yopish funksiyasi orqali yopilsin — aks holda
+  // "yangi faoliyat" formasi, suzuvchi taymer va mini-pleyer holati buzilib qoladi
+  if (o.id === 'pomo-modal-overlay' && typeof window.pomoCloseModal === 'function') {
+    var nf = document.getElementById('pomo-new-form');
+    if (nf && nf.classList.contains('open')) window.pomoToggleNewForm(false); else window.pomoCloseModal();
+    return true;
+  }
+  if (o.id === 'focus-player-modal-overlay' && typeof closeFocusPlayer === 'function') { closeFocusPlayer(); return true; }
+  if (o.id === 'pomo-settings-modal-overlay' || o.id === 'pomo-cal-modal-overlay') {
+    o.classList.remove('open');
+    try { window.pomoSetActiveNav('pomo-nav-projects'); } catch (e) {}
+    return true;
+  }
+  if (typeof o._close === 'function') { o._close(); return true; }
+  // 1) Fon (backdrop) bosilganini taqlid qilamiz — ilova odatda shu bilan yopadi
+  ['mousedown', 'mouseup', 'click'].forEach(function (t) {
+    if (o.isConnected) o.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window }));
+  });
+  if (!stillOpen()) return true;
+  // 2) Yopish / bekor qilish tugmasi
+  var btn = Array.prototype.find.call(o.querySelectorAll('button, [role="button"]'), function (b) {
+    var txt = (b.textContent || '').trim();
+    var idc = (b.id || '') + ' ' + (typeof b.className === 'string' ? b.className : '');
+    return /close|cancel|-no\b/i.test(idc) || /^[✕×✖]$/.test(txt) || b.getAttribute('aria-label') === 'close';
+  });
+  if (btn) { btn.click(); if (!stillOpen()) return true; }
+  // 3) Oxirgi chora — faqat .modal-overlay'ni yashiramiz
+  if (o.classList.contains('modal-overlay')) { o.classList.remove('open'); return true; }
   return false;
 }
 // Sozlanadigan tugmalar (Sozlamalar → Klaviatura yorliqlari)
@@ -11397,16 +11551,23 @@ document.addEventListener('keydown', function (e) {
   var typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (tg && tg.isContentEditable);
   // Yopilgan oynadagi yashirin maydonda fokus qolib ketgan bo'lsa — yozish deb hisoblamaymiz
   if (typing && tg.offsetParent === null) { try { tg.blur(); } catch (er) {} typing = false; }
+  // Onboarding turi o'z tugmalarini o'zi boshqaradi
+  if (typeof onboardingState !== 'undefined' && onboardingState && onboardingState.active) return;
   if (e.key === 'Escape') {
-    var help = document.getElementById('kb-help'); if (help) { help.remove(); return; }
-    if (!typing) kbCloseTopOverlay();
+    // Esc har doim faqat eng ustidagi oynani yopadi
+    if (kbCloseTopOverlay()) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (typing && !e.defaultPrevented && tg.isConnected) { try { tg.blur(); } catch (er) {} }
     return;
   }
   if (typing) return;
-  var anyModal = document.querySelector('.modal-overlay.open, #kb-help');
+  // Yordam oynasi ochiq bo'lsa '?' uni qayta yopadi
+  if (document.getElementById('kb-help') && (kbMatch(e, 'help') || e.key === '?')) { e.preventDefault(); showShortcutsHelp(); return; }
+  // Biror oyna ochiq bo'lsa yorliqlar ishlamaydi (aks holda ostidagi vazifaga ta'sir qilib, oynalar ustma-ust ochilardi)
+  if (kbOpenOverlays().length) return;
   var k = e.key;
+  // Fokus tugma/havolada bo'lsa, Enter o'sha tugmani bosadi — vazifani belgilamaymiz
+  if (k === 'Enter' && (tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY')) return;
   if (kbMatch(e, 'help') || k === '?') { e.preventDefault(); showShortcutsHelp(); return; }
-  if (anyModal) return;
   var tabs = ['tasks', 'rewards', 'goals', 'chest', 'pomo', 'reyting', 'profile'];
   if (/^[1-7]$/.test(k)) { e.preventDefault(); var tb = tabs[+k - 1]; if (tb === 'pomo') pomoOpenModal(); else showTab(tb); return; }
   if (kbMatch(e, 'newTask')) { e.preventDefault(); showTab('tasks'); openModal(); return; }
@@ -13910,7 +14071,12 @@ function refreshAllModulesFromState() {
   }
   function scheduleMidnight() {
     var delay = msToMidnight();
-    setTimeout(function() {
+    setTimeout(function() { _ludWithLock(function() {
+      // Bir nechta tab ochiq bo'lsa, har biri yarim tunda shu yerga keladi —
+      // avval diskdagi eng so'nggi holatni olamiz: boshqa tab kunni allaqachon
+      // almashtirgan bo'lsa (S.lastDate === bugun), checkReset hech narsa qilmaydi
+      // va jarima/streak ikki marta qo'llanmaydi.
+      try { _ludAdoptDiskState(); _ludAdoptDiskTasks(); } catch (e) {}
       ensureFreezeGrants();
       checkReset(); // jazo va reset
       if (typeof pomoRolloverStaleActivities === 'function') {
@@ -13922,7 +14088,7 @@ function refreshAllModulesFromState() {
       if(S.pendingSubtaskPenaltyMsg){ setTimeout(function(){ toast(S.pendingSubtaskPenaltyMsg); S.pendingSubtaskPenaltyMsg=null; save(); }, 500); }
       if(S.pendingStreakMsg){ setTimeout(function(){ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 800); }
       if(S.pendingFreezeGrantMsg){ setTimeout(function(){ toast(S.pendingFreezeGrantMsg); S.pendingFreezeGrantMsg=null; save(); renderProfile(); }, 1300); }
-      scheduleMidnight(); // keyingi kunga rejalashtir
+    }).then(function() { scheduleMidnight(); }); // keyingi kunga rejalashtir
     }, delay);
   }
   scheduleMidnight();
@@ -14003,7 +14169,7 @@ function showKI(dateStr){
   bYes.textContent=t('ki_btn_succeeded');bYes.onclick=function(){kiAns(true,dateStr);};
   row.appendChild(bNo);row.appendChild(bYes);
   box.appendChild(bClose);box.appendChild(em);box.appendChild(h3);box.appendChild(p);box.appendChild(row);
-  ov.appendChild(box);document.body.appendChild(ov);window._kiOv=ov;
+  ov.appendChild(box);document.body.appendChild(ov);window._kiOv=ov;window._kiOvDate=dateStr;
 }
 function kiCloseAll(dateStr){
   var skipped=S.kiSkipped||{};
@@ -14018,6 +14184,7 @@ function kiCloseAll(dateStr){
 }
 function kiAns(ok,dateStr){
   if(window._kiOv){window._kiOv.remove();window._kiOv=null;}
+  if(S.kiAns&&S.kiAns[dateStr]){if(window._kiQ&&window._kiQ.length)setTimeout(function(){showKI(window._kiQ.shift());},300);return;} // boshqa tabda allaqachon javob berilgan — tanga ikki marta berilmasin
   var ans=S.kiAns||{};
   ans[dateStr]=ok?1:-1;
   S.kiAns=ans;
@@ -15231,6 +15398,11 @@ function reytingMetricBlock(p, metric) {
          '<div style="font-size:var(--fs-3xs);color:var(--text-muted);margin-top:1px">'+lv.icon+' Lv'+lv.level+'</div>';
 }
 
+// 🛍 Do'kon bezaklari (extras.js) — o'zim uchun har doim hozirgi kiyilganlarini ko'rsatamiz
+function _cosOf(p) { try { return (p && p.isMe && typeof window.xCosMine === 'function') ? window.xCosMine() : (p && p.cosmetics) || null; } catch (e) { return null; } }
+function _cosName(nameHtml, p) { try { return typeof window.xCosNameHtml === 'function' ? window.xCosNameHtml(nameHtml, _cosOf(p)) : nameHtml; } catch (e) { return nameHtml; } }
+function _cosFrame(p) { try { return typeof window.xCosFrameCls === 'function' ? window.xCosFrameCls(_cosOf(p)).trim() : ''; } catch (e) { return ''; } }
+
 function renderReytingCard(p, metric) {
   var rankBadge = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : ('#' + p.rank);
   var cls = 'reyting-card' + (p.isMe ? ' reyting-me' : '') + (p.rank===1?' reyting-gold':p.rank===2?' reyting-silver':p.rank===3?' reyting-bronze':'');
@@ -15241,10 +15413,10 @@ function renderReytingCard(p, metric) {
   return (
     '<div class="'+cls+'" id="'+(p.isMe?'reyting-me-card':'')+'" onclick="showPlayerProfileModal(\''+esc(p.id)+'\')" style="cursor:pointer">'+
       '<div style="width:30px;text-align:center;flex-shrink:0;font-size:'+(p.rank<=3?'20px':'14px')+';font-weight:700;color:'+(p.rank<=3?'inherit':'var(--text-muted)')+';font-family:Syne,sans-serif">'+rankBadge+'</div>'+
-      '<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">'+avatarHtml+'</div>'+
+      '<div class="'+_cosFrame(p)+'" style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">'+avatarHtml+'</div>'+
       '<div style="flex:1;min-width:0">'+
         '<div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
-          '<span>'+esc(p.name||'?')+'</span>'+(p.isMe?'<span style="font-size:var(--fs-3xs);font-weight:700;color:var(--accent);background:rgba(124,92,252,0.15);border-radius:var(--radius-full);padding:1px 7px">'+t('reyting_you_badge')+'</span>':'')+
+          '<span>'+_cosName(esc(p.name||'?'), p)+'</span>'+(p.isMe?'<span style="font-size:var(--fs-3xs);font-weight:700;color:var(--accent);background:rgba(124,92,252,0.15);border-radius:var(--radius-full);padding:1px 7px">'+t('reyting_you_badge')+'</span>':'')+
         '</div>'+
         '<div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-top:2px">'+flag+' '+(p.country?esc(countryName(p.country)):t('pe_country_none'))+'</div>'+
       '</div>'+
@@ -15264,8 +15436,8 @@ function renderReytingPodium(top, metric) {
     var unit = metric === 'hp' ? ' ❤️' : reytingMetricUnit(metric);
     return '<div class="rk-pod rk-pod-' + p.rank + (p.isMe ? ' is-me' : '') + '" ' + (p.isMe ? 'id="reyting-me-card" ' : '') + 'onclick="showPlayerProfileModal(\'' + esc(p.id) + '\')">' +
       '<div class="rk-pod-medal">' + medals[p.rank] + '</div>' +
-      '<div class="rk-pod-av">' + av + '</div>' +
-      '<div class="rk-pod-name">' + esc(p.name || '?') + (p.isMe ? ' <span class="rk-you">' + t('reyting_you_badge') + '</span>' : '') + '</div>' +
+      '<div class="rk-pod-av ' + _cosFrame(p) + '">' + av + '</div>' +
+      '<div class="rk-pod-name">' + _cosName(esc(p.name || '?'), p) + (p.isMe ? ' <span class="rk-you">' + t('reyting_you_badge') + '</span>' : '') + '</div>' +
       '<div class="rk-pod-flag">' + countryFlagImg(p.country, 12) + '</div>' +
       '<div class="rk-pod-val">' + val + unit + '</div>' +
       (metric === 'coins' ? '<div class="rk-pod-prize">+' + reytingPrizeFor(p.rank, S.reytingParticipants || 0) + ' 🪙</div>' : '') +
@@ -15307,8 +15479,8 @@ function showPlayerProfileModal(id) {
   box.style.cssText = 'position:relative;background:var(--surface);border:1px solid var(--border);box-shadow:0 0 0 1px var(--border),0 20px 50px rgba(0,0,0,0.5);border-radius:var(--radius-xl);padding:20px;width:100%;max-width:340px;max-height:85vh;overflow-y:auto';
 
   var avatarHtml = p.photo
-    ? '<img src="'+p.photo+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)" />'
-    : '<div style="width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:var(--fs-3xl);font-weight:700;color:#fff;font-family:Syne,sans-serif;border:2px solid var(--accent)">'+esc((p.name||'?').charAt(0).toUpperCase())+'</div>';
+    ? '<img class="'+_cosFrame(p)+'" src="'+p.photo+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)" />'
+    : '<div class="'+_cosFrame(p)+'" style="width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:var(--fs-3xl);font-weight:700;color:#fff;font-family:Syne,sans-serif;border:2px solid var(--accent)">'+esc((p.name||'?').charAt(0).toUpperCase())+'</div>';
   var flag = countryFlagImg(p.country, 16);
   var lv = getLevel(p.xp || 0);
 
@@ -15326,7 +15498,8 @@ function showPlayerProfileModal(id) {
     '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px;padding-top:4px">'+
       avatarHtml+
       '<div style="display:flex;align-items:center;gap:6px;margin-top:10px">'+
-        '<span style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:var(--text)">'+esc(p.name||'?')+'</span>'+
+        '<span style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:var(--text)">'+_cosName(esc(p.name||'?'), p)+'</span>'+
+        (function(){ var tt=''; try { tt = typeof window.xCosTitle === 'function' ? window.xCosTitle(_cosOf(p)) : ''; } catch (e) {} return tt ? '<span class="x-ptitle" style="margin:0 0 0 6px">'+esc(tt)+'</span>' : ''; })()+
         '<span style="font-size:var(--fs-md)">'+flag+'</span>'+
       '</div>'+
       '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'+
@@ -16256,7 +16429,7 @@ function confirmRestart() {
   document.getElementById('restart-confirm').onclick = function(){
     S.coins = 0;
     S.totalCoins = 0;
-    S.xp = 0;
+    S.xp = 0; S.levelRewardsClaimed = null;
     S.streak = 0;
     S.bestStreak = 0;
     S.totalPurchases = 0;
@@ -16327,7 +16500,7 @@ function _rstResetCoins() {
 
 function _rstResetStats() {
   // XP/Streak/kunlik bajarilish tarixi + IELTS/SAT natijalari + kalendar
-  S.xp = 0;
+  S.xp = 0; S.levelRewardsClaimed = null;
   S.streak = 0;
   S.bestStreak = 0;
   S.totalTasksDone = 0;
@@ -25191,7 +25364,13 @@ function scheduleCloudSync(immediate) {
     // 💎 `gems` ustuni bazaga qo'shilgan bo'lsa yozamiz; yo'q bo'lsa (hali SQL
     // yangilanmagan) — usiz qayta yuboramiz, profil sinxronizatsiyasi buzilmasin.
     if (!window._noGemsColumn) row.gems = S.gems || 0;
+    // 🛍 kiyilgan bezaklar — reyting va do'stlarda boshqalarga ko'rinadi
+    if (!window._noCosmeticsColumn) { try { row.cosmetics = typeof window.xCosMine === 'function' ? window.xCosMine() : null; } catch (e) {} }
     supabase.from('profiles').upsert(row).then(function (r) {
+      if (r.error && row.cosmetics !== undefined && /cosmetics/i.test(r.error.message || '')) {
+        window._noCosmeticsColumn = true; delete row.cosmetics;
+        return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
+      }
       if (r.error && /referral_|device_type/i.test(r.error.message || '')) {
         window._noAnalyticsColumns = true; delete row.referral_source; delete row.referral_other; delete row.device_type;
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
@@ -25253,6 +25432,7 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
       targetSubjects: r.target_subjects || [],
       appGoalOther: r.app_goal_other || '',
       gems: Number(r.gems) || 0,
+      cosmetics: r.cosmetics || null,
       isMe: false
     };
   });
@@ -26629,6 +26809,7 @@ try {
   };
   window.pomoCloseSettingsModal = function () {
     document.getElementById('pomo-settings-modal-overlay').classList.remove('open');
+    try { pomoSetActiveNav('pomo-nav-projects'); } catch (e) {}
   };
   window.pomoSaveSettingsFromModal = function () {
     var workEl = document.getElementById('pomo-set-work');
@@ -27457,6 +27638,7 @@ try {
   window.pomoCloseCalendar = function () {
     var ov = document.getElementById('pomo-cal-modal-overlay');
     if (ov) ov.classList.remove('open');
+    try { pomoSetActiveNav('pomo-nav-projects'); } catch (e) {}
   };
   window.pomoCalPrevMonth = function () {
     pomoCalDate.setMonth(pomoCalDate.getMonth() - 1);
@@ -28370,13 +28552,13 @@ var friendsSyncFromCloud = async function() {
     var F = S.friends;
     if (d.friend_code) F.myId = d.friend_code;
     F.list = (d.friends || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, cosmetics: x.cosmetics || null, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
     });
     F.incoming = (d.incoming || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
     });
     F.outgoing = (d.outgoing || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
     });
     F.banned = (d.blocked || []).map(function (x) {
       return { id: x.id, name: x.name, avatarUrl: x.photo || null, bannedAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
@@ -28899,7 +29081,8 @@ function friendsAvatarHtml(f, extraAttrs, showStatus) {
     var online = friendsIsOnline(f.id);
     dot = '<span class="friend-status-dot' + (online ? ' online' : ' offline') + '" title="' + esc(t(online ? 'friends_status_online' : 'friends_status_offline')) + '"></span>';
   }
-  return '<div class="friend-avatar' + p.cls + '"' + (p.style ? ' style="' + p.style + '"' : '') + (extraAttrs || '') + '>' + p.inner + dot + '</div>';
+  var fc = (f && f.cosmetics) ? _cosFrame(f) : '';
+  return '<div class="friend-avatar' + p.cls + (fc ? ' ' + fc : '') + '"' + (p.style ? ' style="' + p.style + '"' : '') + (extraAttrs || '') + '>' + p.inner + dot + '</div>';
 }
 function friendsIsOnline(id) {
   var bucket = Math.floor(Date.now() / 300000); // har 5 daqiqada bir yangilanadi
@@ -29119,7 +29302,7 @@ function friendsCopyMyId() {
 function friendCardHtml(f, actionsHtml, viewable, showStatus) {
   var mutualChip = (f._mutualCount) ? ' <span class="friend-mutual-chip">' + t('friends_mutual_chip').replace('{n}', f._mutualCount) + '</span>' : '';
   var infoBlock = '<div style="min-width:0;flex:1">'
-    + '<div class="friend-name">' + esc(f.name) + mutualChip + '</div>'
+    + '<div class="friend-name">' + _cosName(esc(f.name), f) + mutualChip + '</div>'
     + '<div class="friend-sub">' + (f.level ? '⭐ Lv ' + esc(String(f.level)) : '') + (showStatus ? ((f.level ? ' · ' : '') + (friendsIsOnline(f.id) ? '<span class="fr-on">' + _cl("onlayn", "online", "онлайн") + '</span>' : '<span class="fr-off">' + _cl("oflayn", "offline", "офлайн") + '</span>')) : '') + (f.reason ? ((f.level || showStatus) ? ' · ' : '') + '💬 ' + esc(f.reason.length > 40 ? f.reason.slice(0, 40) + '…' : f.reason) : '') + '</div>'
     + '</div>';
   // ✅ TUZATILDI: rasm/emoji yo'q holat uchun endi bo'sh doira o'rniga
@@ -31291,7 +31474,6 @@ var adminRenderFeedback = async function(filter) {
         '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
           (f.status !== 'read' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'read\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">👁 ' + _cl("O'qildi", "Mark read", "Прочитано") + '</button>' : '') +
           (f.status !== 'done' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'done\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">✅ Bajarildi</button>' : '') +
-          '<button onclick="adminFeedbackDelete(' + f.id + ')" style="padding:4px 10px;border-radius:8px;border:1px solid rgba(248,113,113,.4);background:transparent;color:#F87171;font-size:12px;cursor:pointer">🗑</button>' +
           '<span style="margin-left:auto;font-size:11px;color:var(--text-dim)">' + esc((f.lang || '').toUpperCase()) + '</span>' +
         '</div></div>';
     }).join('');
