@@ -10881,6 +10881,8 @@ function rewardTimeSuffix(amount) {
 
 var _addingRewardInProgress = false;
 
+// Mukofot narxining yuqori chegarasi (99999999999 kabi qiymatlar ilovani buzmasin)
+var REWARD_COST_MAX = 100000;
 function addReward() {
   if (_addingRewardInProgress) return;
 
@@ -10909,6 +10911,7 @@ function addReward() {
 
   if(!name){ document.getElementById('r-name').focus(); toast(t('reward_name_required_toast')); return; }
   if(!(cost>0)){ document.getElementById('r-cost').focus(); toast(t('reward_cost_required_toast')); return; }
+  if(cost>REWARD_COST_MAX){ document.getElementById('r-cost').focus(); toast(_cl('Narx juda katta — ko\'pi bilan ', 'Price is too high — max ', 'Слишком высокая цена — максимум ')+REWARD_COST_MAX+' 🪙'); return; }
   if(!_rewardType){ toast(t('reward_type_required_toast')); return; }
   if(!(amount>0)){ document.getElementById('r-amount').focus(); toast(_rewardType==='time'?t('reward_minutes_required_toast'):t('reward_amount_required_toast')); return; }
 
@@ -11107,7 +11110,12 @@ function showUndoToast(msg, undoFn) {
 
 // ⏰ Aniq vaqtli eslatmalar
 function tkEnsureNotifyPermission() {
-  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
+  // Ruxsat berilsa — server orqali push ham ulanadi (ilova yopiq bo'lsa ham eslatma keladi)
+  var auto = function () { try { if (typeof window.xPushAuto === 'function') window.xPushAuto(); } catch (e) {} };
+  try {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().then(function (p) { if (p === 'granted') auto(); });
+    else auto();
+  } catch (e) {}
 }
 function tkShowNotification(title, body) {
   try {
@@ -11283,6 +11291,7 @@ function saveRewardEdit() {
   // XATOLIK TUZATILDI: 0/manfiy/bo'sh narx jimgina eski narxga qaytarilib,
   // "yangilandi" deyilardi. Endi addReward() kabi xato ko'rsatiladi.
   if(!(cost>0)){ document.getElementById('er-cost').focus(); toast(t('reward_cost_required_toast')); return; }
+  if(cost>REWARD_COST_MAX){ document.getElementById('er-cost').focus(); toast(_cl('Narx juda katta — ko\'pi bilan ', 'Price is too high — max ', 'Слишком высокая цена — максимум ')+REWARD_COST_MAX+' 🪙'); return; }
   // XATOLIK TUZATILDI: `!amount` faqat 0/NaN'ni ushlardi, manfiy sonni
   // (masalan -10 daqiqa) o'tkazib yuborardi. Endi `amount>0` tekshiriladi.
   if(!(amount>0)){ document.getElementById('er-amount').focus(); toast(_editRewardType==='time'?t('reward_minutes_required_toast'):t('reward_amount_required_toast')); return; }
@@ -24492,7 +24501,7 @@ var wsSubmitRegister = async function() {
     var res = await supabase.auth.signUp({
       email: emailVal,
       password: passVal,
-      options: { data: { name: nameVal } }
+      options: { data: { name: nameVal }, emailRedirectTo: location.origin + location.pathname }
     });
     // 📧 Bu email bilan akkaunt allaqachon bor: Supabase xato qaytaradi (user_already_exists)
     // yoki — email tasdiqlash yoqilgan bo'lsa — identities bo'sh bo'lgan "soxta" foydalanuvchi qaytaradi
@@ -24506,6 +24515,14 @@ var wsSubmitRegister = async function() {
     }
     if (res.error) {
       toast('⚠️ ' + res.error.message);
+      return;
+    }
+    // 📧 Email tasdiqlash yoqilgan: sessiya hali yo'q — avval emaildagi havolani bosish kerak
+    if (!res.data.session) {
+      toast('📧 ' + _cl('Emailingizga tasdiqlash xati yuborildi. Xatdagi havolani bosing, keyin shu yerda "Kirish" orqali kiring.',
+        'We sent a confirmation email. Click the link in it, then sign in here.',
+        'Мы отправили письмо для подтверждения. Перейдите по ссылке, затем войдите здесь.'));
+      try { wsState.authMode = 'login'; wsState.loginEmail = emailVal; wsRenderStep(); } catch (e) {}
       return;
     }
     if (_cloudAccountSwitchReset(res.data.user && res.data.user.id)) return;
@@ -24548,6 +24565,14 @@ var wsSubmitLogin = async function() {
   try {
     var res = await supabase.auth.signInWithPassword({ email: emailVal, password: passVal });
     if (res.error) {
+      // Email hali tasdiqlanmagan — tushuntiramiz va xatni qayta yuboramiz
+      if (/not.?confirmed/i.test((res.error.code || '') + ' ' + (res.error.message || ''))) {
+        try { await supabase.auth.resend({ type: 'signup', email: emailVal, options: { emailRedirectTo: location.origin + location.pathname } }); } catch (e) {}
+        toast('📧 ' + _cl('Email hali tasdiqlanmagan — tasdiqlash xatini qayta yubordik, pochtangizni tekshiring.',
+          'Your email is not confirmed yet — we re-sent the confirmation email, check your inbox.',
+          'Email ещё не подтверждён — мы повторно отправили письмо, проверьте почту.'));
+        return;
+      }
       toast('⚠️ ' + t('ws_login_fail_toast'));
       return;
     }
@@ -24602,53 +24627,36 @@ var cloudLogout = async function() {
 
 
 function getOnboardingTourSteps() {
+  // Asosiy menyu: kompyuterda chap/tepadagi tablar, telefonda pastki panel (#x-bnav)
+  var nav = function (tab) {
+    return document.documentElement.classList.contains('layout-mobile') && document.querySelector('#x-bnav [data-bn="' + tab + '"]')
+      ? '#x-bnav [data-bn="' + tab + '"]' : '#tab-' + tab;
+  };
   var steps = [
     // 1. Tasks — vazifalar ro'yxati va ularni boshqarish
-    { tab: 'tasks',   target: '#tab-tasks',          placement: 'bottom', icon: '📋', title: t('guide_step_tasks_title'),     desc: t('guide_step_tasks_desc'),     advanced: t('onb_step_tasks_advanced')     },
-    // 2. Secret Place — shaxsiy habit tracking + Profile settings'dan yoqish/o'chirish
-    { tab: 'profile', target: '#pc-section-card',    placement: 'top',    icon: '🔒', title: t('onb_step_secret_title'),      desc: t('onb_step_secret_desc'),      advanced: t('onb_step_secret_advanced')    },
-    // 3. Rewards — tanga to'plash va do'kon
-    { tab: 'rewards', target: '#tab-rewards',        placement: 'bottom', icon: '🎁', title: t('guide_step_rewards_title'),   desc: t('guide_step_rewards_desc'),   advanced: t('onb_step_rewards_advanced')   },
-    // 4. Goals — IELTS / SAT kabi maqsadlar va taymerlar
-    { tab: 'goals',   target: '#tab-goals',          placement: 'bottom', icon: '🎯', title: t('guide_step_goals_title'),     desc: t('guide_step_goals_desc'),     advanced: t('onb_step_goals_advanced')     },
-    // 5. Chest — spin wheel va sandiq mukofotlari
-    { tab: 'chest',   target: '#tab-chest',          placement: 'bottom', icon: '🎲', title: t('guide_step_chest_title'),     desc: t('guide_step_chest_desc'),     advanced: t('onb_step_chest_advanced')     },
-    // 6. Calendar — oylik va kunlik progress monitoring
-    { tab: 'profile', target: '#calendar-section',   placement: 'top',    icon: '📅', title: t('onb_step_calendar_title'),    desc: t('onb_step_calendar_desc'),    advanced: t('onb_step_calendar_advanced')  },
-    // 7. Mood journal — kundalik kayfiyatni belgilash va kalendar orqali tarixni ko'rish
-    { tab: 'tarix',   target: '#mood-tracker-btn',   placement: 'bottom', icon: '😊', title: t('onb_step_mood_title'),        desc: t('onb_step_mood_desc'),        advanced: t('onb_step_mood_advanced')      },
-    // 8. Settings — interfeys, ovoz, fon tovushlari va o'yin qoidalari shu yerda
-    { tab: 'profile', target: '#settings-accordion-btn', placement: 'top', icon: '⚙️', title: t('onb_step_settings_title'),  desc: t('onb_step_settings_desc'),    advanced: t('onb_step_settings_advanced'),
-      prepare: function () {
-        var panel = document.getElementById('settings-panel');
-        if (panel && panel.style.display === 'none') {
-          try { toggleSettingsPanel(); } catch (e) {}
-        }
-      }
-    },
-    // 9. Musiqa (Ambient Focus Sound) — endi "Ovoz va Musiqa" kartasi ichiga
-    //     birlashtirilgan, shu sababli avval Sozlamalar panelini va shu kartani ochamiz.
-    { tab: 'profile', target: '#sound-audio-settings-card', placement: 'top', icon: '🎶', title: t('onb_step_music_title'), desc: t('onb_step_music_desc'), advanced: t('onb_step_music_advanced'),
-      prepare: function () {
-        var panel = document.getElementById('settings-panel');
-        if (panel && panel.style.display === 'none') {
-          try { toggleSettingsPanel(); } catch (e) {}
-        }
-        var card = document.getElementById('sound-audio-settings-card');
-        if (card) {
-          var body = card.querySelector('.settings-sub-body');
-          if (body && body.style.display === 'none') {
-            try { toggleSettingsSubCard('sound-audio-settings-card'); } catch (e) {}
-          }
-        }
-      }
-    },
-    // 10. Export / Import — ma'lumotlarni zaxiralash va qayta tiklash
-    { tab: 'profile', target: '#data-backup-section',placement: 'top',    icon: '💾', title: t('onb_step_export_title'),      desc: t('onb_step_export_desc'),      advanced: t('onb_step_export_advanced')    },
-    // 11. Pomodoro — diqqatni jamlash uchun ish/tanaffus taymeri (yuqoridagi nav tugmasi orqali modal ochiladi)
-    { tab: 'tasks',   target: '#tab-pomo',             placement: 'bottom', icon: '⏱️', title: t('onb_step_pomodoro_title'),   desc: t('onb_step_pomodoro_desc'),    advanced: t('onb_step_pomodoro_advanced')  },
-    // 12. Friends — do'st qo'shish, Challenge va Party (sarlavhadagi tugma orqali modal ochiladi)
-    { tab: 'tasks',   target: '#header-friends-btn',   placement: 'bottom', icon: '👥', title: t('onb_step_friends_title'),    desc: t('onb_step_friends_desc'),     advanced: t('onb_step_friends_advanced')   }
+    { tab: 'tasks',   target: nav('tasks'),      placement: 'bottom', icon: '📋', title: t('guide_step_tasks_title'),   desc: t('guide_step_tasks_desc'),   advanced: t('onb_step_tasks_advanced') },
+    // 2. Yangi vazifa qo'shish
+    { tab: 'tasks',   target: '.add-task-btn',   placement: 'bottom', icon: '➕', title: _cl('Yangi vazifa', 'New task', 'Новая задача'),
+      desc: _cl("Shu tugma orqali vazifa qo'shasiz: nomi, takrorlanishi, qiyinligi va eslatma vaqti.", 'Add a task here: its name, repeat, difficulty and reminder time.', 'Здесь добавляются задачи: название, повтор, сложность и время напоминания.'),
+      advanced: _cl("Eslatma vaqtini qo'ysangiz, ilova yopiq bo'lsa ham telefoningizga xabar keladi (Sozlamalar → Eslatmalar).", 'Set a reminder time and you will get a notification even when the app is closed (Settings → Reminders).', 'Если указать время напоминания, уведомление придёт даже при закрытом приложении (Настройки → Напоминания).') },
+    // 3. Bugungi qator: boss · kvestlar · uyqu · matritsa
+    { tab: 'tasks',   target: '#x-today',        placement: 'bottom', icon: '⚔️', title: _cl('Boss, kvestlar va uyqu', 'Boss, quests & sleep', 'Босс, квесты и сон'),
+      desc: _cl("Har bir bajarilgan vazifa bossga zarba beradi. Kvestlar uchun 💎 olasiz, uyquni ham shu yerda yozasiz.", 'Every finished task hits the boss. Quests give 💎, and you log your sleep here too.', 'Каждая выполненная задача бьёт босса. За квесты дают 💎, здесь же отмечается сон.'),
+      advanced: _cl("Chipni bossangiz — to'liq oyna ochiladi.", 'Tap a chip to open the full view.', 'Нажмите на чип, чтобы открыть полный вид.') },
+    // 4. Rewards — tanga to'plash va mukofotlar
+    { tab: 'rewards', target: nav('rewards'),    placement: 'bottom', icon: '🎁', title: t('guide_step_rewards_title'), desc: t('guide_step_rewards_desc'), advanced: t('onb_step_rewards_advanced') },
+    // 5. Goals — IELTS / SAT kabi maqsadlar
+    { tab: 'goals',   target: nav('goals'),      placement: 'bottom', icon: '🎯', title: t('guide_step_goals_title'),   desc: t('guide_step_goals_desc'),   advanced: t('onb_step_goals_advanced') },
+    // 6. Hub — Pomodoro, Reyting, Do'stlar, Chest, Spin, Boss, Do'kon
+    { tab: 'hub',     target: nav('hub'),        placement: 'bottom', icon: '🚀', title: 'Hub',
+      desc: _cl("Pomodoro, Reyting, Do'stlar, Chest, Spin, Boss janglari va Do'kon — hammasi shu yerda.", 'Pomodoro, Leaderboard, Friends, Chest, Spin, Boss fights and the Shop all live here.', 'Помодоро, Рейтинг, Друзья, Сундук, Спин, Боссы и Магазин — всё здесь.'),
+      advanced: _cl("Do'stingizni taklif qilsangiz (🎁 Taklif qil) — ikkalangiz ham 💎 olasiz.", 'Invite a friend (🎁 Invite) and you both get 💎.', 'Пригласите друга (🎁 Пригласить) — оба получите 💎.') },
+    // 7. Profil — statistika, kalendar, sozlamalar
+    { tab: 'profile', target: nav('profile'),    placement: 'bottom', icon: '👤', title: _cl('Profil', 'Profile', 'Профиль'),
+      desc: _cl('Statistika, kalendar, kayfiyat kundaligi, yutuqlar va sozlamalar.', 'Stats, calendar, mood journal, achievements and settings.', 'Статистика, календарь, дневник настроения, достижения и настройки.'),
+      advanced: _cl("Akkaunt bilan kirsangiz ma'lumotlaringiz bulutda saqlanadi va boshqa qurilmada ham ochiladi.", 'Sign in and your data is saved to the cloud and opens on other devices too.', 'Войдите в аккаунт — данные сохранятся в облаке и откроются на других устройствах.') },
+    // 8. Do'stlar — sarlavhadagi tugma
+    { tab: 'tasks',   target: '#header-friends-btn', placement: 'bottom', icon: '👥', title: t('onb_step_friends_title'), desc: t('onb_step_friends_desc'), advanced: t('onb_step_friends_advanced') }
   ];
   return steps;
 }
@@ -28601,7 +28609,7 @@ var friendsSyncFromCloud = async function() {
     var F = S.friends;
     if (d.friend_code) F.myId = d.friend_code;
     F.list = (d.friends || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, cosmetics: x.cosmetics || null, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, cosmetics: x.cosmetics || null, lastActive: x.lastActive ? Date.parse(x.lastActive) : 0, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
     });
     F.incoming = (d.incoming || []).map(function (x) {
       return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
@@ -29134,9 +29142,11 @@ function friendsAvatarHtml(f, extraAttrs, showStatus) {
   return '<div class="friend-avatar' + p.cls + (fc ? ' ' + fc : '') + '"' + (p.style ? ' style="' + p.style + '"' : '') + (extraAttrs || '') + '>' + p.inner + dot + '</div>';
 }
 function friendsIsOnline(id) {
-  var bucket = Math.floor(Date.now() / 300000); // har 5 daqiqada bir yangilanadi
-  var h = _friendsHash(String(id) + ':' + bucket);
-  return (h % 100) < 55; // taxminan ~55% ehtimollik bilan "onlayn"
+  // Haqiqiy holat: do'st oxirgi 5 daqiqa ichida ilovada faol bo'lgan bo'lsa — onlayn
+  // (ilova ochiq turganda har 2 daqiqada touch_activity yuboriladi)
+  var F = (typeof S !== 'undefined' && S.friends) || {};
+  var f = (F.list || []).find(function (x) { return String(x.id) === String(id); });
+  return !!(f && f.lastActive && Date.now() - f.lastActive < 5 * 60 * 1000);
 }
 
 // ============================================================
@@ -31181,6 +31191,7 @@ var cloudLogoutAndWipe = async function() {
     try { scheduleAppStateSync(true); } catch (e) {}
     await new Promise(function (r) { setTimeout(r, 1800); });
   }
+  try { if (typeof window.xPushOffSilent === 'function') await window.xPushOffSilent(); } catch (e) {}
   try { await cloudLogout(); } catch (e) {}
   _cloudWipeLocalAndReload('👋 ' + _cl('Akkauntdan chiqdingiz', 'Signed out', 'Вы вышли из аккаунта'), false);
 };
@@ -31320,6 +31331,7 @@ var cloudDeleteAccount = async function() {
     var ls = await supabase.storage.from('avatars').list(uidA);
     if (!ls.error && ls.data && ls.data.length) await supabase.storage.from('avatars').remove(ls.data.map(function (f) { return uidA + '/' + f.name; }));
   } catch (e) {}
+  try { if (typeof window.xPushOffSilent === 'function') await window.xPushOffSilent(); } catch (e) {}
   var r = await supabase.rpc('delete_my_account');
   if (r.error) { _cloudToast('⚠️ ' + _cl('Akkauntni o\'chirib bo\'lmadi', 'Could not delete the account', 'Не удалось удалить аккаунт') + ': ' + r.error.message); return; }
   var m = document.getElementById('profile-edit-modal'); if (m) m.remove();

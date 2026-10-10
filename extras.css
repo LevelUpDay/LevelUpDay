@@ -475,3 +475,28 @@ html.layout-mobile input, html.layout-mobile select, html.layout-mobile textarea
 .x-tchip-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #ef4444, #f97316); border-radius: 999px; }
 .x-today-box { max-width: 520px; }
 .x-today-sheet .quests-card, .x-today-sheet .x-sleep-card { margin: 8px 0 0; }
+
+/* 🔔 Eslatmalar kartasi (Sozlamalar) */
+.x-push-card { margin-bottom: 12px; }
+.x-push-h { display: flex; align-items: center; gap: 10px; }
+.x-push-h > span { font-size: 22px; }
+.x-push-h > div { flex: 1; min-width: 0; }
+.x-push-h b { display: block; color: var(--text); font-size: 14px; }
+.x-push-h small { display: block; color: var(--text-muted); font-size: 12px; line-height: 1.35; margin-top: 2px; }
+.x-push-card .x-chk { display: flex; margin-top: 8px; }
+
+/* 🎁 Do'st taklif qilish */
+.x-ref-box { max-width: 460px; }
+.x-ref-p { color: var(--text-muted); font-size: 13.5px; line-height: 1.5; margin: 4px 0 12px; }
+.x-ref-p b { color: var(--text); }
+.x-ref-link { display: flex; gap: 6px; }
+.x-ref-link input { flex: 1; min-width: 0; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 13px; }
+.x-ref-acts { display: flex; gap: 6px; margin: 8px 0 14px; flex-wrap: wrap; }
+.x-ref-acts a { text-decoration: none; }
+.x-ref-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.x-ref-stats > div { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 6px; text-align: center; }
+.x-ref-stats b { display: block; color: var(--text); font-size: 18px; }
+.x-ref-stats span { font-size: 11px; color: var(--text-muted); }
+.x-ref-by { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+.x-ref-row { display: flex; justify-content: space-between; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.x-ref-row em { font-style: normal; color: var(--text-muted); }

@@ -22,7 +22,7 @@
 
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script src="vendor/Sortable-1.15.0.min.js"></script>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="extras.css">
 </head>
@@ -1711,7 +1711,7 @@
           <button class="rcost-chip" onclick="setCost(20)">20 🪙</button>
           <button class="rcost-chip" onclick="setCost(30)">30 🪙</button>
         </div>
-        <input type="number" id="r-cost" inputmode="numeric" pattern="[0-9]*" placeholder="Yoki o'zingiz kiriting..." data-i18n-ph="rstep2_ph" min="1" oninput="syncCostChips()" style="margin-top:8px" />
+        <input type="number" id="r-cost" inputmode="numeric" pattern="[0-9]*" placeholder="Yoki o'zingiz kiriting..." data-i18n-ph="rstep2_ph" min="1" max="100000" oninput="syncCostChips()" style="margin-top:8px" />
       </div>
 
       <!-- Step 3: Tur (daqiqa yoki miqdor) -->
@@ -2535,7 +2535,7 @@
     </div>
     <div class="modal-field">
       <label data-i18n="er_cost_label">Narxi (tanga)</label>
-      <input type="number" id="er-cost" min="1" placeholder="Necha tanga" data-i18n-ph="er_cost_ph" />
+      <input type="number" id="er-cost" min="1" max="100000" placeholder="Necha tanga" data-i18n-ph="er_cost_ph" />
     </div>
     <div class="modal-field">
       <label data-i18n="er_emoji_label">Emoji</label>
@@ -3437,7 +3437,7 @@
 
 
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="vendor/supabase-2.117.2.js"></script>
 
 
 
