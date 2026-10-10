@@ -14615,7 +14615,22 @@ function pe_validateUsernameLive(currentName) {
     saveBtn.style.opacity = valid ? '1' : '0.5';
     saveBtn.style.cursor = valid ? 'pointer' : 'not-allowed';
   }
+  // 🌐 Serverda ham tekshiramiz — nik barcha foydalanuvchilar orasida yagona bo'lishi kerak
+  if (valid && val && (!currentName || val.toLowerCase() !== String(currentName).trim().toLowerCase())) _peCheckNickRemote(val);
   return valid;
+}
+var _peNickTimer = null;
+function _peCheckNickRemote(val) {
+  if (typeof supabase === 'undefined' || !supabase || !supabase.rpc) return;
+  clearTimeout(_peNickTimer);
+  _peNickTimer = setTimeout(function () {
+    supabase.rpc('is_username_available', { p_name: val }).then(function (r) {
+      var inp = document.getElementById('pe-name'), fb = document.getElementById('pe-name-feedback'), saveBtn = document.getElementById('pe-save');
+      if (r.error || r.data !== false || !inp || inp.value.trim() !== val) return;
+      if (fb) { fb.textContent = t('pe_username_taken'); fb.style.color = '#F87171'; }
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; saveBtn.style.cursor = 'not-allowed'; }
+    });
+  }, 350);
 }
 
 function openPhotoCropModal(srcDataUrl, onDone) {
@@ -14991,6 +15006,8 @@ function showProfileEdit() {
       openAccountLinkModal();
     } else {
       if (!confirm(t('pe_logout_confirm'))) return;
+      // Chiqishda qurilmadagi barcha ma'lumotlar tozalanadi — qayta kirilganda bulutdan qaytadi
+      if (typeof cloudLogoutAndWipe === 'function') { overlay.remove(); cloudLogoutAndWipe(); return; }
       try { if (typeof cloudLogout === 'function') cloudLogout(); } catch (e) {}
       if (!S.profile) S.profile = {};
       S.profile.loginMethod = 'guest';
@@ -24466,11 +24483,26 @@ var wsSubmitRegister = async function() {
 
   wsSetAuthBusy('ws-reg-submit-btn', true, '⏳ ...');
   try {
+    // 🌐 Nik barcha foydalanuvchilar orasida yagona bo'lishi kerak
+    try {
+      var av = await supabase.rpc('is_username_available', { p_name: nameVal });
+      if (!av.error && av.data === false) { toast(t('ws_reg_taken_toast')); return; }
+    } catch (e) {}
     var res = await supabase.auth.signUp({
       email: emailVal,
       password: passVal,
       options: { data: { name: nameVal } }
     });
+    // 📧 Bu email bilan akkaunt allaqachon bor: Supabase xato qaytaradi (user_already_exists)
+    // yoki — email tasdiqlash yoqilgan bo'lsa — identities bo'sh bo'lgan "soxta" foydalanuvchi qaytaradi
+    var _emailTaken = (res.error && /already|registered|exists/i.test((res.error.code || '') + ' ' + (res.error.message || '')))
+      || (!res.error && res.data && res.data.user && Array.isArray(res.data.user.identities) && res.data.user.identities.length === 0);
+    if (_emailTaken) {
+      toast('📧 ' + _cl('Bu email bilan akkaunt allaqachon mavjud — "Kirish" orqali kiring yoki boshqa email ishlating',
+        'An account with this email already exists — sign in, or use a different email',
+        'Аккаунт с этим email уже существует — войдите или используйте другой email'));
+      return;
+    }
     if (res.error) {
       toast('⚠️ ' + res.error.message);
       return;
@@ -25253,7 +25285,10 @@ function wsAttachHandlers() {
   var loginSubmitBtn = document.getElementById('ws-login-submit-btn');
   if (loginSubmitBtn) loginSubmitBtn.onclick = function () { wsSubmitLogin(); };
   var googleBtn = document.getElementById('ws-google-btn');
-  if (googleBtn) googleBtn.onclick = function () { cloudGoogleSignIn(); };
+  if (googleBtn) googleBtn.onclick = function () {
+    try { sessionStorage.setItem('oauthIntent', (typeof wsState !== 'undefined' && wsState.authMode === 'register') ? 'register' : 'login'); } catch (e) {}
+    cloudGoogleSignIn();
+  };
   var forgotLink = document.getElementById('ws-forgot-link');
   if (forgotLink) forgotLink.onclick = function () { cloudForgotPassword(); };
 }
@@ -25367,6 +25402,18 @@ function scheduleCloudSync(immediate) {
     // 🛍 kiyilgan bezaklar — reyting va do'stlarda boshqalarga ko'rinadi
     if (!window._noCosmeticsColumn) { try { row.cosmetics = typeof window.xCosMine === 'function' ? window.xCosMine() : null; } catch (e) {} }
     supabase.from('profiles').upsert(row).then(function (r) {
+      // 🛡 Server nikni rad etdi (7 kunlik cheklov / band / noto'g'ri) — nomsiz qayta yuboramiz va
+      // mahalliy nikni serverdagisiga qaytaramiz
+      if (r.error && row.name !== undefined && /name_change_cooldown|name_invalid|profiles_name_lower_uniq|duplicate key/i.test((r.error.message || '') + ' ' + (r.error.details || ''))) {
+        var cool = /cooldown/i.test(r.error.message || '');
+        var until = cool && r.error.details ? new Date(r.error.details) : null;
+        delete row.name;
+        _cloudRevertNameFromServer();
+        _cloudToast(cool
+          ? '⏳ ' + _cl('Nikni 7 kunda faqat bir marta o\'zgartirish mumkin', 'You can change your nickname once every 7 days', 'Ник можно менять раз в 7 дней') + (until && !isNaN(until) ? ' (' + until.toLocaleDateString() + ')' : '')
+          : '❌ ' + t('pe_username_taken'));
+        return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
+      }
       if (r.error && row.cosmetics !== undefined && /cosmetics/i.test(r.error.message || '')) {
         window._noCosmeticsColumn = true; delete row.cosmetics;
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
@@ -25399,7 +25446,8 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
     // select('*') — `gems` ustuni bazada bo'lsa u ham keladi, bo'lmasa xato bermaydi
     var q = supabase.from('profiles').select('*').order(orderCol, { ascending: false }).limit(100);
     if (scope === 'local') q = q.eq('country', myCountry);
-    if (subjectFilter && subjectFilter !== 'all') q = q.contains('target_subjects', [subjectFilter]);
+    // target_subjects — jsonb ustun: massiv o'rniga JSON matn yuboramiz (aks holda `cs.{sat}` → 400 xato)
+    if (subjectFilter && subjectFilter !== 'all') q = q.contains('target_subjects', JSON.stringify([subjectFilter]));
     return q;
   }
   var res = await build(col);
@@ -31090,30 +31138,61 @@ var cloudPullAll = async function(uid) {
   return { hadProfile: hadProfile, hadTodos: hadTodos, hadAppState: !!as.had, profile: profRes.data || null };
 };
 
-// 🔁 Bitta qurilmada boshqa akkauntga kirilsa: oldingi akkauntning mahalliy ma'lumotlari
-// yangi akkauntga aralashib (va bulutga yozilib) ketmasligi uchun hammasini tozalab, sahifani
-// qayta yuklaymiz. Qayta yuklangach sessiya saqlangan bo'ladi va cloudBoot faqat yangi
-// akkauntning bulutdagi ma'lumotlarini tiklaydi. true qaytarsa — chaqiruvchi to'xtashi kerak.
-var _cloudAccountSwitchReset = function(newUid) {
-  if (!newUid || !S.lastCloudUserId || S.lastCloudUserId === newUid) return false;
+// 🧹 Qurilmadagi akkaunt ma'lumotlarini tozalab sahifani qayta yuklaydi (mavzu/ovoz va, keepAuth
+// bo'lsa, kirish sessiyasi saqlanadi). Akkaunt almashganda, chiqishda va o'chirishda ishlatiladi —
+// ma'lumotlar bulutda qoladi va qayta kirilganda tiklanadi.
+var _cloudWipeLocalAndReload = function(msg, keepAuth) {
   var KEEP = ['appTheme', 'appLayout', 'sfxVolume', 'soundEnabled', 'dsSidebarW', 'dsAsideW', 'settingsPanelOpen'];
   try {
     window._cloudPullDone = false;
     if (typeof _appStateTimer !== 'undefined' && _appStateTimer) { clearTimeout(_appStateTimer); _appStateTimer = null; }
     if (typeof _todosCloudSyncTimer !== 'undefined' && _todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
+    if (typeof _cloudSyncTimer !== 'undefined' && _cloudSyncTimer) clearTimeout(_cloudSyncTimer);
     try { stopRealtimeSync(); } catch (e) {}
     window.save = function () {}; save = window.save; // qayta yuklanguncha hech narsa yozilmasin
     var del = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      if (k && KEEP.indexOf(k) === -1 && k.indexOf('sb-') !== 0) del.push(k);
+      if (k && KEEP.indexOf(k) === -1 && !(keepAuth && k.indexOf('sb-') === 0)) del.push(k);
     }
     del.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
     try { sessionStorage.removeItem('cloudPomoReloaded'); } catch (e) {}
-  } catch (e) { console.warn('[account switch]', e); }
-  try { _cloudToast(_cl('Boshqa akkaunt — ma\'lumotlar yuklanmoqda…', 'Different account — loading its data…', 'Другой аккаунт — загружаем данные…')); } catch (e) {}
-  setTimeout(function () { location.replace(location.origin + location.pathname); }, 300);
+  } catch (e) { console.warn('[wipe local]', e); }
+  if (msg) { try { _cloudToast(msg); } catch (e) {} }
+  setTimeout(function () { location.replace(location.origin + location.pathname); }, 600);
+};
+
+// 🔁 Bitta qurilmada boshqa akkauntga kirilsa: oldingi akkauntning ma'lumotlari yangisiga
+// aralashib (va bulutga yozilib) ketmasligi uchun tozalab, qayta yuklaymiz. true — chaqiruvchi to'xtasin.
+var _cloudAccountSwitchReset = function(newUid) {
+  if (!newUid || !S.lastCloudUserId || S.lastCloudUserId === newUid) return false;
+  _cloudWipeLocalAndReload(_cl('Boshqa akkaunt — ma\'lumotlar yuklanmoqda…', 'Different account — loading its data…', 'Другой аккаунт — загружаем данные…'), true);
   return true;
+};
+
+// 🚪 Akkauntdan chiqish: avval navbatdagi o'zgarishlarni bulutga yuboramiz, keyin chiqib,
+// qurilmadagi ma'lumotlarni tozalaymiz (qayta kirilganda bulutdan qaytadi)
+var cloudLogoutAndWipe = async function() {
+  try { _cloudToast('⏳ ' + _cl('Saqlanmoqda…', 'Saving…', 'Сохранение…')); } catch (e) {}
+  if (S.cloudLinked && window._cloudPullDone) {
+    try { scheduleCloudSync(true); } catch (e) {}
+    try { scheduleTodosCloudSync(true); } catch (e) {}
+    try { scheduleAppStateSync(true); } catch (e) {}
+    await new Promise(function (r) { setTimeout(r, 1800); });
+  }
+  try { await cloudLogout(); } catch (e) {}
+  _cloudWipeLocalAndReload('👋 ' + _cl('Akkauntdan chiqdingiz', 'Signed out', 'Вы вышли из аккаунта'), false);
+};
+
+// Server nikni qabul qilmasa — mahalliy nikni bazadagi bilan tenglashtiramiz
+var _cloudRevertNameFromServer = function() {
+  if (!S.cloudUserId) return;
+  supabase.from('profiles').select('name').eq('id', S.cloudUserId).maybeSingle().then(function (r) {
+    if (r.error || !r.data || !r.data.name) return;
+    if (!S.profile) S.profile = {};
+    S.profile.name = r.data.name; S.kiName = r.data.name;
+    try { saveToLocalStorage(S); updateHeaderUserTitle(); renderProfile(); } catch (e) {}
+  });
 };
 
 var cloudBoot = async function(session, isOAuthReturn) {
@@ -31158,7 +31237,11 @@ var cloudBoot = async function(session, isOAuthReturn) {
     try { render(); } catch (e) {}
     startRealtimeSync();
     scheduleAppStateSync(true);
-    if (hasGoogle) _cloudToast(_cl('Google orqali kirdingiz ✅', 'Signed in with Google ✅', 'Вход через Google выполнен ✅'));
+    // "Ro'yxatdan o'tish" bosilgan, lekin bu Gmail bilan akkaunt avvaldan bor edi — shuni aytamiz
+    var _intent = null; try { _intent = sessionStorage.getItem('oauthIntent'); sessionStorage.removeItem('oauthIntent'); } catch (e) {}
+    var _isOld = session.user.created_at && (Date.now() - Date.parse(session.user.created_at) > 5 * 60 * 1000);
+    if (_intent === 'register' && _isOld) _cloudToast('📧 ' + _cl('Bu Gmail bilan akkaunt allaqachon bor edi — o\'sha akkauntga kirdingiz. Yangi akkaunt uchun boshqa Gmail tanlang.', 'This Gmail already had an account — you are now signed in to it. Pick another Gmail for a new account.', 'С этим Gmail уже был аккаунт — вы вошли в него. Для нового аккаунта выберите другой Gmail.'));
+    else if (hasGoogle) _cloudToast(_cl('Google orqali kirdingiz ✅', 'Signed in with Google ✅', 'Вход через Google выполнен ✅'));
     else _cloudToast(_cl('Akkauntga kirdingiz ✅', 'Signed in ✅', 'Вход выполнен ✅'));
     return;
   }
@@ -31230,14 +31313,17 @@ var cloudDeleteAccount = async function() {
     'Your account and ALL cloud data will be permanently deleted. Continue?',
     'Аккаунт и ВСЕ облачные данные будут удалены навсегда. Продолжить?'))) return;
   if (!confirm(_cl('Aniq o\'chiraymi? Buni qaytarib bo\'lmaydi.', 'Really delete? This cannot be undone.', 'Точно удалить? Это нельзя отменить.'))) return;
+  // Avatarni Storage API orqali o'chiramiz (SQL orqali storage jadvaliga tegish taqiqlangan)
+  try {
+    var uidA = S.cloudUserId;
+    var ls = await supabase.storage.from('avatars').list(uidA);
+    if (!ls.error && ls.data && ls.data.length) await supabase.storage.from('avatars').remove(ls.data.map(function (f) { return uidA + '/' + f.name; }));
+  } catch (e) {}
   var r = await supabase.rpc('delete_my_account');
-  if (r.error) { _cloudToast('⚠️ ' + r.error.message); return; }
-  try { await cloudLogout(); } catch (e) {}
-  if (!S.profile) S.profile = {};
-  S.profile.loginMethod = 'guest';
-  try { save(); renderProfile(); updateHeaderUserTitle(); } catch (e) {}
+  if (r.error) { _cloudToast('⚠️ ' + _cl('Akkauntni o\'chirib bo\'lmadi', 'Could not delete the account', 'Не удалось удалить аккаунт') + ': ' + r.error.message); return; }
   var m = document.getElementById('profile-edit-modal'); if (m) m.remove();
-  _cloudToast(_cl('Akkaunt o\'chirildi', 'Account deleted', 'Аккаунт удалён'));
+  try { await supabase.auth.signOut(); } catch (e) {}
+  _cloudWipeLocalAndReload('🗑 ' + _cl('Akkaunt o\'chirildi', 'Account deleted', 'Аккаунт удалён'), false);
 };
 
 /* ============================================================

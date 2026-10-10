@@ -14,8 +14,15 @@ Barcha o'zgarishlar Supabase migratsiyalari sifatida qo'llangan
 | `harden_function_grants` | ichki funksiyalar API'dan yopildi, anon chaqira olmaydi |
 | `table_grants_for_api` | jadvallarga Data API huquqlari (RLS qatorlarni himoya qiladi), realtime |
 | `todos_delete_grant` | vazifani o'chirish huquqi |
+| `profiles_cosmetics` | do'kon bezaklari boshqalarga ko'rinishi |
+| `fix_set_friend_code_definer` | profil sinxroni 403 xatosi tuzatildi |
+| `admin_by_email_allowlist` | admin paneli faqat 3 ta email uchun |
+| `unique_nick_and_change_cooldown` | yagona nik, nikni 7 kunda 1 marta o'zgartirish |
 
-## Qo'lda ishga tushirish kerak bo'lgan fayl
+## Qo'lda ishga tushirish kerak bo'lgan fayllar
+
+`fix_delete_account.sql` — "Delete account" ishlashi uchun **shart** (ichida `DELETE` bor,
+avtomatik qo'llanmadi). Supabase → SQL Editor'da bir marta ishga tushiring.
 
 `friends_remove_block.sql` — ichida `DELETE` bor, shuning uchun avtomatik qo'llanmadi.
 Supabase → SQL Editor'da bir marta ishga tushiring. Bo'lmasa ham ilova ishlaydi
