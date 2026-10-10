@@ -24302,6 +24302,7 @@ var wsSubmitRegister = async function() {
       toast('⚠️ ' + res.error.message);
       return;
     }
+    if (_cloudAccountSwitchReset(res.data.user && res.data.user.id)) return;
     S.cloudLinked = true;
     S.cloudUserId = res.data.user ? res.data.user.id : null;
     S.cloudEmail = emailVal;
@@ -24345,6 +24346,7 @@ var wsSubmitLogin = async function() {
       return;
     }
     var uid = res.data.user ? res.data.user.id : null;
+    if (_cloudAccountSwitchReset(uid)) return;
     S.cloudLinked = true;
     S.cloudUserId = uid;
     S.cloudEmail = emailVal;
@@ -30905,8 +30907,35 @@ var cloudPullAll = async function(uid) {
   return { hadProfile: hadProfile, hadTodos: hadTodos, hadAppState: !!as.had, profile: profRes.data || null };
 };
 
+// 🔁 Bitta qurilmada boshqa akkauntga kirilsa: oldingi akkauntning mahalliy ma'lumotlari
+// yangi akkauntga aralashib (va bulutga yozilib) ketmasligi uchun hammasini tozalab, sahifani
+// qayta yuklaymiz. Qayta yuklangach sessiya saqlangan bo'ladi va cloudBoot faqat yangi
+// akkauntning bulutdagi ma'lumotlarini tiklaydi. true qaytarsa — chaqiruvchi to'xtashi kerak.
+var _cloudAccountSwitchReset = function(newUid) {
+  if (!newUid || !S.lastCloudUserId || S.lastCloudUserId === newUid) return false;
+  var KEEP = ['appTheme', 'appLayout', 'sfxVolume', 'soundEnabled', 'dsSidebarW', 'dsAsideW', 'settingsPanelOpen'];
+  try {
+    window._cloudPullDone = false;
+    if (typeof _appStateTimer !== 'undefined' && _appStateTimer) { clearTimeout(_appStateTimer); _appStateTimer = null; }
+    if (typeof _todosCloudSyncTimer !== 'undefined' && _todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
+    try { stopRealtimeSync(); } catch (e) {}
+    window.save = function () {}; save = window.save; // qayta yuklanguncha hech narsa yozilmasin
+    var del = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && KEEP.indexOf(k) === -1 && k.indexOf('sb-') !== 0) del.push(k);
+    }
+    del.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+    try { sessionStorage.removeItem('cloudPomoReloaded'); } catch (e) {}
+  } catch (e) { console.warn('[account switch]', e); }
+  try { _cloudToast(_cl('Boshqa akkaunt — ma\'lumotlar yuklanmoqda…', 'Different account — loading its data…', 'Другой аккаунт — загружаем данные…')); } catch (e) {}
+  setTimeout(function () { location.replace(location.origin + location.pathname); }, 300);
+  return true;
+};
+
 var cloudBoot = async function(session, isOAuthReturn) {
   await _cloudWaitBooted();
+  if (_cloudAccountSwitchReset(session.user.id)) return;
   S.cloudLinked = true;
   S.cloudUserId = session.user.id;
   S.cloudEmail = session.user.email;
@@ -30994,7 +31023,8 @@ var cloudGoogleSignIn = async function() {
     } catch (e) {}
     var r = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: location.origin + location.pathname }
+      // Har safar Google akkaunt tanlash oynasini ko'rsatamiz (aks holda brauzerdagi akkaunt avtomatik tanlanadi)
+      options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } }
     });
     if (r.error) _cloudToast('⚠️ ' + r.error.message);
   } catch (e) { _cloudToast('⚠️ ' + (e && e.message ? e.message : e)); }
