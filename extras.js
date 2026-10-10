@@ -1,9 +1,9 @@
 // ============================================================
 // ✨ EXTRAS — script.js ustiga qo'shimcha funksiyalar:
-//   📑 Shablonlar · ▦ Eisenhower matritsasi · 🌙 Kun yakuni
-//   🔥 Yillik faollik xaritasi · 🐉 Haftalik boss · 🛍 Do'kon
+//   ▦ Eisenhower matritsasi
+//   🔥 Yillik faollik xaritasi · 🐉 Boss janglari · 🛍 Do'kon
 //   🔗 Odatlar bog'liqligi · ⏰ Eng samarali vaqt · 📅 Oylik yakun
-//   🎯 Fokus rejimi · 💧 Suv va 😴 uyqu · 👥 Birgalikdagi vazifa
+//   🎯 Fokus rejimi · 😴 Uyqu · 👥 Birgalikdagi vazifa
 //   📰 Do'stlar lentasi (Supabase: supabase/social.sql)
 // script.js dagi global funksiyalar (S, save, render, toast, _cl ...)
 // ishlatiladi; bu fayl script.js dan KEYIN yuklanadi.
@@ -79,81 +79,6 @@
   }
 
   // =========================================================
-  // 📑 2. SHABLONLAR
-  // =========================================================
-  var BUILTIN_TPL = [
-    { id: 'b_school', emoji: '🏫', name: ['Maktab kuni', 'School day', 'Школьный день'], items: [
-      ['Nonushta', '07:00', '07:30', '🍳'], ['Maktab', '08:00', '13:00', '🏫'], ['Uy vazifasi', '14:30', '15:30', '📝'],
-      ['Sport', '16:30', '17:30', '🏃'], ['Kitob o\'qish', '21:00', '21:30', '📖']] },
-    { id: 'b_weekend', emoji: '🌴', name: ['Dam olish kuni', 'Weekend', 'Выходной'], items: [
-      ['Sport', '09:00', '10:00', '🏃'], ['IELTS mashq', '10:30', '12:00', '📊'], ['Uy ishlari', '13:00', '14:00', '🧹'],
-      ['Do\'stlar bilan', '16:00', '18:00', '👥'], ['Kitob o\'qish', '20:30', '21:30', '📖']] },
-    { id: 'b_exam', emoji: '📚', name: ['Imtihon tayyorgarligi', 'Exam prep', 'Подготовка к экзамену'], items: [
-      ['Reading', '08:00', '09:30', '📖'], ['Listening', '10:00', '11:30', '🎧'], ['Writing', '14:00', '15:30', '✍️'],
-      ['Speaking', '16:00', '17:00', '🗣'], ['Vocabulary', '20:00', '20:45', '🔤']] }
-  ];
-  function tplAll() {
-    var b = BUILTIN_TPL.map(function (t) {
-      return { id: t.id, builtin: true, emoji: t.emoji, name: L(t.name[0], t.name[1], t.name[2]),
-        items: t.items.map(function (i) { return { name: i[0], startTime: i[1], endTime: i[2], emoji: i[3] }; }) };
-    });
-    return b.concat(S.templates || []);
-  }
-  function tplApply(id, when) {
-    var tp = tplAll().find(function (x) { return x.id === id; }); if (!tp) return;
-    var date = when === 'tomorrow' ? addDays(today(), 1) : today();
-    var added = 0;
-    tp.items.forEach(function (it) {
-      var dup = S.tasks.some(function (t) {
-        return t.repeat === 'once' && !t.done && t.name === it.name && (t.startTime || null) === (it.startTime || null) &&
-          ((t.postponedTo || today()) === date);
-      });
-      if (dup) return;
-      xMakeTask({ name: it.name, startTime: it.startTime, endTime: it.endTime, emoji: it.emoji, date: date });
-      added++;
-    });
-    try { ensureFullTaskOrder(); } catch (e) {}
-    save(); render();
-    toast('📑 ' + tp.emoji + ' ' + tp.name + ' · +' + added + ' ' + L('vazifa', 'tasks', 'задач') + (when === 'tomorrow' ? ' (' + L('ertaga', 'tomorrow', 'завтра') + ')' : ''));
-  }
-  function tplSaveFromToday() {
-    var items = todaysDueTasks().filter(function (t) { return t.startTime; })
-      .sort(function (a, b) { return a.startTime < b.startTime ? -1 : 1; })
-      .map(function (t) { return { name: t.name, startTime: t.startTime, endTime: t.endTime || null, emoji: t.emoji || null }; });
-    if (!items.length) { toast('🕒 ' + L('Bugun vaqtli vazifa yo\'q — avval vazifalarga vaqt qo\'ying', 'No timed tasks today — add times first', 'Сегодня нет задач со временем')); return; }
-    var name = prompt(L('Shablon nomi:', 'Template name:', 'Название шаблона:'), L('Mening kunim', 'My day', 'Мой день'));
-    if (!name) return;
-    S.templates = S.templates || [];
-    S.templates.push({ id: 'u_' + Date.now(), emoji: '⭐', name: name.trim().slice(0, 40), items: items });
-    save(); toast('📑 ' + L('Shablon saqlandi', 'Template saved', 'Шаблон сохранён') + ' · ' + items.length);
-    openTemplates();
-  }
-  function tplDelete(id) {
-    if (!confirm(L('Shablon o\'chirilsinmi?', 'Delete this template?', 'Удалить шаблон?'))) return;
-    S.templates = (S.templates || []).filter(function (t) { return t.id !== id; });
-    save(); openTemplates();
-  }
-  function openTemplates() {
-    var old = document.querySelector('.x-ov.x-tpl'); if (old) old.remove();
-    var html = '<h3 class="x-h">📑 ' + L('Kun shablonlari', 'Day templates', 'Шаблоны дня') + '</h3>' +
-      '<p class="x-sub">' + L('Tayyor kun rejasini bir bosishda qo\'shing. Vazifalar bir martalik bo\'lib qo\'shiladi.', 'Add a ready-made day plan in one tap. Tasks are added as one-time tasks.', 'Добавьте готовый план дня одним нажатием.') + '</p>';
-    tplAll().forEach(function (tp) {
-      html += '<div class="x-tpl-card"><div class="x-tpl-top"><b>' + tp.emoji + ' ' + H(tp.name) + '</b>' +
-        (tp.builtin ? '' : '<button class="x-link danger" data-del="' + tp.id + '">🗑</button>') + '</div>' +
-        '<div class="x-tpl-items">' + tp.items.map(function (i) {
-          return '<span>' + (i.startTime ? '<i>' + i.startTime + (i.endTime ? '–' + i.endTime : '') + '</i> ' : '') + (i.emoji || '') + ' ' + H(i.name) + '</span>';
-        }).join('') + '</div>' +
-        '<div class="x-row"><button class="x-btn" data-apply="' + tp.id + '" data-when="today">＋ ' + L('Bugunga', 'Today', 'На сегодня') + '</button>' +
-        '<button class="x-btn ghost" data-apply="' + tp.id + '" data-when="tomorrow">＋ ' + L('Ertaga', 'Tomorrow', 'На завтра') + '</button></div></div>';
-    });
-    html += '<button class="x-btn wide ghost" id="x-tpl-save">💾 ' + L('Bugungi vaqtli vazifalardan shablon yaratish', 'Save today\'s timed tasks as a template', 'Создать шаблон из сегодняшних задач') + '</button>';
-    var ov = xModal(html, 'x-tpl-box'); ov.classList.add('x-tpl');
-    ov.querySelectorAll('[data-apply]').forEach(function (b) { b.onclick = function () { tplApply(b.dataset.apply, b.dataset.when); ov._close(); }; });
-    ov.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = function () { tplDelete(b.dataset.del); }; });
-    ov.querySelector('#x-tpl-save').onclick = tplSaveFromToday;
-  }
-
-  // =========================================================
   // ▦ 3. EISENHOWER MATRITSASI
   // =========================================================
   var QUADS = [
@@ -200,168 +125,300 @@
   }
 
   // =========================================================
-  // 🌙 4. KUN YAKUNI (kechki ko'rib chiqish)
-  // =========================================================
-  function reviewDoneToday() { return !!(S.reviews && S.reviews[today()]); }
-  function openReview() {
-    var td = today(), due = todaysDueTasks(), done = due.filter(function (t) { return t.done; });
-    var prev = (S.reviews || {})[td] || {};
-    var coinsToday = (S.tarix || []).filter(function (r) { return r.date === td && r.type === 'in' && r.amount > 0; }).reduce(function (a, r) { return a + r.amount; }, 0);
-    var undone = due.filter(function (t) { return !t.done && !t.skipped; });
-    var html = '<h3 class="x-h">🌙 ' + L('Kun yakuni', 'Evening review', 'Итоги дня') + '</h3>' +
-      '<div class="x-stats3"><div><b>' + done.length + '/' + due.length + '</b><span>' + L('bajarildi', 'done', 'выполнено') + '</span></div>' +
-      '<div><b>+' + coinsToday + '</b><span>🪙 ' + L('bugun', 'today', 'сегодня') + '</span></div>' +
-      '<div><b>' + (getStreakSafe()) + '</b><span>🔥 streak</span></div></div>' +
-      (undone.length ? '<div class="x-note">⏳ ' + L('Bajarilmay qolganlar', 'Still open', 'Не выполнено') + ': ' + undone.slice(0, 6).map(function (t) { return H(t.name); }).join(', ') + (undone.length > 6 ? '…' : '') + '</div>' : '') +
-      '<label class="x-lbl">😊 ' + L('Bugun nima yaxshi bo\'ldi?', 'What went well today?', 'Что сегодня получилось?') + '</label>' +
-      '<textarea id="x-rv-good" rows="2" class="x-in">' + H(prev.good || '') + '</textarea>' +
-      '<label class="x-lbl">🛠 ' + L('Nimani yaxshilash mumkin?', 'What could be better?', 'Что можно улучшить?') + '</label>' +
-      '<textarea id="x-rv-improve" rows="2" class="x-in">' + H(prev.improve || '') + '</textarea>' +
-      '<label class="x-lbl">🎯 ' + L('Ertangi 3 ta asosiy vazifa', 'Top 3 for tomorrow', '3 главные задачи на завтра') + '</label>';
-    for (var i = 0; i < 3; i++) {
-      html += '<div class="x-rv-top"><span>' + (i + 1) + '</span><input class="x-in" id="x-rv-t' + i + '" placeholder="' + L('Vazifa nomi', 'Task name', 'Название задачи') + '" />' +
-        '<input class="x-in x-time" type="time" id="x-rv-s' + i + '" /></div>';
-    }
-    html += '<p class="x-sub">' + L('Ertangi vazifalar 📌 muhim deb ertaga ro\'yxatga qo\'shiladi.', 'Tomorrow\'s tasks are added as 📌 pinned.', 'Задачи на завтра будут закреплены 📌.') + '</p>' +
-      '<button class="x-btn wide" id="x-rv-save">✅ ' + L('Kunni yakunlash', 'Finish the day', 'Завершить день') + (prev.ts ? '' : ' · +10 XP') + '</button>';
-    var hist = Object.keys(S.reviews || {}).filter(function (d) { return d !== td; }).sort().reverse().slice(0, 5);
-    if (hist.length) {
-      html += '<details class="x-hist"><summary>📖 ' + L('Oldingi yakunlar', 'Past reviews', 'Прошлые итоги') + '</summary>' + hist.map(function (d) {
-        var r = S.reviews[d];
-        return '<div class="x-hist-it"><b>' + d + '</b>' + (r.good ? '<div>😊 ' + H(r.good) + '</div>' : '') + (r.improve ? '<div>🛠 ' + H(r.improve) + '</div>' : '') + '</div>';
-      }).join('') + '</details>';
-    }
-    var ov = xModal(html, 'x-rv-box');
-    ov.querySelector('#x-rv-save').onclick = function () {
-      var first = !prev.ts;
-      var tops = [];
-      for (var j = 0; j < 3; j++) {
-        var n = ov.querySelector('#x-rv-t' + j).value.trim();
-        var st = ov.querySelector('#x-rv-s' + j).value || null;
-        if (n) tops.push({ name: n, startTime: st });
-      }
-      S.reviews = S.reviews || {};
-      S.reviews[td] = { good: ov.querySelector('#x-rv-good').value.trim(), improve: ov.querySelector('#x-rv-improve').value.trim(), top: tops.map(function (x) { return x.name; }), done: done.length, due: due.length, ts: Date.now() };
-      var tm = addDays(td, 1);
-      tops.forEach(function (x) {
-        var a = hm2m(x.startTime);
-        xMakeTask({ name: x.name, startTime: x.startTime, endTime: a != null ? m2hm(Math.min(a + 60, 1439)) : null, date: tm, pinned: true });
-      });
-      try { ensureFullTaskOrder(); } catch (e) {}
-      if (first) addXP(10, L('Kun yakuni', 'Evening review', 'Итоги дня'));
-      save(); render(); ov._close();
-      toast('🌙 ' + L('Kun yakunlandi! Yaxshi dam oling', 'Day wrapped up! Rest well', 'День завершён! Хорошего отдыха') + (tops.length ? ' · ' + tops.length + ' ' + L('ta vazifa ertaga', 'tasks for tomorrow', 'задач на завтра') : ''));
-    };
-  }
-  function getStreakSafe() { try { return (typeof getStreak === 'function' ? getStreak() : (S.streak || 0)) || 0; } catch (e) { return S.streak || 0; } }
-
-  // =========================================================
-  // 🐉 6. HAFTALIK BOSS
+  // 🐉 6. BOSS JANGLARI — kuchsizdan kuchligacha, foydalanuvchi o'zi tanlaydi
+  //   • Har bir bajarilgan vazifa = zarba (tanga qiymati + o'z vaqtida bonusi)
+  //   • G'alaba (HP 0, muddat ichida) → boss mukofoti
+  //   • Mag'lubiyat (muddat tugadi / taslim) → garov tangalari ayiriladi
+  //   • Vazifa bekor qilinsa → boss HP tiklanadi (g'alaba ham qaytarib olinadi)
+  //   Holat: S.xBoss = { v:2, fight, wins, losses, history, spent }
   // =========================================================
   var BOSSES = [
-    { e: '🦥', n: ['Dangasalik', 'Sloth', 'Лень'] },
-    { e: '🧟', n: ['Kechiktirish zombisi', 'Procrastination zombie', 'Зомби прокрастинации'] },
-    { e: '🦑', n: ['Chalg\'ish krakeni', 'Distraction kraken', 'Кракен отвлечений'] },
-    { e: '👹', n: ['Bahona devi', 'Excuse demon', 'Демон отговорок'] },
-    { e: '🤖', n: ['Telefon robot', 'Phone-bot 3000', 'Телефон-бот'] },
-    { e: '🐉', n: ['Charchoq ajdari', 'Burnout dragon', 'Дракон выгорания'] }
+    { id: 'slime', e: '🫠', n: ['Dangasa shilimshiq', 'Lazy Slime', 'Ленивый слизень'], hp: 12, days: 1, stake: 5, coins: 10, gems: 0, req: null, lvl: 1 },
+    { id: 'demon', e: '👹', n: ['Bahona devi', 'Excuse Demon', 'Демон отговорок'], hp: 30, days: 3, stake: 10, coins: 22, gems: 1, req: 'slime', lvl: 1 },
+    { id: 'golem', e: '🗿', n: ['Kechiktirish golemi', 'Procrastination Golem', 'Голем прокрастинации'], hp: 55, days: 5, stake: 20, coins: 45, gems: 2, req: 'demon', lvl: 1 },
+    { id: 'hydra', e: '🐍', n: ['Chalg\'ish gidrasi', 'Distraction Hydra', 'Гидра отвлечений'], hp: 85, days: 7, stake: 35, coins: 75, gems: 3, req: 'golem', lvl: 2 },
+    { id: 'dragon', e: '🐉', n: ['Charchoq ajdari', 'Burnout Dragon', 'Дракон выгорания'], hp: 125, days: 10, stake: 60, coins: 130, gems: 5, req: 'hydra', lvl: 3 },
+    { id: 'king', e: '👑', n: ['Xaos qiroli', 'Chaos King', 'Король хаоса'], hp: 180, days: 14, stake: 100, coins: 220, gems: 8, req: 'dragon', lvl: 4 }
   ];
-  function bossEnsure() {
-    var wk = mondayOf(today());
-    if (!S.boss || S.boss.week !== wk) {
-      if (S.boss && !S.boss.defeated && S.boss.week) {
-        S.bossHistory = S.bossHistory || [];
-        S.bossHistory.unshift({ week: S.boss.week, idx: S.boss.idx, won: false, hp: S.boss.hp, maxHp: S.boss.maxHp });
+  var OLD_BOSS_E = ['🦥', '🧟', '🦑', '👹', '🤖', '🐉']; // eski haftalik boss tarixi uchun
+  function bossById(id) { for (var i = 0; i < BOSSES.length; i++) if (BOSSES[i].id === id) return BOSSES[i]; return null; }
+  function bossNm(B) { return B ? L(B.n[0], B.n[1], B.n[2]) : 'Boss'; }
+  function bossName(f) { var B = bossById(f.id) || BOSSES[1]; return B.e + ' ' + bossNm(B); }
+  function userLvl() { try { return getLevel(S.xp).level || 1; } catch (e) { return 1; } }
+  function bossState() {
+    var st = S.xBoss;
+    if (!st || typeof st !== 'object' || st.v !== 2) {
+      st = S.xBoss = { v: 2, fight: null, wins: {}, losses: {}, history: [], spent: {} };
+      // ♻️ Eski (haftalik) bossdan ko'chirish — davom etayotgan jang jarimasiz davom etadi
+      var o = S.boss;
+      if (o && o.week) {
+        Object.keys(o.hits || {}).forEach(function (k) { st.spent[k] = 'legacy'; });
+        if (!o.defeated && o.hp > 0 && o.week === mondayOf(today())) {
+          var end = parseD(o.week); end.setDate(end.getDate() + 7);
+          var lv = o.level || 1;
+          st.fight = { fid: 'legacy' + o.week, id: 'demon', legacy: true, hp: o.hp, maxHp: o.maxHp || o.hp, startedAt: Date.now(), endsAt: end.getTime(), stake: 0,
+            rw: { coins: 10 + (lv - 1) * 2, gems: 2 + Math.floor((lv - 1) / 2) }, hits: Object.assign({}, o.hits || {}), log: (o.log || []).slice(0, 12), status: 'active' };
+          Object.keys(st.fight.hits).forEach(function (k) { st.spent[k] = st.fight.fid; });
+        }
       }
-      var lvl = S.bossWins || 0;
-      var idx = (Math.floor(parseD(wk).getTime() / 6048e5) + lvl) % BOSSES.length;
-      var maxHp = 25 + lvl * 5;
-      S.boss = { week: wk, idx: idx, level: lvl + 1, maxHp: maxHp, hp: maxHp, hits: {}, log: [], defeated: false };
-      if (S.bossHistory && S.bossHistory.length > 20) S.bossHistory.length = 20;
+      // Eski g'alabalar — keyingi bossni ochish uchun hisobga olinadi
+      if ((S.bossWins || 0) > 0) st.wins.slime = S.bossWins;
+      S.boss = null;
     }
-    return S.boss;
+    st.wins = st.wins || {}; st.losses = st.losses || {}; st.history = st.history || []; st.spent = st.spent || {};
+    // Kechagi zarba kalitlari endi kerak emas (bekor qilish faqat bugungi vazifalar uchun)
+    var td = today();
+    Object.keys(st.spent).forEach(function (k) { if (k.slice(k.indexOf('_') + 1) < td) delete st.spent[k]; });
+    return st;
   }
-  function bossName(b) { var B = BOSSES[b.idx] || BOSSES[0]; return B.e + ' ' + L(B.n[0], B.n[1], B.n[2]); }
-  function bossReward(b) { return { gems: 2 + Math.floor((b.level - 1) / 2), coins: 10 + (b.level - 1) * 2 }; }
+  function bossUnlocked(B) {
+    var st = bossState();
+    if (B.req && !((st.wins[B.req] || 0) > 0)) return false;
+    return userLvl() >= (B.lvl || 1);
+  }
+  function bossLockText(B) {
+    var p = [];
+    if (B.req && !((bossState().wins[B.req] || 0) > 0)) { var R = bossById(B.req); p.push(L('Avval yeng: ', 'Beat first: ', 'Сначала победите: ') + R.e + ' ' + bossNm(R)); }
+    if (userLvl() < (B.lvl || 1)) p.push(L('Daraja ', 'Level ', 'Уровень ') + B.lvl + '+');
+    return p.join(' · ');
+  }
+  function fmtLeft(ms) {
+    ms = Math.max(0, ms);
+    var d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
+    if (d > 0) return d + L('k', 'd', 'д') + ' ' + h + L('s', 'h', 'ч');
+    if (h > 0) return h + L('s', 'h', 'ч') + ' ' + m + L('d', 'm', 'м');
+    return Math.max(1, m) + L(' daq', 'm', ' мин');
+  }
+  function rwText(rw) { return '+' + rw.coins + '🪙' + (rw.gems ? ' +' + rw.gems + '💎' : ''); }
+  function bossHistPush(f, won) {
+    var st = bossState();
+    st.history.unshift({ fid: f.fid, id: f.id, won: won, fled: f.status === 'fled', at: Date.now(), date: today(), hp: f.hp, maxHp: f.maxHp, stake: f.stake, rw: won && f.rewarded ? f.rewarded : null });
+    if (st.history.length > 30) st.history.length = 30;
+  }
+  // Boshqa oyna (tab) bu jangni allaqachon yakunlagan bo'lsa — o'sha holatni olamiz, qayta qo'llamaymiz
+  function bossAdoptFresh(f) {
+    try {
+      var p = JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || 'null');
+      var d = p && p.data, xf = d && d.xBoss && d.xBoss.fight;
+      if (xf && xf.fid === f.fid && ((xf.status === 'won' && xf.rewarded) || xf.status === 'lost' || xf.status === 'fled')) {
+        var tasks = S.tasks, ord = S.taskOrder;
+        Object.assign(S, d); S.tasks = tasks; S.taskOrder = ord;
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+  function bossRefreshUi() { renderBossAll(); setTimeout(function () { try { render(); } catch (e) {} }, 0); }
+  function bossGrant(f) {
+    if (f.status !== 'won' || f.rewarded) return;
+    var st = bossState();
+    var g = 0; try { g = f.rw.gems ? gemsAdd(f.rw.gems, 'boss', '🐉 ' + L('Boss yengildi', 'Boss defeated', 'Босс побеждён'), true) : 0; } catch (e) {}
+    addCoins(f.rw.coins, '🐉 ' + L('Boss yengildi', 'Boss defeated', 'Босс побеждён') + ': ' + bossNm(bossById(f.id)));
+    f.rewarded = { coins: f.rw.coins, gems: g || 0 };
+    f.resolvedAt = Date.now();
+    if (!f.legacy) st.wins[f.id] = (st.wins[f.id] || 0) + 1;
+    S.bossWins = (S.bossWins || 0) + 1;
+    bossHistPush(f, true);
+    save();
+    try { confetti(); confetti(); SFX.firework(); } catch (e) {}
+    toast('🏆 ' + bossName(f) + ' ' + L('yengildi!', 'defeated!', 'побеждён!') + ' ' + rwText(f.rewarded));
+    try { feedPost('boss', L('bossni yengdi', 'defeated a boss', 'победил(а) босса') + ': ' + bossName(f), '🏆'); } catch (e) {}
+    bossRefreshUi();
+  }
+  function bossLose(f, fled) {
+    if (f.status !== 'active') return;
+    var st = bossState();
+    f.status = fled ? 'fled' : 'lost'; f.resolvedAt = Date.now();
+    if (f.stake > 0) addCoins(-f.stake, '🐉 ' + (fled ? L('Bossdan qochildi', 'Fled from boss', 'Побег от босса') : L('Bossga yutqazildi', 'Lost to boss', 'Поражение от босса')) + ': ' + bossNm(bossById(f.id)));
+    if (!f.legacy) st.losses[f.id] = (st.losses[f.id] || 0) + 1;
+    bossHistPush(f, false);
+    save();
+    var msg = (fled ? '🏳️ ' + L('Taslim bo\'ldingiz', 'You surrendered', 'Вы сдались') : '💀 ' + bossName(f) + ' ' + L('g\'olib chiqdi — vaqt tugadi', 'won — time ran out', 'победил — время вышло')) +
+      (f.stake > 0 ? ' · -' + f.stake + ' 🪙' : '');
+    toast(msg);
+    if (!fled && !document.hidden) {
+      try {
+        xModal('<div class="x-bres l"><div class="x-bres-e">' + (bossById(f.id) || BOSSES[1]).e + '</div><h3>' + L('Mag\'lubiyat', 'Defeat', 'Поражение') + '</h3><p>' + H(bossName(f)) + ' ' +
+          L('muddat ichida yengilmadi', 'was not beaten in time', 'не побеждён вовремя') + ' (❤️ ' + f.hp + ' / ' + f.maxHp + ').</p>' +
+          (f.stake > 0 ? '<p class="x-bres-c">-' + f.stake + ' 🪙</p>' : '') + '<p class="x-sub">' + L('Kuchsizroq bossdan boshlab ko\'ring yoki qayta urinib ko\'ring.', 'Try a weaker boss or try again.', 'Попробуйте босса послабее или ещё раз.') + '</p></div>');
+      } catch (e) {}
+    }
+    bossRefreshUi();
+  }
+  // Idempotent: yakunlangan jang qayta qo'llanmaydi (status bo'yicha himoya).
+  // status va tanga/olmos bitta S nusxasida birga saqlanadi, shuning uchun boshqa oynadan
+  // kelgan nusxa doim izchil: "active" bo'lsa — undagi tangalardan hali ayirilmagan.
+  function bossResolve() {
+    var st = bossState(), f = st.fight; if (!f) return;
+    if (f.status === 'won' && !f.rewarded) {
+      if (_bossRwTimer) return; // bekor qilish uchun qisqa kutish davri
+      if (bossAdoptFresh(f)) { renderBossAll(); return; }
+      bossGrant(bossState().fight);
+    } else if (f.status === 'active' && Date.now() >= f.endsAt) {
+      if (bossAdoptFresh(f)) { renderBossAll(); return; }
+      bossLose(bossState().fight, false);
+    }
+  }
   var _bossRwTimer = null;
   function bossHit(tsk, on) {
-    var b = bossEnsure();
+    bossResolve();
+    var st = bossState(), f = st.fight;
     var key = tsk.id + '_' + today();
     if (on) {
-      if (b.hits[key] || b.defeated) return;
+      if (!f || f.status !== 'active' || f.hits[key] || st.spent[key] || Date.now() >= f.endsAt) { renderBossStrip(false); return; }
       var dmg = Math.max(1, (typeof taskCoinValue === 'function' ? taskCoinValue(tsk) : 1) || 1);
       try { if (getTaskDayFlag(tsk.id, today()).onTimeGiven) dmg += 1; } catch (e) {}
-      b.hits[key] = dmg;
-      b.hp = Math.max(0, b.hp - dmg);
-      b.log.unshift({ n: tsk.name, d: dmg, ts: Date.now() }); if (b.log.length > 12) b.log.length = 12;
-      if (b.hp === 0) {
-        b.defeated = true; b.defeatedAt = Date.now();
-        S.bossWins = (S.bossWins || 0) + 1;
-        var rw = bossReward(b);
-        S.bossHistory = S.bossHistory || [];
-        S.bossHistory.unshift({ week: b.week, idx: b.idx, won: true, hp: 0, maxHp: b.maxHp, at: Date.now() });
+      f.hits[key] = dmg; st.spent[key] = f.fid;
+      f.hp = Math.max(0, f.hp - dmg);
+      f.log.unshift({ n: tsk.name, d: dmg, ts: Date.now() }); if (f.log.length > 12) f.log.length = 12;
+      if (f.hp === 0) {
+        f.status = 'won'; f.wonAt = Date.now(); f.rewarded = null;
+        var fid = f.fid;
+        if (_bossRwTimer) clearTimeout(_bossRwTimer);
         _bossRwTimer = setTimeout(function () {
           _bossRwTimer = null;
-          if (!b.defeated) return;
-          try { gemsAdd(rw.gems, 'boss', L('Boss yengildi', 'Boss defeated', 'Босс побеждён'), true); } catch (e) {}
-          addCoins(rw.coins, '🐉 ' + L('Boss yengildi', 'Boss defeated', 'Босс побеждён'));
-          b.rewarded = { gems: rw.gems, coins: rw.coins };
-          try { confetti(); confetti(); SFX.firework(); } catch (e) {}
-          toast('🏆 ' + bossName(b) + ' ' + L('yengildi!', 'defeated!', 'побеждён!') + ' +' + rw.gems + ' 💎 +' + rw.coins + ' 🪙');
-          feedPost('boss', L('haftalik bossni yengdi', 'defeated the weekly boss', 'победил(а) босса недели') + ': ' + bossName(b), '🏆');
-          save(); renderBossStrip();
+          var g = bossState().fight;
+          if (!g || g.fid !== fid || g.status !== 'won' || g.rewarded) return;
+          if (bossAdoptFresh(g)) { renderBossAll(); return; }
+          bossGrant(g);
         }, 1600);
       }
     } else {
-      var d = b.hits[key]; if (!d) return;
-      delete b.hits[key];
-      if (b.defeated) {
+      if (!f || !f.hits[key] || (f.status !== 'active' && f.status !== 'won')) return;
+      var d = f.hits[key];
+      delete f.hits[key]; if (st.spent[key] === f.fid) delete st.spent[key];
+      if (f.status === 'won') {
         // ↩ Yenguvchi zarba bekor qilindi — boss tiriladi, mukofot qaytarib olinadi
-        b.defeated = false; b.defeatedAt = null;
         if (_bossRwTimer) { clearTimeout(_bossRwTimer); _bossRwTimer = null; }
-        if (b.rewarded) {
-          try { gemsAdd(-b.rewarded.gems, 'boss', '↩ ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'), true); } catch (e) {}
-          addCoins(-b.rewarded.coins, '↩ 🐉 ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'));
-          b.rewarded = null;
+        if (f.rewarded) {
+          if (f.rewarded.gems) { try { gemsAdd(-f.rewarded.gems, 'boss', '↩ ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'), true); } catch (e) {} }
+          addCoins(-f.rewarded.coins, '↩ 🐉 ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'));
+          if (!f.legacy) st.wins[f.id] = Math.max(0, (st.wins[f.id] || 0) - 1);
+          S.bossWins = Math.max(0, (S.bossWins || 0) - 1);
+          var hi = st.history.findIndex(function (x) { return x.fid === f.fid && x.won; });
+          if (hi !== -1) st.history.splice(hi, 1);
         }
-        S.bossWins = Math.max(0, (S.bossWins || 0) - 1);
-        var hi = (S.bossHistory || []).findIndex(function (x) { return x.week === b.week && x.won; });
-        if (hi !== -1) S.bossHistory.splice(hi, 1);
-        toast('↩ ' + bossName(b) + ' ' + L('qayta tirildi', 'is back', 'вернулся'));
+        f.status = 'active'; f.wonAt = null; f.rewarded = null; f.resolvedAt = null;
+        toast('↩ ' + bossName(f) + ' ' + L('qayta tirildi', 'is back', 'вернулся'));
       }
-      b.hp = Math.min(b.maxHp, b.hp + d);
-      var li = (b.log || []).findIndex(function (l) { return l.n === tsk.name && l.d === d; });
-      if (li !== -1) b.log.splice(li, 1);
+      f.hp = Math.min(f.maxHp, f.hp + d);
+      var li = (f.log || []).findIndex(function (l) { return l.n === tsk.name && l.d === d; });
+      if (li !== -1) f.log.splice(li, 1);
     }
-    renderBossStrip(on);
+    renderBossAll(on);
   }
-  function bossHtml(full) {
-    var b = bossEnsure();
-    var pct = Math.round(b.hp / b.maxHp * 100);
-    var days = 7 - ((new Date().getDay() + 6) % 7);
-    var rw = bossReward(b);
-    var h = '<div class="x-boss ' + (b.defeated ? 'won' : '') + '"><div class="x-boss-e">' + (BOSSES[b.idx] || BOSSES[0]).e + '</div><div class="x-boss-m">' +
-      '<div class="x-boss-t"><b>' + bossName(b).replace(/^\S+\s/, '') + '</b><span>Lv ' + b.level + '</span></div>' +
-      '<div class="x-hp"><i style="width:' + pct + '%"></i><span>' + (b.defeated ? '✅ ' + L('Yengildi!', 'Defeated!', 'Побеждён!') : '❤️ ' + b.hp + ' / ' + b.maxHp + ' HP') + '</span></div>' +
-      '<div class="x-boss-s">' + (b.defeated ? L('Keyingi boss dushanba kuni keladi', 'Next boss arrives on Monday', 'Следующий босс в понедельник')
-        : L('Har bir bajarilgan vazifa = zarba', 'Each completed task = a hit', 'Каждая задача = удар') + ' · ⏳ ' + days + ' ' + L('kun', 'days', 'дн.') + ' · 🎁 ' + rw.gems + '💎 ' + rw.coins + '🪙') + '</div></div></div>';
+  function bossCanStart(B) {
+    var st = bossState(), f = st.fight;
+    if (f && (f.status === 'active' || (f.status === 'won' && !f.rewarded))) return 'busy';
+    if (!bossUnlocked(B)) return 'locked';
+    if ((S.coins || 0) < B.stake) return 'coins';
+    return '';
+  }
+  function bossStartAsk(id) {
+    bossResolve();
+    var B = bossById(id); if (!B) return;
+    var why = bossCanStart(B);
+    if (why === 'busy') { toast('⚔️ ' + L('Avval joriy jangni tugating', 'Finish your current fight first', 'Сначала завершите текущий бой')); return; }
+    if (why === 'locked') { toast('🔒 ' + bossLockText(B)); return; }
+    if (why === 'coins') { toast('🪙 ' + L('Garov uchun kamida ' + B.stake + ' tanga kerak', 'You need at least ' + B.stake + ' coins for the stake', 'Нужно минимум ' + B.stake + ' монет для ставки')); return; }
+    var ov = xModal('<div class="x-bres"><div class="x-bres-e">' + B.e + '</div><h3>' + H(bossNm(B)) + '</h3>' +
+      '<div class="x-bossr-st c"><span>❤️ ' + B.hp + ' HP</span><span>⏳ ' + B.days + ' ' + L('kun', 'days', 'дн.') + '</span><span>🎁 ' + rwText(B) + '</span></div>' +
+      '<p>' + L('Muddat ichida bossning HP\'sini 0 ga tushiring: har bir bajarilgan vazifa — zarba.', 'Bring its HP to 0 in time: every completed task is a hit.', 'Снизьте HP до 0 вовремя: каждая задача — удар.') + '</p>' +
+      '<p class="x-bres-w">⚠️ ' + L('Yutqazsangiz (yoki taslim bo\'lsangiz) ' + B.stake + ' tanga yo\'qotasiz.', 'If you lose (or surrender) you will lose ' + B.stake + ' coins.', 'Если проиграете (или сдадитесь), потеряете ' + B.stake + ' монет.') + '</p>' +
+      '<div class="x-bres-a"><button class="x-btn ghost" data-bx="no">' + L('Bekor', 'Cancel', 'Отмена') + '</button><button class="x-btn x-btn-fight" data-bx="go">⚔️ ' + L('Jangni boshlash', 'Start fight', 'Начать бой') + '</button></div></div>');
+    ov.querySelector('[data-bx="no"]').onclick = ov._close;
+    ov.querySelector('[data-bx="go"]').onclick = function () { ov._close(); bossStart(id); };
+  }
+  function bossStart(id) {
+    bossResolve();
+    var B = bossById(id); if (!B || bossCanStart(B)) { if (B) bossStartAsk(id); return; }
+    var st = bossState(), now = Date.now();
+    st.fight = { fid: 'f' + now.toString(36) + Math.random().toString(36).slice(2, 6), id: B.id, hp: B.hp, maxHp: B.hp, startedAt: now, endsAt: now + B.days * 864e5,
+      stake: B.stake, rw: { coins: B.coins, gems: B.gems }, hits: {}, log: [], status: 'active' };
+    save();
+    try { SFX.click && SFX.click(); } catch (e) {}
+    toast('⚔️ ' + bossName(st.fight) + ' — ' + L('jang boshlandi!', 'the fight begins!', 'бой начался!'));
+    renderBossAll();
+  }
+  function bossSurrender() {
+    var f = bossState().fight; if (!f || f.status !== 'active') return;
+    var ov = xModal('<div class="x-bres"><div class="x-bres-e">🏳️</div><h3>' + L('Taslim bo\'lasizmi?', 'Surrender?', 'Сдаться?') + '</h3><p>' +
+      L('Bu mag\'lubiyat hisoblanadi', 'This counts as a loss', 'Это засчитается как поражение') + (f.stake > 0 ? ': -' + f.stake + ' 🪙' : '') + '.</p>' +
+      '<div class="x-bres-a"><button class="x-btn ghost" data-bx="no">' + L('Jangni davom ettirish', 'Keep fighting', 'Продолжить бой') + '</button><button class="x-btn x-btn-flee" data-bx="go">' + L('Taslim bo\'lish', 'Surrender', 'Сдаться') + '</button></div></div>');
+    ov.querySelector('[data-bx="no"]').onclick = ov._close;
+    ov.querySelector('[data-bx="go"]').onclick = function () { ov._close(); var g = bossState().fight; if (g && g.fid === f.fid && g.status === 'active' && !bossAdoptFresh(g)) bossLose(g, true); else renderBossAll(); };
+  }
+  function bossFightHtml(f, full) {
+    var B = bossById(f.id) || BOSSES[1];
+    var won = f.status === 'won', over = f.status === 'lost' || f.status === 'fled';
+    var pct = Math.round(f.hp / f.maxHp * 100);
+    var left = f.endsAt - Date.now();
+    var status = won ? '✅ ' + L('Yengildi!', 'Defeated!', 'Побеждён!') : over ? (f.status === 'fled' ? '🏳️ ' + L('Taslim', 'Surrendered', 'Сдались') : '💀 ' + L('Yutqazildi', 'Lost', 'Поражение')) : '❤️ ' + f.hp + ' / ' + f.maxHp + ' HP';
+    var sub = won ? L('Keyingi bossni tanlang', 'Choose your next boss', 'Выберите следующего босса') + ' · 🎁 ' + rwText(f.rewarded || f.rw)
+      : over ? L('Yangi jang uchun boss tanlang', 'Pick a boss for a new fight', 'Выберите босса для нового боя') + (f.stake ? ' · -' + f.stake + '🪙' : '')
+      : '🎁 ' + L('Mukofot', 'Reward', 'Награда') + ' ' + rwText(f.rw) + (f.stake ? ' · 💀 ' + L('Garov', 'Stake', 'Ставка') + ' -' + f.stake + '🪙' : '');
+    var h = '<div class="x-boss ' + (won ? 'won' : over ? 'lost' : '') + (!won && !over && left < 864e5 ? ' urgent' : '') + '"><div class="x-boss-e">' + B.e + '</div><div class="x-boss-m">' +
+      '<div class="x-boss-t"><b>' + H(bossNm(B)) + '</b><span>' + (won || over ? '' : '⏳ ' + fmtLeft(left)) + '</span></div>' +
+      '<div class="x-hp"><i style="width:' + pct + '%"></i><span>' + status + '</span></div>' +
+      '<div class="x-boss-s">' + sub + '</div></div></div>';
     if (full) {
-      h += '<div class="x-sec-t">⚔️ ' + L('So\'nggi zarbalar', 'Recent hits', 'Последние удары') + '</div>' +
-        (b.log.length ? '<div class="x-boss-log">' + b.log.map(function (l) { return '<div><span>' + H(l.n) + '</span><b>-' + l.d + ' HP</b></div>'; }).join('') + '</div>' : '<div class="x-empty">' + L('Hali zarba yo\'q — vazifa bajaring!', 'No hits yet — complete a task!', 'Пока нет ударов') + '</div>');
-      var hist = (S.bossHistory || []).slice(0, 8);
-      if (hist.length) h += '<div class="x-sec-t">📜 ' + L('Tarix', 'History', 'История') + ' · 🏆 ' + (S.bossWins || 0) + '</div><div class="x-boss-hist">' + hist.map(function (x) {
-        return '<span class="' + (x.won ? 'w' : 'l') + '" title="' + x.week + '">' + (BOSSES[x.idx] || BOSSES[0]).e + (x.won ? '✅' : '❌') + '</span>';
-      }).join('') + '</div>';
+      if (f.status === 'active') h += '<div class="x-boss-act"><span class="x-boss-s">' + L('Har bir bajarilgan vazifa = zarba (tanga qiymati, o\'z vaqtida +1)', 'Each completed task = a hit (its coin value, +1 if on time)', 'Каждая задача = удар (её стоимость, +1 вовремя)') + '</span><button class="x-btn ghost sm" data-bflee="1">🏳️ ' + L('Taslim', 'Surrender', 'Сдаться') + '</button></div>';
+      if (f.status === 'active' || won) {
+        h += '<div class="x-sec-t">⚔️ ' + L('So\'nggi zarbalar', 'Recent hits', 'Последние удары') + '</div>' +
+          (f.log.length ? '<div class="x-boss-log">' + f.log.map(function (l) { return '<div><span>' + H(l.n) + '</span><b>-' + l.d + ' HP</b></div>'; }).join('') + '</div>' : '<div class="x-empty">' + L('Hali zarba yo\'q — vazifa bajaring!', 'No hits yet — complete a task!', 'Пока нет ударов') + '</div>');
+      }
     }
     return h;
+  }
+  function bossPickHtml() {
+    return '<div class="x-boss x-boss-pick"><div class="x-boss-e">⚔️</div><div class="x-boss-m"><div class="x-boss-t"><b>' + L('Boss tanlang', 'Choose a boss', 'Выберите босса') + '</b></div>' +
+      '<div class="x-boss-p">' + L('Vazifalar bilan jang qiling va mukofot yuting', 'Fight with your tasks and win rewards', 'Сражайтесь задачами и получайте награды') + ' ›</div></div></div>';
+  }
+  function bossRosterHtml() {
+    var st = bossState(), f = st.fight, busy = f && (f.status === 'active' || (f.status === 'won' && !f.rewarded));
+    return '<div class="x-bossr-grid">' + BOSSES.map(function (B, i) {
+      var unl = bossUnlocked(B), cur = busy && f.id === B.id, w = st.wins[B.id] || 0, lo = st.losses[B.id] || 0;
+      var btn;
+      if (cur) btn = '<button class="x-btn sm" disabled>⚔️ ' + L('Jangda', 'Fighting', 'В бою') + '</button>';
+      else if (!unl) btn = '<div class="x-bossr-lock">🔒 ' + H(bossLockText(B)) + '</div>';
+      else if (busy) btn = '<button class="x-btn sm ghost" disabled>' + L('Jang davom etmoqda', 'Fight in progress', 'Идёт бой') + '</button>';
+      else if ((S.coins || 0) < B.stake) btn = '<button class="x-btn sm ghost" disabled>🪙 ' + L(B.stake + ' tanga kerak', 'Need ' + B.stake + ' coins', 'Нужно ' + B.stake + ' монет') + '</button>';
+      else btn = '<button class="x-btn sm x-btn-fight" data-bfight="' + B.id + '">⚔️ ' + L('Jang', 'Fight', 'Бой') + '</button>';
+      return '<div class="x-bossr' + (unl ? '' : ' locked') + (cur ? ' cur' : '') + (w ? ' beaten' : '') + '">' +
+        '<div class="x-bossr-h"><span class="x-bossr-e">' + (unl ? B.e : '🔒') + '</span><div class="x-bossr-n"><b>' + H(bossNm(B)) + '</b><small>' + '★'.repeat(i + 1) + (w || lo ? ' · ✅' + w + ' ❌' + lo : '') + '</small></div></div>' +
+        '<div class="x-bossr-st"><span>❤️ ' + B.hp + ' HP</span><span>⏳ ' + B.days + ' ' + L('kun', 'd', 'дн.') + '</span><span class="g">🎁 ' + rwText(B) + '</span><span class="r">💀 -' + B.stake + '🪙</span></div>' + btn + '</div>';
+    }).join('') + '</div>';
+  }
+  function bossHubHtml() {
+    var st = bossState(), f = st.fight;
+    var h = '<div class="x-card" id="x-hub-boss">' + (f ? bossFightHtml(f, true) : bossPickHtml().replace('x-boss-pick', 'x-boss-pick big')) + '</div>';
+    h += '<div class="x-sec-t">🐲 ' + L('Bosslar — kuchsizdan kuchligacha', 'Bosses — weak to strong', 'Боссы — от слабых к сильным') + ' · 🪙 ' + (S.coins || 0) + '</div>' + bossRosterHtml();
+    var hist = st.history.slice(0, 10), old = (S.bossHistory || []).slice(0, Math.max(0, 10 - hist.length));
+    if (hist.length || old.length) {
+      var wins = 0; Object.keys(st.wins).forEach(function (k) { wins += st.wins[k] || 0; });
+      h += '<div class="x-sec-t">📜 ' + L('Tarix', 'History', 'История') + ' · 🏆 ' + Math.max(wins, S.bossWins || 0) + '</div><div class="x-boss-hist">' +
+        hist.map(function (x) { var B = bossById(x.id) || BOSSES[1]; return '<span class="' + (x.won ? 'w' : 'l') + '" title="' + H(bossNm(B) + ' · ' + (x.date || '')) + '">' + B.e + (x.won ? '✅' : x.fled ? '🏳️' : '❌') + '</span>'; }).join('') +
+        old.map(function (x) { return '<span class="' + (x.won ? 'w' : 'l') + '" title="' + H(x.week || '') + '">' + (OLD_BOSS_E[x.idx] || '🐉') + (x.won ? '✅' : '❌') + '</span>'; }).join('') + '</div>';
+    }
+    h += '<label class="x-chk"><input type="checkbox" id="x-boss-strip-on" ' + (S.xBossHidden ? '' : 'checked') + '> ' + L('Vazifalar sahifasida boss panelini ko\'rsatish', 'Show boss bar on the Tasks page', 'Показывать босса на странице задач') + '</label>';
+    return h;
+  }
+  function bindBossHub(body) {
+    body.querySelectorAll('[data-bfight]').forEach(function (b) { b.onclick = function () { bossStartAsk(b.dataset.bfight); }; });
+    var fl = body.querySelector('[data-bflee]'); if (fl) fl.onclick = bossSurrender;
+    var c = body.querySelector('#x-boss-strip-on'); if (c) c.onchange = function () { S.xBossHidden = !this.checked; save(); renderBossStrip(); };
   }
   function renderBossStrip(hit) {
     var el = document.getElementById('x-boss-strip'); if (!el) return;
     if (S.xBossHidden) { el.style.display = 'none'; return; }
     el.style.display = '';
-    el.innerHTML = bossHtml(false);
+    var f = bossState().fight;
+    el.innerHTML = f && (f.status === 'active' || f.status === 'won') ? bossFightHtml(f, false) : bossPickHtml();
     if (hit) { var e = el.querySelector('.x-boss-e'); if (e) { e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit'); } }
-    var hv = document.getElementById('x-hub-boss'); if (hv) hv.innerHTML = bossHtml(true);
+  }
+  function renderBossAll(hit) {
+    renderBossStrip(hit);
+    if (document.getElementById('x-hub-boss') && (S.xHubSec || 'boss') === 'boss') renderHubSection('boss', true);
   }
 
   // =========================================================
@@ -668,12 +725,11 @@
     var pomoMin = 0; try { (JSON.parse(localStorage.getItem('pomoLogs') || '[]') || []).forEach(function (l) { if (l && l.date && String(l.date).slice(0, 7) === ym) pomoMin += Math.round((l.durationMs || 0) / 60000); }); } catch (e) {}
     var top = (S.tasks || []).map(function (t) { return { t: t, n: (tl[t.id] || []).filter(function (d) { return d.slice(0, 7) === ym; }).length }; })
       .filter(function (x) { return x.n > 0; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 3);
-    var bosses = (S.bossHistory || []).filter(function (b) { return b.won && b.week && b.week.slice(0, 7) === ym; }).length;
-    var reviews = Object.keys(S.reviews || {}).filter(function (k) { return k.slice(0, 7) === ym; }).length;
-    var water = 0, wDays = 0; Object.keys(S.health || {}).forEach(function (k) { if (k.slice(0, 7) === ym && S.health[k].water) { water += S.health[k].water; wDays++; } });
+    var bosses = (S.bossHistory || []).filter(function (b) { return b.won && b.week && b.week.slice(0, 7) === ym; }).length +
+      ((S.xBoss && S.xBoss.history) || []).filter(function (b) { return b.won && b.date && b.date.slice(0, 7) === ym; }).length;
     var focus = 0; Object.keys(S.focusLog || {}).forEach(function (k) { if (k.slice(0, 7) === ym) focus += S.focusLog[k] || 0; });
     var mood = null; try { var ms = (typeof getMoods === 'function' ? getMoods() : S.moods) || {}; var cnt = {}; Object.keys(ms).forEach(function (k) { if (k.slice(0, 7) === ym) { var m = ms[k] && (ms[k].emoji || ms[k].mood || ms[k]); if (typeof m === 'string' && m.length <= 4) cnt[m] = (cnt[m] || 0) + 1; } }); var mk = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0]; if (mk) mood = mk; } catch (e) {}
-    return { ym: ym, tasks: tasks, active: active, bestDay: bestDay, bestV: bestV, coins: coins, pomoMin: pomoMin, top: top, bosses: bosses, reviews: reviews, water: water, wDays: wDays, focus: focus, mood: mood };
+    return { ym: ym, tasks: tasks, active: active, bestDay: bestDay, bestV: bestV, coins: coins, pomoMin: pomoMin, top: top, bosses: bosses, focus: focus, mood: mood };
   }
   function ymShift(ym, n) { var d = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); }
   function ymLabel(ym) { return monthsArr()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4); }
@@ -847,53 +903,53 @@
   }
 
   // =========================================================
-  // 💧 15. SUV VA 😴 UYQU
+  // 😴 15. UYQU — necha soat uxlagani (yagona manba: S.health[YYYY-MM-DD].sleep)
   // =========================================================
   function hDay(ds) { S.health = S.health || {}; ds = ds || today(); S.health[ds] = S.health[ds] || {}; return S.health[ds]; }
-  function waterGoal() { return S.waterGoal || 8; }
-  function waterAdd(n) {
-    var d = hDay(); d.water = Math.max(0, (d.water || 0) + n);
-    if (n > 0 && d.water >= waterGoal() && !d.waterBonus) { d.waterBonus = true; addCoins(1, '💧 ' + L('Suv maqsadi', 'Water goal', 'Норма воды')); toast('💧 ' + L('Kunlik suv maqsadi bajarildi!', 'Daily water goal reached!', 'Дневная норма воды!') + ' +1 🪙'); try { confetti(); } catch (e) {} }
-    save(); renderWaterPill(); renderHubSection('health');
+  function sleepOf(ds) { var d = (S.health || {})[ds]; var v = d && d.sleep; return (v == null || isNaN(+v)) ? null : +v; }
+  function sleepWeek() {
+    var vals = [], lbls = [], sum = 0, cnt = 0;
+    for (var k = 6; k >= 0; k--) { var ds = addDays(today(), -k), v = sleepOf(ds); vals.push(v || 0); lbls.push(weekdaysShort()[(parseD(ds).getDay() + 6) % 7]); if (v) { sum += v; cnt++; } }
+    return { vals: vals, lbls: lbls, avg: cnt ? sum / cnt : null, cnt: cnt };
   }
-  function sleepSave() {
-    var bed = (document.getElementById('x-sl-bed') || {}).value, wake = (document.getElementById('x-sl-wake') || {}).value;
-    if (!bed || !wake) { toast('😴 ' + L('Yotish va turish vaqtini kiriting', 'Enter bed and wake times', 'Укажите время сна и подъёма')); return; }
-    var mins = hm2m(wake) - hm2m(bed); if (mins <= 0) mins += 1440;
-    var d = hDay(); d.bed = bed; d.wake = wake; d.sleep = Math.round(mins / 6) / 10;
-    if (d.sleep >= 7 && d.sleep <= 10 && !d.sleepBonus) { d.sleepBonus = true; addCoins(1, '😴 ' + L('Yaxshi uyqu', 'Good sleep', 'Хороший сон')); toast('😴 ' + d.sleep + ' ' + L('soat — zo\'r!', 'h — great!', 'ч — отлично!') + ' +1 🪙'); }
-    else toast('😴 ' + d.sleep + ' ' + L('soat saqlandi', 'h saved', 'ч сохранено'));
-    S.lastBed = bed; S.lastWake = wake;
-    save(); renderHubSection('health');
+  function fmtH(v) { return (Math.round(v * 10) / 10) + ' ' + L('soat', 'h', 'ч'); }
+  function sleepSet(h) {
+    var d = hDay();
+    if (h == null) { delete d.sleep; delete d.bed; delete d.wake; }
+    else {
+      h = Math.max(0, Math.min(16, Math.round(h * 2) / 2));
+      d.sleep = h; delete d.bed; delete d.wake;
+      if (h >= 7 && h <= 10 && !d.sleepBonus) { d.sleepBonus = true; addCoins(1, '😴 ' + L('Yaxshi uyqu', 'Good sleep', 'Хороший сон')); toast('😴 ' + fmtH(h) + ' — ' + L('zo\'r!', 'great!', 'отлично!') + ' +1 🪙'); }
+    }
+    save(); renderSleepCards();
   }
-  function healthHtml() {
-    var d = hDay(), g = waterGoal(), w = d.water || 0;
-    var cups = ''; for (var i = 0; i < Math.max(g, w); i++) cups += '<button class="x-cup ' + (i < w ? 'full' : '') + '" data-cup="' + i + '">' + (i < w ? '💧' : '○') + '</button>';
-    var h = '<div class="x-card"><div class="x-card-h"><b>💧 ' + L('Suv', 'Water', 'Вода') + '</b><span>' + w + ' / ' + g + ' ' + L('stakan', 'glasses', 'стаканов') + '</span></div>' +
-      '<div class="x-cups">' + cups + '</div><div class="x-row"><button class="x-btn" data-w="1">＋ 1 ' + L('stakan', 'glass', 'стакан') + '</button><button class="x-btn ghost" data-w="-1">－</button>' +
-      '<label class="x-goal">🎯 <input type="number" min="1" max="20" id="x-wgoal" value="' + g + '"></label></div></div>';
-    var sl = d.sleep;
-    h += '<div class="x-card"><div class="x-card-h"><b>😴 ' + L('Uyqu (bugun tunda)', 'Sleep (last night)', 'Сон (прошлой ночью)') + '</b><span>' + (sl != null ? sl + ' ' + L('soat', 'h', 'ч') : '—') + '</span></div>' +
-      '<div class="x-row"><label class="x-tlab">🛏 <input type="time" id="x-sl-bed" value="' + (d.bed || S.lastBed || '23:00') + '"></label><label class="x-tlab">⏰ <input type="time" id="x-sl-wake" value="' + (d.wake || S.lastWake || '07:00') + '"></label>' +
-      '<button class="x-btn" id="x-sl-save">💾</button></div>';
-    var vals = [], lbls = [], ws = [], sum = 0, cnt = 0;
-    for (var k = 6; k >= 0; k--) { var ds = addDays(today(), -k), hd = (S.health || {})[ds] || {}; vals.push(hd.sleep || 0); ws.push(hd.water || 0); lbls.push(weekdaysShort()[(parseD(ds).getDay() + 6) % 7]); if (hd.sleep) { sum += hd.sleep; cnt++; } }
-    h += bars(vals, lbls, 6, 'h') + '<div class="x-sub">' + L('7 kunlik o\'rtacha', '7-day average', 'Среднее за 7 дней') + ': <b>' + (cnt ? (sum / cnt).toFixed(1) + ' ' + L('soat', 'h', 'ч') : '—') + '</b> · ' + L('Tavsiya: 7–9 soat', 'Recommended: 7–9 h', 'Рекомендуется 7–9 ч') + '</div></div>';
-    h += '<div class="x-card"><div class="x-card-h"><b>💧 ' + L('Suv — 7 kun', 'Water — 7 days', 'Вода — 7 дней') + '</b></div>' + bars(ws, lbls, 6) + '</div>';
-    return h;
+  function sleepCardHtml() {
+    var cur = sleepOf(today()), w = sleepWeek();
+    var tone = cur == null ? '' : (cur >= 7 && cur <= 9 ? 'ok' : cur < 6 ? 'low' : 'mid');
+    var chips = [5, 6, 7, 8, 9].map(function (n) { return '<button type="button" class="x-sl-chip' + (cur === n ? ' on' : '') + '" data-slh="' + n + '">' + n + '</button>'; }).join('');
+    var mx = Math.max.apply(null, w.vals.concat([9]));
+    var mini = '<div class="x-sl-mini" aria-hidden="true">' + w.vals.map(function (v, i) {
+      return '<div class="x-sl-mb' + (i === 6 ? ' td' : '') + (v && (v < 7 || v > 9) ? ' off' : '') + '" title="' + w.lbls[i] + ': ' + (v ? fmtH(v) : '—') + '"><i style="height:' + (v ? Math.max(8, v / mx * 100) : 4) + '%"></i><span>' + w.lbls[i] + '</span></div>';
+    }).join('') + '</div>';
+    return '<div class="x-sl-top"><b>😴 ' + L('Uyqu', 'Sleep', 'Сон') + '</b><span class="x-sl-q">' + L('Bugun tunda necha soat uxladingiz?', 'How long did you sleep last night?', 'Сколько вы спали этой ночью?') + '</span></div>' +
+      '<div class="x-sl-row"><div class="x-sl-step"><button type="button" class="x-sl-pm" data-sld="-0.5" aria-label="-0.5">−</button>' +
+      '<span class="x-sl-val ' + tone + '">' + (cur == null ? '—' : (Math.round(cur * 10) / 10) + '<small>' + L('soat', 'h', 'ч') + '</small>') + '</span>' +
+      '<button type="button" class="x-sl-pm" data-sld="0.5" aria-label="+0.5">+</button></div>' +
+      '<div class="x-sl-chips">' + chips + '</div></div>' +
+      '<div class="x-sl-foot">' + mini + '<div class="x-sl-meta"><span>' + L('7 kun o\'rtacha', '7-day avg', 'Среднее 7 дн.') + ': <b>' + (w.avg != null ? fmtH(w.avg) : '—') + '</b></span>' +
+      '<span>💡 ' + L('Tavsiya: 7–9 soat', 'Recommended: 7–9 h', 'Рекомендуется 7–9 ч') + '</span>' +
+      (cur != null ? '<button type="button" class="x-link x-sl-clr" data-slclr="1">' + L('Tozalash', 'Clear', 'Сбросить') + '</button>' : '') + '</div></div>';
   }
-  function bindHealth(root) {
-    root.querySelectorAll('[data-w]').forEach(function (b) { b.onclick = function () { waterAdd(+b.dataset.w); }; });
-    root.querySelectorAll('[data-cup]').forEach(function (b) { b.onclick = function () { var i = +b.dataset.cup, cur = hDay().water || 0; waterAdd(i < cur ? (i + 1 === cur ? -1 : i + 1 - cur) : i + 1 - cur); }; });
-    var g = root.querySelector('#x-wgoal'); if (g) g.onchange = function () { S.waterGoal = Math.max(1, Math.min(20, +g.value || 8)); save(); renderWaterPill(); renderHubSection('health'); };
-    var sv = root.querySelector('#x-sl-save'); if (sv) sv.onclick = sleepSave;
+  function bindSleep(root) {
+    root.querySelectorAll('[data-slh]').forEach(function (b) { b.onclick = function () { sleepSet(+b.dataset.slh); }; });
+    root.querySelectorAll('[data-sld]').forEach(function (b) { b.onclick = function () { var c = sleepOf(today()); sleepSet((c == null ? 7 : c) + (c == null ? 0 : +b.dataset.sld)); }; });
+    root.querySelectorAll('[data-slclr]').forEach(function (b) { b.onclick = function () { sleepSet(null); }; });
   }
-  function renderWaterPill() {
-    var el = document.getElementById('x-water-pill'); if (!el) return;
-    var w = (hDay().water || 0), g = waterGoal();
-    el.innerHTML = '💧 ' + w + '/' + g;
-    el.classList.toggle('done', w >= g);
+  function renderSleepCards() {
+    document.querySelectorAll('.x-sleep-card').forEach(function (el) { var sh = sleepCardHtml(); el._h = sh; el.innerHTML = sh; bindSleep(el); });
   }
+  function healthHtml() { return '<div class="x-card x-sleep-card">' + sleepCardHtml() + '</div>'; }
+  function bindHealth(root) { bindSleep(root); }
 
   // =========================================================
   // 📰 17. DO'STLAR LENTASI  ·  👥 16. BIRGALIKDAGI VAZIFA (Supabase)
@@ -1058,13 +1114,13 @@
     var v = document.getElementById('view-hub'); if (!v) return;
     var sec = S.xHubSec || 'boss';
     if (!HUB_SECS.some(function (x) { return x[0] === sec; })) sec = 'boss'; // eski "Tahlil" bo'limi Statistikaga ko'chdi
-    var tools = [['tpl', '📑', L('Shablonlar', 'Templates', 'Шаблоны')], ['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')], ['review', '🌙', L('Kun yakuni', 'Evening review', 'Итоги дня')],
+    var tools = [['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')],
       ['stats', '📊', L('Statistika', 'Statistics', 'Статистика')]];
     if (window._isAdmin) tools.push(['admin', '👑', L('Admin', 'Admin', 'Админ')]);
     v.innerHTML = sectionsGrid() + '<div class="x-hub-tools">' + tools.map(function (t) { return '<button data-tool="' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</div>' +
       '<div class="x-hub-nav">' + HUB_SECS.map(function (s) { return '<button class="' + (s[0] === sec ? 'on' : '') + '" data-sec="' + s[0] + '">' + s[1] + ' ' + L(s[2][0], s[2][1], s[2][2]) + '</button>'; }).join('') + '</div>' +
       '<div id="x-hub-body"></div>';
-    v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ review: openReview, tpl: openTemplates, matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} }, admin: function () { window.openAdminPanel(); } })[b.dataset.tool](); }; });
+    v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} }, admin: function () { window.openAdminPanel(); } })[b.dataset.tool](); }; });
     v.querySelectorAll('[data-sec]').forEach(function (b) { b.onclick = function () { S.xHubSec = b.dataset.sec; save(); renderHub(); }; });
     bindSections(v);
     renderHubSection(sec, true);
@@ -1074,7 +1130,8 @@
     if (!force && (S.xHubSec || 'boss') !== sec) return;
     var h = '';
     if (sec === 'boss') {
-      h = '<div class="x-card" id="x-hub-boss">' + bossHtml(true) + '</div><label class="x-chk"><input type="checkbox" id="x-boss-strip-on" ' + (S.xBossHidden ? '' : 'checked') + '> ' + L('Vazifalar sahifasida boss panelini ko\'rsatish', 'Show boss bar on the Tasks page', 'Показывать босса на странице задач') + '</label>';
+      try { bossResolve(); } catch (e) {}
+      h = bossHubHtml();
     } else if (sec === 'health') {
       var md = (S.moods || {})[today()];
       h = '<button type="button" class="x-card x-mood-card" onclick="openMoodCalendar()"><span class="x-mood-e">' + (md ? md.emoji : '🙂') + '</span><span class="x-mood-t"><b>' + L('Kayfiyat kundaligi', 'Mood journal', 'Дневник настроения') + '</b><span>' +
@@ -1092,7 +1149,7 @@
       body.querySelectorAll('[data-shop]').forEach(function (b) { b.onclick = function () { shopBuy(b.dataset.shop); }; });
       body.querySelectorAll('.x-shop-fx').forEach(function (f) { f.onmouseenter = function () { var r = f.getBoundingClientRect(); var it = SHOP.find(function (z) { return z.id === f.dataset.fx; }); if (it) fxBurst(it.v, r.left + r.width / 2, r.top + r.height / 2); }; });
     }
-    if (sec === 'boss') { var c = body.querySelector('#x-boss-strip-on'); if (c) c.onchange = function () { S.xBossHidden = !this.checked; save(); renderBossStrip(); }; }
+    if (sec === 'boss') bindBossHub(body);
     if (sec === 'together') { if (sharedCache && !force) renderShared(); else loadShared(); }
     if (sec === 'feed') { if (feedCache && !force) renderFeed(); else loadFeed(); }
 
@@ -1102,16 +1159,12 @@
   // Vazifalar sahifasidagi qo'shimchalar
   // =========================================================
   function renderTasksExtras() {
+    try { bossResolve(); } catch (e) {}
     renderBossStrip(false);
-    renderWaterPill();
-    var LB = { focus: L('Fokus', 'Focus', 'Фокус'), matrix: L('Matritsa', 'Matrix', 'Матрица'), tpl: L('Shablonlar', 'Templates', 'Шаблоны'), review: L('Kun yakuni', 'Review', 'Итоги дня') };
+    var LB = { focus: L('Fokus', 'Focus', 'Фокус'), matrix: L('Matritsa', 'Matrix', 'Матрица') };
     document.querySelectorAll('.x-tl[data-x]').forEach(function (e) { if (LB[e.dataset.x]) e.textContent = LB[e.dataset.x]; });
-    var rbt = document.querySelector('.x-rb-t'); if (rbt) rbt.textContent = L('Kunni yakunlash vaqti — 2 daqiqa ajrating', 'Time to wrap up your day — take 2 minutes', 'Пора подвести итоги дня — 2 минуты');
-    var bn = document.getElementById('x-review-banner');
-    if (bn) {
-      var show = new Date().getHours() >= 20 && !reviewDoneToday() && S.xReviewDismiss !== today();
-      bn.style.display = show ? '' : 'none';
-    }
+    var sc = document.getElementById('x-sleep-card');
+    if (sc) { var sh = sleepCardHtml(); if (sc._h !== sh) { sc._h = sh; sc.innerHTML = sh; bindSleep(sc); } }
   }
 
   // =========================================================
@@ -1208,6 +1261,12 @@
     if (a) { a.innerHTML = card('🔥', L('Yillik faollik', 'Yearly activity', 'Активность за год'), heatmapHtml()); var sc = a.querySelector('.x-hm-scroll'); if (sc) sc.scrollLeft = sc.scrollWidth; }
     if (b) b.innerHTML = card('⏰', L('Eng samarali vaqt', 'Productive time', 'Продуктивное время'), productiveHtml());
     if (c) c.innerHTML = card('🔗', L('Odatlar bog\'liqligi', 'Habit links', 'Связи привычек'), correlationHtml());
+    var sl = document.getElementById('xst-sleep');
+    if (sl) {
+      var w = sleepWeek();
+      sl.innerHTML = card('😴', L('Uyqu — 7 kun', 'Sleep — 7 days', 'Сон — 7 дней'), bars(w.vals, w.lbls, 6, 'h') +
+        '<div class="x-sub">' + L('O\'rtacha', 'Average', 'Среднее') + ': <b>' + (w.avg != null ? fmtH(w.avg) : '—') + '</b>' + (w.cnt ? ' · ' + w.cnt + '/7 ' + L('kun', 'days', 'дн.') : '') + ' · ' + L('Tavsiya: 7–9 soat', 'Recommended: 7–9 h', 'Рекомендуется 7–9 ч') + '</div>');
+    }
   });
 
   // =========================================================
@@ -1531,19 +1590,22 @@
       var Q = QUADS[t.quad - 1]; return Q ? '<span class="tk-chip x-qchip ' + Q.cls + '" title="' + H(Q.t()) + '">' + Q.icon + ' ' + H(Q.s()) + '</span>' : '';
     } catch (e) { return ''; }
   };
-  window.xOpenTemplates = safe(openTemplates);
+  // Olib tashlangan vositalar (Shablonlar, Kun yakuni, Suv) — eski keshlangan HTML xato bermasligi uchun bo'sh stublar
+  window.xOpenTemplates = function () {};
   window.xOpenMatrix = safe(openMatrix);
-  window.xOpenReview = safe(openReview);
+  window.xOpenReview = function () {};
   window.xOpenWrap = safe(function (ym) { openWrap(ym); });
   window.xOpenFocus = safe(function (id) { openFocus(id); });
-  window.xWaterAdd = safe(waterAdd);
-  window.xDismissReview = function () { S.xReviewDismiss = today(); save(); renderTasksExtras(); };
+  window.xWaterAdd = function () {};
+  window.xDismissReview = function () {};
+  window.xSleepSet = safe(sleepSet);
   window.xOpenHub = function (sec) { if (sec) S.xHubSec = sec; showTab('hub'); };
 
   function boot() {
     try { markMovedTabs(); buildBottomNav(); renderInstallUI(); handleLaunchAction(); } catch (e) { console.warn('[extras nav]', e); }
     try { new MutationObserver(function () { renderBottomNav(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tab'] }); } catch (e) {}
-    try { bossEnsure(); } catch (e) {}
+    try { bossState(); bossResolve(); } catch (e) {}
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(function () { try { bossResolve(); renderBossStrip(false); } catch (e) {} }, 400); });
     shopApply();
     renderTasksExtras();
     maybeShowWrap();

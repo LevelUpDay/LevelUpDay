@@ -142,7 +142,6 @@
   </div>
 
   <div id="view-tasks">
-    <div id="x-review-banner" class="x-review-banner" style="display:none"><span>🌙 <b class="x-rb-t">Kun yakuni</b></span><button class="x-btn sm" onclick="xOpenReview()">✍️</button><button class="x-link" onclick="xDismissReview()" aria-label="close">✕</button></div>
     <div id="x-boss-strip" class="x-boss-strip" onclick="xOpenHub('boss')"></div>
     <div id="quests-card" class="quests-card"></div>
     <button class="add-task-btn" onclick="openModal(event)" data-i18n="add_task_btn">+ Yangi vazifa qo'shish</button>
@@ -159,10 +158,8 @@
     </div>
     <div class="x-tools-row" id="x-tools-row">
       <button class="x-tool" onclick="xOpenMatrix()">▦ <span class="x-tl" data-x="matrix">Matritsa</span></button>
-      <button class="x-tool" onclick="xOpenTemplates()">📑 <span class="x-tl" data-x="tpl">Shablonlar</span></button>
-      <button class="x-tool" onclick="xOpenReview()">🌙 <span class="x-tl" data-x="review">Kun yakuni</span></button>
-      <button class="x-tool x-water" id="x-water-pill" onclick="xWaterAdd(1)" title="+1">💧 0/8</button>
     </div>
+    <div class="x-card x-sleep-card" id="x-sleep-card"></div>
     <!-- Ommaviy amallar paneli (faqat "Tanlash" rejimida ko'rinadi) -->
     <div id="bulk-action-bar" style="display:none;position:sticky;top:0;z-index:12;background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
       <span id="bulk-selected-label" style="font-size:var(--fs-sm);color:var(--text);font-weight:600">0</span>
@@ -675,6 +672,7 @@
 
     <div id="xst-productive" class="xst-card"></div>
     <div id="xst-links" class="xst-card"></div>
+    <div id="xst-sleep" class="xst-card"></div>
     <!-- 5. Jami statistika -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:12px">
       <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:12px" data-i18n="total_stats_title">📈 Jami statistika</div>
