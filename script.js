@@ -7328,7 +7328,7 @@ var defaultRewards = [
   {id:5,name:'Muzqaymoq yoki shirinlik',icon:'🍦',cost:12,rtype:'count',amount:1},
   {id:6,name:"Film ko'rish 1 soat",icon:'🎬',cost:25,rtype:'time',amount:60},
   {id:7,name:"Uxlash vaqtini 30 daqiqa kechiktirish",icon:'😴',cost:18,rtype:'time',amount:30},
-  {id:8,name:"Choy/kofe dam olish",icon:'?',cost:4,rtype:'count',amount:1},
+  {id:8,name:"Choy/kofe dam olish",icon:'☕',cost:4,rtype:'count',amount:1},
 ];
 
 
@@ -10816,6 +10816,12 @@ function toggleAddReward() {
   arrow.style.transform = open ? '' : 'rotate(-90deg)';
 }
 
+// Vaqtli mukofot nomiga qo'shiladigan davomiylik (mas: "1 soat 30 daqiqa")
+function rewardTimeSuffix(amount) {
+  var h = Math.floor(amount/60), m = amount%60;
+  return h>0 ? (h+' '+t('time_hour_unit')+(m>0?' '+m+' '+t('time_min_unit'):'')) : amount+' '+t('time_min_unit');
+}
+
 var _addingRewardInProgress = false;
 
 function addReward() {
@@ -10856,9 +10862,7 @@ function addReward() {
 
     var fullName;
     if(_rewardType === 'time') {
-      var h = Math.floor(amount/60), m = amount%60;
-      var timeStr = h>0 ? (h+' '+t('time_hour_unit')+(m>0?' '+m+' '+t('time_min_unit'):'')) : amount+' '+t('time_min_unit');
-      fullName = name + ' ' + timeStr;
+      fullName = name + ' ' + rewardTimeSuffix(amount);
     } else {
       fullName = name;
     }
@@ -11155,6 +11159,24 @@ function taskDiffOrDefault(t) {
 
 var editingRewardId = null;
 var _editRewardType = '';
+// Tahrirlash oynasida nom davomiyliksiz ko'rsatilsa (true), saqlashda yangi
+// davomiylik nom oxiriga qayta qo'shiladi — aks holda nom ("YouTube 15 daqiqa")
+// va haqiqiy miqdor (amount) bir-biridan ajralib qolardi.
+var _editRewardAutoSuffix = false;
+var _editRewardShownName = '';
+
+// Vaqtli mukofot nomining oxiridagi davomiylikni (istalgan til birliklarida)
+// olib tashlaydi — faqat u r.amount'ga mos kelsagina. Mos kelmasa null.
+function rewardNameWithoutTimeSuffix(r) {
+  var name = String(r.name || '');
+  var mins = null, base = null, m;
+  if ((m = name.match(/^(.*\S)\s+(\d+)\s*(?:soat|hr|час)(?:\s+(\d+)\s*(?:daqiqa|min|мин))?$/i))) {
+    base = m[1]; mins = parseInt(m[2], 10) * 60 + (m[3] ? parseInt(m[3], 10) : 0);
+  } else if ((m = name.match(/^(.*\S)\s+(\d+)\s*(?:daqiqa|min|мин)$/i))) {
+    base = m[1]; mins = parseInt(m[2], 10);
+  }
+  return (base && mins === r.amount) ? base : null;
+}
 
 function selEditRewardType(type) {
   _editRewardType = type;
@@ -11178,7 +11200,11 @@ function openRewardEditModal(id) {
     return;
   }
   editingRewardId = id;
-  document.getElementById('er-name').value = r.name;
+  var baseName = r.rtype === 'time' ? rewardNameWithoutTimeSuffix(r) : null;
+  // Donali mukofot vaqtliga o'tkazilsa ham davomiylik qo'shiladi (addReward kabi)
+  _editRewardAutoSuffix = r.rtype !== 'time' || baseName !== null;
+  _editRewardShownName = baseName !== null ? baseName : r.name;
+  document.getElementById('er-name').value = _editRewardShownName;
   document.getElementById('er-cost').value = r.cost;
   document.getElementById('er-icon').value = r.icon;
   document.getElementById('er-amount').value = r.amount || '';
@@ -11193,11 +11219,13 @@ function closeRewardModal() {
 function saveRewardEdit() {
   const r = S.rewards.find(x=>x.id===editingRewardId); if(!r) return;
   const name = document.getElementById('er-name').value.trim();
-  const costRaw = parseIntSafe(document.getElementById('er-cost').value);
-  const cost = (costRaw > 0) ? costRaw : r.cost;
+  const cost = parseIntSafe(document.getElementById('er-cost').value);
   const icon = document.getElementById('er-icon').value.trim()||r.icon;
   const amount = parseIntSafe(document.getElementById('er-amount').value);
   if(!name){ document.getElementById('er-name').focus(); toast(t('reward_name_required_toast')); return; }
+  // XATOLIK TUZATILDI: 0/manfiy/bo'sh narx jimgina eski narxga qaytarilib,
+  // "yangilandi" deyilardi. Endi addReward() kabi xato ko'rsatiladi.
+  if(!(cost>0)){ document.getElementById('er-cost').focus(); toast(t('reward_cost_required_toast')); return; }
   // XATOLIK TUZATILDI: `!amount` faqat 0/NaN'ni ushlardi, manfiy sonni
   // (masalan -10 daqiqa) o'tkazib yuborardi. Endi `amount>0` tekshiriladi.
   if(!(amount>0)){ document.getElementById('er-amount').focus(); toast(_editRewardType==='time'?t('reward_minutes_required_toast'):t('reward_amount_required_toast')); return; }
@@ -11212,9 +11240,18 @@ function saveRewardEdit() {
     S.usageLog[r.id] = [];
     if (hadClaims || hadUsage) toast('⚠️ ' + t('reward_type_changed_reset_toast'));
   }
+  var nameUnchanged = name === _editRewardShownName && newRtype === r.rtype && amount === r.amount;
   r.rtype = newRtype;
   r.amount = amount;
-  r.name=name; r.cost=cost; r.icon=icon;
+  if (nameUnchanged) {
+    // faqat narx/emoji o'zgardi — nom (va uning tili) o'z holicha qoladi
+  } else if (_editRewardAutoSuffix) {
+    r.baseName = name;
+    r.name = newRtype === 'time' ? name + ' ' + rewardTimeSuffix(amount) : name;
+  } else {
+    r.name = name;
+  }
+  r.cost=cost; r.icon=icon;
   save(); renderRewards(); closeRewardModal();
   toast(t('reward_updated_toast'));
 }
@@ -11246,6 +11283,10 @@ function migrateLegacyRewards() {
   if (!S.rewardClaims) S.rewardClaims = {};
   if (!S.usageLog) S.usageLog = {};
   var changed = false;
+  // Standart "Choy/kofe" mukofotining emojisi buzilib '?' bo'lib saqlangan edi
+  S.rewards.forEach(function(r) {
+    if (r.id === 8 && r.icon === '?' && r.name === 'Choy/kofe dam olish') { r.icon = '☕'; changed = true; }
+  });
   S.rewards.forEach(function(r) {
     if (r.rtype) return; // yangi formatda — tegilmaydi
     changed = true;
