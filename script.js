@@ -16408,7 +16408,7 @@ function _rstResetCoinsExtra() {
   try { if (typeof renderGemsPill === 'function') renderGemsPill(); } catch (e) {}
 }
 function _rstResetStatsExtra() {
-  S.boss = null; S.bossHistory = []; S.bossWins = 0;
+  S.boss = null; S.bossHistory = []; S.bossWins = 0; S.xBoss = null;
   S.focusLog = {}; S.xFocusBonus = null; S.xFeedMilestone = null;
   S.onTimeDoneCount = 0;
   S.remindSent = {}; S.pomoAutoSent = {};
@@ -16600,7 +16600,7 @@ function resetApp() {
   S.taskDoneCount = {};
   S.taskDayFlags = {};
   S.subtaskDoneLog = {}; S.subtaskDayFlags = {}; S.taskScheduleLog = {};
-  S.boss = null; S.onTimeDoneCount = 0; S.remindSent = {}; S.pomoAutoSent = {};
+  S.boss = null; S.xBoss = null; S.onTimeDoneCount = 0; S.remindSent = {}; S.pomoAutoSent = {};
 
   // Streak/statistika ham davriylik bilan bog'liq bo'lgani uchun tozalanadi
   S.streak = 0;

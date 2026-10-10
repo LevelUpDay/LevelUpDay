@@ -1,7 +1,7 @@
 // ============================================================
 // ✨ EXTRAS — script.js ustiga qo'shimcha funksiyalar:
 //   📑 Shablonlar · ▦ Eisenhower matritsasi · 🌙 Kun yakuni
-//   🔥 Yillik faollik xaritasi · 🐉 Haftalik boss · 🛍 Do'kon
+//   🔥 Yillik faollik xaritasi · 🐉 Boss janglari · 🛍 Do'kon
 //   🔗 Odatlar bog'liqligi · ⏰ Eng samarali vaqt · 📅 Oylik yakun
 //   🎯 Fokus rejimi · 💧 Suv va 😴 uyqu · 👥 Birgalikdagi vazifa
 //   📰 Do'stlar lentasi (Supabase: supabase/social.sql)
@@ -256,112 +256,300 @@
   function getStreakSafe() { try { return (typeof getStreak === 'function' ? getStreak() : (S.streak || 0)) || 0; } catch (e) { return S.streak || 0; } }
 
   // =========================================================
-  // 🐉 6. HAFTALIK BOSS
+  // 🐉 6. BOSS JANGLARI — kuchsizdan kuchligacha, foydalanuvchi o'zi tanlaydi
+  //   • Har bir bajarilgan vazifa = zarba (tanga qiymati + o'z vaqtida bonusi)
+  //   • G'alaba (HP 0, muddat ichida) → boss mukofoti
+  //   • Mag'lubiyat (muddat tugadi / taslim) → garov tangalari ayiriladi
+  //   • Vazifa bekor qilinsa → boss HP tiklanadi (g'alaba ham qaytarib olinadi)
+  //   Holat: S.xBoss = { v:2, fight, wins, losses, history, spent }
   // =========================================================
   var BOSSES = [
-    { e: '🦥', n: ['Dangasalik', 'Sloth', 'Лень'] },
-    { e: '🧟', n: ['Kechiktirish zombisi', 'Procrastination zombie', 'Зомби прокрастинации'] },
-    { e: '🦑', n: ['Chalg\'ish krakeni', 'Distraction kraken', 'Кракен отвлечений'] },
-    { e: '👹', n: ['Bahona devi', 'Excuse demon', 'Демон отговорок'] },
-    { e: '🤖', n: ['Telefon robot', 'Phone-bot 3000', 'Телефон-бот'] },
-    { e: '🐉', n: ['Charchoq ajdari', 'Burnout dragon', 'Дракон выгорания'] }
+    { id: 'slime', e: '🫠', n: ['Dangasa shilimshiq', 'Lazy Slime', 'Ленивый слизень'], hp: 12, days: 1, stake: 5, coins: 10, gems: 0, req: null, lvl: 1 },
+    { id: 'demon', e: '👹', n: ['Bahona devi', 'Excuse Demon', 'Демон отговорок'], hp: 30, days: 3, stake: 10, coins: 22, gems: 1, req: 'slime', lvl: 1 },
+    { id: 'golem', e: '🗿', n: ['Kechiktirish golemi', 'Procrastination Golem', 'Голем прокрастинации'], hp: 55, days: 5, stake: 20, coins: 45, gems: 2, req: 'demon', lvl: 1 },
+    { id: 'hydra', e: '🐍', n: ['Chalg\'ish gidrasi', 'Distraction Hydra', 'Гидра отвлечений'], hp: 85, days: 7, stake: 35, coins: 75, gems: 3, req: 'golem', lvl: 2 },
+    { id: 'dragon', e: '🐉', n: ['Charchoq ajdari', 'Burnout Dragon', 'Дракон выгорания'], hp: 125, days: 10, stake: 60, coins: 130, gems: 5, req: 'hydra', lvl: 3 },
+    { id: 'king', e: '👑', n: ['Xaos qiroli', 'Chaos King', 'Король хаоса'], hp: 180, days: 14, stake: 100, coins: 220, gems: 8, req: 'dragon', lvl: 4 }
   ];
-  function bossEnsure() {
-    var wk = mondayOf(today());
-    if (!S.boss || S.boss.week !== wk) {
-      if (S.boss && !S.boss.defeated && S.boss.week) {
-        S.bossHistory = S.bossHistory || [];
-        S.bossHistory.unshift({ week: S.boss.week, idx: S.boss.idx, won: false, hp: S.boss.hp, maxHp: S.boss.maxHp });
+  var OLD_BOSS_E = ['🦥', '🧟', '🦑', '👹', '🤖', '🐉']; // eski haftalik boss tarixi uchun
+  function bossById(id) { for (var i = 0; i < BOSSES.length; i++) if (BOSSES[i].id === id) return BOSSES[i]; return null; }
+  function bossNm(B) { return B ? L(B.n[0], B.n[1], B.n[2]) : 'Boss'; }
+  function bossName(f) { var B = bossById(f.id) || BOSSES[1]; return B.e + ' ' + bossNm(B); }
+  function userLvl() { try { return getLevel(S.xp).level || 1; } catch (e) { return 1; } }
+  function bossState() {
+    var st = S.xBoss;
+    if (!st || typeof st !== 'object' || st.v !== 2) {
+      st = S.xBoss = { v: 2, fight: null, wins: {}, losses: {}, history: [], spent: {} };
+      // ♻️ Eski (haftalik) bossdan ko'chirish — davom etayotgan jang jarimasiz davom etadi
+      var o = S.boss;
+      if (o && o.week) {
+        Object.keys(o.hits || {}).forEach(function (k) { st.spent[k] = 'legacy'; });
+        if (!o.defeated && o.hp > 0 && o.week === mondayOf(today())) {
+          var end = parseD(o.week); end.setDate(end.getDate() + 7);
+          var lv = o.level || 1;
+          st.fight = { fid: 'legacy' + o.week, id: 'demon', legacy: true, hp: o.hp, maxHp: o.maxHp || o.hp, startedAt: Date.now(), endsAt: end.getTime(), stake: 0,
+            rw: { coins: 10 + (lv - 1) * 2, gems: 2 + Math.floor((lv - 1) / 2) }, hits: Object.assign({}, o.hits || {}), log: (o.log || []).slice(0, 12), status: 'active' };
+          Object.keys(st.fight.hits).forEach(function (k) { st.spent[k] = st.fight.fid; });
+        }
       }
-      var lvl = S.bossWins || 0;
-      var idx = (Math.floor(parseD(wk).getTime() / 6048e5) + lvl) % BOSSES.length;
-      var maxHp = 25 + lvl * 5;
-      S.boss = { week: wk, idx: idx, level: lvl + 1, maxHp: maxHp, hp: maxHp, hits: {}, log: [], defeated: false };
-      if (S.bossHistory && S.bossHistory.length > 20) S.bossHistory.length = 20;
+      // Eski g'alabalar — keyingi bossni ochish uchun hisobga olinadi
+      if ((S.bossWins || 0) > 0) st.wins.slime = S.bossWins;
+      S.boss = null;
     }
-    return S.boss;
+    st.wins = st.wins || {}; st.losses = st.losses || {}; st.history = st.history || []; st.spent = st.spent || {};
+    // Kechagi zarba kalitlari endi kerak emas (bekor qilish faqat bugungi vazifalar uchun)
+    var td = today();
+    Object.keys(st.spent).forEach(function (k) { if (k.slice(k.indexOf('_') + 1) < td) delete st.spent[k]; });
+    return st;
   }
-  function bossName(b) { var B = BOSSES[b.idx] || BOSSES[0]; return B.e + ' ' + L(B.n[0], B.n[1], B.n[2]); }
-  function bossReward(b) { return { gems: 2 + Math.floor((b.level - 1) / 2), coins: 10 + (b.level - 1) * 2 }; }
+  function bossUnlocked(B) {
+    var st = bossState();
+    if (B.req && !((st.wins[B.req] || 0) > 0)) return false;
+    return userLvl() >= (B.lvl || 1);
+  }
+  function bossLockText(B) {
+    var p = [];
+    if (B.req && !((bossState().wins[B.req] || 0) > 0)) { var R = bossById(B.req); p.push(L('Avval yeng: ', 'Beat first: ', 'Сначала победите: ') + R.e + ' ' + bossNm(R)); }
+    if (userLvl() < (B.lvl || 1)) p.push(L('Daraja ', 'Level ', 'Уровень ') + B.lvl + '+');
+    return p.join(' · ');
+  }
+  function fmtLeft(ms) {
+    ms = Math.max(0, ms);
+    var d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
+    if (d > 0) return d + L('k', 'd', 'д') + ' ' + h + L('s', 'h', 'ч');
+    if (h > 0) return h + L('s', 'h', 'ч') + ' ' + m + L('d', 'm', 'м');
+    return Math.max(1, m) + L(' daq', 'm', ' мин');
+  }
+  function rwText(rw) { return '+' + rw.coins + '🪙' + (rw.gems ? ' +' + rw.gems + '💎' : ''); }
+  function bossHistPush(f, won) {
+    var st = bossState();
+    st.history.unshift({ fid: f.fid, id: f.id, won: won, fled: f.status === 'fled', at: Date.now(), date: today(), hp: f.hp, maxHp: f.maxHp, stake: f.stake, rw: won && f.rewarded ? f.rewarded : null });
+    if (st.history.length > 30) st.history.length = 30;
+  }
+  // Boshqa oyna (tab) bu jangni allaqachon yakunlagan bo'lsa — o'sha holatni olamiz, qayta qo'llamaymiz
+  function bossAdoptFresh(f) {
+    try {
+      var p = JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || 'null');
+      var d = p && p.data, xf = d && d.xBoss && d.xBoss.fight;
+      if (xf && xf.fid === f.fid && ((xf.status === 'won' && xf.rewarded) || xf.status === 'lost' || xf.status === 'fled')) {
+        var tasks = S.tasks, ord = S.taskOrder;
+        Object.assign(S, d); S.tasks = tasks; S.taskOrder = ord;
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+  function bossRefreshUi() { renderBossAll(); setTimeout(function () { try { render(); } catch (e) {} }, 0); }
+  function bossGrant(f) {
+    if (f.status !== 'won' || f.rewarded) return;
+    var st = bossState();
+    var g = 0; try { g = f.rw.gems ? gemsAdd(f.rw.gems, 'boss', '🐉 ' + L('Boss yengildi', 'Boss defeated', 'Босс побеждён'), true) : 0; } catch (e) {}
+    addCoins(f.rw.coins, '🐉 ' + L('Boss yengildi', 'Boss defeated', 'Босс побеждён') + ': ' + bossNm(bossById(f.id)));
+    f.rewarded = { coins: f.rw.coins, gems: g || 0 };
+    f.resolvedAt = Date.now();
+    if (!f.legacy) st.wins[f.id] = (st.wins[f.id] || 0) + 1;
+    S.bossWins = (S.bossWins || 0) + 1;
+    bossHistPush(f, true);
+    save();
+    try { confetti(); confetti(); SFX.firework(); } catch (e) {}
+    toast('🏆 ' + bossName(f) + ' ' + L('yengildi!', 'defeated!', 'побеждён!') + ' ' + rwText(f.rewarded));
+    try { feedPost('boss', L('bossni yengdi', 'defeated a boss', 'победил(а) босса') + ': ' + bossName(f), '🏆'); } catch (e) {}
+    bossRefreshUi();
+  }
+  function bossLose(f, fled) {
+    if (f.status !== 'active') return;
+    var st = bossState();
+    f.status = fled ? 'fled' : 'lost'; f.resolvedAt = Date.now();
+    if (f.stake > 0) addCoins(-f.stake, '🐉 ' + (fled ? L('Bossdan qochildi', 'Fled from boss', 'Побег от босса') : L('Bossga yutqazildi', 'Lost to boss', 'Поражение от босса')) + ': ' + bossNm(bossById(f.id)));
+    if (!f.legacy) st.losses[f.id] = (st.losses[f.id] || 0) + 1;
+    bossHistPush(f, false);
+    save();
+    var msg = (fled ? '🏳️ ' + L('Taslim bo\'ldingiz', 'You surrendered', 'Вы сдались') : '💀 ' + bossName(f) + ' ' + L('g\'olib chiqdi — vaqt tugadi', 'won — time ran out', 'победил — время вышло')) +
+      (f.stake > 0 ? ' · -' + f.stake + ' 🪙' : '');
+    toast(msg);
+    if (!fled && !document.hidden) {
+      try {
+        xModal('<div class="x-bres l"><div class="x-bres-e">' + (bossById(f.id) || BOSSES[1]).e + '</div><h3>' + L('Mag\'lubiyat', 'Defeat', 'Поражение') + '</h3><p>' + H(bossName(f)) + ' ' +
+          L('muddat ichida yengilmadi', 'was not beaten in time', 'не побеждён вовремя') + ' (❤️ ' + f.hp + ' / ' + f.maxHp + ').</p>' +
+          (f.stake > 0 ? '<p class="x-bres-c">-' + f.stake + ' 🪙</p>' : '') + '<p class="x-sub">' + L('Kuchsizroq bossdan boshlab ko\'ring yoki qayta urinib ko\'ring.', 'Try a weaker boss or try again.', 'Попробуйте босса послабее или ещё раз.') + '</p></div>');
+      } catch (e) {}
+    }
+    bossRefreshUi();
+  }
+  // Idempotent: yakunlangan jang qayta qo'llanmaydi (status bo'yicha himoya).
+  // status va tanga/olmos bitta S nusxasida birga saqlanadi, shuning uchun boshqa oynadan
+  // kelgan nusxa doim izchil: "active" bo'lsa — undagi tangalardan hali ayirilmagan.
+  function bossResolve() {
+    var st = bossState(), f = st.fight; if (!f) return;
+    if (f.status === 'won' && !f.rewarded) {
+      if (_bossRwTimer) return; // bekor qilish uchun qisqa kutish davri
+      if (bossAdoptFresh(f)) { renderBossAll(); return; }
+      bossGrant(bossState().fight);
+    } else if (f.status === 'active' && Date.now() >= f.endsAt) {
+      if (bossAdoptFresh(f)) { renderBossAll(); return; }
+      bossLose(bossState().fight, false);
+    }
+  }
   var _bossRwTimer = null;
   function bossHit(tsk, on) {
-    var b = bossEnsure();
+    bossResolve();
+    var st = bossState(), f = st.fight;
     var key = tsk.id + '_' + today();
     if (on) {
-      if (b.hits[key] || b.defeated) return;
+      if (!f || f.status !== 'active' || f.hits[key] || st.spent[key] || Date.now() >= f.endsAt) { renderBossStrip(false); return; }
       var dmg = Math.max(1, (typeof taskCoinValue === 'function' ? taskCoinValue(tsk) : 1) || 1);
       try { if (getTaskDayFlag(tsk.id, today()).onTimeGiven) dmg += 1; } catch (e) {}
-      b.hits[key] = dmg;
-      b.hp = Math.max(0, b.hp - dmg);
-      b.log.unshift({ n: tsk.name, d: dmg, ts: Date.now() }); if (b.log.length > 12) b.log.length = 12;
-      if (b.hp === 0) {
-        b.defeated = true; b.defeatedAt = Date.now();
-        S.bossWins = (S.bossWins || 0) + 1;
-        var rw = bossReward(b);
-        S.bossHistory = S.bossHistory || [];
-        S.bossHistory.unshift({ week: b.week, idx: b.idx, won: true, hp: 0, maxHp: b.maxHp, at: Date.now() });
+      f.hits[key] = dmg; st.spent[key] = f.fid;
+      f.hp = Math.max(0, f.hp - dmg);
+      f.log.unshift({ n: tsk.name, d: dmg, ts: Date.now() }); if (f.log.length > 12) f.log.length = 12;
+      if (f.hp === 0) {
+        f.status = 'won'; f.wonAt = Date.now(); f.rewarded = null;
+        var fid = f.fid;
+        if (_bossRwTimer) clearTimeout(_bossRwTimer);
         _bossRwTimer = setTimeout(function () {
           _bossRwTimer = null;
-          if (!b.defeated) return;
-          try { gemsAdd(rw.gems, 'boss', L('Boss yengildi', 'Boss defeated', 'Босс побеждён'), true); } catch (e) {}
-          addCoins(rw.coins, '🐉 ' + L('Boss yengildi', 'Boss defeated', 'Босс побеждён'));
-          b.rewarded = { gems: rw.gems, coins: rw.coins };
-          try { confetti(); confetti(); SFX.firework(); } catch (e) {}
-          toast('🏆 ' + bossName(b) + ' ' + L('yengildi!', 'defeated!', 'побеждён!') + ' +' + rw.gems + ' 💎 +' + rw.coins + ' 🪙');
-          feedPost('boss', L('haftalik bossni yengdi', 'defeated the weekly boss', 'победил(а) босса недели') + ': ' + bossName(b), '🏆');
-          save(); renderBossStrip();
+          var g = bossState().fight;
+          if (!g || g.fid !== fid || g.status !== 'won' || g.rewarded) return;
+          if (bossAdoptFresh(g)) { renderBossAll(); return; }
+          bossGrant(g);
         }, 1600);
       }
     } else {
-      var d = b.hits[key]; if (!d) return;
-      delete b.hits[key];
-      if (b.defeated) {
+      if (!f || !f.hits[key] || (f.status !== 'active' && f.status !== 'won')) return;
+      var d = f.hits[key];
+      delete f.hits[key]; if (st.spent[key] === f.fid) delete st.spent[key];
+      if (f.status === 'won') {
         // ↩ Yenguvchi zarba bekor qilindi — boss tiriladi, mukofot qaytarib olinadi
-        b.defeated = false; b.defeatedAt = null;
         if (_bossRwTimer) { clearTimeout(_bossRwTimer); _bossRwTimer = null; }
-        if (b.rewarded) {
-          try { gemsAdd(-b.rewarded.gems, 'boss', '↩ ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'), true); } catch (e) {}
-          addCoins(-b.rewarded.coins, '↩ 🐉 ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'));
-          b.rewarded = null;
+        if (f.rewarded) {
+          if (f.rewarded.gems) { try { gemsAdd(-f.rewarded.gems, 'boss', '↩ ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'), true); } catch (e) {} }
+          addCoins(-f.rewarded.coins, '↩ 🐉 ' + L('Boss g\'alabasi bekor qilindi', 'Boss win undone', 'Победа над боссом отменена'));
+          if (!f.legacy) st.wins[f.id] = Math.max(0, (st.wins[f.id] || 0) - 1);
+          S.bossWins = Math.max(0, (S.bossWins || 0) - 1);
+          var hi = st.history.findIndex(function (x) { return x.fid === f.fid && x.won; });
+          if (hi !== -1) st.history.splice(hi, 1);
         }
-        S.bossWins = Math.max(0, (S.bossWins || 0) - 1);
-        var hi = (S.bossHistory || []).findIndex(function (x) { return x.week === b.week && x.won; });
-        if (hi !== -1) S.bossHistory.splice(hi, 1);
-        toast('↩ ' + bossName(b) + ' ' + L('qayta tirildi', 'is back', 'вернулся'));
+        f.status = 'active'; f.wonAt = null; f.rewarded = null; f.resolvedAt = null;
+        toast('↩ ' + bossName(f) + ' ' + L('qayta tirildi', 'is back', 'вернулся'));
       }
-      b.hp = Math.min(b.maxHp, b.hp + d);
-      var li = (b.log || []).findIndex(function (l) { return l.n === tsk.name && l.d === d; });
-      if (li !== -1) b.log.splice(li, 1);
+      f.hp = Math.min(f.maxHp, f.hp + d);
+      var li = (f.log || []).findIndex(function (l) { return l.n === tsk.name && l.d === d; });
+      if (li !== -1) f.log.splice(li, 1);
     }
-    renderBossStrip(on);
+    renderBossAll(on);
   }
-  function bossHtml(full) {
-    var b = bossEnsure();
-    var pct = Math.round(b.hp / b.maxHp * 100);
-    var days = 7 - ((new Date().getDay() + 6) % 7);
-    var rw = bossReward(b);
-    var h = '<div class="x-boss ' + (b.defeated ? 'won' : '') + '"><div class="x-boss-e">' + (BOSSES[b.idx] || BOSSES[0]).e + '</div><div class="x-boss-m">' +
-      '<div class="x-boss-t"><b>' + bossName(b).replace(/^\S+\s/, '') + '</b><span>Lv ' + b.level + '</span></div>' +
-      '<div class="x-hp"><i style="width:' + pct + '%"></i><span>' + (b.defeated ? '✅ ' + L('Yengildi!', 'Defeated!', 'Побеждён!') : '❤️ ' + b.hp + ' / ' + b.maxHp + ' HP') + '</span></div>' +
-      '<div class="x-boss-s">' + (b.defeated ? L('Keyingi boss dushanba kuni keladi', 'Next boss arrives on Monday', 'Следующий босс в понедельник')
-        : L('Har bir bajarilgan vazifa = zarba', 'Each completed task = a hit', 'Каждая задача = удар') + ' · ⏳ ' + days + ' ' + L('kun', 'days', 'дн.') + ' · 🎁 ' + rw.gems + '💎 ' + rw.coins + '🪙') + '</div></div></div>';
+  function bossCanStart(B) {
+    var st = bossState(), f = st.fight;
+    if (f && (f.status === 'active' || (f.status === 'won' && !f.rewarded))) return 'busy';
+    if (!bossUnlocked(B)) return 'locked';
+    if ((S.coins || 0) < B.stake) return 'coins';
+    return '';
+  }
+  function bossStartAsk(id) {
+    bossResolve();
+    var B = bossById(id); if (!B) return;
+    var why = bossCanStart(B);
+    if (why === 'busy') { toast('⚔️ ' + L('Avval joriy jangni tugating', 'Finish your current fight first', 'Сначала завершите текущий бой')); return; }
+    if (why === 'locked') { toast('🔒 ' + bossLockText(B)); return; }
+    if (why === 'coins') { toast('🪙 ' + L('Garov uchun kamida ' + B.stake + ' tanga kerak', 'You need at least ' + B.stake + ' coins for the stake', 'Нужно минимум ' + B.stake + ' монет для ставки')); return; }
+    var ov = xModal('<div class="x-bres"><div class="x-bres-e">' + B.e + '</div><h3>' + H(bossNm(B)) + '</h3>' +
+      '<div class="x-bossr-st c"><span>❤️ ' + B.hp + ' HP</span><span>⏳ ' + B.days + ' ' + L('kun', 'days', 'дн.') + '</span><span>🎁 ' + rwText(B) + '</span></div>' +
+      '<p>' + L('Muddat ichida bossning HP\'sini 0 ga tushiring: har bir bajarilgan vazifa — zarba.', 'Bring its HP to 0 in time: every completed task is a hit.', 'Снизьте HP до 0 вовремя: каждая задача — удар.') + '</p>' +
+      '<p class="x-bres-w">⚠️ ' + L('Yutqazsangiz (yoki taslim bo\'lsangiz) ' + B.stake + ' tanga yo\'qotasiz.', 'If you lose (or surrender) you will lose ' + B.stake + ' coins.', 'Если проиграете (или сдадитесь), потеряете ' + B.stake + ' монет.') + '</p>' +
+      '<div class="x-bres-a"><button class="x-btn ghost" data-bx="no">' + L('Bekor', 'Cancel', 'Отмена') + '</button><button class="x-btn x-btn-fight" data-bx="go">⚔️ ' + L('Jangni boshlash', 'Start fight', 'Начать бой') + '</button></div></div>');
+    ov.querySelector('[data-bx="no"]').onclick = ov._close;
+    ov.querySelector('[data-bx="go"]').onclick = function () { ov._close(); bossStart(id); };
+  }
+  function bossStart(id) {
+    bossResolve();
+    var B = bossById(id); if (!B || bossCanStart(B)) { if (B) bossStartAsk(id); return; }
+    var st = bossState(), now = Date.now();
+    st.fight = { fid: 'f' + now.toString(36) + Math.random().toString(36).slice(2, 6), id: B.id, hp: B.hp, maxHp: B.hp, startedAt: now, endsAt: now + B.days * 864e5,
+      stake: B.stake, rw: { coins: B.coins, gems: B.gems }, hits: {}, log: [], status: 'active' };
+    save();
+    try { SFX.click && SFX.click(); } catch (e) {}
+    toast('⚔️ ' + bossName(st.fight) + ' — ' + L('jang boshlandi!', 'the fight begins!', 'бой начался!'));
+    renderBossAll();
+  }
+  function bossSurrender() {
+    var f = bossState().fight; if (!f || f.status !== 'active') return;
+    var ov = xModal('<div class="x-bres"><div class="x-bres-e">🏳️</div><h3>' + L('Taslim bo\'lasizmi?', 'Surrender?', 'Сдаться?') + '</h3><p>' +
+      L('Bu mag\'lubiyat hisoblanadi', 'This counts as a loss', 'Это засчитается как поражение') + (f.stake > 0 ? ': -' + f.stake + ' 🪙' : '') + '.</p>' +
+      '<div class="x-bres-a"><button class="x-btn ghost" data-bx="no">' + L('Jangni davom ettirish', 'Keep fighting', 'Продолжить бой') + '</button><button class="x-btn x-btn-flee" data-bx="go">' + L('Taslim bo\'lish', 'Surrender', 'Сдаться') + '</button></div></div>');
+    ov.querySelector('[data-bx="no"]').onclick = ov._close;
+    ov.querySelector('[data-bx="go"]').onclick = function () { ov._close(); var g = bossState().fight; if (g && g.fid === f.fid && g.status === 'active' && !bossAdoptFresh(g)) bossLose(g, true); else renderBossAll(); };
+  }
+  function bossFightHtml(f, full) {
+    var B = bossById(f.id) || BOSSES[1];
+    var won = f.status === 'won', over = f.status === 'lost' || f.status === 'fled';
+    var pct = Math.round(f.hp / f.maxHp * 100);
+    var left = f.endsAt - Date.now();
+    var status = won ? '✅ ' + L('Yengildi!', 'Defeated!', 'Побеждён!') : over ? (f.status === 'fled' ? '🏳️ ' + L('Taslim', 'Surrendered', 'Сдались') : '💀 ' + L('Yutqazildi', 'Lost', 'Поражение')) : '❤️ ' + f.hp + ' / ' + f.maxHp + ' HP';
+    var sub = won ? L('Keyingi bossni tanlang', 'Choose your next boss', 'Выберите следующего босса') + ' · 🎁 ' + rwText(f.rewarded || f.rw)
+      : over ? L('Yangi jang uchun boss tanlang', 'Pick a boss for a new fight', 'Выберите босса для нового боя') + (f.stake ? ' · -' + f.stake + '🪙' : '')
+      : '🎁 ' + L('Mukofot', 'Reward', 'Награда') + ' ' + rwText(f.rw) + (f.stake ? ' · 💀 ' + L('Garov', 'Stake', 'Ставка') + ' -' + f.stake + '🪙' : '');
+    var h = '<div class="x-boss ' + (won ? 'won' : over ? 'lost' : '') + (!won && !over && left < 864e5 ? ' urgent' : '') + '"><div class="x-boss-e">' + B.e + '</div><div class="x-boss-m">' +
+      '<div class="x-boss-t"><b>' + H(bossNm(B)) + '</b><span>' + (won || over ? '' : '⏳ ' + fmtLeft(left)) + '</span></div>' +
+      '<div class="x-hp"><i style="width:' + pct + '%"></i><span>' + status + '</span></div>' +
+      '<div class="x-boss-s">' + sub + '</div></div></div>';
     if (full) {
-      h += '<div class="x-sec-t">⚔️ ' + L('So\'nggi zarbalar', 'Recent hits', 'Последние удары') + '</div>' +
-        (b.log.length ? '<div class="x-boss-log">' + b.log.map(function (l) { return '<div><span>' + H(l.n) + '</span><b>-' + l.d + ' HP</b></div>'; }).join('') + '</div>' : '<div class="x-empty">' + L('Hali zarba yo\'q — vazifa bajaring!', 'No hits yet — complete a task!', 'Пока нет ударов') + '</div>');
-      var hist = (S.bossHistory || []).slice(0, 8);
-      if (hist.length) h += '<div class="x-sec-t">📜 ' + L('Tarix', 'History', 'История') + ' · 🏆 ' + (S.bossWins || 0) + '</div><div class="x-boss-hist">' + hist.map(function (x) {
-        return '<span class="' + (x.won ? 'w' : 'l') + '" title="' + x.week + '">' + (BOSSES[x.idx] || BOSSES[0]).e + (x.won ? '✅' : '❌') + '</span>';
-      }).join('') + '</div>';
+      if (f.status === 'active') h += '<div class="x-boss-act"><span class="x-boss-s">' + L('Har bir bajarilgan vazifa = zarba (tanga qiymati, o\'z vaqtida +1)', 'Each completed task = a hit (its coin value, +1 if on time)', 'Каждая задача = удар (её стоимость, +1 вовремя)') + '</span><button class="x-btn ghost sm" data-bflee="1">🏳️ ' + L('Taslim', 'Surrender', 'Сдаться') + '</button></div>';
+      if (f.status === 'active' || won) {
+        h += '<div class="x-sec-t">⚔️ ' + L('So\'nggi zarbalar', 'Recent hits', 'Последние удары') + '</div>' +
+          (f.log.length ? '<div class="x-boss-log">' + f.log.map(function (l) { return '<div><span>' + H(l.n) + '</span><b>-' + l.d + ' HP</b></div>'; }).join('') + '</div>' : '<div class="x-empty">' + L('Hali zarba yo\'q — vazifa bajaring!', 'No hits yet — complete a task!', 'Пока нет ударов') + '</div>');
+      }
     }
     return h;
+  }
+  function bossPickHtml() {
+    return '<div class="x-boss x-boss-pick"><div class="x-boss-e">⚔️</div><div class="x-boss-m"><div class="x-boss-t"><b>' + L('Boss tanlang', 'Choose a boss', 'Выберите босса') + '</b></div>' +
+      '<div class="x-boss-p">' + L('Vazifalar bilan jang qiling va mukofot yuting', 'Fight with your tasks and win rewards', 'Сражайтесь задачами и получайте награды') + ' ›</div></div></div>';
+  }
+  function bossRosterHtml() {
+    var st = bossState(), f = st.fight, busy = f && (f.status === 'active' || (f.status === 'won' && !f.rewarded));
+    return '<div class="x-bossr-grid">' + BOSSES.map(function (B, i) {
+      var unl = bossUnlocked(B), cur = busy && f.id === B.id, w = st.wins[B.id] || 0, lo = st.losses[B.id] || 0;
+      var btn;
+      if (cur) btn = '<button class="x-btn sm" disabled>⚔️ ' + L('Jangda', 'Fighting', 'В бою') + '</button>';
+      else if (!unl) btn = '<div class="x-bossr-lock">🔒 ' + H(bossLockText(B)) + '</div>';
+      else if (busy) btn = '<button class="x-btn sm ghost" disabled>' + L('Jang davom etmoqda', 'Fight in progress', 'Идёт бой') + '</button>';
+      else if ((S.coins || 0) < B.stake) btn = '<button class="x-btn sm ghost" disabled>🪙 ' + L(B.stake + ' tanga kerak', 'Need ' + B.stake + ' coins', 'Нужно ' + B.stake + ' монет') + '</button>';
+      else btn = '<button class="x-btn sm x-btn-fight" data-bfight="' + B.id + '">⚔️ ' + L('Jang', 'Fight', 'Бой') + '</button>';
+      return '<div class="x-bossr' + (unl ? '' : ' locked') + (cur ? ' cur' : '') + (w ? ' beaten' : '') + '">' +
+        '<div class="x-bossr-h"><span class="x-bossr-e">' + (unl ? B.e : '🔒') + '</span><div class="x-bossr-n"><b>' + H(bossNm(B)) + '</b><small>' + '★'.repeat(i + 1) + (w || lo ? ' · ✅' + w + ' ❌' + lo : '') + '</small></div></div>' +
+        '<div class="x-bossr-st"><span>❤️ ' + B.hp + ' HP</span><span>⏳ ' + B.days + ' ' + L('kun', 'd', 'дн.') + '</span><span class="g">🎁 ' + rwText(B) + '</span><span class="r">💀 -' + B.stake + '🪙</span></div>' + btn + '</div>';
+    }).join('') + '</div>';
+  }
+  function bossHubHtml() {
+    var st = bossState(), f = st.fight;
+    var h = '<div class="x-card" id="x-hub-boss">' + (f ? bossFightHtml(f, true) : bossPickHtml().replace('x-boss-pick', 'x-boss-pick big')) + '</div>';
+    h += '<div class="x-sec-t">🐲 ' + L('Bosslar — kuchsizdan kuchligacha', 'Bosses — weak to strong', 'Боссы — от слабых к сильным') + ' · 🪙 ' + (S.coins || 0) + '</div>' + bossRosterHtml();
+    var hist = st.history.slice(0, 10), old = (S.bossHistory || []).slice(0, Math.max(0, 10 - hist.length));
+    if (hist.length || old.length) {
+      var wins = 0; Object.keys(st.wins).forEach(function (k) { wins += st.wins[k] || 0; });
+      h += '<div class="x-sec-t">📜 ' + L('Tarix', 'History', 'История') + ' · 🏆 ' + Math.max(wins, S.bossWins || 0) + '</div><div class="x-boss-hist">' +
+        hist.map(function (x) { var B = bossById(x.id) || BOSSES[1]; return '<span class="' + (x.won ? 'w' : 'l') + '" title="' + H(bossNm(B) + ' · ' + (x.date || '')) + '">' + B.e + (x.won ? '✅' : x.fled ? '🏳️' : '❌') + '</span>'; }).join('') +
+        old.map(function (x) { return '<span class="' + (x.won ? 'w' : 'l') + '" title="' + H(x.week || '') + '">' + (OLD_BOSS_E[x.idx] || '🐉') + (x.won ? '✅' : '❌') + '</span>'; }).join('') + '</div>';
+    }
+    h += '<label class="x-chk"><input type="checkbox" id="x-boss-strip-on" ' + (S.xBossHidden ? '' : 'checked') + '> ' + L('Vazifalar sahifasida boss panelini ko\'rsatish', 'Show boss bar on the Tasks page', 'Показывать босса на странице задач') + '</label>';
+    return h;
+  }
+  function bindBossHub(body) {
+    body.querySelectorAll('[data-bfight]').forEach(function (b) { b.onclick = function () { bossStartAsk(b.dataset.bfight); }; });
+    var fl = body.querySelector('[data-bflee]'); if (fl) fl.onclick = bossSurrender;
+    var c = body.querySelector('#x-boss-strip-on'); if (c) c.onchange = function () { S.xBossHidden = !this.checked; save(); renderBossStrip(); };
   }
   function renderBossStrip(hit) {
     var el = document.getElementById('x-boss-strip'); if (!el) return;
     if (S.xBossHidden) { el.style.display = 'none'; return; }
     el.style.display = '';
-    el.innerHTML = bossHtml(false);
+    var f = bossState().fight;
+    el.innerHTML = f && (f.status === 'active' || f.status === 'won') ? bossFightHtml(f, false) : bossPickHtml();
     if (hit) { var e = el.querySelector('.x-boss-e'); if (e) { e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit'); } }
-    var hv = document.getElementById('x-hub-boss'); if (hv) hv.innerHTML = bossHtml(true);
+  }
+  function renderBossAll(hit) {
+    renderBossStrip(hit);
+    if (document.getElementById('x-hub-boss') && (S.xHubSec || 'boss') === 'boss') renderHubSection('boss', true);
   }
 
   // =========================================================
@@ -648,7 +836,8 @@
     var pomoMin = 0; try { (JSON.parse(localStorage.getItem('pomoLogs') || '[]') || []).forEach(function (l) { if (l && l.date && String(l.date).slice(0, 7) === ym) pomoMin += Math.round((l.durationMs || 0) / 60000); }); } catch (e) {}
     var top = (S.tasks || []).map(function (t) { return { t: t, n: (tl[t.id] || []).filter(function (d) { return d.slice(0, 7) === ym; }).length }; })
       .filter(function (x) { return x.n > 0; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 3);
-    var bosses = (S.bossHistory || []).filter(function (b) { return b.won && b.week && b.week.slice(0, 7) === ym; }).length;
+    var bosses = (S.bossHistory || []).filter(function (b) { return b.won && b.week && b.week.slice(0, 7) === ym; }).length +
+      ((S.xBoss && S.xBoss.history) || []).filter(function (b) { return b.won && b.date && b.date.slice(0, 7) === ym; }).length;
     var reviews = Object.keys(S.reviews || {}).filter(function (k) { return k.slice(0, 7) === ym; }).length;
     var water = 0, wDays = 0; Object.keys(S.health || {}).forEach(function (k) { if (k.slice(0, 7) === ym && S.health[k].water) { water += S.health[k].water; wDays++; } });
     var focus = 0; Object.keys(S.focusLog || {}).forEach(function (k) { if (k.slice(0, 7) === ym) focus += S.focusLog[k] || 0; });
@@ -1054,7 +1243,8 @@
     if (!force && (S.xHubSec || 'boss') !== sec) return;
     var h = '';
     if (sec === 'boss') {
-      h = '<div class="x-card" id="x-hub-boss">' + bossHtml(true) + '</div><label class="x-chk"><input type="checkbox" id="x-boss-strip-on" ' + (S.xBossHidden ? '' : 'checked') + '> ' + L('Vazifalar sahifasida boss panelini ko\'rsatish', 'Show boss bar on the Tasks page', 'Показывать босса на странице задач') + '</label>';
+      try { bossResolve(); } catch (e) {}
+      h = bossHubHtml();
     } else if (sec === 'health') {
       var md = (S.moods || {})[today()];
       h = '<button type="button" class="x-card x-mood-card" onclick="openMoodCalendar()"><span class="x-mood-e">' + (md ? md.emoji : '🙂') + '</span><span class="x-mood-t"><b>' + L('Kayfiyat kundaligi', 'Mood journal', 'Дневник настроения') + '</b><span>' +
@@ -1072,7 +1262,7 @@
       body.querySelectorAll('[data-shop]').forEach(function (b) { b.onclick = function () { shopBuy(b.dataset.shop); }; });
       body.querySelectorAll('.x-shop-fx').forEach(function (f) { f.onmouseenter = function () { var r = f.getBoundingClientRect(); var it = SHOP.find(function (z) { return z.id === f.dataset.fx; }); if (it) fxBurst(it.v, r.left + r.width / 2, r.top + r.height / 2); }; });
     }
-    if (sec === 'boss') { var c = body.querySelector('#x-boss-strip-on'); if (c) c.onchange = function () { S.xBossHidden = !this.checked; save(); renderBossStrip(); }; }
+    if (sec === 'boss') bindBossHub(body);
     if (sec === 'together') { if (sharedCache && !force) renderShared(); else loadShared(); }
     if (sec === 'feed') { if (feedCache && !force) renderFeed(); else loadFeed(); }
 
@@ -1082,6 +1272,7 @@
   // Vazifalar sahifasidagi qo'shimchalar
   // =========================================================
   function renderTasksExtras() {
+    try { bossResolve(); } catch (e) {}
     renderBossStrip(false);
     renderWaterPill();
     var LB = { focus: L('Fokus', 'Focus', 'Фокус'), matrix: L('Matritsa', 'Matrix', 'Матрица'), tpl: L('Shablonlar', 'Templates', 'Шаблоны'), review: L('Kun yakuni', 'Review', 'Итоги дня') };
@@ -1506,7 +1697,8 @@
   function boot() {
     try { markMovedTabs(); buildBottomNav(); renderInstallUI(); handleLaunchAction(); } catch (e) { console.warn('[extras nav]', e); }
     try { new MutationObserver(function () { renderBottomNav(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tab'] }); } catch (e) {}
-    try { bossEnsure(); } catch (e) {}
+    try { bossState(); bossResolve(); } catch (e) {}
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(function () { try { bossResolve(); renderBossStrip(false); } catch (e) {} }, 400); });
     shopApply();
     renderTasksExtras();
     maybeShowWrap();
