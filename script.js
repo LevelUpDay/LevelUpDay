@@ -24783,6 +24783,8 @@ var wsState = {
 var WS_TOTAL_STEPS = 3;
 
 function showWelcomeSurvey() {
+  // Google'dan qaytishda sessiya allaqachon tiklangan bo'lsa, "Create account" oynasini qayta ochmaymiz
+  if (typeof S !== 'undefined' && S.cloudLinked && S.welcomeSurveyDone) return;
   var old = document.getElementById('welcome-survey-modal');
   if (old) old.remove();
   wsState = {
@@ -30908,15 +30910,21 @@ var cloudBoot = async function(session, isOAuthReturn) {
   S.cloudLinked = true;
   S.cloudUserId = session.user.id;
   S.cloudEmail = session.user.email;
-  var provider = (session.user.app_metadata && session.user.app_metadata.provider) || 'email';
+  var am = session.user.app_metadata || {};
+  var provider = am.provider || 'email';
+  // Email bilan ochilgan akkauntga keyin Google ulansa ham app_metadata.provider 'email' bo'lib qoladi —
+  // shuning uchun providers ro'yxatini ham tekshiramiz.
+  var hasGoogle = provider === 'google' || (Array.isArray(am.providers) && am.providers.indexOf('google') !== -1);
   if (!S.lastCloudUserId) S.lastCloudUserId = session.user.id;
   var firstLink = !S.profile || !S.profile.loginMethod || S.profile.loginMethod === 'guest';
 
-  if (provider === 'google' && firstLink) {
+  // Sessiya bor, lekin qurilmada hali hech kim kirmagan (Google qaytishi yoki boshqa tabda kirilgan) —
+  // bulutdan to'liq tiklab, "Create account" oynasini yopamiz.
+  if (firstLink) {
     // Google bilan yangi qurilmada/yangi akkaunt: bulutni to'liq tiklaymiz
     var res = await cloudPullAll(S.cloudUserId);
     if (!S.profile) S.profile = {};
-    S.profile.loginMethod = 'google';
+    S.profile.loginMethod = hasGoogle ? 'google' : 'email';
     S.welcomeSurveyDone = true;
     S.showWelcomeSurveyPending = false;
     if (!res.hadProfile) {
@@ -30938,7 +30946,8 @@ var cloudBoot = async function(session, isOAuthReturn) {
     try { render(); } catch (e) {}
     startRealtimeSync();
     scheduleAppStateSync(true);
-    _cloudToast(_cl('Google orqali kirdingiz ✅', 'Signed in with Google ✅', 'Вход через Google выполнен ✅'));
+    if (hasGoogle) _cloudToast(_cl('Google orqali kirdingiz ✅', 'Signed in with Google ✅', 'Вход через Google выполнен ✅'));
+    else _cloudToast(_cl('Akkauntga kirdingiz ✅', 'Signed in ✅', 'Вход выполнен ✅'));
     return;
   }
 
