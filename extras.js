@@ -1,9 +1,9 @@
 // ============================================================
 // ✨ EXTRAS — script.js ustiga qo'shimcha funksiyalar:
-//   📑 Shablonlar · ▦ Eisenhower matritsasi · 🌙 Kun yakuni
+//   ▦ Eisenhower matritsasi
 //   🔥 Yillik faollik xaritasi · 🐉 Haftalik boss · 🛍 Do'kon
 //   🔗 Odatlar bog'liqligi · ⏰ Eng samarali vaqt · 📅 Oylik yakun
-//   🎯 Fokus rejimi · 💧 Suv va 😴 uyqu · 👥 Birgalikdagi vazifa
+//   🎯 Fokus rejimi · 😴 Uyqu · 👥 Birgalikdagi vazifa
 //   📰 Do'stlar lentasi (Supabase: supabase/social.sql)
 // script.js dagi global funksiyalar (S, save, render, toast, _cl ...)
 // ishlatiladi; bu fayl script.js dan KEYIN yuklanadi.
@@ -79,81 +79,6 @@
   }
 
   // =========================================================
-  // 📑 2. SHABLONLAR
-  // =========================================================
-  var BUILTIN_TPL = [
-    { id: 'b_school', emoji: '🏫', name: ['Maktab kuni', 'School day', 'Школьный день'], items: [
-      ['Nonushta', '07:00', '07:30', '🍳'], ['Maktab', '08:00', '13:00', '🏫'], ['Uy vazifasi', '14:30', '15:30', '📝'],
-      ['Sport', '16:30', '17:30', '🏃'], ['Kitob o\'qish', '21:00', '21:30', '📖']] },
-    { id: 'b_weekend', emoji: '🌴', name: ['Dam olish kuni', 'Weekend', 'Выходной'], items: [
-      ['Sport', '09:00', '10:00', '🏃'], ['IELTS mashq', '10:30', '12:00', '📊'], ['Uy ishlari', '13:00', '14:00', '🧹'],
-      ['Do\'stlar bilan', '16:00', '18:00', '👥'], ['Kitob o\'qish', '20:30', '21:30', '📖']] },
-    { id: 'b_exam', emoji: '📚', name: ['Imtihon tayyorgarligi', 'Exam prep', 'Подготовка к экзамену'], items: [
-      ['Reading', '08:00', '09:30', '📖'], ['Listening', '10:00', '11:30', '🎧'], ['Writing', '14:00', '15:30', '✍️'],
-      ['Speaking', '16:00', '17:00', '🗣'], ['Vocabulary', '20:00', '20:45', '🔤']] }
-  ];
-  function tplAll() {
-    var b = BUILTIN_TPL.map(function (t) {
-      return { id: t.id, builtin: true, emoji: t.emoji, name: L(t.name[0], t.name[1], t.name[2]),
-        items: t.items.map(function (i) { return { name: i[0], startTime: i[1], endTime: i[2], emoji: i[3] }; }) };
-    });
-    return b.concat(S.templates || []);
-  }
-  function tplApply(id, when) {
-    var tp = tplAll().find(function (x) { return x.id === id; }); if (!tp) return;
-    var date = when === 'tomorrow' ? addDays(today(), 1) : today();
-    var added = 0;
-    tp.items.forEach(function (it) {
-      var dup = S.tasks.some(function (t) {
-        return t.repeat === 'once' && !t.done && t.name === it.name && (t.startTime || null) === (it.startTime || null) &&
-          ((t.postponedTo || today()) === date);
-      });
-      if (dup) return;
-      xMakeTask({ name: it.name, startTime: it.startTime, endTime: it.endTime, emoji: it.emoji, date: date });
-      added++;
-    });
-    try { ensureFullTaskOrder(); } catch (e) {}
-    save(); render();
-    toast('📑 ' + tp.emoji + ' ' + tp.name + ' · +' + added + ' ' + L('vazifa', 'tasks', 'задач') + (when === 'tomorrow' ? ' (' + L('ertaga', 'tomorrow', 'завтра') + ')' : ''));
-  }
-  function tplSaveFromToday() {
-    var items = todaysDueTasks().filter(function (t) { return t.startTime; })
-      .sort(function (a, b) { return a.startTime < b.startTime ? -1 : 1; })
-      .map(function (t) { return { name: t.name, startTime: t.startTime, endTime: t.endTime || null, emoji: t.emoji || null }; });
-    if (!items.length) { toast('🕒 ' + L('Bugun vaqtli vazifa yo\'q — avval vazifalarga vaqt qo\'ying', 'No timed tasks today — add times first', 'Сегодня нет задач со временем')); return; }
-    var name = prompt(L('Shablon nomi:', 'Template name:', 'Название шаблона:'), L('Mening kunim', 'My day', 'Мой день'));
-    if (!name) return;
-    S.templates = S.templates || [];
-    S.templates.push({ id: 'u_' + Date.now(), emoji: '⭐', name: name.trim().slice(0, 40), items: items });
-    save(); toast('📑 ' + L('Shablon saqlandi', 'Template saved', 'Шаблон сохранён') + ' · ' + items.length);
-    openTemplates();
-  }
-  function tplDelete(id) {
-    if (!confirm(L('Shablon o\'chirilsinmi?', 'Delete this template?', 'Удалить шаблон?'))) return;
-    S.templates = (S.templates || []).filter(function (t) { return t.id !== id; });
-    save(); openTemplates();
-  }
-  function openTemplates() {
-    var old = document.querySelector('.x-ov.x-tpl'); if (old) old.remove();
-    var html = '<h3 class="x-h">📑 ' + L('Kun shablonlari', 'Day templates', 'Шаблоны дня') + '</h3>' +
-      '<p class="x-sub">' + L('Tayyor kun rejasini bir bosishda qo\'shing. Vazifalar bir martalik bo\'lib qo\'shiladi.', 'Add a ready-made day plan in one tap. Tasks are added as one-time tasks.', 'Добавьте готовый план дня одним нажатием.') + '</p>';
-    tplAll().forEach(function (tp) {
-      html += '<div class="x-tpl-card"><div class="x-tpl-top"><b>' + tp.emoji + ' ' + H(tp.name) + '</b>' +
-        (tp.builtin ? '' : '<button class="x-link danger" data-del="' + tp.id + '">🗑</button>') + '</div>' +
-        '<div class="x-tpl-items">' + tp.items.map(function (i) {
-          return '<span>' + (i.startTime ? '<i>' + i.startTime + (i.endTime ? '–' + i.endTime : '') + '</i> ' : '') + (i.emoji || '') + ' ' + H(i.name) + '</span>';
-        }).join('') + '</div>' +
-        '<div class="x-row"><button class="x-btn" data-apply="' + tp.id + '" data-when="today">＋ ' + L('Bugunga', 'Today', 'На сегодня') + '</button>' +
-        '<button class="x-btn ghost" data-apply="' + tp.id + '" data-when="tomorrow">＋ ' + L('Ertaga', 'Tomorrow', 'На завтра') + '</button></div></div>';
-    });
-    html += '<button class="x-btn wide ghost" id="x-tpl-save">💾 ' + L('Bugungi vaqtli vazifalardan shablon yaratish', 'Save today\'s timed tasks as a template', 'Создать шаблон из сегодняшних задач') + '</button>';
-    var ov = xModal(html, 'x-tpl-box'); ov.classList.add('x-tpl');
-    ov.querySelectorAll('[data-apply]').forEach(function (b) { b.onclick = function () { tplApply(b.dataset.apply, b.dataset.when); ov._close(); }; });
-    ov.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = function () { tplDelete(b.dataset.del); }; });
-    ov.querySelector('#x-tpl-save').onclick = tplSaveFromToday;
-  }
-
-  // =========================================================
   // ▦ 3. EISENHOWER MATRITSASI
   // =========================================================
   var QUADS = [
@@ -198,62 +123,6 @@
       });
     }
   }
-
-  // =========================================================
-  // 🌙 4. KUN YAKUNI (kechki ko'rib chiqish)
-  // =========================================================
-  function reviewDoneToday() { return !!(S.reviews && S.reviews[today()]); }
-  function openReview() {
-    var td = today(), due = todaysDueTasks(), done = due.filter(function (t) { return t.done; });
-    var prev = (S.reviews || {})[td] || {};
-    var coinsToday = (S.tarix || []).filter(function (r) { return r.date === td && r.type === 'in' && r.amount > 0; }).reduce(function (a, r) { return a + r.amount; }, 0);
-    var undone = due.filter(function (t) { return !t.done && !t.skipped; });
-    var html = '<h3 class="x-h">🌙 ' + L('Kun yakuni', 'Evening review', 'Итоги дня') + '</h3>' +
-      '<div class="x-stats3"><div><b>' + done.length + '/' + due.length + '</b><span>' + L('bajarildi', 'done', 'выполнено') + '</span></div>' +
-      '<div><b>+' + coinsToday + '</b><span>🪙 ' + L('bugun', 'today', 'сегодня') + '</span></div>' +
-      '<div><b>' + (getStreakSafe()) + '</b><span>🔥 streak</span></div></div>' +
-      (undone.length ? '<div class="x-note">⏳ ' + L('Bajarilmay qolganlar', 'Still open', 'Не выполнено') + ': ' + undone.slice(0, 6).map(function (t) { return H(t.name); }).join(', ') + (undone.length > 6 ? '…' : '') + '</div>' : '') +
-      '<label class="x-lbl">😊 ' + L('Bugun nima yaxshi bo\'ldi?', 'What went well today?', 'Что сегодня получилось?') + '</label>' +
-      '<textarea id="x-rv-good" rows="2" class="x-in">' + H(prev.good || '') + '</textarea>' +
-      '<label class="x-lbl">🛠 ' + L('Nimani yaxshilash mumkin?', 'What could be better?', 'Что можно улучшить?') + '</label>' +
-      '<textarea id="x-rv-improve" rows="2" class="x-in">' + H(prev.improve || '') + '</textarea>' +
-      '<label class="x-lbl">🎯 ' + L('Ertangi 3 ta asosiy vazifa', 'Top 3 for tomorrow', '3 главные задачи на завтра') + '</label>';
-    for (var i = 0; i < 3; i++) {
-      html += '<div class="x-rv-top"><span>' + (i + 1) + '</span><input class="x-in" id="x-rv-t' + i + '" placeholder="' + L('Vazifa nomi', 'Task name', 'Название задачи') + '" />' +
-        '<input class="x-in x-time" type="time" id="x-rv-s' + i + '" /></div>';
-    }
-    html += '<p class="x-sub">' + L('Ertangi vazifalar 📌 muhim deb ertaga ro\'yxatga qo\'shiladi.', 'Tomorrow\'s tasks are added as 📌 pinned.', 'Задачи на завтра будут закреплены 📌.') + '</p>' +
-      '<button class="x-btn wide" id="x-rv-save">✅ ' + L('Kunni yakunlash', 'Finish the day', 'Завершить день') + (prev.ts ? '' : ' · +10 XP') + '</button>';
-    var hist = Object.keys(S.reviews || {}).filter(function (d) { return d !== td; }).sort().reverse().slice(0, 5);
-    if (hist.length) {
-      html += '<details class="x-hist"><summary>📖 ' + L('Oldingi yakunlar', 'Past reviews', 'Прошлые итоги') + '</summary>' + hist.map(function (d) {
-        var r = S.reviews[d];
-        return '<div class="x-hist-it"><b>' + d + '</b>' + (r.good ? '<div>😊 ' + H(r.good) + '</div>' : '') + (r.improve ? '<div>🛠 ' + H(r.improve) + '</div>' : '') + '</div>';
-      }).join('') + '</details>';
-    }
-    var ov = xModal(html, 'x-rv-box');
-    ov.querySelector('#x-rv-save').onclick = function () {
-      var first = !prev.ts;
-      var tops = [];
-      for (var j = 0; j < 3; j++) {
-        var n = ov.querySelector('#x-rv-t' + j).value.trim();
-        var st = ov.querySelector('#x-rv-s' + j).value || null;
-        if (n) tops.push({ name: n, startTime: st });
-      }
-      S.reviews = S.reviews || {};
-      S.reviews[td] = { good: ov.querySelector('#x-rv-good').value.trim(), improve: ov.querySelector('#x-rv-improve').value.trim(), top: tops.map(function (x) { return x.name; }), done: done.length, due: due.length, ts: Date.now() };
-      var tm = addDays(td, 1);
-      tops.forEach(function (x) {
-        var a = hm2m(x.startTime);
-        xMakeTask({ name: x.name, startTime: x.startTime, endTime: a != null ? m2hm(Math.min(a + 60, 1439)) : null, date: tm, pinned: true });
-      });
-      try { ensureFullTaskOrder(); } catch (e) {}
-      if (first) addXP(10, L('Kun yakuni', 'Evening review', 'Итоги дня'));
-      save(); render(); ov._close();
-      toast('🌙 ' + L('Kun yakunlandi! Yaxshi dam oling', 'Day wrapped up! Rest well', 'День завершён! Хорошего отдыха') + (tops.length ? ' · ' + tops.length + ' ' + L('ta vazifa ertaga', 'tasks for tomorrow', 'задач на завтра') : ''));
-    };
-  }
-  function getStreakSafe() { try { return (typeof getStreak === 'function' ? getStreak() : (S.streak || 0)) || 0; } catch (e) { return S.streak || 0; } }
 
   // =========================================================
   // 🐉 6. HAFTALIK BOSS
@@ -649,11 +518,9 @@
     var top = (S.tasks || []).map(function (t) { return { t: t, n: (tl[t.id] || []).filter(function (d) { return d.slice(0, 7) === ym; }).length }; })
       .filter(function (x) { return x.n > 0; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 3);
     var bosses = (S.bossHistory || []).filter(function (b) { return b.won && b.week && b.week.slice(0, 7) === ym; }).length;
-    var reviews = Object.keys(S.reviews || {}).filter(function (k) { return k.slice(0, 7) === ym; }).length;
-    var water = 0, wDays = 0; Object.keys(S.health || {}).forEach(function (k) { if (k.slice(0, 7) === ym && S.health[k].water) { water += S.health[k].water; wDays++; } });
     var focus = 0; Object.keys(S.focusLog || {}).forEach(function (k) { if (k.slice(0, 7) === ym) focus += S.focusLog[k] || 0; });
     var mood = null; try { var ms = (typeof getMoods === 'function' ? getMoods() : S.moods) || {}; var cnt = {}; Object.keys(ms).forEach(function (k) { if (k.slice(0, 7) === ym) { var m = ms[k] && (ms[k].emoji || ms[k].mood || ms[k]); if (typeof m === 'string' && m.length <= 4) cnt[m] = (cnt[m] || 0) + 1; } }); var mk = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0]; if (mk) mood = mk; } catch (e) {}
-    return { ym: ym, tasks: tasks, active: active, bestDay: bestDay, bestV: bestV, coins: coins, pomoMin: pomoMin, top: top, bosses: bosses, reviews: reviews, water: water, wDays: wDays, focus: focus, mood: mood };
+    return { ym: ym, tasks: tasks, active: active, bestDay: bestDay, bestV: bestV, coins: coins, pomoMin: pomoMin, top: top, bosses: bosses, focus: focus, mood: mood };
   }
   function ymShift(ym, n) { var d = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); }
   function ymLabel(ym) { return monthsArr()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4); }
@@ -827,53 +694,53 @@
   }
 
   // =========================================================
-  // 💧 15. SUV VA 😴 UYQU
+  // 😴 15. UYQU — necha soat uxlagani (yagona manba: S.health[YYYY-MM-DD].sleep)
   // =========================================================
   function hDay(ds) { S.health = S.health || {}; ds = ds || today(); S.health[ds] = S.health[ds] || {}; return S.health[ds]; }
-  function waterGoal() { return S.waterGoal || 8; }
-  function waterAdd(n) {
-    var d = hDay(); d.water = Math.max(0, (d.water || 0) + n);
-    if (n > 0 && d.water >= waterGoal() && !d.waterBonus) { d.waterBonus = true; addCoins(1, '💧 ' + L('Suv maqsadi', 'Water goal', 'Норма воды')); toast('💧 ' + L('Kunlik suv maqsadi bajarildi!', 'Daily water goal reached!', 'Дневная норма воды!') + ' +1 🪙'); try { confetti(); } catch (e) {} }
-    save(); renderWaterPill(); renderHubSection('health');
+  function sleepOf(ds) { var d = (S.health || {})[ds]; var v = d && d.sleep; return (v == null || isNaN(+v)) ? null : +v; }
+  function sleepWeek() {
+    var vals = [], lbls = [], sum = 0, cnt = 0;
+    for (var k = 6; k >= 0; k--) { var ds = addDays(today(), -k), v = sleepOf(ds); vals.push(v || 0); lbls.push(weekdaysShort()[(parseD(ds).getDay() + 6) % 7]); if (v) { sum += v; cnt++; } }
+    return { vals: vals, lbls: lbls, avg: cnt ? sum / cnt : null, cnt: cnt };
   }
-  function sleepSave() {
-    var bed = (document.getElementById('x-sl-bed') || {}).value, wake = (document.getElementById('x-sl-wake') || {}).value;
-    if (!bed || !wake) { toast('😴 ' + L('Yotish va turish vaqtini kiriting', 'Enter bed and wake times', 'Укажите время сна и подъёма')); return; }
-    var mins = hm2m(wake) - hm2m(bed); if (mins <= 0) mins += 1440;
-    var d = hDay(); d.bed = bed; d.wake = wake; d.sleep = Math.round(mins / 6) / 10;
-    if (d.sleep >= 7 && d.sleep <= 10 && !d.sleepBonus) { d.sleepBonus = true; addCoins(1, '😴 ' + L('Yaxshi uyqu', 'Good sleep', 'Хороший сон')); toast('😴 ' + d.sleep + ' ' + L('soat — zo\'r!', 'h — great!', 'ч — отлично!') + ' +1 🪙'); }
-    else toast('😴 ' + d.sleep + ' ' + L('soat saqlandi', 'h saved', 'ч сохранено'));
-    S.lastBed = bed; S.lastWake = wake;
-    save(); renderHubSection('health');
+  function fmtH(v) { return (Math.round(v * 10) / 10) + ' ' + L('soat', 'h', 'ч'); }
+  function sleepSet(h) {
+    var d = hDay();
+    if (h == null) { delete d.sleep; delete d.bed; delete d.wake; }
+    else {
+      h = Math.max(0, Math.min(16, Math.round(h * 2) / 2));
+      d.sleep = h; delete d.bed; delete d.wake;
+      if (h >= 7 && h <= 10 && !d.sleepBonus) { d.sleepBonus = true; addCoins(1, '😴 ' + L('Yaxshi uyqu', 'Good sleep', 'Хороший сон')); toast('😴 ' + fmtH(h) + ' — ' + L('zo\'r!', 'great!', 'отлично!') + ' +1 🪙'); }
+    }
+    save(); renderSleepCards();
   }
-  function healthHtml() {
-    var d = hDay(), g = waterGoal(), w = d.water || 0;
-    var cups = ''; for (var i = 0; i < Math.max(g, w); i++) cups += '<button class="x-cup ' + (i < w ? 'full' : '') + '" data-cup="' + i + '">' + (i < w ? '💧' : '○') + '</button>';
-    var h = '<div class="x-card"><div class="x-card-h"><b>💧 ' + L('Suv', 'Water', 'Вода') + '</b><span>' + w + ' / ' + g + ' ' + L('stakan', 'glasses', 'стаканов') + '</span></div>' +
-      '<div class="x-cups">' + cups + '</div><div class="x-row"><button class="x-btn" data-w="1">＋ 1 ' + L('stakan', 'glass', 'стакан') + '</button><button class="x-btn ghost" data-w="-1">－</button>' +
-      '<label class="x-goal">🎯 <input type="number" min="1" max="20" id="x-wgoal" value="' + g + '"></label></div></div>';
-    var sl = d.sleep;
-    h += '<div class="x-card"><div class="x-card-h"><b>😴 ' + L('Uyqu (bugun tunda)', 'Sleep (last night)', 'Сон (прошлой ночью)') + '</b><span>' + (sl != null ? sl + ' ' + L('soat', 'h', 'ч') : '—') + '</span></div>' +
-      '<div class="x-row"><label class="x-tlab">🛏 <input type="time" id="x-sl-bed" value="' + (d.bed || S.lastBed || '23:00') + '"></label><label class="x-tlab">⏰ <input type="time" id="x-sl-wake" value="' + (d.wake || S.lastWake || '07:00') + '"></label>' +
-      '<button class="x-btn" id="x-sl-save">💾</button></div>';
-    var vals = [], lbls = [], ws = [], sum = 0, cnt = 0;
-    for (var k = 6; k >= 0; k--) { var ds = addDays(today(), -k), hd = (S.health || {})[ds] || {}; vals.push(hd.sleep || 0); ws.push(hd.water || 0); lbls.push(weekdaysShort()[(parseD(ds).getDay() + 6) % 7]); if (hd.sleep) { sum += hd.sleep; cnt++; } }
-    h += bars(vals, lbls, 6, 'h') + '<div class="x-sub">' + L('7 kunlik o\'rtacha', '7-day average', 'Среднее за 7 дней') + ': <b>' + (cnt ? (sum / cnt).toFixed(1) + ' ' + L('soat', 'h', 'ч') : '—') + '</b> · ' + L('Tavsiya: 7–9 soat', 'Recommended: 7–9 h', 'Рекомендуется 7–9 ч') + '</div></div>';
-    h += '<div class="x-card"><div class="x-card-h"><b>💧 ' + L('Suv — 7 kun', 'Water — 7 days', 'Вода — 7 дней') + '</b></div>' + bars(ws, lbls, 6) + '</div>';
-    return h;
+  function sleepCardHtml() {
+    var cur = sleepOf(today()), w = sleepWeek();
+    var tone = cur == null ? '' : (cur >= 7 && cur <= 9 ? 'ok' : cur < 6 ? 'low' : 'mid');
+    var chips = [5, 6, 7, 8, 9].map(function (n) { return '<button type="button" class="x-sl-chip' + (cur === n ? ' on' : '') + '" data-slh="' + n + '">' + n + '</button>'; }).join('');
+    var mx = Math.max.apply(null, w.vals.concat([9]));
+    var mini = '<div class="x-sl-mini" aria-hidden="true">' + w.vals.map(function (v, i) {
+      return '<div class="x-sl-mb' + (i === 6 ? ' td' : '') + (v && (v < 7 || v > 9) ? ' off' : '') + '" title="' + w.lbls[i] + ': ' + (v ? fmtH(v) : '—') + '"><i style="height:' + (v ? Math.max(8, v / mx * 100) : 4) + '%"></i><span>' + w.lbls[i] + '</span></div>';
+    }).join('') + '</div>';
+    return '<div class="x-sl-top"><b>😴 ' + L('Uyqu', 'Sleep', 'Сон') + '</b><span class="x-sl-q">' + L('Bugun tunda necha soat uxladingiz?', 'How long did you sleep last night?', 'Сколько вы спали этой ночью?') + '</span></div>' +
+      '<div class="x-sl-row"><div class="x-sl-step"><button type="button" class="x-sl-pm" data-sld="-0.5" aria-label="-0.5">−</button>' +
+      '<span class="x-sl-val ' + tone + '">' + (cur == null ? '—' : (Math.round(cur * 10) / 10) + '<small>' + L('soat', 'h', 'ч') + '</small>') + '</span>' +
+      '<button type="button" class="x-sl-pm" data-sld="0.5" aria-label="+0.5">+</button></div>' +
+      '<div class="x-sl-chips">' + chips + '</div></div>' +
+      '<div class="x-sl-foot">' + mini + '<div class="x-sl-meta"><span>' + L('7 kun o\'rtacha', '7-day avg', 'Среднее 7 дн.') + ': <b>' + (w.avg != null ? fmtH(w.avg) : '—') + '</b></span>' +
+      '<span>💡 ' + L('Tavsiya: 7–9 soat', 'Recommended: 7–9 h', 'Рекомендуется 7–9 ч') + '</span>' +
+      (cur != null ? '<button type="button" class="x-link x-sl-clr" data-slclr="1">' + L('Tozalash', 'Clear', 'Сбросить') + '</button>' : '') + '</div></div>';
   }
-  function bindHealth(root) {
-    root.querySelectorAll('[data-w]').forEach(function (b) { b.onclick = function () { waterAdd(+b.dataset.w); }; });
-    root.querySelectorAll('[data-cup]').forEach(function (b) { b.onclick = function () { var i = +b.dataset.cup, cur = hDay().water || 0; waterAdd(i < cur ? (i + 1 === cur ? -1 : i + 1 - cur) : i + 1 - cur); }; });
-    var g = root.querySelector('#x-wgoal'); if (g) g.onchange = function () { S.waterGoal = Math.max(1, Math.min(20, +g.value || 8)); save(); renderWaterPill(); renderHubSection('health'); };
-    var sv = root.querySelector('#x-sl-save'); if (sv) sv.onclick = sleepSave;
+  function bindSleep(root) {
+    root.querySelectorAll('[data-slh]').forEach(function (b) { b.onclick = function () { sleepSet(+b.dataset.slh); }; });
+    root.querySelectorAll('[data-sld]').forEach(function (b) { b.onclick = function () { var c = sleepOf(today()); sleepSet((c == null ? 7 : c) + (c == null ? 0 : +b.dataset.sld)); }; });
+    root.querySelectorAll('[data-slclr]').forEach(function (b) { b.onclick = function () { sleepSet(null); }; });
   }
-  function renderWaterPill() {
-    var el = document.getElementById('x-water-pill'); if (!el) return;
-    var w = (hDay().water || 0), g = waterGoal();
-    el.innerHTML = '💧 ' + w + '/' + g;
-    el.classList.toggle('done', w >= g);
+  function renderSleepCards() {
+    document.querySelectorAll('.x-sleep-card').forEach(function (el) { var sh = sleepCardHtml(); el._h = sh; el.innerHTML = sh; bindSleep(el); });
   }
+  function healthHtml() { return '<div class="x-card x-sleep-card">' + sleepCardHtml() + '</div>'; }
+  function bindHealth(root) { bindSleep(root); }
 
   // =========================================================
   // 📰 17. DO'STLAR LENTASI  ·  👥 16. BIRGALIKDAGI VAZIFA (Supabase)
@@ -1038,13 +905,13 @@
     var v = document.getElementById('view-hub'); if (!v) return;
     var sec = S.xHubSec || 'boss';
     if (!HUB_SECS.some(function (x) { return x[0] === sec; })) sec = 'boss'; // eski "Tahlil" bo'limi Statistikaga ko'chdi
-    var tools = [['tpl', '📑', L('Shablonlar', 'Templates', 'Шаблоны')], ['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')], ['review', '🌙', L('Kun yakuni', 'Evening review', 'Итоги дня')],
+    var tools = [['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')],
       ['stats', '📊', L('Statistika', 'Statistics', 'Статистика')]];
     if (window._isAdmin) tools.push(['admin', '👑', L('Admin', 'Admin', 'Админ')]);
     v.innerHTML = sectionsGrid() + '<div class="x-hub-tools">' + tools.map(function (t) { return '<button data-tool="' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</div>' +
       '<div class="x-hub-nav">' + HUB_SECS.map(function (s) { return '<button class="' + (s[0] === sec ? 'on' : '') + '" data-sec="' + s[0] + '">' + s[1] + ' ' + L(s[2][0], s[2][1], s[2][2]) + '</button>'; }).join('') + '</div>' +
       '<div id="x-hub-body"></div>';
-    v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ review: openReview, tpl: openTemplates, matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} }, admin: function () { window.openAdminPanel(); } })[b.dataset.tool](); }; });
+    v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} }, admin: function () { window.openAdminPanel(); } })[b.dataset.tool](); }; });
     v.querySelectorAll('[data-sec]').forEach(function (b) { b.onclick = function () { S.xHubSec = b.dataset.sec; save(); renderHub(); }; });
     bindSections(v);
     renderHubSection(sec, true);
@@ -1083,15 +950,10 @@
   // =========================================================
   function renderTasksExtras() {
     renderBossStrip(false);
-    renderWaterPill();
-    var LB = { focus: L('Fokus', 'Focus', 'Фокус'), matrix: L('Matritsa', 'Matrix', 'Матрица'), tpl: L('Shablonlar', 'Templates', 'Шаблоны'), review: L('Kun yakuni', 'Review', 'Итоги дня') };
+    var LB = { focus: L('Fokus', 'Focus', 'Фокус'), matrix: L('Matritsa', 'Matrix', 'Матрица') };
     document.querySelectorAll('.x-tl[data-x]').forEach(function (e) { if (LB[e.dataset.x]) e.textContent = LB[e.dataset.x]; });
-    var rbt = document.querySelector('.x-rb-t'); if (rbt) rbt.textContent = L('Kunni yakunlash vaqti — 2 daqiqa ajrating', 'Time to wrap up your day — take 2 minutes', 'Пора подвести итоги дня — 2 минуты');
-    var bn = document.getElementById('x-review-banner');
-    if (bn) {
-      var show = new Date().getHours() >= 20 && !reviewDoneToday() && S.xReviewDismiss !== today();
-      bn.style.display = show ? '' : 'none';
-    }
+    var sc = document.getElementById('x-sleep-card');
+    if (sc) { var sh = sleepCardHtml(); if (sc._h !== sh) { sc._h = sh; sc.innerHTML = sh; bindSleep(sc); } }
   }
 
   // =========================================================
@@ -1188,6 +1050,12 @@
     if (a) { a.innerHTML = card('🔥', L('Yillik faollik', 'Yearly activity', 'Активность за год'), heatmapHtml()); var sc = a.querySelector('.x-hm-scroll'); if (sc) sc.scrollLeft = sc.scrollWidth; }
     if (b) b.innerHTML = card('⏰', L('Eng samarali vaqt', 'Productive time', 'Продуктивное время'), productiveHtml());
     if (c) c.innerHTML = card('🔗', L('Odatlar bog\'liqligi', 'Habit links', 'Связи привычек'), correlationHtml());
+    var sl = document.getElementById('xst-sleep');
+    if (sl) {
+      var w = sleepWeek();
+      sl.innerHTML = card('😴', L('Uyqu — 7 kun', 'Sleep — 7 days', 'Сон — 7 дней'), bars(w.vals, w.lbls, 6, 'h') +
+        '<div class="x-sub">' + L('O\'rtacha', 'Average', 'Среднее') + ': <b>' + (w.avg != null ? fmtH(w.avg) : '—') + '</b>' + (w.cnt ? ' · ' + w.cnt + '/7 ' + L('kun', 'days', 'дн.') : '') + ' · ' + L('Tavsiya: 7–9 soat', 'Recommended: 7–9 h', 'Рекомендуется 7–9 ч') + '</div>');
+    }
   });
 
   // =========================================================
@@ -1494,13 +1362,15 @@
       var Q = QUADS[t.quad - 1]; return Q ? '<span class="tk-chip x-qchip ' + Q.cls + '" title="' + H(Q.t()) + '">' + Q.icon + ' ' + H(Q.s()) + '</span>' : '';
     } catch (e) { return ''; }
   };
-  window.xOpenTemplates = safe(openTemplates);
+  // Olib tashlangan vositalar (Shablonlar, Kun yakuni, Suv) — eski keshlangan HTML xato bermasligi uchun bo'sh stublar
+  window.xOpenTemplates = function () {};
   window.xOpenMatrix = safe(openMatrix);
-  window.xOpenReview = safe(openReview);
+  window.xOpenReview = function () {};
   window.xOpenWrap = safe(function (ym) { openWrap(ym); });
   window.xOpenFocus = safe(function (id) { openFocus(id); });
-  window.xWaterAdd = safe(waterAdd);
-  window.xDismissReview = function () { S.xReviewDismiss = today(); save(); renderTasksExtras(); };
+  window.xWaterAdd = function () {};
+  window.xDismissReview = function () {};
+  window.xSleepSet = safe(sleepSet);
   window.xOpenHub = function (sec) { if (sec) S.xHubSec = sec; showTab('hub'); };
 
   function boot() {

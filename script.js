@@ -16510,7 +16510,7 @@ function openResetOptionsModal() {
       _rstOptRow('ro-coins-cb', '🪙', t('reset_opt_coins')) +
       _rstOptRow('ro-stats-cb', '📊', t('reset_opt_stats')) +
       _rstOptRow('ro-tasks-cb', '📋', t('reset_opt_tasks')) +
-      _rstOptRow('ro-diary-cb', '📔', _cl('Kundalik (kayfiyat, kun yakuni, suv/uyqu)', 'Journal (mood, reviews, water/sleep)', 'Дневник (настроение, итоги, вода/сон)')) +
+      _rstOptRow('ro-diary-cb', '📔', _cl('Kundalik (kayfiyat, uyqu)', 'Journal (mood, sleep)', 'Дневник (настроение, сон)')) +
       examsRowHtml +
       _rstOptRow('ro-all-cb', '💥', t('reset_opt_all')) +
     '</div>' +
