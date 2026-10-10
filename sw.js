@@ -10,7 +10,7 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v29';
+const CACHE_VERSION = 'v30';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 
 // Pre-cache qilinadigan asosiy fayllar
@@ -28,7 +28,8 @@ const PRECACHE_URLS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js'
+  './vendor/supabase-2.117.2.js',
+  './vendor/Sortable-1.15.0.min.js'
 ];
 
 // Eslatma: admin.html ATAYLAB shu ro'yxatga QO'SHILMAGAN — u faqat
@@ -240,3 +241,28 @@ async function cacheFirstWithNetworkFallbackAndCache(request) {
     });
   }
 }
+
+// ---------------- 🔔 PUSH (send-reminders edge function'dan) ----------------
+self.addEventListener('push', (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { d = { title: 'LevelUpDay', body: event.data ? event.data.text() : '' }; }
+  event.waitUntil(self.registration.showNotification(d.title || 'LevelUpDay', {
+    body: d.body || '',
+    tag: d.tag || 'lud',
+    icon: './icons/icon-192.png',
+    badge: './icons/favicon-32.png',
+    data: { url: d.url || './' }
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) {
+      if (w.url.startsWith(self.registration.scope)) { await w.focus(); return; }
+    }
+    await self.clients.openWindow(target);
+  })());
+});

@@ -1506,6 +1506,7 @@
       ['pomo', '🍅', L('Pomodoro', 'Pomodoro', 'Pomodoro'), function () { pomoOpenModal(); }],
       ['reyting', '🏆', L('Reyting', 'Leaderboard', 'Рейтинг'), function () { showTab('reyting'); }],
       ['friends', '👥', L('Do\'stlar', 'Friends', 'Друзья'), function () { openFriendsModal(); }],
+      ['invite', '🎁', L('Taklif qil', 'Invite', 'Пригласить'), function () { openReferral(); }],
       ['chest', '🎲', 'Chest', function () { showTab('chest'); }],
       ['spin', '🎰', 'Spin', function () { showTab('spin'); }],
       ['ielts', '📊', 'IELTS', function () { showTab('ielts'); }],
@@ -1513,7 +1514,7 @@
       ['cefr', '📘', 'CEFR', function () { showTab('cefr'); }],
       ['secret', '🕵️', L('Shaxsiy nazorat', 'Personal check', 'Личный контроль'), function () { showTab('secret'); }]
     ].filter(function (x) {
-      if (x[0] === 'friends' || x[0] === 'spin') return true;
+      if (x[0] === 'friends' || x[0] === 'spin' || x[0] === 'invite') return true;
       if (x[0] === 'secret') return !!S.personalCheckEnabled;
       return tabAvailable(x[0]);
     });
@@ -1603,6 +1604,125 @@
     } else if (!show && sb) sb.remove();
   }
 
+  // =========================================================
+  // 🔔 PUSH ESLATMALAR — ilova yopiq bo'lsa ham keladi (server: send-reminders edge function)
+  //   • vazifaning "Eslatma" vaqti kelganda  • 20:00 da streak yo'qolish arafasida
+  // =========================================================
+  var VAPID_PUBLIC = 'BNhtrhbMAR7bk60PbDmmXYElq6dfRmzSJwlKSoT_JeuEmyL0mAmKrrjZlNgkel2pLLart3jbww2eTXJ4dLkfFVc';
+  function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && location.protocol === 'https:'; }
+  function b64u(s) { var p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function pushPrefs() { S.xPushPrefs = S.xPushPrefs || { tasks: true, streak: true }; return S.xPushPrefs; }
+  async function pushCurrentSub() { try { var reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch (e) { return null; } }
+  async function pushSave(sub) {
+    var j = sub.toJSON();
+    var tz = 'Asia/Tashkent'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) {}
+    var r = await supabase.from('push_subscriptions').upsert({
+      endpoint: j.endpoint, user_id: S.cloudUserId, p256dh: j.keys.p256dh, auth: j.keys.auth, tz: tz,
+      lang: (typeof getLang === 'function' ? getLang() : 'uz'), prefs: pushPrefs(), updated_at: new Date().toISOString()
+    });
+    if (r.error) throw r.error;
+    S.xPushSyncedDate = today(); save();
+  }
+  async function pushEnable(silent) {
+    if (!pushSupported()) { if (!silent) toast('⚠️ ' + (isIOS() && !isStandalone() ? L('iPhone\'da eslatmalar uchun avval ilovani o\'rnating (Share → Add to Home Screen)', 'On iPhone, install the app first (Share → Add to Home Screen)', 'На iPhone сначала установите приложение (Поделиться → На экран «Домой»)') : L('Bu brauzer eslatmalarni qo\'llamaydi', 'This browser does not support notifications', 'Браузер не поддерживает уведомления'))); return false; }
+    if (!cloudOk()) { if (!silent) toast('🔐 ' + L('Eslatmalar uchun akkauntga kiring', 'Sign in to get reminders', 'Войдите, чтобы получать напоминания')); return false; }
+    try {
+      var perm = Notification.permission === 'default' && !silent ? await Notification.requestPermission() : Notification.permission;
+      if (perm !== 'granted') { if (!silent) toast('🔕 ' + L('Brauzer sozlamalarida bildirishnomalarga ruxsat bering', 'Allow notifications in your browser settings', 'Разрешите уведомления в настройках браузера')); return false; }
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(VAPID_PUBLIC) });
+      await pushSave(sub);
+      S.xPushOn = true; save();
+      if (!silent) toast('🔔 ' + L('Eslatmalar yoqildi', 'Reminders are on', 'Напоминания включены'));
+      return true;
+    } catch (e) { console.warn('[push]', e); if (!silent) toast('⚠️ ' + L('Eslatmalarni yoqib bo\'lmadi', 'Could not turn on reminders', 'Не удалось включить напоминания')); return false; }
+  }
+  async function pushDisable() {
+    try { var sub = await pushCurrentSub(); if (sub) { try { await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint); } catch (e) {} await sub.unsubscribe(); } } catch (e) {}
+    S.xPushOn = false; save(); toast('🔕 ' + L('Eslatmalar o\'chirildi', 'Reminders are off', 'Напоминания выключены'));
+  }
+  window.xPushEnable = pushEnable;
+  // Chiqishda: bu qurilmaga eski akkauntning eslatmalari kelmasin
+  window.xPushOffSilent = async function () {
+    try { var sub = await pushCurrentSub(); if (sub) { try { await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint); } catch (e) {} await sub.unsubscribe(); } } catch (e) {}
+  };
+  // Vazifaga eslatma qo'yilganda / ilova ochilganda — ruxsat bor bo'lsa jimgina obunani yangilaymiz
+  window.xPushAuto = function () {
+    if (!pushSupported() || !cloudOk() || S.xPushOn === false) return;
+    if (Notification.permission !== 'granted') return;
+    if (S.xPushOn && S.xPushSyncedDate === today()) return;
+    pushEnable(true);
+  };
+  function renderPushSettings() {
+    var st = document.getElementById('profile-subtab-settings'); if (!st) return;
+    var card = document.getElementById('x-push-card');
+    if (!card) { card = document.createElement('div'); card.id = 'x-push-card'; card.className = 'x-card x-push-card'; var ib = document.getElementById('x-install-settings'); st.insertBefore(card, ib ? ib.nextSibling : st.firstChild); }
+    var on = !!S.xPushOn && pushSupported() && Notification.permission === 'granted', pf = pushPrefs();
+    card.innerHTML = '<div class="x-push-h"><span>🔔</span><div><b>' + L('Eslatmalar', 'Reminders', 'Напоминания') + '</b><small>' +
+      L('Ilova yopiq bo\'lsa ham: vazifa vaqti va 20:00 da streak eslatmasi', 'Even when the app is closed: task times and a streak reminder at 20:00', 'Даже когда приложение закрыто: время задач и напоминание о серии в 20:00') + '</small></div>' +
+      '<button class="x-btn sm' + (on ? ' ghost' : '') + '" id="x-push-tg">' + (on ? L('O\'chirish', 'Turn off', 'Выключить') : L('Yoqish', 'Turn on', 'Включить')) + '</button></div>' +
+      (on ? '<label class="x-chk"><input type="checkbox" data-pp="tasks"' + (pf.tasks !== false ? ' checked' : '') + '> ' + L('Vazifa eslatmalari', 'Task reminders', 'Напоминания о задачах') + '</label>' +
+            '<label class="x-chk"><input type="checkbox" data-pp="streak"' + (pf.streak !== false ? ' checked' : '') + '> ' + L('Streak eslatmasi (20:00)', 'Streak reminder (20:00)', 'Напоминание о серии (20:00)') + '</label>' : '');
+    card.querySelector('#x-push-tg').onclick = async function () { this.disabled = true; if (on) await pushDisable(); else await pushEnable(false); renderPushSettings(); };
+    card.querySelectorAll('[data-pp]').forEach(function (c) { c.onchange = async function () { pushPrefs()[c.dataset.pp] = c.checked; save(); var sub = await pushCurrentSub(); if (sub) { try { await pushSave(sub); } catch (e) {} } }; });
+  }
+  window.xRenderPushSettings = safe(renderPushSettings);
+
+  // =========================================================
+  // 🎁 DO'ST TAKLIF QILISH — havola: ?ref=KOD
+  //   Taklif qilingan yangi foydalanuvchi 3 xil kunda faol bo'lsa: ikkalasiga ham +10 💎
+  // =========================================================
+  var REF_GEMS = 10;
+  function refCaptureFromUrl() {
+    try {
+      var q = new URLSearchParams(location.search), c = q.get('ref');
+      if (!c) return;
+      if (/^[A-Za-z0-9_-]{3,24}$/.test(c)) localStorage.setItem('lud_ref', c.toUpperCase());
+      q.delete('ref'); var qs = q.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    } catch (e) {}
+  }
+  var _refBusy = false;
+  async function refSync() {
+    if (_refBusy || !cloudOk()) return; _refBusy = true;
+    try {
+      var code = null; try { code = localStorage.getItem('lud_ref'); } catch (e) {}
+      if (code) {
+        var r = await supabase.rpc('claim_referral', { p_code: code });
+        try { localStorage.removeItem('lud_ref'); } catch (e) {}
+        if (!r.error && r.data && r.data.ok) toast('🎁 ' + L('Sizni ' + (r.data.referrer_name || 'do\'stingiz') + ' taklif qildi! 3 kun faol bo\'lsangiz ikkalangiz ham +' + REF_GEMS + ' 💎 olasiz', (r.data.referrer_name || 'A friend') + ' invited you! Be active on 3 days and you both get +' + REF_GEMS + ' 💎', 'Вас пригласил(а) ' + (r.data.referrer_name || 'друг') + '! Будьте активны 3 дня — оба получите +' + REF_GEMS + ' 💎'));
+      }
+      var c2 = await supabase.rpc('claim_referral_rewards');
+      if (!c2.error && c2.data && c2.data.ok) {
+        var n = (c2.data.as_referrer || 0) + (c2.data.as_referee ? 1 : 0);
+        if (n > 0) { gemsAdd(n * REF_GEMS, 'referral', '🎁 ' + L('Do\'st taklifi mukofoti', 'Referral reward', 'Награда за приглашение')); try { confetti(); } catch (e) {} save(); }
+      }
+    } catch (e) { console.warn('[referral]', e); }
+    _refBusy = false;
+  }
+  async function openReferral() {
+    if (!cloudOk()) { toast('🔐 ' + L('Do\'st taklif qilish uchun akkauntga kiring', 'Sign in to invite friends', 'Войдите, чтобы приглашать друзей')); return; }
+    var ov = xModal('<h3 class="x-h">🎁 ' + L('Do\'stni taklif qil', 'Invite a friend', 'Пригласить друга') + '</h3><div id="x-ref-body"><div class="ad-empty">⏳</div></div>', 'x-ref-box');
+    await refSync();
+    var r = await supabase.rpc('get_my_referrals');
+    var b = ov.querySelector('#x-ref-body'); if (!b) return;
+    if (r.error || !r.data || !r.data.code) { b.innerHTML = '<div class="ad-empty">⚠️ ' + H(r.error ? r.error.message : L('Kod topilmadi', 'No code yet', 'Код не найден')) + '</div>'; return; }
+    var d = r.data, link = location.origin + location.pathname + '?ref=' + encodeURIComponent(d.code);
+    var msg = L('LevelUpDay — vazifalarni o\'yin kabi bajaraman! Qo\'shil, ikkalamiz ham 💎 olamiz: ', 'I level up my days with LevelUpDay! Join me and we both get 💎: ', 'Прокачиваю свои дни в LevelUpDay! Присоединяйся — оба получим 💎: ') + link;
+    b.innerHTML =
+      '<p class="x-ref-p">' + L('Havolani do\'stingizga yuboring. U ro\'yxatdan o\'tib, <b>3 xil kunda</b> ilovaga kirsa, ikkalangiz ham <b>+' + REF_GEMS + ' 💎</b> olasiz.', 'Send the link to a friend. When they sign up and use the app on <b>3 different days</b>, you both get <b>+' + REF_GEMS + ' 💎</b>.', 'Отправьте ссылку другу. Когда он зарегистрируется и зайдёт в приложение <b>3 разных дня</b>, вы оба получите <b>+' + REF_GEMS + ' 💎</b>.') + '</p>' +
+      '<div class="x-ref-link"><input readonly value="' + H(link) + '"><button class="x-btn sm" id="x-ref-copy">📋 ' + L('Nusxa', 'Copy', 'Копировать') + '</button></div>' +
+      '<div class="x-ref-acts"><a class="x-btn sm ghost" target="_blank" rel="noopener" href="https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(msg.replace(link, '')) + '">✈️ Telegram</a>' +
+      (navigator.share ? '<button class="x-btn sm ghost" id="x-ref-share">📤 ' + L('Ulashish', 'Share', 'Поделиться') + '</button>' : '') + '</div>' +
+      '<div class="x-ref-stats"><div><b>' + (d.invited || 0) + '</b><span>' + L('Taklif qilingan', 'Invited', 'Приглашено') + '</span></div><div><b>' + (d.active || 0) + '</b><span>' + L('Faol (3+ kun)', 'Active (3+ days)', 'Активны (3+ дн.)') + '</span></div><div><b>' + ((d.rewarded || 0) * REF_GEMS) + ' 💎</b><span>' + L('Olingan', 'Earned', 'Получено') + '</span></div></div>' +
+      (d.invited_by ? '<div class="x-ref-by">🤝 ' + L('Sizni taklif qilgan: ', 'Invited by: ', 'Вас пригласил(а): ') + '<b>' + H(d.invited_by) + '</b> · ' + (d.my_claimed ? L('mukofot olindi ✅', 'reward received ✅', 'награда получена ✅') : L('faol kunlar: ', 'active days: ', 'активных дней: ') + Math.min(3, d.my_progress || 0) + '/3') + '</div>' : '') +
+      ((d.list || []).length ? '<div class="x-sec-t">' + L('Taklif qilganlarim', 'My invites', 'Мои приглашения') + '</div>' + d.list.map(function (x) { return '<div class="x-ref-row"><span>' + H(x.name || '?') + '</span><em>' + (x.claimed ? '✅ +' + REF_GEMS + ' 💎' : x.active ? '🎁' : '⏳ ' + L('3 kun kutilmoqda', 'waiting for 3 days', 'ждём 3 дня')) + '</em></div>'; }).join('') : '');
+    var cp = b.querySelector('#x-ref-copy'); if (cp) cp.onclick = function () { var i = b.querySelector('.x-ref-link input'); try { navigator.clipboard.writeText(link); } catch (e) { i.select(); document.execCommand('copy'); } toast('📋 ' + L('Havola nusxalandi', 'Link copied', 'Ссылка скопирована')); };
+    var sh = b.querySelector('#x-ref-share'); if (sh) sh.onclick = function () { navigator.share({ title: 'LevelUpDay', text: msg.replace(link, ''), url: link }).catch(function () {}); };
+  }
+  window.xOpenReferral = openReferral;
+  refCaptureFromUrl();
+
   // ?action=… (manifest shortcuts)
   function handleLaunchAction() {
     try {
@@ -1646,6 +1766,15 @@
 
   function boot() {
     try { markMovedTabs(); buildBottomNav(); renderInstallUI(); handleLaunchAction(); } catch (e) { console.warn('[extras nav]', e); }
+    try { renderPushSettings(); setTimeout(window.xPushAuto, 4000); } catch (e) { console.warn('[push]', e); }
+    // 💚 Onlayn holat: ilova ochiq turganda har 2 daqiqada faollik yuboriladi (do'stlarda "onlayn" ko'rinadi)
+    var beat = function () {
+      if (document.visibilityState !== 'visible' || !cloudOk()) return;
+      try { supabase.rpc('touch_activity', { p_device: (typeof _cloudDeviceType === 'function' ? _cloudDeviceType() : null) }).then(function () {}, function () {}); } catch (e) {}
+    };
+    setTimeout(beat, 5000); setInterval(beat, 120000);
+    setTimeout(refSync, 6000);
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') beat(); });
     try { new MutationObserver(function () { renderBottomNav(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tab'] }); } catch (e) {}
     try { bossState(); bossResolve(); } catch (e) {}
     document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(function () { try { bossResolve(); renderBossStrip(false); } catch (e) {} }, 400); });

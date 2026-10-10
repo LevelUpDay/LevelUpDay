@@ -18,6 +18,12 @@ Barcha o'zgarishlar Supabase migratsiyalari sifatida qo'llangan
 | `fix_set_friend_code_definer` | profil sinxroni 403 xatosi tuzatildi |
 | `admin_by_email_allowlist` | admin paneli faqat 3 ta email uchun |
 | `unique_nick_and_change_cooldown` | yagona nik, nikni 7 kunda 1 marta o'zgartirish |
+| `push_subscriptions`, `push_config_rpc_and_cron`, `push_service_role_grants`, `schedule_send_reminders` | 🔔 push eslatmalar (kalitlar Vault'da, pg_cron har 5 daqiqada `send-reminders` funksiyasini chaqiradi) |
+| `referrals` | 🎁 do'st taklif qilish (3 faol kundan keyin ikkalasiga +10 💎) |
+| `friends_last_active` | do'stlarda haqiqiy onlayn holat |
+| `profiles_anti_cheat_rate_limits` | reyting firibgarligiga qarshi: XP/tanga/gem/streak o'sishi serverda cheklanadi |
+
+Edge function: `functions/send-reminders` (verify_jwt o'chiq — o'rniga Vault'dagi `push_cron_secret` sarlavhasi tekshiriladi).
 
 ## Qo'lda ishga tushirish kerak bo'lgan fayllar
 

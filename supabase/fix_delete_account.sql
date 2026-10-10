@@ -11,7 +11,7 @@ declare
 begin
   if uid is null then raise exception 'not authenticated'; end if;
 
-  foreach t in array array['todos','app_state','reward_log','pomo_log','pomo_break_stats','friendships','blocked_users','blocks','friend_blocks','user_activity_days','activity_feed','shared_tasks','feed_reactions']
+  foreach t in array array['todos','app_state','reward_log','pomo_log','pomo_break_stats','friendships','blocked_users','blocks','friend_blocks','user_activity_days','activity_feed','shared_tasks','feed_reactions','push_subscriptions','push_log','profile_limits']
   loop
     if to_regclass('public.' || t) is not null then
       begin
