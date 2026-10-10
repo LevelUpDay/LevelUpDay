@@ -408,3 +408,9 @@ html.layout-mobile input, html.layout-mobile select, html.layout-mobile textarea
 .x-inst-steps { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .x-inst-steps > div { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--text); line-height: 1.45; }
 .x-inst-steps b:first-child { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+
+/* 📨 Admin paneli: Statistika / Fikrlar tablari */
+.ad-tabs { display: flex; gap: 6px; margin: 4px 0 12px; }
+.ad-tab { flex: 1; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.ad-tab.on { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); border-color: var(--accent); color: var(--text); }
+.ad-tab-n:not(:empty) { min-width: 18px; padding: 1px 6px; border-radius: 999px; background: #EF4444; color: #fff; font-size: 11px; }

@@ -7333,16 +7333,29 @@ var defaultRewards = [
 
 
 // Level tizimi (XP asosida, tangadan alohida)
-// Kuniga ~15 vazifa (~175 XP/kun), Lv2 uchun ~3 kun
+// Kuniga ~15 vazifa (~175 XP/kun), Lv2 uchun ~4 kun (darajalar ~1.33x qiyinlashtirildi)
 var LEVELS = [
-  {min:0,    max:524,  level:1, name:"Yangi boshlagan",  icon:'🌱', reward:0},
-  {min:525,  max:1574, level:2, name:"Harakat qiluvchi", icon:'🔥', reward:50},
-  {min:1575, max:3674, level:3, name:"Izchil o'quvchi",  icon:'📚', reward:100},
-  {min:3675, max:7874, level:4, name:"Intizomli",         icon:'⚡', reward:200},
-  {min:7875, max:16274,level:5, name:"Ustoz darajasi",    icon:'🎓', reward:400},
-  {min:16275,max:33074,level:6, name:"Chempion",          icon:'🏆', reward:800},
-  {min:33075,max:999999,level:7,name:"Legenda",           icon:'👑', reward:1500},
+  {min:0,    max:699,   level:1, name:"Yangi boshlagan",  icon:'🌱', reward:0},
+  {min:700,  max:2099,  level:2, name:"Harakat qiluvchi", icon:'🔥', reward:50},
+  {min:2100, max:4899,  level:3, name:"Izchil o'quvchi",  icon:'📚', reward:100},
+  {min:4900, max:10499, level:4, name:"Intizomli",         icon:'⚡', reward:200},
+  {min:10500,max:21699, level:5, name:"Ustoz darajasi",    icon:'🎓', reward:400},
+  {min:21700,max:44099, level:6, name:"Chempion",          icon:'🏆', reward:800},
+  {min:44100,max:999999,level:7, name:"Legenda",           icon:'👑', reward:1500},
 ];
+// Eski chegaralar (525/1575/...) — oldin erishilgan darajalar mukofoti qayta berilmasligi uchun
+var LEVELS_OLD_MINS = [0, 525, 1575, 3675, 7875, 16275, 33075];
+function levelRewardClaimed(level) {
+  if (!S.levelRewardsClaimed) {
+    // Birinchi marta: hozirgi XP bo'yicha eski va yangi jadvaldagi eng yuqori darajagacha "olingan" deb belgilaymiz
+    S.levelRewardsClaimed = {};
+    var xp = S.xp || 0, oldLv = 1;
+    LEVELS_OLD_MINS.forEach(function (m, i) { if (xp >= m) oldLv = i + 1; });
+    var upTo = Math.max(oldLv, getLevel(xp).level);
+    for (var l = 1; l <= upTo; l++) S.levelRewardsClaimed[l] = true;
+  }
+  return !!S.levelRewardsClaimed[level];
+}
 // XP manbalari — kuniga ~15 vazifa + 100% bonus = ~175 XP/kun
 var XP_PER_TASK_EASY = 3;
 var XP_PER_TASK_MED  = 6;
@@ -7369,6 +7382,7 @@ function getLevel(xp) {
 
 function addXP(amount, reason) {
   if(!S.xp) S.xp = 0;
+  try { levelRewardClaimed(0); } catch (e) {} // olingan darajalar ro'yxatini XP qo'shilishidan OLDIN tayyorlaymiz
   if (amount > 0 && (S.coins || 0) < 0 && typeof debtMode === 'function' && debtMode() === 'xp') amount = Math.ceil(amount / 2);
   const oldLevel = getLevel(S.xp).level;
   S.xp += amount;
@@ -7376,6 +7390,8 @@ function addXP(amount, reason) {
   const newLevel = getLevel(S.xp).level;
   if(newLevel > oldLevel) {
     const lv = getLevel(S.xp);
+    // Undo → qayta bajarish orqali bir darajaga qayta chiqilsa, mukofot va xabar takrorlanmasin
+    if (levelRewardClaimed(lv.level)) return;
     setTimeout(function(){ showLevelUpModal(lv); }, 400);
     try { if (typeof window.xFeedPost === 'function') window.xFeedPost('level', _cl("yangi darajaga chiqdi", "reached a new level", "достиг(ла) нового уровня") + ': Lv' + lv.level + ' ' + lv.icon, '⭐'); } catch (e) {}
   }
@@ -7404,6 +7420,7 @@ function showLevelUpModal(lv) {
       '<button class="levelup-btn" id="lu-close">' + t('levelup_btn') + '</button>' +
     '</div>';
   document.body.appendChild(ov);
+  try { levelRewardClaimed(lv.level); S.levelRewardsClaimed[lv.level] = true; } catch (e) {}
   if(reward > 0) {
     S.coins += reward;
     if(!S.totalCoins) S.totalCoins = 0;
@@ -15231,6 +15248,11 @@ function reytingMetricBlock(p, metric) {
          '<div style="font-size:var(--fs-3xs);color:var(--text-muted);margin-top:1px">'+lv.icon+' Lv'+lv.level+'</div>';
 }
 
+// 🛍 Do'kon bezaklari (extras.js) — o'zim uchun har doim hozirgi kiyilganlarini ko'rsatamiz
+function _cosOf(p) { try { return (p && p.isMe && typeof window.xCosMine === 'function') ? window.xCosMine() : (p && p.cosmetics) || null; } catch (e) { return null; } }
+function _cosName(nameHtml, p) { try { return typeof window.xCosNameHtml === 'function' ? window.xCosNameHtml(nameHtml, _cosOf(p)) : nameHtml; } catch (e) { return nameHtml; } }
+function _cosFrame(p) { try { return typeof window.xCosFrameCls === 'function' ? window.xCosFrameCls(_cosOf(p)).trim() : ''; } catch (e) { return ''; } }
+
 function renderReytingCard(p, metric) {
   var rankBadge = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : ('#' + p.rank);
   var cls = 'reyting-card' + (p.isMe ? ' reyting-me' : '') + (p.rank===1?' reyting-gold':p.rank===2?' reyting-silver':p.rank===3?' reyting-bronze':'');
@@ -15241,10 +15263,10 @@ function renderReytingCard(p, metric) {
   return (
     '<div class="'+cls+'" id="'+(p.isMe?'reyting-me-card':'')+'" onclick="showPlayerProfileModal(\''+esc(p.id)+'\')" style="cursor:pointer">'+
       '<div style="width:30px;text-align:center;flex-shrink:0;font-size:'+(p.rank<=3?'20px':'14px')+';font-weight:700;color:'+(p.rank<=3?'inherit':'var(--text-muted)')+';font-family:Syne,sans-serif">'+rankBadge+'</div>'+
-      '<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">'+avatarHtml+'</div>'+
+      '<div class="'+_cosFrame(p)+'" style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">'+avatarHtml+'</div>'+
       '<div style="flex:1;min-width:0">'+
         '<div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
-          '<span>'+esc(p.name||'?')+'</span>'+(p.isMe?'<span style="font-size:var(--fs-3xs);font-weight:700;color:var(--accent);background:rgba(124,92,252,0.15);border-radius:var(--radius-full);padding:1px 7px">'+t('reyting_you_badge')+'</span>':'')+
+          '<span>'+_cosName(esc(p.name||'?'), p)+'</span>'+(p.isMe?'<span style="font-size:var(--fs-3xs);font-weight:700;color:var(--accent);background:rgba(124,92,252,0.15);border-radius:var(--radius-full);padding:1px 7px">'+t('reyting_you_badge')+'</span>':'')+
         '</div>'+
         '<div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-top:2px">'+flag+' '+(p.country?esc(countryName(p.country)):t('pe_country_none'))+'</div>'+
       '</div>'+
@@ -15264,8 +15286,8 @@ function renderReytingPodium(top, metric) {
     var unit = metric === 'hp' ? ' ❤️' : reytingMetricUnit(metric);
     return '<div class="rk-pod rk-pod-' + p.rank + (p.isMe ? ' is-me' : '') + '" ' + (p.isMe ? 'id="reyting-me-card" ' : '') + 'onclick="showPlayerProfileModal(\'' + esc(p.id) + '\')">' +
       '<div class="rk-pod-medal">' + medals[p.rank] + '</div>' +
-      '<div class="rk-pod-av">' + av + '</div>' +
-      '<div class="rk-pod-name">' + esc(p.name || '?') + (p.isMe ? ' <span class="rk-you">' + t('reyting_you_badge') + '</span>' : '') + '</div>' +
+      '<div class="rk-pod-av ' + _cosFrame(p) + '">' + av + '</div>' +
+      '<div class="rk-pod-name">' + _cosName(esc(p.name || '?'), p) + (p.isMe ? ' <span class="rk-you">' + t('reyting_you_badge') + '</span>' : '') + '</div>' +
       '<div class="rk-pod-flag">' + countryFlagImg(p.country, 12) + '</div>' +
       '<div class="rk-pod-val">' + val + unit + '</div>' +
       (metric === 'coins' ? '<div class="rk-pod-prize">+' + reytingPrizeFor(p.rank, S.reytingParticipants || 0) + ' 🪙</div>' : '') +
@@ -15307,8 +15329,8 @@ function showPlayerProfileModal(id) {
   box.style.cssText = 'position:relative;background:var(--surface);border:1px solid var(--border);box-shadow:0 0 0 1px var(--border),0 20px 50px rgba(0,0,0,0.5);border-radius:var(--radius-xl);padding:20px;width:100%;max-width:340px;max-height:85vh;overflow-y:auto';
 
   var avatarHtml = p.photo
-    ? '<img src="'+p.photo+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)" />'
-    : '<div style="width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:var(--fs-3xl);font-weight:700;color:#fff;font-family:Syne,sans-serif;border:2px solid var(--accent)">'+esc((p.name||'?').charAt(0).toUpperCase())+'</div>';
+    ? '<img class="'+_cosFrame(p)+'" src="'+p.photo+'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)" />'
+    : '<div class="'+_cosFrame(p)+'" style="width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:var(--fs-3xl);font-weight:700;color:#fff;font-family:Syne,sans-serif;border:2px solid var(--accent)">'+esc((p.name||'?').charAt(0).toUpperCase())+'</div>';
   var flag = countryFlagImg(p.country, 16);
   var lv = getLevel(p.xp || 0);
 
@@ -15326,7 +15348,8 @@ function showPlayerProfileModal(id) {
     '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px;padding-top:4px">'+
       avatarHtml+
       '<div style="display:flex;align-items:center;gap:6px;margin-top:10px">'+
-        '<span style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:var(--text)">'+esc(p.name||'?')+'</span>'+
+        '<span style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:var(--text)">'+_cosName(esc(p.name||'?'), p)+'</span>'+
+        (function(){ var tt=''; try { tt = typeof window.xCosTitle === 'function' ? window.xCosTitle(_cosOf(p)) : ''; } catch (e) {} return tt ? '<span class="x-ptitle" style="margin:0 0 0 6px">'+esc(tt)+'</span>' : ''; })()+
         '<span style="font-size:var(--fs-md)">'+flag+'</span>'+
       '</div>'+
       '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'+
@@ -16256,7 +16279,7 @@ function confirmRestart() {
   document.getElementById('restart-confirm').onclick = function(){
     S.coins = 0;
     S.totalCoins = 0;
-    S.xp = 0;
+    S.xp = 0; S.levelRewardsClaimed = null;
     S.streak = 0;
     S.bestStreak = 0;
     S.totalPurchases = 0;
@@ -16327,7 +16350,7 @@ function _rstResetCoins() {
 
 function _rstResetStats() {
   // XP/Streak/kunlik bajarilish tarixi + IELTS/SAT natijalari + kalendar
-  S.xp = 0;
+  S.xp = 0; S.levelRewardsClaimed = null;
   S.streak = 0;
   S.bestStreak = 0;
   S.totalTasksDone = 0;
@@ -25191,7 +25214,13 @@ function scheduleCloudSync(immediate) {
     // 💎 `gems` ustuni bazaga qo'shilgan bo'lsa yozamiz; yo'q bo'lsa (hali SQL
     // yangilanmagan) — usiz qayta yuboramiz, profil sinxronizatsiyasi buzilmasin.
     if (!window._noGemsColumn) row.gems = S.gems || 0;
+    // 🛍 kiyilgan bezaklar — reyting va do'stlarda boshqalarga ko'rinadi
+    if (!window._noCosmeticsColumn) { try { row.cosmetics = typeof window.xCosMine === 'function' ? window.xCosMine() : null; } catch (e) {} }
     supabase.from('profiles').upsert(row).then(function (r) {
+      if (r.error && row.cosmetics !== undefined && /cosmetics/i.test(r.error.message || '')) {
+        window._noCosmeticsColumn = true; delete row.cosmetics;
+        return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
+      }
       if (r.error && /referral_|device_type/i.test(r.error.message || '')) {
         window._noAnalyticsColumns = true; delete row.referral_source; delete row.referral_other; delete row.device_type;
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
@@ -25253,6 +25282,7 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
       targetSubjects: r.target_subjects || [],
       appGoalOther: r.app_goal_other || '',
       gems: Number(r.gems) || 0,
+      cosmetics: r.cosmetics || null,
       isMe: false
     };
   });
@@ -28370,13 +28400,13 @@ var friendsSyncFromCloud = async function() {
     var F = S.friends;
     if (d.friend_code) F.myId = d.friend_code;
     F.list = (d.friends || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, cosmetics: x.cosmetics || null, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
     });
     F.incoming = (d.incoming || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
     });
     F.outgoing = (d.outgoing || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
     });
     F.banned = (d.blocked || []).map(function (x) {
       return { id: x.id, name: x.name, avatarUrl: x.photo || null, bannedAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
@@ -28899,7 +28929,8 @@ function friendsAvatarHtml(f, extraAttrs, showStatus) {
     var online = friendsIsOnline(f.id);
     dot = '<span class="friend-status-dot' + (online ? ' online' : ' offline') + '" title="' + esc(t(online ? 'friends_status_online' : 'friends_status_offline')) + '"></span>';
   }
-  return '<div class="friend-avatar' + p.cls + '"' + (p.style ? ' style="' + p.style + '"' : '') + (extraAttrs || '') + '>' + p.inner + dot + '</div>';
+  var fc = (f && f.cosmetics) ? _cosFrame(f) : '';
+  return '<div class="friend-avatar' + p.cls + (fc ? ' ' + fc : '') + '"' + (p.style ? ' style="' + p.style + '"' : '') + (extraAttrs || '') + '>' + p.inner + dot + '</div>';
 }
 function friendsIsOnline(id) {
   var bucket = Math.floor(Date.now() / 300000); // har 5 daqiqada bir yangilanadi
@@ -29119,7 +29150,7 @@ function friendsCopyMyId() {
 function friendCardHtml(f, actionsHtml, viewable, showStatus) {
   var mutualChip = (f._mutualCount) ? ' <span class="friend-mutual-chip">' + t('friends_mutual_chip').replace('{n}', f._mutualCount) + '</span>' : '';
   var infoBlock = '<div style="min-width:0;flex:1">'
-    + '<div class="friend-name">' + esc(f.name) + mutualChip + '</div>'
+    + '<div class="friend-name">' + _cosName(esc(f.name), f) + mutualChip + '</div>'
     + '<div class="friend-sub">' + (f.level ? '⭐ Lv ' + esc(String(f.level)) : '') + (showStatus ? ((f.level ? ' · ' : '') + (friendsIsOnline(f.id) ? '<span class="fr-on">' + _cl("onlayn", "online", "онлайн") + '</span>' : '<span class="fr-off">' + _cl("oflayn", "offline", "офлайн") + '</span>')) : '') + (f.reason ? ((f.level || showStatus) ? ' · ' : '') + '💬 ' + esc(f.reason.length > 40 ? f.reason.slice(0, 40) + '…' : f.reason) : '') + '</div>'
     + '</div>';
   // ✅ TUZATILDI: rasm/emoji yo'q holat uchun endi bo'sh doira o'rniga
@@ -31291,7 +31322,6 @@ var adminRenderFeedback = async function(filter) {
         '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
           (f.status !== 'read' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'read\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">👁 ' + _cl("O'qildi", "Mark read", "Прочитано") + '</button>' : '') +
           (f.status !== 'done' ? '<button onclick="adminFeedbackSet(' + f.id + ',\'done\')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;cursor:pointer">✅ Bajarildi</button>' : '') +
-          '<button onclick="adminFeedbackDelete(' + f.id + ')" style="padding:4px 10px;border-radius:8px;border:1px solid rgba(248,113,113,.4);background:transparent;color:#F87171;font-size:12px;cursor:pointer">🗑</button>' +
           '<span style="margin-left:auto;font-size:11px;color:var(--text-dim)">' + esc((f.lang || '').toUpperCase()) + '</span>' +
         '</div></div>';
     }).join('');

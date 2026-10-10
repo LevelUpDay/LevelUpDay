@@ -370,58 +370,58 @@
   var SHOP = [
     { id: 'f_gold', kind: 'frame', v: 'gold', icon: '🟡', n: ['Oltin ramka', 'Gold frame', 'Золотая рамка'], coins: 150 },
     { id: 'f_ice', kind: 'frame', v: 'ice', icon: '🧊', n: ['Muz ramka', 'Ice frame', 'Ледяная рамка'], coins: 200 },
-    { id: 'f_neon', kind: 'frame', v: 'neon', icon: '💜', n: ['Neon ramka', 'Neon frame', 'Неоновая рамка'], gems: 5 },
-    { id: 'f_fire', kind: 'frame', v: 'fire', icon: '🔥', n: ['Olov ramka', 'Fire frame', 'Огненная рамка'], gems: 8 },
-    { id: 'f_rainbow', kind: 'frame', v: 'rainbow', icon: '🌈', n: ['Kamalak ramka', 'Rainbow frame', 'Радужная рамка'], gems: 15 },
+    { id: 'f_neon', kind: 'frame', v: 'neon', icon: '💜', n: ['Neon ramka', 'Neon frame', 'Неоновая рамка'], gems: 12 },
+    { id: 'f_fire', kind: 'frame', v: 'fire', icon: '🔥', n: ['Olov ramka', 'Fire frame', 'Огненная рамка'], gems: 20 },
+    { id: 'f_rainbow', kind: 'frame', v: 'rainbow', icon: '🌈', n: ['Kamalak ramka', 'Rainbow frame', 'Радужная рамка'], gems: 40 },
     { id: 'n_mint', kind: 'nick', v: 'mint', icon: '🟢', n: ['Yalpiz nik', 'Mint nickname', 'Мятный ник'], coins: 80 },
     { id: 'n_pink', kind: 'nick', v: 'pink', icon: '🩷', n: ['Pushti nik', 'Pink nickname', 'Розовый ник'], coins: 80 },
     { id: 'n_gold', kind: 'nick', v: 'gold', icon: '✨', n: ['Oltin nik', 'Gold nickname', 'Золотой ник'], coins: 150 },
-    { id: 'n_rainbow', kind: 'nick', v: 'rainbow', icon: '🌈', n: ['Kamalak nik', 'Rainbow nickname', 'Радужный ник'], gems: 10 },
+    { id: 'n_rainbow', kind: 'nick', v: 'rainbow', icon: '🌈', n: ['Kamalak nik', 'Rainbow nickname', 'Радужный ник'], gems: 25 },
     { id: 't_owl', kind: 'title', v: '🦉 ' + 'Night Owl', icon: '🦉', n: ['Unvon: Tungi boyo\'g\'li', 'Title: Night Owl', 'Титул: Сова'], coins: 120, tv: ['🦉 Tungi boyo\'g\'li', '🦉 Night Owl', '🦉 Сова'] },
     { id: 't_early', kind: 'title', v: 'early', icon: '🌅', n: ['Unvon: Erta turuvchi', 'Title: Early Bird', 'Титул: Жаворонок'], coins: 120, tv: ['🌅 Erta turuvchi', '🌅 Early Bird', '🌅 Жаворонок'] },
-    { id: 't_machine', kind: 'title', v: 'machine', icon: '⚡', n: ['Unvon: Ish mashinasi', 'Title: Machine', 'Титул: Машина'], gems: 6, tv: ['⚡ Ish mashinasi', '⚡ Machine', '⚡ Машина'] },
-    { id: 't_legend', kind: 'title', v: 'legend', icon: '👑', n: ['Unvon: Afsona', 'Title: Legend', 'Титул: Легенда'], gems: 20, tv: ['👑 Afsona', '👑 Legend', '👑 Легенда'] },
+    { id: 't_machine', kind: 'title', v: 'machine', icon: '⚡', n: ['Unvon: Ish mashinasi', 'Title: Machine', 'Титул: Машина'], gems: 15, tv: ['⚡ Ish mashinasi', '⚡ Machine', '⚡ Машина'] },
+    { id: 't_legend', kind: 'title', v: 'legend', icon: '👑', n: ['Unvon: Afsona', 'Title: Legend', 'Титул: Легенда'], gems: 50, tv: ['👑 Afsona', '👑 Legend', '👑 Легенда'] },
     // ➕ yangi ramkalar
     { id: 'f_ocean', kind: 'frame', v: 'ocean', icon: '🌊', n: ['Okean ramka', 'Ocean frame', 'Океанская рамка'], coins: 180 },
     { id: 'f_sakura', kind: 'frame', v: 'sakura', icon: '🌸', n: ['Sakura ramka', 'Sakura frame', 'Рамка сакура'], coins: 250 },
     { id: 'f_matrix', kind: 'frame', v: 'matrix', icon: '💚', n: ['Matritsa ramka', 'Matrix frame', 'Рамка матрица'], coins: 300 },
-    { id: 'f_lava', kind: 'frame', v: 'lava', icon: '🌋', n: ['Lava ramka', 'Lava frame', 'Лавовая рамка'], gems: 10 },
-    { id: 'f_galaxy', kind: 'frame', v: 'galaxy', icon: '🌌', n: ['Galaktika ramka', 'Galaxy frame', 'Рамка галактика'], gems: 12 },
+    { id: 'f_lava', kind: 'frame', v: 'lava', icon: '🌋', n: ['Lava ramka', 'Lava frame', 'Лавовая рамка'], gems: 25 },
+    { id: 'f_galaxy', kind: 'frame', v: 'galaxy', icon: '🌌', n: ['Galaktika ramka', 'Galaxy frame', 'Рамка галактика'], gems: 30 },
     // ➕ yangi nik ranglari
     { id: 'n_ocean', kind: 'nick', v: 'ocean', icon: '🔵', n: ['Okean nik', 'Ocean nickname', 'Океанский ник'], coins: 80 },
     { id: 'n_lava', kind: 'nick', v: 'lava', icon: '🟠', n: ['Lava nik', 'Lava nickname', 'Лавовый ник'], coins: 100 },
     { id: 'n_ice', kind: 'nick', v: 'ice', icon: '🧊', n: ['Muz nik', 'Ice nickname', 'Ледяной ник'], coins: 120 },
-    { id: 'n_neon', kind: 'nick', v: 'neon', icon: '💡', n: ['Neon nik', 'Neon nickname', 'Неоновый ник'], gems: 8 },
-    { id: 'n_aurora', kind: 'nick', v: 'aurora', icon: '🌌', n: ['Shimol shafag\'i nik', 'Aurora nickname', 'Ник аврора'], gems: 12 },
+    { id: 'n_neon', kind: 'nick', v: 'neon', icon: '💡', n: ['Neon nik', 'Neon nickname', 'Неоновый ник'], gems: 20 },
+    { id: 'n_aurora', kind: 'nick', v: 'aurora', icon: '🌌', n: ['Shimol shafag\'i nik', 'Aurora nickname', 'Ник аврора'], gems: 30 },
     // ➕ yangi unvonlar
     { id: 't_book', kind: 'title', v: 'book', icon: '📚', n: ['Unvon: Kitobxon', 'Title: Bookworm', 'Титул: Книголюб'], coins: 100, tv: ['📚 Kitobxon', '📚 Bookworm', '📚 Книголюб'] },
     { id: 't_sniper', kind: 'title', v: 'sniper', icon: '🎯', n: ['Unvon: Mergan', 'Title: Sharpshooter', 'Титул: Снайпер'], coins: 150, tv: ['🎯 Mergan', '🎯 Sharpshooter', '🎯 Снайпер'] },
     { id: 't_zen', kind: 'title', v: 'zen', icon: '🧘', n: ['Unvon: Zen ustasi', 'Title: Zen master', 'Титул: Мастер дзен'], coins: 150, tv: ['🧘 Zen ustasi', '🧘 Zen master', '🧘 Мастер дзен'] },
     { id: 't_rocket', kind: 'title', v: 'rocket', icon: '🚀', n: ['Unvon: Raketa', 'Title: Rocket', 'Титул: Ракета'], coins: 200, tv: ['🚀 Raketa', '🚀 Rocket', '🚀 Ракета'] },
-    { id: 't_lion', kind: 'title', v: 'lion', icon: '🦁', n: ['Unvon: Sher yurak', 'Title: Lionheart', 'Титул: Львиное сердце'], gems: 8, tv: ['🦁 Sher yurak', '🦁 Lionheart', '🦁 Львиное сердце'] },
-    { id: 't_genius', kind: 'title', v: 'genius', icon: '🧠', n: ['Unvon: Daho', 'Title: Genius', 'Титул: Гений'], gems: 12, tv: ['🧠 Daho', '🧠 Genius', '🧠 Гений'] },
+    { id: 't_lion', kind: 'title', v: 'lion', icon: '🦁', n: ['Unvon: Sher yurak', 'Title: Lionheart', 'Титул: Львиное сердце'], gems: 20, tv: ['🦁 Sher yurak', '🦁 Lionheart', '🦁 Львиное сердце'] },
+    { id: 't_genius', kind: 'title', v: 'genius', icon: '🧠', n: ['Unvon: Daho', 'Title: Genius', 'Титул: Гений'], gems: 30, tv: ['🧠 Daho', '🧠 Genius', '🧠 Гений'] },
     // 🎨 ilova rangi (accent)
     { id: 'c_ocean', kind: 'theme', v: '#0ea5e9', icon: '🌊', n: ['Okean rangi', 'Ocean theme', 'Тема океан'], coins: 200 },
     { id: 'c_forest', kind: 'theme', v: '#22c55e', icon: '🌲', n: ['O\'rmon rangi', 'Forest theme', 'Тема лес'], coins: 200 },
     { id: 'c_sunset', kind: 'theme', v: '#f97316', icon: '🌅', n: ['Shafaq rangi', 'Sunset theme', 'Тема закат'], coins: 200 },
     { id: 'c_rose', kind: 'theme', v: '#ec4899', icon: '🌹', n: ['Atirgul rangi', 'Rose theme', 'Тема роза'], coins: 200 },
-    { id: 'c_gold', kind: 'theme', v: '#eab308', icon: '🏆', n: ['Oltin rang', 'Gold theme', 'Золотая тема'], gems: 6 },
-    { id: 'c_crimson', kind: 'theme', v: '#ef4444', icon: '🍒', n: ['Qirmizi rang', 'Crimson theme', 'Тема кармин'], gems: 6 },
+    { id: 'c_gold', kind: 'theme', v: '#eab308', icon: '🏆', n: ['Oltin rang', 'Gold theme', 'Золотая тема'], gems: 15 },
+    { id: 'c_crimson', kind: 'theme', v: '#ef4444', icon: '🍒', n: ['Qirmizi rang', 'Crimson theme', 'Тема кармин'], gems: 15 },
     // 🎉 bajarilganda effekt
     { id: 'e_stars', kind: 'effect', v: '⭐✨🌟', icon: '⭐', n: ['Yulduzlar', 'Stars', 'Звёзды'], coins: 150 },
     { id: 'e_hearts', kind: 'effect', v: '💖💗💕', icon: '💖', n: ['Yuraklar', 'Hearts', 'Сердечки'], coins: 150 },
     { id: 'e_coins', kind: 'effect', v: '🪙💰🪙', icon: '🪙', n: ['Tangalar yomg\'iri', 'Coin rain', 'Дождь монет'], coins: 200 },
     { id: 'e_petals', kind: 'effect', v: '🌸🌺🌼', icon: '🌸', n: ['Gul barglari', 'Petals', 'Лепестки'], coins: 200 },
-    { id: 'e_fire', kind: 'effect', v: '🔥💥🔥', icon: '🔥', n: ['Olov', 'Fire', 'Огонь'], gems: 6 },
-    { id: 'e_party', kind: 'effect', v: '🎉🎊🥳', icon: '🎉', n: ['Bayram', 'Party', 'Праздник'], gems: 8 },
+    { id: 'e_fire', kind: 'effect', v: '🔥💥🔥', icon: '🔥', n: ['Olov', 'Fire', 'Огонь'], gems: 15 },
+    { id: 'e_party', kind: 'effect', v: '🎉🎊🥳', icon: '🎉', n: ['Bayram', 'Party', 'Праздник'], gems: 20 },
     // 🏅 nik yonidagi nishon
     { id: 'b_star', kind: 'badge', v: '⭐', icon: '⭐', n: ['Yulduz nishon', 'Star badge', 'Значок звезда'], coins: 100 },
     { id: 'b_fire', kind: 'badge', v: '🔥', icon: '🔥', n: ['Olov nishon', 'Fire badge', 'Значок огонь'], coins: 100 },
     { id: 'b_bolt', kind: 'badge', v: '⚡', icon: '⚡', n: ['Chaqmoq nishon', 'Bolt badge', 'Значок молния'], coins: 120 },
     { id: 'b_moon', kind: 'badge', v: '🌙', icon: '🌙', n: ['Oy nishon', 'Moon badge', 'Значок луна'], coins: 120 },
-    { id: 'b_unicorn', kind: 'badge', v: '🦄', icon: '🦄', n: ['Yagona shox', 'Unicorn badge', 'Значок единорог'], gems: 6 },
-    { id: 'b_gem', kind: 'badge', v: '💎', icon: '💎', n: ['Olmos nishon', 'Diamond badge', 'Значок алмаз'], gems: 10 },
-    { id: 'b_crown', kind: 'badge', v: '👑', icon: '👑', n: ['Toj nishon', 'Crown badge', 'Значок корона'], gems: 15 }
+    { id: 'b_unicorn', kind: 'badge', v: '🦄', icon: '🦄', n: ['Yagona shox', 'Unicorn badge', 'Значок единорог'], gems: 15 },
+    { id: 'b_gem', kind: 'badge', v: '💎', icon: '💎', n: ['Olmos nishon', 'Diamond badge', 'Значок алмаз'], gems: 25 },
+    { id: 'b_crown', kind: 'badge', v: '👑', icon: '👑', n: ['Toj nishon', 'Crown badge', 'Значок корона'], gems: 40 }
   ];
   function shopState() { S.shop = S.shop || { owned: [], frame: null, nick: null, title: null, theme: null, effect: null, badge: null }; if (!Array.isArray(S.shop.owned)) S.shop.owned = []; return S.shop; }
   function shopBuy(id) {
@@ -466,6 +466,26 @@
     var st = shopState(); var it = SHOP.find(function (x) { return x.id === st.title; });
     return it ? L(it.tv[0], it.tv[1], it.tv[2]) : '';
   }
+  // 👀 Boshqalarga ko'rinadigan bezaklar (reyting, do'stlar, profil oynasi).
+  // Faqat do'kondagi ma'lum id'lar qabul qilinadi — bazadagi qiymat orqali HTML kiritib bo'lmaydi.
+  var COS_KINDS = ['frame', 'nick', 'badge', 'title'];
+  function cosItem(c, kind) {
+    if (!c || typeof c !== 'object' || typeof c[kind] !== 'string') return null;
+    return SHOP.find(function (x) { return x.id === c[kind] && x.kind === kind; }) || null;
+  }
+  window.xCosMine = function () {
+    var st = shopState(), o = {};
+    COS_KINDS.forEach(function (k) { if (st[k] && st.owned.indexOf(st[k]) !== -1) o[k] = st[k]; });
+    return Object.keys(o).length ? o : null;
+  };
+  // nameHtml allaqachon escape qilingan bo'lishi kerak
+  window.xCosNameHtml = function (nameHtml, c) {
+    var n = cosItem(c, 'nick'), b = cosItem(c, 'badge');
+    return (n ? '<span class="xn-' + n.v + '">' + nameHtml + '</span>' : nameHtml) + (b ? '<span class="x-nbadge">' + b.v + '</span>' : '');
+  };
+  window.xCosFrameCls = function (c) { var f = cosItem(c, 'frame'); return f ? ' xf-' + f.v : ''; };
+  window.xCosTitle = function (c) { var it = cosItem(c, 'title'); return it ? L(it.tv[0], it.tv[1], it.tv[2]) : ''; };
+
   var shopApply = safe(function () {
     var st = shopState(), root = document.documentElement;
     var f = SHOP.find(function (x) { return x.id === st.frame; }), n = SHOP.find(function (x) { return x.id === st.nick; });
@@ -1312,8 +1332,10 @@
     var ov = document.createElement('div'); ov.id = 'admin-panel-modal'; ov.className = 'ad-ov';
     ov.innerHTML = '<div class="ad-box"><div class="ad-head"><div><div class="ad-title">📊 ' + L('Admin paneli', 'Admin dashboard', 'Панель администратора') + '</div><div class="ad-upd" id="ad-upd"></div></div>' +
       '<div class="ad-head-b"><button class="x-btn ghost sm" id="ad-refresh">↻</button><button class="x-close" id="ad-close" aria-label="close" style="position:static">✕</button></div></div>' +
+      '<div class="ad-tabs"><button class="ad-tab on" data-adt="stats">📊 ' + L('Statistika', 'Stats', 'Статистика') + '</button>' +
+      '<button class="ad-tab" data-adt="fb">📨 ' + L('Fikrlar', 'Feedback', 'Отзывы') + ' <span class="ad-tab-n" id="ad-fb-n"></span></button></div>' +
       '<div id="ad-body"><div class="ad-empty">⏳ ' + L('Yuklanmoqda...', 'Loading...', 'Загрузка...') + '</div></div>' +
-      '<div class="ad-card"><div id="admin-feedback-box"></div></div></div><div id="ad-tip" class="ad-tip"></div>';
+      '<div class="ad-card" id="ad-fb-wrap" style="display:none"><div id="admin-feedback-box"></div></div></div><div id="ad-tip" class="ad-tip"></div>';
     document.body.appendChild(ov);
     var close = function () { ov.remove(); if (location.hash === '#admin') history.replaceState(null, '', location.pathname + location.search); };
     ov.querySelector('#ad-close').onclick = close;
@@ -1325,9 +1347,24 @@
       renderAdminDashboard(body, r.data || {});
       var u = ov.querySelector('#ad-upd'); if (u) u.textContent = L('Yangilangan', 'Updated', 'Обновлено') + ': ' + new Date().toLocaleTimeString();
     };
-    ov.querySelector('#ad-refresh').onclick = load;
+    var showTabAd = function (t) {
+      ov.querySelectorAll('.ad-tab').forEach(function (b) { b.classList.toggle('on', b.dataset.adt === t); });
+      ov.querySelector('#ad-body').style.display = t === 'stats' ? '' : 'none';
+      ov.querySelector('#ad-fb-wrap').style.display = t === 'fb' ? '' : 'none';
+    };
+    ov.querySelectorAll('.ad-tab').forEach(function (b) { b.onclick = function () { showTabAd(b.dataset.adt); }; });
+    // Yangi (o'qilmagan) fikrlar soni — bo'lsa, darhol "Fikrlar" bo'limini ochamiz
+    var countNew = function (open) {
+      supabase.rpc('admin_list_feedback', { p_status: 'new', p_limit: 500 }).then(function (r) {
+        var n = (!r.error && Array.isArray(r.data)) ? r.data.length : 0;
+        var el = ov.querySelector('#ad-fb-n'); if (el) el.textContent = n ? String(n) : '';
+        if (open && n) showTabAd('fb');
+      });
+    };
+    ov.querySelector('#ad-refresh').onclick = function () { load(); countNew(false); try { adminRenderFeedback(); } catch (e) {} };
     load();
     try { if (typeof adminRenderFeedback === 'function') adminRenderFeedback('new'); } catch (e) {}
+    countNew(true);
   };
 
   // Admin bo'lsa — Profil → Sozlamalar va Hub'da "Admin paneli" tugmasi chiqadi
