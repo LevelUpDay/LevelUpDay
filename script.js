@@ -246,8 +246,33 @@ var performExport = async function(exportTypes, pin) {
   }
 };
 
+// 🔒 Bir qurilmada ilova bir nechta tab/oynada ochilganda "kuniga bir marta"
+// ishlaydigan mantiq (checkReset: jarima, streak, interval surish va h.k.)
+// ikki marta qo'llanib ketmasligi uchun — Web Locks bilan navbatma-navbat
+// bajaramiz. Qulf mavjud bo'lmasa yoki osilib qolsa, baribir (bir marta) ishlaydi.
+var _ludWithLock = function(fn) {
+  return new Promise(function(resolve) {
+    var started = false;
+    function run() {
+      if (started) return Promise.resolve();
+      started = true;
+      var r;
+      try { r = fn(); } catch (e) { console.warn('[tab-lock]', e); }
+      return Promise.resolve(r).catch(function(e) { console.warn('[tab-lock]', e); }).then(function() { resolve(); });
+    }
+    var lk = null;
+    try { lk = navigator.locks && typeof navigator.locks.request === 'function' ? navigator.locks : null; } catch (e) {}
+    if (!lk) { run(); return; }
+    var timer = setTimeout(run, 4000);
+    try {
+      lk.request('levelupday-daily-state', function() { clearTimeout(timer); return run(); })
+        .catch(function() { clearTimeout(timer); run(); });
+    } catch (e) { clearTimeout(timer); run(); }
+  });
+};
+
 var bootSharedApp = async function() {
-  try { await loadUserDataAndInit(); } finally { window._appBooted = true; }
+  try { await _ludWithLock(function() { return loadUserDataAndInit(); }); } finally { window._appBooted = true; }
 };
 
 var pushRewardLogToCloud = async function(kind, reward, extra) {
@@ -8997,76 +9022,83 @@ if (document.readyState === 'complete') {
   window.addEventListener('load', bootSharedApp);
 }
 
+// ===== Bir qurilmada bir nechta tab/oyna (yoki PWA + brauzer) sinxronizatsiyasi =====
+// LocalStorage — yagona haqiqat manbai. Boshqa tab saqlaganda (storage hodisasi)
+// yoki shu tab qayta faollashganda, xotiradagi S diskdagi so'nggi nusxaga
+// yangilanadi — shunda keyingi save() boshqa tabdagi o'zgarishlarni o'chirib
+// yubormaydi. Qo'llash paytida save() o'chiriladi (cheksiz "ping-pong" bo'lmasin).
+function _ludAdoptDiskState() {
+  var raw = localStorage.getItem(LOCAL_STATE_KEY);
+  if (!raw) return false;
+  var parsed = JSON.parse(raw);
+  if (!parsed || !parsed.data) return false;
+  if (parsed.updated_at && parsed.updated_at === S._serverSavedAt) return false; // allaqachon shu nusxa
+  var savedTasks = S.tasks, savedOrder = S.taskOrder; // tasks alohida kalitda boshqariladi
+  S = Object.assign({}, S, parsed.data);
+  S.tasks = savedTasks;
+  S.taskOrder = Array.isArray(parsed.data.taskOrder) ? parsed.data.taskOrder.slice() : savedOrder;
+  try { ensureFullTaskOrder(); } catch (e) {}
+  S._serverSavedAt = parsed.updated_at || S._serverSavedAt;
+  return true;
+}
+
+function _ludAdoptDiskTasks() {
+  var raw = localStorage.getItem(LOCAL_TASKS_KEY);
+  if (raw == null) return false; // kalit yo'q — xotiradagini o'chirib yubormaymiz
+  var diskAt = Number(localStorage.getItem(LOCAL_TASKS_UPDATED_KEY)) || 0;
+  var fresh = JSON.parse(raw);
+  if (!Array.isArray(fresh)) return false;
+  if (diskAt > _lastAcceptedTasksWriteAt) _lastAcceptedTasksWriteAt = diskAt;
+  if (raw === JSON.stringify(S.tasks || [])) return false;
+  S.tasks = fresh;
+  try {
+    var st = JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || 'null');
+    if (st && st.data && Array.isArray(st.data.taskOrder)) S.taskOrder = st.data.taskOrder.slice();
+  } catch (e) {}
+  ensureFullTaskOrder();
+  // Bu tasklarni boshqa tab allaqachon saqlagan (va bulutga o'zi yuboradi) — qayta yubormaymiz
+  _lastSyncedTasks = {};
+  fresh.forEach(function(tk) { _lastSyncedTasks[tk.id] = JSON.stringify(tk); });
+  return true;
+}
+
+var _ludTabSyncTimer = null;
+function _ludSyncFromOtherTab() {
+  _ludTabSyncTimer = null;
+  if (!window._appBooted) { _ludTabSyncTimer = setTimeout(_ludSyncFromOtherTab, 300); return; }
+  var changed = false;
+  try { if (_ludAdoptDiskState()) changed = true; } catch (err) { console.warn('Boshqa oynadan holatni sinxronlashda xatolik:', err); }
+  try { if (_ludAdoptDiskTasks()) changed = true; } catch (err) { console.warn('Boshqa oynadan tasklarni sinxronlashda xatolik:', err); }
+  if (!changed) return;
+  console.log('🔄 Boshqa oynada ma\'lumotlar o\'zgardi — sinxronlandi (' + (S.tasks || []).length + ' ta task).');
+  window._ludApplyingRemote = true;
+  try {
+    try { render(); } catch (e) { console.warn('[tab-sync] render', e); }
+    try { refreshAllModulesFromState(); } catch (e) {}
+  } finally {
+    window._ludApplyingRemote = false;
+  }
+  // Boshqa tabda javob berilgan "Personal Check" savoli bu tabda ochiq qolmasin
+  try {
+    var kd = window._kiOvDate;
+    if (window._kiOv && kd && ((S.kiAns || {})[kd] || (S.kiSkipped || {})[kd])) {
+      window._kiOv.remove(); window._kiOv = null;
+    }
+  } catch (e) {}
+}
+
 window.addEventListener('storage', function(e) {
   if (!e.key) return; // ba'zi brauzerlarda localStorage.clear() da key=null keladi
-
-  if (e.key === LOCAL_TASKS_KEY) {
-    try {
-      var incomingAt = Number(localStorage.getItem(LOCAL_TASKS_UPDATED_KEY)) || 0;
-      if (incomingAt && incomingAt <= _lastAcceptedTasksWriteAt) {
-        console.warn('🛡️ Eskiroq/fon oynadan kelgan tasklar yozuvi rad etildi (vaqt tamg\'asi eski).');
-        return;
-      }
-      const fresh = e.newValue ? JSON.parse(e.newValue) : [];
-      if (Array.isArray(fresh)) {
-        console.log('🔄 Boshqa oynada tasklar o\'zgardi — sinxronlanmoqda (' + fresh.length + ' ta).');
-        S.tasks = fresh;
-        ensureFullTaskOrder();
-        _lastSyncedTasks = {};
-        fresh.forEach(function(t){ _lastSyncedTasks[t.id] = JSON.stringify(t); });
-        _lastAcceptedTasksWriteAt = incomingAt || Date.now();
-        render();
-      }
-    } catch(err) { console.warn('Boshqa oynadan tasklarni sinxronlashda xatolik:', err); }
-  }
-
-  if (e.key === LOCAL_STATE_KEY) {
-    try {
-      const parsed = e.newValue ? JSON.parse(e.newValue) : null;
-      if (parsed && parsed.data) {
-        console.log('🔄 Boshqa oynada umumiy holat (tanga, streak va h.k.) o\'zgardi — sinxronlanmoqda.');
-        const savedTasks = S.tasks, savedOrder = S.taskOrder; // tasks alohida sinxronlanadi, bu yerda saqlab qolamiz
-        S = Object.assign({}, S, parsed.data);
-        S.tasks = savedTasks; S.taskOrder = savedOrder;
-        render();
-        refreshAllModulesFromState();
-      }
-    } catch(err) { console.warn('Boshqa oynadan holatni sinxronlashda xatolik:', err); }
-  }
+  if (e.key !== LOCAL_STATE_KEY && e.key !== LOCAL_TASKS_KEY && e.key !== LOCAL_TASKS_UPDATED_KEY) return;
+  // Bitta save() bir nechta kalitni yozadi — ularni bitta qayta chizishga birlashtiramiz
+  if (_ludTabSyncTimer) clearTimeout(_ludTabSyncTimer);
+  _ludTabSyncTimer = setTimeout(_ludSyncFromOtherTab, 40);
 });
 
 document.addEventListener('visibilitychange', function() {
   if (document.hidden) return;
-  try {
-    const diskAt = Number(localStorage.getItem(LOCAL_TASKS_UPDATED_KEY)) || 0;
-    const fresh = readLocalTasks();
-    const freshJson = JSON.stringify(fresh);
-    const mineJson = JSON.stringify(S.tasks || []);
-    const isNewer = diskAt ? (diskAt > _lastAcceptedTasksWriteAt) : (fresh.length >= (S.tasks || []).length);
-    if (freshJson !== mineJson && isNewer) {
-      // Diskdagi nusxa bizniki bilan farq qiladi va chindan ham yangiroq —
-      // demak boshqa oynada/tabda yangilanish bo'lgan, o'shani olamiz.
-      console.log('🔄 Oyna faollashdi — tasklar diskdagi so\'nggi nusxa bilan sinxronlandi.');
-      S.tasks = fresh;
-      ensureFullTaskOrder();
-      _lastAcceptedTasksWriteAt = diskAt || Date.now();
-      render();
-    }
-  } catch(err) { console.warn('Faollashuvda sinxronlash xatosi:', err); }
-
-  loadFromLocalStorage().then(function(fresh) {
-    if (!fresh || !fresh.data) return;
-    var diskTime = fresh.updatedAt ? new Date(fresh.updatedAt).getTime() : 0;
-    var mineTime = S._serverSavedAt ? new Date(S._serverSavedAt).getTime() : 0;
-    if (diskTime > mineTime) {
-      console.log('🔄 Oyna faollashdi — umumiy holat diskdagi so\'nggi nusxa bilan sinxronlandi.');
-      var savedTasks = S.tasks, savedOrder = S.taskOrder; // tasks alohida boshqarilgani uchun saqlab qolamiz
-      S = Object.assign({}, S, fresh.data);
-      S.tasks = savedTasks; S.taskOrder = savedOrder;
-      render();
-      refreshAllModulesFromState();
-    }
-  }).catch(function(err) { console.warn('Faollashuvda umumiy holatni sinxronlashda xatolik:', err); });
+  if (_ludTabSyncTimer) clearTimeout(_ludTabSyncTimer);
+  _ludSyncFromOtherTab();
 });
 
 function _restoreTasksFromPlainKeyIfNeeded() {
@@ -9101,6 +9133,9 @@ function load() {
 }
 
 function save() {
+  // Boshqa tabdan kelgan holatni qo'llayotganda (render ichidagi save'lar) diskka
+  // qayta yozmaymiz — aks holda ikki tab bir-birini cheksiz qayta yozib turadi.
+  if (window._ludApplyingRemote) return;
   S._savedAt = Date.now();
   S._localUpdatedAt = new Date().toISOString();
   saveToLocalStorage(S);
@@ -13910,7 +13945,12 @@ function refreshAllModulesFromState() {
   }
   function scheduleMidnight() {
     var delay = msToMidnight();
-    setTimeout(function() {
+    setTimeout(function() { _ludWithLock(function() {
+      // Bir nechta tab ochiq bo'lsa, har biri yarim tunda shu yerga keladi —
+      // avval diskdagi eng so'nggi holatni olamiz: boshqa tab kunni allaqachon
+      // almashtirgan bo'lsa (S.lastDate === bugun), checkReset hech narsa qilmaydi
+      // va jarima/streak ikki marta qo'llanmaydi.
+      try { _ludAdoptDiskState(); _ludAdoptDiskTasks(); } catch (e) {}
       ensureFreezeGrants();
       checkReset(); // jazo va reset
       if (typeof pomoRolloverStaleActivities === 'function') {
@@ -13922,7 +13962,7 @@ function refreshAllModulesFromState() {
       if(S.pendingSubtaskPenaltyMsg){ setTimeout(function(){ toast(S.pendingSubtaskPenaltyMsg); S.pendingSubtaskPenaltyMsg=null; save(); }, 500); }
       if(S.pendingStreakMsg){ setTimeout(function(){ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 800); }
       if(S.pendingFreezeGrantMsg){ setTimeout(function(){ toast(S.pendingFreezeGrantMsg); S.pendingFreezeGrantMsg=null; save(); renderProfile(); }, 1300); }
-      scheduleMidnight(); // keyingi kunga rejalashtir
+    }).then(function() { scheduleMidnight(); }); // keyingi kunga rejalashtir
     }, delay);
   }
   scheduleMidnight();
@@ -14003,7 +14043,7 @@ function showKI(dateStr){
   bYes.textContent=t('ki_btn_succeeded');bYes.onclick=function(){kiAns(true,dateStr);};
   row.appendChild(bNo);row.appendChild(bYes);
   box.appendChild(bClose);box.appendChild(em);box.appendChild(h3);box.appendChild(p);box.appendChild(row);
-  ov.appendChild(box);document.body.appendChild(ov);window._kiOv=ov;
+  ov.appendChild(box);document.body.appendChild(ov);window._kiOv=ov;window._kiOvDate=dateStr;
 }
 function kiCloseAll(dateStr){
   var skipped=S.kiSkipped||{};
@@ -14018,6 +14058,7 @@ function kiCloseAll(dateStr){
 }
 function kiAns(ok,dateStr){
   if(window._kiOv){window._kiOv.remove();window._kiOv=null;}
+  if(S.kiAns&&S.kiAns[dateStr]){if(window._kiQ&&window._kiQ.length)setTimeout(function(){showKI(window._kiQ.shift());},300);return;} // boshqa tabda allaqachon javob berilgan — tanga ikki marta berilmasin
   var ans=S.kiAns||{};
   ans[dateStr]=ok?1:-1;
   S.kiAns=ans;
