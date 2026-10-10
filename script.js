@@ -5565,6 +5565,7 @@ var I18N = {
       dm_tasks_save: "💾 Saqlash",
       kbs_title: "Klaviatura yorliqlari",
       kbs_desc: "Tugmani bosing va yangi tugmani tanlang. 1–7 bo'limlar uchun band.",
+      kbs_sub: "Tezkor tugmalarni ko'rish va o'zgartirish",
       kbs_view_btn: "👀 Ro'yxatni ko'rish",
       kbs_reset_btn: "↺ Standartga qaytarish",
       weekly_report_btn: "Haftalik hisobot",
@@ -5609,6 +5610,7 @@ var I18N = {
       dm_tasks_save: "💾 Save",
       kbs_title: "Keyboard shortcuts",
       kbs_desc: "Click a key and press a new one. 1–7 are reserved for sections.",
+      kbs_sub: "View and change shortcut keys",
       kbs_view_btn: "👀 View list",
       kbs_reset_btn: "↺ Reset to defaults",
       weekly_report_btn: "Weekly report",
@@ -5653,6 +5655,7 @@ var I18N = {
       dm_tasks_save: "💾 Сохранить",
       kbs_title: "Горячие клавиши",
       kbs_desc: "Нажмите на клавишу и выберите новую. 1–7 заняты под разделы.",
+      kbs_sub: "Просмотр и изменение горячих клавиш",
       kbs_view_btn: "👀 Показать список",
       kbs_reset_btn: "↺ Сбросить",
       weekly_report_btn: "Отчёт за неделю",
@@ -11421,11 +11424,55 @@ function kbFocusedTaskId() {
   var c = document.querySelector('.task-card.kb-focus');
   return c ? Number(c.dataset.id) : null;
 }
-function kbCloseTopOverlay() {
-  var open = Array.prototype.slice.call(document.querySelectorAll('.modal-overlay.open'));
-  if (open.length) { var o = open[open.length - 1]; o.classList.remove('open'); return true; }
+// Hozir ochiq turgan barcha oyna/overlaylar (eng ustidagisi — oxirida).
+// .modal-overlay.open dan tashqari skip/o'chirish tasdiqlari kabi body'ga
+// qo'lda qo'shiladigan klass-siz to'liq ekranli overlaylarni ham topadi —
+// aks holda yorliqlar ular ustidan ishlab, oynalar ustma-ust ochilib qolardi.
+function kbOpenOverlays() {
+  var list = [];
+  var vis = function (el) {
+    if (!el || !el.isConnected) return false;
+    var cs = getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.pointerEvents !== 'none' && parseFloat(cs.opacity || '1') > 0.05;
+  };
+  document.querySelectorAll('.modal-overlay.open').forEach(function (o) { if (vis(o)) list.push(o); });
+  Array.prototype.forEach.call(document.body.children, function (el) {
+    if (list.indexOf(el) !== -1 || el.id === 'onboarding-overlay' || !vis(el)) return;
+    if (getComputedStyle(el).position !== 'fixed') return;
+    if (el.offsetWidth >= window.innerWidth * 0.9 && el.offsetHeight >= window.innerHeight * 0.9) list.push(el);
+  });
   var ts = document.getElementById('task-action-sheet');
-  if (ts && ts.classList.contains('open')) { closeTaskSheet(); return true; }
+  if (ts && ts.classList.contains('open') && list.indexOf(ts) === -1) list.push(ts);
+  if (list.length < 2) return list;
+  var all = Array.prototype.slice.call(document.querySelectorAll('*'));
+  var z = function (el) { var v = parseInt(getComputedStyle(el).zIndex, 10); return isNaN(v) ? 0 : v; };
+  list.sort(function (a, b) { return (z(a) - z(b)) || (all.indexOf(a) - all.indexOf(b)); });
+  return list;
+}
+// Eng ustidagi oynani o'zining odatiy yo'li bilan yopadi (fon bosish / ✕ / Bekor),
+// shunchaki .classList.remove('open') qilib holatini buzib qoldirmaydi.
+function kbCloseTopOverlay() {
+  var list = kbOpenOverlays();
+  if (!list.length) return false;
+  var o = list[list.length - 1];
+  var stillOpen = function () { return o.isConnected && kbOpenOverlays().indexOf(o) !== -1; };
+  if (o.id === 'kb-help') { o.remove(); return true; }
+  if (o.id === 'task-action-sheet') { closeTaskSheet(); return true; }
+  if (typeof o._close === 'function') { o._close(); return true; }
+  // 1) Fon (backdrop) bosilganini taqlid qilamiz — ilova odatda shu bilan yopadi
+  ['mousedown', 'mouseup', 'click'].forEach(function (t) {
+    if (o.isConnected) o.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window }));
+  });
+  if (!stillOpen()) return true;
+  // 2) Yopish / bekor qilish tugmasi
+  var btn = Array.prototype.find.call(o.querySelectorAll('button, [role="button"]'), function (b) {
+    var txt = (b.textContent || '').trim();
+    var idc = (b.id || '') + ' ' + (typeof b.className === 'string' ? b.className : '');
+    return /close|cancel|-no\b/i.test(idc) || /^[✕×✖]$/.test(txt) || b.getAttribute('aria-label') === 'close';
+  });
+  if (btn) { btn.click(); if (!stillOpen()) return true; }
+  // 3) Oxirgi chora — faqat .modal-overlay'ni yashiramiz
+  if (o.classList.contains('modal-overlay')) { o.classList.remove('open'); return true; }
   return false;
 }
 // Sozlanadigan tugmalar (Sozlamalar → Klaviatura yorliqlari)
@@ -11490,16 +11537,23 @@ document.addEventListener('keydown', function (e) {
   var typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (tg && tg.isContentEditable);
   // Yopilgan oynadagi yashirin maydonda fokus qolib ketgan bo'lsa — yozish deb hisoblamaymiz
   if (typing && tg.offsetParent === null) { try { tg.blur(); } catch (er) {} typing = false; }
+  // Onboarding turi o'z tugmalarini o'zi boshqaradi
+  if (typeof onboardingState !== 'undefined' && onboardingState && onboardingState.active) return;
   if (e.key === 'Escape') {
-    var help = document.getElementById('kb-help'); if (help) { help.remove(); return; }
-    if (!typing) kbCloseTopOverlay();
+    // Esc har doim faqat eng ustidagi oynani yopadi
+    if (kbCloseTopOverlay()) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (typing && !e.defaultPrevented && tg.isConnected) { try { tg.blur(); } catch (er) {} }
     return;
   }
   if (typing) return;
-  var anyModal = document.querySelector('.modal-overlay.open, #kb-help');
+  // Yordam oynasi ochiq bo'lsa '?' uni qayta yopadi
+  if (document.getElementById('kb-help') && (kbMatch(e, 'help') || e.key === '?')) { e.preventDefault(); showShortcutsHelp(); return; }
+  // Biror oyna ochiq bo'lsa yorliqlar ishlamaydi (aks holda ostidagi vazifaga ta'sir qilib, oynalar ustma-ust ochilardi)
+  if (kbOpenOverlays().length) return;
   var k = e.key;
+  // Fokus tugma/havolada bo'lsa, Enter o'sha tugmani bosadi — vazifani belgilamaymiz
+  if (k === 'Enter' && (tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY')) return;
   if (kbMatch(e, 'help') || k === '?') { e.preventDefault(); showShortcutsHelp(); return; }
-  if (anyModal) return;
   var tabs = ['tasks', 'rewards', 'goals', 'chest', 'pomo', 'reyting', 'profile'];
   if (/^[1-7]$/.test(k)) { e.preventDefault(); var tb = tabs[+k - 1]; if (tb === 'pomo') pomoOpenModal(); else showTab(tb); return; }
   if (kbMatch(e, 'newTask')) { e.preventDefault(); showTab('tasks'); openModal(); return; }

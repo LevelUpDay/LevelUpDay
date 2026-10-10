@@ -1219,14 +1219,24 @@
       </div>
 
       <!-- ⌨️ Klaviatura yorliqlari -->
-      <div class="settings-info-card kbs-card" id="kb-settings-card">
-        <span class="settings-sub-icon icon-blue">⌨️</span>
-        <div class="settings-info-card-title" data-i18n="kbs_title">Klaviatura yorliqlari</div>
-        <div class="settings-info-card-desc" data-i18n="kbs_desc">Tugmani bosing va yangi tugmani tanlang. 1–7 bo'limlar uchun band.</div>
-        <div id="kb-settings-list" class="kbs-list"></div>
-        <div class="kbs-actions">
-          <button type="button" class="kbs-btn" onclick="showShortcutsHelp()" data-i18n="kbs_view_btn">👀 Ro'yxatni ko'rish</button>
-          <button type="button" class="kbs-btn" onclick="kbResetDefaults()" data-i18n="kbs_reset_btn">↺ Standartga qaytarish</button>
+      <div class="settings-sub-card kbs-card" id="kb-settings-card" style="margin-bottom:14px">
+        <button type="button" class="settings-sub-header" onclick="toggleSettingsSubCard('kb-settings-card')">
+          <span class="settings-sub-header-left">
+            <span class="settings-sub-icon icon-blue">⌨️</span>
+            <span style="min-width:0">
+              <span class="settings-sub-title" data-i18n="kbs_title">Klaviatura yorliqlari</span>
+              <span class="settings-sub-subtitle" data-i18n="kbs_sub">Tezkor tugmalarni ko'rish va o'zgartirish</span>
+            </span>
+          </span>
+          <span class="settings-sub-arrow-wrap"><span class="settings-sub-arrow">▾</span></span>
+        </button>
+        <div class="settings-sub-body" style="display:none">
+          <div class="settings-info-card-desc" style="margin-bottom:0" data-i18n="kbs_desc">Tugmani bosing va yangi tugmani tanlang. 1–7 bo'limlar uchun band.</div>
+          <div id="kb-settings-list" class="kbs-list"></div>
+          <div class="kbs-actions">
+            <button type="button" class="kbs-btn" onclick="showShortcutsHelp()" data-i18n="kbs_view_btn">👀 Ro'yxatni ko'rish</button>
+            <button type="button" class="kbs-btn" onclick="kbResetDefaults()" data-i18n="kbs_reset_btn">↺ Standartga qaytarish</button>
+          </div>
         </div>
       </div>
 
