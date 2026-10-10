@@ -203,6 +203,10 @@ textarea.x-in { width: 100%; resize: vertical; }
 .x-fc-act button { padding: 9px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #fff; cursor: pointer; font: inherit; font-size: 13px; }
 .x-fc-quote { font-size: 13px; opacity: .55; font-style: italic; }
 html.x-focus-on, html.x-focus-on body { overflow: hidden; }
+/* Fokus rejimidagi "🎵 Tovushlar" pleyeri fokus ekranining ustida ochilsin (aks holda orqasida qolib ketadi) */
+html.x-focus-on #focus-player-modal-overlay { z-index: 480; }
+/* Pomodoro suzuvchi taymeri fokus ekranidagi vazifa tanlovini to'sib qo'ymasin */
+html.x-focus-on #pomo-float { display: none !important; }
 
 /* ---------- 💧 salomatlik ---------- */
 .x-cups { display: flex; flex-wrap: wrap; gap: 6px; }

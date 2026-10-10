@@ -7094,6 +7094,7 @@ function openFocusPlayer() {
 function closeFocusPlayer() {
   var ov = document.getElementById('focus-player-modal-overlay');
   if (ov) ov.classList.remove('open');
+  try { if (typeof window.pomoSetActiveNav === 'function' && document.getElementById('pomo-modal-overlay').classList.contains('open')) window.pomoSetActiveNav('pomo-nav-projects'); } catch (e) {}
   if (FocusAudio.isPlaying()) {
     showFocusMiniPlayer();
   }
@@ -11458,6 +11459,19 @@ function kbCloseTopOverlay() {
   var stillOpen = function () { return o.isConnected && kbOpenOverlays().indexOf(o) !== -1; };
   if (o.id === 'kb-help') { o.remove(); return true; }
   if (o.id === 'task-action-sheet') { closeTaskSheet(); return true; }
+  // Pomodoro / musiqa oynalari o'z yopish funksiyasi orqali yopilsin — aks holda
+  // "yangi faoliyat" formasi, suzuvchi taymer va mini-pleyer holati buzilib qoladi
+  if (o.id === 'pomo-modal-overlay' && typeof window.pomoCloseModal === 'function') {
+    var nf = document.getElementById('pomo-new-form');
+    if (nf && nf.classList.contains('open')) window.pomoToggleNewForm(false); else window.pomoCloseModal();
+    return true;
+  }
+  if (o.id === 'focus-player-modal-overlay' && typeof closeFocusPlayer === 'function') { closeFocusPlayer(); return true; }
+  if (o.id === 'pomo-settings-modal-overlay' || o.id === 'pomo-cal-modal-overlay') {
+    o.classList.remove('open');
+    try { window.pomoSetActiveNav('pomo-nav-projects'); } catch (e) {}
+    return true;
+  }
   if (typeof o._close === 'function') { o._close(); return true; }
   // 1) Fon (backdrop) bosilganini taqlid qilamiz — ilova odatda shu bilan yopadi
   ['mousedown', 'mouseup', 'click'].forEach(function (t) {
@@ -26795,6 +26809,7 @@ try {
   };
   window.pomoCloseSettingsModal = function () {
     document.getElementById('pomo-settings-modal-overlay').classList.remove('open');
+    try { pomoSetActiveNav('pomo-nav-projects'); } catch (e) {}
   };
   window.pomoSaveSettingsFromModal = function () {
     var workEl = document.getElementById('pomo-set-work');
@@ -27623,6 +27638,7 @@ try {
   window.pomoCloseCalendar = function () {
     var ov = document.getElementById('pomo-cal-modal-overlay');
     if (ov) ov.classList.remove('open');
+    try { pomoSetActiveNav('pomo-nav-projects'); } catch (e) {}
   };
   window.pomoCalPrevMonth = function () {
     pomoCalDate.setMonth(pomoCalDate.getMonth() - 1);
