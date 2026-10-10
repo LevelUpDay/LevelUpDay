@@ -7988,6 +7988,7 @@ function renderQuests() {
     (collapsed ? '' :
       '<div class="mq-group-title">' + _cl('Bugungi', 'Daily', 'На сегодня') + '</div>' + Q.daily.map(row).join('') +
       '<div class="mq-group-title">' + _cl('Haftalik', 'Weekly', 'На неделю') + '</div>' + Q.weekly.map(row).join(''));
+  try { if (typeof window.xRenderToday === 'function') window.xRenderToday(); } catch (e) {}
 }
 
 // ❄️ Freeze'ni olmosga sotib olish

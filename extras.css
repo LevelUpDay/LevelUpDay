@@ -461,3 +461,17 @@ html.layout-mobile input, html.layout-mobile select, html.layout-mobile textarea
 .ad-tab { flex: 1; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .ad-tab.on { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); border-color: var(--accent); color: var(--text); }
 .ad-tab-n:not(:empty) { min-width: 18px; padding: 1px 6px; border-radius: 999px; background: #EF4444; color: #fff; font-size: 11px; }
+
+/* 📌 Vazifalar sahifasi: boss · kvestlar · uyqu · matritsa — bitta ixcham qator */
+.x-today { display: flex; gap: 8px; margin: 0 0 12px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.x-today::-webkit-scrollbar { display: none; }
+.x-tchip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 600 13px/1 inherit; font-family: inherit; cursor: pointer; position: relative; }
+.x-tchip:hover { border-color: var(--accent); }
+.x-tchip span { font-size: 15px; line-height: 1; }
+.x-tchip b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.x-tchip em { font-style: normal; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
+.x-tchip-hot { border-color: var(--accent); }
+.x-tchip-bar { display: inline-block; width: 44px; height: 6px; border-radius: 999px; background: color-mix(in srgb, #ef4444 20%, transparent); overflow: hidden; }
+.x-tchip-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #ef4444, #f97316); border-radius: 999px; }
+.x-today-box { max-width: 520px; }
+.x-today-sheet .quests-card, .x-today-sheet .x-sleep-card { margin: 8px 0 0; }
