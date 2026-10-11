@@ -500,3 +500,84 @@ html.layout-mobile input, html.layout-mobile select, html.layout-mobile textarea
 .x-ref-by { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
 .x-ref-row { display: flex; justify-content: space-between; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
 .x-ref-row em { font-style: normal; color: var(--text-muted); }
+
+/* 🍅 Pomodoro ishlayotganda: Hub tugmasi (kompyuter + telefon) va Hub → Pomodoro plitkasi
+   pomidor rangida ajralib turadi. Holat <html class="x-pomo-running [x-pomo-break]"> orqali. */
+:root { --x-pomo: #F0563F; }
+html.x-pomo-break { --x-pomo: var(--gold, #F5B53F); }
+.x-pomo-live { display: none; }
+html.x-pomo-running .x-pomo-live:not(:empty) {
+  display: inline-flex; align-items: center; gap: 4px; font-style: normal; font-weight: 700;
+  font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; color: var(--x-pomo);
+}
+html.x-pomo-running .x-pomo-live:not(:empty)::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0;
+  animation: x-pomo-blink 1.6s ease-in-out infinite;
+}
+@keyframes x-pomo-blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+@keyframes x-pomo-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--x-pomo) 45%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--x-pomo) 0%, transparent); }
+}
+
+/* Kompyuter: yuqori/yon panel tugmasi */
+html.x-pomo-running #tab-hub {
+  border-color: color-mix(in srgb, var(--x-pomo) 70%, transparent);
+  background: color-mix(in srgb, var(--x-pomo) 14%, var(--surface));
+  color: var(--x-pomo);
+  animation: x-pomo-ring 2.2s ease-out infinite;
+}
+html.x-pomo-running #tab-hub.active {
+  background: var(--x-pomo); color: #fff; border-color: transparent;
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--x-pomo) 40%, transparent);
+}
+html.x-pomo-running #tab-hub .x-pomo-live:not(:empty) {
+  margin-left: 7px; padding: 3px 7px; border-radius: 999px; font-size: 11px; vertical-align: 1px;
+  background: color-mix(in srgb, var(--x-pomo) 18%, transparent);
+}
+html.x-pomo-running #tab-hub.active .x-pomo-live:not(:empty) { color: #fff; background: rgba(255,255,255,.22); }
+
+/* Telefon: pastki navigatsiyadagi Hub */
+#x-bnav button[data-bn="hub"] { position: relative; }
+html.x-pomo-running #x-bnav button[data-bn="hub"] { color: var(--x-pomo); background: color-mix(in srgb, var(--x-pomo) 13%, transparent); }
+html.x-pomo-running #x-bnav button[data-bn="hub"] .x-bn-i { animation: x-pomo-ring 2.2s ease-out infinite; border-radius: 50%; }
+html.x-pomo-running #x-bnav button[data-bn="hub"] .x-pomo-live:not(:empty) {
+  position: absolute; top: 1px; left: calc(50% + 7px); padding: 2px 5px; border-radius: 999px; font-size: 9.5px;
+  background: var(--x-pomo); color: #fff; box-shadow: 0 0 0 2px var(--surface);
+}
+html.x-pomo-running #x-bnav button[data-bn="hub"] .x-pomo-live:not(:empty)::before { width: 4px; height: 4px; }
+
+/* Hub → Bo'limlar: Pomodoro plitkasi */
+.x-sec[data-sec-go="pomo"] { position: relative; }
+html.x-pomo-running .x-sec[data-sec-go="pomo"] {
+  border-color: var(--x-pomo); color: var(--x-pomo);
+  background: color-mix(in srgb, var(--x-pomo) 13%, var(--surface));
+  animation: x-pomo-ring 2.2s ease-out infinite;
+}
+html.x-pomo-running .x-sec[data-sec-go="pomo"] .x-pomo-live:not(:empty) { font-size: 11px; margin-top: 1px; }
+
+/* 🍅 Vazifa kartasidagi "Pomodoro'da ishlash" tugmasi */
+.tk-pomo-btn {
+  width: 36px; height: 36px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 0; margin: 0; transition: border-color .15s, background .15s, transform .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.tk-pomo-btn:hover, .tk-pomo-btn:focus-visible { border-color: #F0563F; background: color-mix(in srgb, #F0563F 12%, transparent); }
+.tk-pomo-btn:active { transform: scale(.92); }
+html.layout-mobile .tk-pomo-btn { width: 34px; height: 34px; font-size: 15px; }
+
+/* Vazifadan ochilganda tegishli amaliylik kartasi bir lahza yorishadi */
+.pomo-act-card.pomo-act-flash { animation: x-pomo-flash 1.5s ease-out; }
+@keyframes x-pomo-flash {
+  0%, 30% { box-shadow: 0 0 0 3px color-mix(in srgb, #F0563F 70%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.x-pomo-running #tab-hub,
+  html.x-pomo-running #x-bnav button[data-bn="hub"] .x-bn-i,
+  html.x-pomo-running .x-sec[data-sec-go="pomo"],
+  html.x-pomo-running .x-pomo-live::before,
+  .pomo-act-card.pomo-act-flash { animation: none !important; }
+}

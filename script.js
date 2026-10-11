@@ -10670,7 +10670,7 @@ function initTaskSortable() {
     if (!el) return;
     Sortable.create(el, {
       draggable: '.task-card',
-      filter: '.check-btn, .act-btn, .task-menu-btn, .subtask-item, .subtask-skip-chip, .subtask-dots-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
+      filter: '.check-btn, .act-btn, .task-menu-btn, .tk-pomo-btn, .subtask-item, .subtask-skip-chip, .subtask-dots-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
       preventOnFilter: false,
       delay: 320,             // bosib turish kerak bo'lgan vaqt (ms) — telefonda surish (scroll) bilan adashmasligi uchun
       delayOnTouchOnly: true, // sichqonchada (desktop) darhol, mobil ekranda ushlab turish talab qilinadi
@@ -12721,6 +12721,7 @@ function makeTaskEl(t, future) {
           ${subsDueOrDone.length ? `<span class="tk-chip tk-chip-subs${subsDoneN === subsDueOrDone.length ? ' all' : ''}">☑ ${subsDoneN}/${subsDueOrDone.length}</span>` : ''}
         </div>
       </div>
+      ${(!future && !t.done) ? `<button type="button" class="tk-pomo-btn" onclick="pomoOpenForTask(${t.id}, event)" title="${_cl("Pomodoro'da shu vazifa ustida ishlash", "Focus on this task in Pomodoro", "Работать над задачей в Pomodoro")}" aria-label="${_cl("Pomodoro'da shu vazifa ustida ishlash", "Focus on this task in Pomodoro", "Работать над задачей в Pomodoro")}">🍅</button>` : ''}
       <button class="task-menu-btn tk-more" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="${_cl("Amallar", "Actions", "Действия")}" aria-label="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
     </div>
     ${hasSubtasks?`<div class="task-card-bottom"><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
@@ -22620,6 +22621,7 @@ function openTaskSheet(id, future) {
       btns += `<button class="sheet-btn" onclick="closeTaskSheet();unskipTask(${id})">🔄 ${_cl("Qaytarish", "Restore", "Вернуть")}</button>`;
     }
   }
+  if (!future && !t.done) btns += `<button class="sheet-btn" onclick="closeTaskSheet();pomoOpenForTask(${id})">🍅 ${_cl("Pomodoro'da ishlash", "Focus with Pomodoro", "Фокус в Pomodoro")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();openSubtaskModal(${id})">➕ ${_cl("Sub-task qo'shish", "Add subtask", "Добавить подзадачу")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();freezeTask(${id})">🧊 ${tr('freeze_task_sheet_btn')}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();editTask(${id})">✏️ ${_cl('Tahrirlash', 'Edit', 'Изменить')}</button>`;
@@ -26593,7 +26595,7 @@ try {
 
       var isBreak = phase === 'break';
       var cls = 'pomo-act-card' + (isActive ? ' active' : '') + (isRunning ? ' is-running' : '') + (isOver ? ' is-over' : '') + (isBreak ? ' is-break' : '');
-      html += '<div class="' + cls + '" style="--accent-card:' + cardColor + '" onclick="pomoCardClick(event,\'' + act.id + '\')">';
+      html += '<div class="' + cls + '" data-act-id="' + pomoEsc(act.id) + '" style="--accent-card:' + cardColor + '" onclick="pomoCardClick(event,\'' + act.id + '\')">';
 
       // Yuqori qator: ikonka · nom/holat · katta ▶/⏸ tugmasi
       html += '  <div class="pomo-act-top">';
@@ -27029,7 +27031,9 @@ try {
   };
 
   // 🍅 Vaqt bloki boshlanganda Pomodoro'ni avtomatik yoqish
-  window.pomoAutoStartForTask = function (tk) {
+  // Vazifaga mos amaliylikni topadi (bog'langan id → bir xil nom, katta-kichik harf farqsiz)
+  // yoki yangisini yaratadi. Taymerni ishga TUSHIRMAYDI.
+  function pomoEnsureActForTask(tk) {
     if (!tk) return null;
     var act = tk.pomoActId ? pomoFindAct(tk.pomoActId) : null;
     if (!act) {
@@ -27039,10 +27043,11 @@ try {
       }
     }
     if (!act) {
-      var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
+      var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : (a == null ? null : a + 60);
+      var lim = (a != null && b != null && b > a) ? Math.max(5, b - a) : 60;
       act = {
         id: 'pomo_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-        name: String(tk.name || 'Task').slice(0, 60), limit: Math.max(5, b - a),
+        name: String(tk.name || 'Task').slice(0, 60), limit: lim,
         elapsedMs: 0, cycleMs: 0, breakRemainingMs: 0, phase: 'work', running: false, lastTickAt: null,
         emoji: tk.emoji || '🎯', color: '#e2564b'
       };
@@ -27050,8 +27055,33 @@ try {
       pomoSaveActivities();
     }
     tk.pomoActId = act.id;
-    if (!act.running) window.pomoStartOrResume(act.id);
     return act;
+  }
+  window.pomoAutoStartForTask = function (tk) {
+    var act = pomoEnsureActForTask(tk);
+    if (act && !act.running) window.pomoStartOrResume(act.id);
+    return act;
+  };
+
+  // 🍅 Vazifa kartasidagi tugma: Pomodoro'ni shu vazifa amaliyligi tanlangan holda
+  // "Loyihalar" bo'limida ochadi (Start bosishga tayyor, avtomatik boshlanmaydi).
+  window.pomoOpenForTask = function (taskId, ev) {
+    if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    var tk = (S.tasks || []).find(function (x) { return x.id === taskId || String(x.id) === String(taskId); });
+    if (!tk) return;
+    var hadLink = tk.pomoActId;
+    var act = pomoEnsureActForTask(tk);
+    if (!act) return;
+    if (hadLink !== tk.pomoActId) { try { save(); } catch (e) {} }
+    pomoSelectedId = act.id;
+    try { closeAllTaskDropdowns(); } catch (e) {}
+    window.pomoOpenModal(); // o'zi "Loyihalar" navini faollashtiradi va ro'yxatni chizadi
+    var card = document.querySelector('#pomo-activity-list .pomo-act-card[data-act-id="' + act.id + '"]');
+    if (card) {
+      try { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+      card.classList.remove('pomo-act-flash'); void card.offsetWidth; card.classList.add('pomo-act-flash');
+      setTimeout(function () { card.classList.remove('pomo-act-flash'); }, 1600);
+    }
   };
 
   window.pomoStopActivity = function (ev) {
@@ -27179,6 +27209,7 @@ try {
   function pomoMaybeStopTicking() {
     var anyRunning = pomoActivities.some(function (a) { return a.running; });
     if (!anyRunning && pomoTickHandle) { clearInterval(pomoTickHandle); pomoTickHandle = null; }
+    try { pomoSyncRunIndicator(); } catch (e) {}
   }
 
   function pomoFloatDoc() {
@@ -27218,7 +27249,47 @@ try {
     pomoFloatDoc().getElementById('pomo-float').classList.add('show');
     pomoUpdateFloatUI();
   }
+  /* 🍅 Global "Pomodoro ishlayapti" indikatori: <html> klassi (x-pomo-running /
+     x-pomo-break) + Hub tugmasi va Hub'dagi Pomodoro plitkasidagi [.x-pomo-live]
+     matni (joriy fazada qolgan vaqt). Faqat holat o'zgarganda / har tick'da arzon yangilanadi. */
+  var _pomoIndTxt = null;
+  function pomoSyncRunIndicator() {
+    var root = document.documentElement;
+    if (!root) return;
+    var act = pomoActiveId ? pomoFindAct(pomoActiveId) : null;
+    var running = !!(act && act.running);
+    var brk = running && act.phase === 'break';
+    if (root.classList.contains('x-pomo-running') !== running) root.classList.toggle('x-pomo-running', running);
+    if (root.classList.contains('x-pomo-break') !== brk) root.classList.toggle('x-pomo-break', brk);
+    var txt = '';
+    if (running) {
+      var ms = brk ? (act.breakRemainingMs || 0) : Math.max(0, pomoWorkMs() - (act.cycleMs || 0));
+      var sec = Math.ceil(ms / 1000), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60;
+      var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+      txt = (h ? h + ':' : '') + p2(m) + ':' + p2(s2);
+    }
+    var hubBtn = document.getElementById('tab-hub');
+    if (hubBtn && !hubBtn.querySelector('.x-pomo-live')) {
+      var sp = document.createElement('span'); sp.className = 'x-pomo-live'; sp.setAttribute('aria-hidden', 'true');
+      hubBtn.appendChild(sp); _pomoIndTxt = null;
+    }
+    var nodes = document.querySelectorAll('.x-pomo-live');
+    var force = false;
+    for (var i = 0; i < nodes.length; i++) { if (nodes[i].textContent !== txt) { force = true; break; } }
+    if (!force && txt === _pomoIndTxt) return;
+    _pomoIndTxt = txt;
+    var lbl = running ? (brk ? _cl("Pomodoro: tanaffus", "Pomodoro: on a break", "Pomodoro: перерыв") : _cl("Pomodoro ishlayapti", "Pomodoro is running", "Pomodoro идёт")) + ' · ' + txt : '';
+    for (var j = 0; j < nodes.length; j++) nodes[j].textContent = txt;
+    document.querySelectorAll('#tab-hub, #x-bnav [data-bn="hub"], [data-sec-go="pomo"]').forEach(function (b) {
+      // Faqat o'zimiz qo'ygan title'ni olib tashlaymiz (boshqa title'larga tegmaymiz)
+      if (lbl) { b.setAttribute('title', lbl); b.setAttribute('data-x-pomo-title', ''); }
+      else if (b.hasAttribute('data-x-pomo-title')) { b.removeAttribute('title'); b.removeAttribute('data-x-pomo-title'); }
+    });
+  }
+  window.pomoSyncRunIndicator = pomoSyncRunIndicator;
+
   function pomoUpdateFloatUI() {
+    try { pomoSyncRunIndicator(); } catch (e) {}
     var fdoc = pomoFloatDoc();
     var floatEl = fdoc.getElementById('pomo-float');
     var headerBtn = document.getElementById('tab-pomo');
