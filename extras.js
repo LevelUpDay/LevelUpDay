@@ -1642,11 +1642,13 @@
     });
     window._xSecActions = {}; items.forEach(function (x) { window._xSecActions[x[0]] = x[3]; });
     return '<div class="x-secs-t">🧩 ' + L('Bo\'limlar', 'Sections', 'Разделы') + '</div><div class="x-secs">' + items.map(function (x) {
-      return '<button type="button" class="x-sec" data-sec-go="' + x[0] + '"><span>' + x[1] + '</span>' + x[2] + '</button>';
+      return '<button type="button" class="x-sec" data-sec-go="' + x[0] + '"><span>' + x[1] + '</span>' + x[2] +
+        (x[0] === 'pomo' ? '<em class="x-pomo-live" aria-hidden="true"></em>' : '') + '</button>';
     }).join('') + '</div>';
   }
   function bindSections(root) {
     root.querySelectorAll('[data-sec-go]').forEach(function (b) { b.onclick = function () { var f = (window._xSecActions || {})[b.dataset.secGo]; if (f) f(); }; });
+    try { if (window.pomoSyncRunIndicator) window.pomoSyncRunIndicator(); } catch (e) {}
   }
   // 📱 Telefonda pastki navigatsiya paneli
   function buildBottomNav() {
@@ -1663,8 +1665,10 @@
     var it = [['tasks', '📋', L('Vazifalar', 'Tasks', 'Задачи')], ['goals', '🎯', L('Maqsadlar', 'Goals', 'Цели')], ['hub', '🚀', 'Hub'],
       ['rewards', '🎁', L('Mukofot', 'Rewards', 'Награды')], ['profile', '👤', L('Profil', 'Profile', 'Профиль')]];
     nav.innerHTML = it.map(function (x) {
-      return '<button type="button" class="' + (x[0] === cur ? 'on' : '') + '" data-bn="' + x[0] + '"><span class="x-bn-i">' + x[1] + '</span><span class="x-bn-l">' + x[2] + '</span></button>';
+      return '<button type="button" class="' + (x[0] === cur ? 'on' : '') + '" data-bn="' + x[0] + '"><span class="x-bn-i">' + x[1] + '</span><span class="x-bn-l">' + x[2] + '</span>' +
+        (x[0] === 'hub' ? '<span class="x-pomo-live" aria-hidden="true"></span>' : '') + '</button>';
     }).join('');
+    try { if (window.pomoSyncRunIndicator) window.pomoSyncRunIndicator(); } catch (e) {}
     nav.querySelectorAll('[data-bn]').forEach(function (b) {
       b.onclick = function () { showTab(b.dataset.bn); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } };
     });
