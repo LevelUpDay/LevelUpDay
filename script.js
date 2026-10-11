@@ -476,9 +476,13 @@ var fetchReytingList = async function(scope, metric, subjectFilter) {
     var _ml = myLeague().id;
     all = all.filter(function (p) { return leagueFor(p.seasonCoins || 0).id === _ml; });
   }
-  var idx = me.id ? all.findIndex(function(p){ return p.id === me.id; }) : -1;
-  if (idx !== -1) all[idx] = Object.assign({}, all[idx], me, { id: all[idx].id });
-  else all.push(me);
+  // Serverdagi o'z qatorimizni (id === cloudUserId) lokal "me" bilan
+  // birlashtiramiz — aks holda bitta akkaunt ro'yxatda ikki marta chiqadi.
+  var _myId = S.cloudUserId || null;
+  if (_myId) me.id = _myId;
+  var _mine = all.filter(function (p) { return _myId && p.id === _myId; });
+  all = all.filter(function (p) { return !(_myId && p.id === _myId); });
+  all.push(_mine.length ? Object.assign({}, _mine[0], me) : me);
   all.sort(function(a, b){ return reytingMetricValue(b, metric) - reytingMetricValue(a, metric); });
   all.forEach(function(p, i){ p.rank = i + 1; });
   _reytingLastList = all;
@@ -9788,7 +9792,7 @@ function tmFillLabels() {
   if (box) box.innerHTML = [1, 2, 3, 4, 0].map(function (d) {
     var tr = taskTier(d);
     return '<button type="button" class="tier-opt" data-tier="' + d + '" onclick="selDiff(' + d + ')"><span class="tier-i">' + tr.icon + '</span><b>' + taskTierName(d) + '</b>'
-      + '<small>' + (d ? taskTierTime(d) + ' · +' + taskCoinValue({ coins: tr.c, diff: d }) + '🪙' : '0🪙') + '</small></button>';
+      + (d ? '<small>' + taskTierTime(d) + '</small><small class="tier-c">+' + taskCoinValue({ coins: tr.c, diff: d }) + ' 🪙</small>' : '<small>&nbsp;</small><small class="tier-c">0 🪙</small>') + '</button>';
   }).join('');
   selDiff(typeof mDiff === 'number' ? mDiff : 1);
 }
@@ -9811,12 +9815,35 @@ function selLabel(color) {
   });
 }
 
-function stSelDiff(d) {
-  stDiff=d;
-  document.querySelectorAll('#subtask-modal-box .diff-opt').forEach(el=>{
-    el.classList.toggle('sel', parseInt(el.dataset.diff)===d);
-  });
+var ST_COINS_MAX = 12;
+// Vazifa yonidagi 🎯 tugmasi — Fokus rejimini shu vazifa bilan ochib, taymerni darhol boshlaydi
+function taskOpenFocus(id, ev) {
+  if (ev) { try { ev.stopPropagation(); ev.preventDefault(); } catch (e) {} }
+  if (typeof window.xOpenFocus === 'function') window.xOpenFocus(id, true);
+  else if (typeof window.pomoOpenForTask === 'function') window.pomoOpenForTask(id, ev);
 }
+function stSelDiff(d) {
+  stDiff = Math.max(0, Math.min(ST_COINS_MAX, parseInt(d, 10) || 0));
+  document.querySelectorAll('#subtask-modal-box .diff-opt').forEach(el=>{
+    el.classList.toggle('sel', parseInt(el.dataset.diff)===stDiff);
+  });
+  var inp = document.getElementById('st-coins');
+  if (inp && String(inp.value) !== String(stDiff)) inp.value = stDiff;
+  var lb = document.getElementById('st-coins-label');
+  if (lb) lb.textContent = '🪙 ' + _cl("Yoki o'zingiz kiriting", 'Or enter your own', 'Или введите своё') + ' (0–' + ST_COINS_MAX + '):';
+}
+// Sub-task uchun ixtiyoriy tanga miqdori (0–12) — tugmalardan tashqari
+function stSetCoins(v) {
+  if (v === '' || v == null) return;
+  var n = Math.max(0, Math.min(ST_COINS_MAX, Math.round(Number(v) || 0)));
+  stDiff = n;
+  document.querySelectorAll('#subtask-modal-box .diff-opt').forEach(el=>{
+    el.classList.toggle('sel', parseInt(el.dataset.diff)===n);
+  });
+  var inp = document.getElementById('st-coins');
+  if (inp && Number(inp.value) !== n) inp.value = n;
+}
+function _stDiffFromCoins(c) { return c <= 0 ? 0 : c <= 1 ? 1 : c <= 2 ? 2 : 3; }
 
 function stSelRepeat(r) {
   stRepeat=r;
@@ -11621,6 +11648,23 @@ document.addEventListener('keydown', function (e) {
   if (kbMatch(e, 'del') || (k === 'Backspace' && kbMap().del === 'Delete')) { e.preventDefault(); deleteTask(id); return; }
 });
 
+// 🛡 Oyna foni (backdrop) faqat bosish O'SHA FONDA boshlangan bo'lsa yopsin.
+// Ilgari maydondagi matnni sichqoncha bilan belgilab, kursor oyna tashqarisida
+// qo'yib yuborilsa, brauzer "click"ni umumiy ota-elementga — .modal-overlay'ga
+// yuborardi va `onclick="if(event.target===this) close…()"` oynani yopib, kiritilgan
+// ma'lumot yo'qolardi (party / chorlov / World Party yaratishda).
+var _ovPressTarget = null;
+function _ovRememberPress(e) { _ovPressTarget = e.target; }
+document.addEventListener('pointerdown', _ovRememberPress, true);
+document.addEventListener('mousedown', _ovRememberPress, true);
+document.addEventListener('click', function (e) {
+  var tg = e.target;
+  if (!e.isTrusted || !tg || !tg.classList || !tg.classList.contains('modal-overlay')) return;
+  var started = _ovPressTarget;
+  _ovPressTarget = null;
+  if (started && started !== tg && tg.contains(started)) { e.stopPropagation(); }
+}, true);
+
 function closeAllSubtaskDropdowns() {
   document.querySelectorAll('.subtask-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
   document.querySelectorAll('.subtask-dots-btn.active').forEach(function(b){ b.classList.remove('active'); });
@@ -11795,7 +11839,7 @@ function openSubtaskModal(taskId, subId) {
   if (existing) {
     // Tahrirlash rejimi — mavjud sub-task qiymatlari bilan to'ldiramiz.
     if (input) input.value = existing.name;
-    stDiff = existing.diff||0; stRepeat = existing.repeat||'daily';
+    stDiff = (existing.coins !== undefined && existing.coins !== null) ? Number(existing.coins) || 0 : (existing.diff||0); stRepeat = existing.repeat||'daily';
     stDays = Array.isArray(existing.days) ? [...existing.days] : [];
     stLabel = existing.label||'';
     if (stInt) stInt.value = existing.interval ? String(existing.interval) : '4';
@@ -11844,7 +11888,7 @@ function saveSubtaskModal() {
     const sub = ensureSubtasks(tk).find(function(s){ return s.id === _subtaskEditId; });
     if (!sub) { closeSubtaskModal(); return; }
     sub.name = name;
-    sub.diff = stDiff; sub.coins = stDiff;
+    sub.diff = _stDiffFromCoins(stDiff); sub.coins = stDiff;
     sub.repeat = stRepeat;
     sub.days = stRepeat==='custom-days' ? [...stDays] : null;
     sub.interval = stRepeat==='interval' ? (parseInt(stInt&&stInt.value)||4) : null;
@@ -11865,7 +11909,7 @@ function saveSubtaskModal() {
 
   ensureSubtasks(tk).push({
     id: genSubtaskId(), name: name, done: false,
-    diff: stDiff, coins: stDiff,
+    diff: _stDiffFromCoins(stDiff), coins: stDiff,
     repeat: stRepeat,
     days: stRepeat==='custom-days' ? [...stDays] : null,
     interval: stRepeat==='interval' ? (parseInt(stInt&&stInt.value)||4) : null,
@@ -12891,7 +12935,7 @@ function makeTaskEl(t, future) {
           ${subsDueOrDone.length ? `<span class="tk-chip tk-chip-subs${subsDoneN === subsDueOrDone.length ? ' all' : ''}">☑ ${subsDoneN}/${subsDueOrDone.length}</span>` : ''}
         </div>
       </div>
-      ${(!future && !t.done) ? `<button type="button" class="tk-pomo-btn" onclick="pomoOpenForTask(${t.id}, event)" title="${_cl("Pomodoro'da shu vazifa ustida ishlash", "Focus on this task in Pomodoro", "Работать над задачей в Pomodoro")}" aria-label="${_cl("Pomodoro'da shu vazifa ustida ishlash", "Focus on this task in Pomodoro", "Работать над задачей в Pomodoro")}">🍅</button>` : ''}
+      ${(!future && !t.done) ? `<button type="button" class="tk-pomo-btn" onclick="taskOpenFocus(${t.id}, event)" title="${_cl("Fokus rejimida shu vazifa ustida ishlash", "Focus on this task (Focus mode)", "Работать над задачей в режиме фокуса")}" aria-label="${_cl("Fokus rejimida shu vazifa ustida ishlash", "Focus on this task (Focus mode)", "Работать над задачей в режиме фокуса")}">🎯</button>` : ''}
       <button class="task-menu-btn tk-more" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="${_cl("Amallar", "Actions", "Действия")}" aria-label="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
     </div>
     ${hasSubtasks?`<div class="task-card-bottom"><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
@@ -14323,9 +14367,11 @@ function refreshAllModulesFromState() {
     var midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5); // 00:00:05
     return midnight - now;
   }
-  function scheduleMidnight() {
-    var delay = msToMidnight();
-    setTimeout(function() { _ludWithLock(function() {
+  var _rolloverBusy = false;
+  function runRollover() {
+    if (_rolloverBusy) return Promise.resolve();
+    _rolloverBusy = true;
+    return _ludWithLock(function() {
       // Bir nechta tab ochiq bo'lsa, har biri yarim tunda shu yerga keladi —
       // avval diskdagi eng so'nggi holatni olamiz: boshqa tab kunni allaqachon
       // almashtirgan bo'lsa (S.lastDate === bugun), checkReset hech narsa qilmaydi
@@ -14342,9 +14388,26 @@ function refreshAllModulesFromState() {
       if(S.pendingSubtaskPenaltyMsg){ setTimeout(function(){ toast(S.pendingSubtaskPenaltyMsg); S.pendingSubtaskPenaltyMsg=null; save(); }, 500); }
       if(S.pendingStreakMsg){ setTimeout(function(){ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 800); }
       if(S.pendingFreezeGrantMsg){ setTimeout(function(){ toast(S.pendingFreezeGrantMsg); S.pendingFreezeGrantMsg=null; save(); renderProfile(); }, 1300); }
-    }).then(function() { scheduleMidnight(); }); // keyingi kunga rejalashtir
-    }, delay);
+    }).then(function() { _rolloverBusy = false; }, function() { _rolloverBusy = false; });
   }
+  var _midTimer = null;
+  function scheduleMidnight() {
+    if (_midTimer) clearTimeout(_midTimer);
+    _midTimer = setTimeout(function() {
+      runRollover().then(function() { scheduleMidnight(); }); // keyingi kunga rejalashtir
+    }, msToMidnight());
+  }
+  // Telefon uxlab qolsa setTimeout kechikadi (jarima ertalab "o'z-o'zidan"
+  // tushgandek ko'rinadi). Ilova qayta ko'ringanda/fokus olganda kun
+  // almashgan bo'lsa — darhol reset qilamiz va taymerni qayta qo'yamiz.
+  function wakeCheck() {
+    if (document.hidden) return;
+    try { if (S.lastDate && S.lastDate !== today()) runRollover(); } catch (e) {}
+    scheduleMidnight();
+  }
+  document.addEventListener('visibilitychange', wakeCheck);
+  window.addEventListener('focus', wakeCheck);
+  window.addEventListener('pageshow', wakeCheck);
   scheduleMidnight();
 })();
 function startEditTitle(){
@@ -16432,7 +16495,11 @@ function addTarixLog(type, desc, amount, uniqueKey, forceDate) {
       return;
     }
   }
-  S.tarix.unshift({type:type, desc:desc, amount:amount, date:t, ts:Date.now(), uniqueKey:uniqueKey||null});
+  // O'tgan kun uchun yozuv (masalan, kechagi jarima) — vaqti o'sha kunning
+  // 23:59 i bo'ladi, ilova qachon ochilganiga qarab tasodifiy soat emas.
+  var _ts = Date.now();
+  if (forceDate && forceDate < today()) { var _fd = new Date(forceDate + 'T23:59:00').getTime(); if (!isNaN(_fd)) _ts = _fd; }
+  S.tarix.unshift({type:type, desc:desc, amount:amount, date:t, ts:_ts, uniqueKey:uniqueKey||null});
   if(amount>0) S.tarixTotalIn += amount;
   else if(amount<0) S.tarixTotalOut += Math.abs(amount);
   // Faqat KO'RINADIGAN ro'yxat 200 taga cheklanadi — umrbod jami
@@ -22872,7 +22939,7 @@ function openTaskSheet(id, future) {
       btns += `<button class="sheet-btn" onclick="closeTaskSheet();unskipTask(${id})">🔄 ${_cl("Qaytarish", "Restore", "Вернуть")}</button>`;
     }
   }
-  if (!future && !t.done) btns += `<button class="sheet-btn" onclick="closeTaskSheet();pomoOpenForTask(${id})">🍅 ${_cl("Pomodoro'da ishlash", "Focus with Pomodoro", "Фокус в Pomodoro")}</button>`;
+  if (!future && !t.done) btns += `<button class="sheet-btn" onclick="closeTaskSheet();taskOpenFocus(${id})">🎯 ${_cl("Fokus rejimida ishlash", "Focus mode", "Режим фокуса")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();openSubtaskModal(${id})">➕ ${_cl("Sub-task qo'shish", "Add subtask", "Добавить подзадачу")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();freezeTask(${id})">🧊 ${tr('freeze_task_sheet_btn')}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();editTask(${id})">✏️ ${_cl('Tahrirlash', 'Edit', 'Изменить')}</button>`;
@@ -24831,6 +24898,7 @@ var wsSubmitLogin = async function() {
     }
     var uid = res.data.user ? res.data.user.id : null;
     if (_cloudAccountSwitchReset(uid)) return;
+    if (await _cloudCleanLoginIfExisting(uid)) return;
     S.cloudLinked = true;
     S.cloudUserId = uid;
     S.cloudEmail = emailVal;
@@ -29218,12 +29286,18 @@ var friendsDeclinePartyInvite = async function(id) {
   renderFriendsAll();
 };
 
+var _friendsCreatingParty = false;
 var friendsCreateParty = async function() {
   var input = document.getElementById('friends-party-name-input');
   var name = (input && input.value || '').trim();
   if (!name) { toast(t('friends_party_name_required')); return; }
   if (!S.cloudLinked || !S.cloudUserId) { toast(_cl("Avval tizimga kiring", "Please sign in first", "Сначала войдите в аккаунт")); return; }
-  var res = await supabase.rpc('create_party', { p_name: name });
+  if (_friendsCreatingParty) return; // Enter + tugma ikki marta bosilsa, ikki partiya yaratilmasin
+  _friendsCreatingParty = true;
+  var res;
+  try { res = await supabase.rpc('create_party', { p_name: name }); }
+  catch (e) { res = { error: { message: (e && e.message) || 'network' } }; }
+  finally { _friendsCreatingParty = false; }
   if (res.error || !(res.data && res.data.ok)) { toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error))); return; }
   if (input) input.value = '';
   await partySyncFromCloud();
@@ -29252,7 +29326,7 @@ var friendsStartPartyChallenge = async function() {
   renderFriendsParty();
   toast('🏁 ' + _cl('Musobaqa boshlandi!', 'Contest started!', 'Конкурс начался!'));
 };
-var _fpcMetric = 'percent', _fpcDays = 7;
+var _fpcMetric = 'percent', _fpcDays = 7, _fpcPrize = '5';
 function fpcSetMetric(m, el) { _fpcMetric = m; document.querySelectorAll('[data-fpc-metric]').forEach(function (b) { b.classList.toggle('sel', b === el); }); }
 function fpcSetDays(n, el) { _fpcDays = n; document.querySelectorAll('[data-fpc-days]').forEach(function (b) { b.classList.toggle('sel', b === el); }); }
 
@@ -29301,6 +29375,7 @@ var friendsCancelPartyInviteOutgoing = async function(id) {
   renderFriendsParty();
 };
 
+var _wpCreating = false;
 var worldPartyCreate = async function() {
   if (S.friends.myWorldPartyId) { toast(t('wp_already_in_one')); return; }
   var cap = worldPartyMaxMembersForMe();
@@ -29313,10 +29388,16 @@ var worldPartyCreate = async function() {
   if (prize > gemsAvailable()) { toast(t('friends_not_enough_coins')); return; }
   var target = null; // ⚖️ faqat 'percent' yoki 'xp' — maqsad soni kerak emas
 
-  var res = await supabase.rpc('create_world_party', {
-    p_name: name, p_goal_type: _wpGoalType, p_target: target,
-    p_duration_days: _wpDuration, p_max_members: maxMembers, p_prize: prize
-  });
+  if (_wpCreating) return; // Enter + tugma ikki marta bosilsa, ikki marta yaratilmasin
+  _wpCreating = true;
+  var res;
+  try {
+    res = await supabase.rpc('create_world_party', {
+      p_name: name, p_goal_type: _wpGoalType, p_target: target,
+      p_duration_days: _wpDuration, p_max_members: maxMembers, p_prize: prize
+    });
+  } catch (e) { res = { error: { message: (e && e.message) || 'network' } }; }
+  finally { _wpCreating = false; }
   if (res.error || !(res.data && res.data.ok)) {
     toast('❌ ' + (res.error ? res.error.message : (res.data && res.data.error)));
     return;
@@ -29588,7 +29669,11 @@ function ensureFriendsDefaults() {
     F.cleanedFakeDemo = true;
   }
   friendsReconcileOutgoing();
-  try { friendsCheckExpiry(); } catch (e) {}
+  // Eslatma: bu yerda endi friendsCheckExpiry() chaqirilmaydi — ensureFriendsDefaults
+  // har renderda ishlaydi, sinx esa tugaganda renderFriendsAll()ni chaqiradi →
+  // cheksiz "render → sync → render" sikli paydo bo'lardi (qidiruv natijalari
+  // doim eskirib, kiritilayotgan matn o'chib ketardi). Tekshiruv endi
+  // openFriendsModal() va 60 soniyalik taymerda (throttled) bajariladi.
 }
 
 function friendsReconcileOutgoing() {
@@ -29613,6 +29698,8 @@ var _friendsActiveTab = 'list';
 function openFriendsModal() {
   ensureFriendsDefaults();
   document.getElementById('friends-modal-overlay').classList.add('open');
+  try { friendsCheckExpiry(true); } catch (e) {}
+  try { worldPartyCheckExpiry(true); } catch (e) {}
   friendsShowTab(_friendsActiveTab || 'list');
 }
 function closeFriendsModal() {
@@ -29639,16 +29726,38 @@ function friendsShowTab(tab) {
   renderFriendsAll();
 }
 
+// Sinx/realtime tufayli qayta chizishda foydalanuvchi yozayotgan maydon (masalan,
+// party musobaqasi sovrini) innerHTML bilan almashtirilsa — qiymati, fokusi va
+// kursor joyi saqlanib qoladi (aks holda yozish "bekor bo'lib" qolardi).
+function _friendsKeepFocus(fn) {
+  var ae = document.activeElement, info = null;
+  if (ae && ae.id && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) {
+    info = { id: ae.id, node: ae, value: ae.value, s: null, e: null };
+    try { info.s = ae.selectionStart; info.e = ae.selectionEnd; } catch (er) {}
+  }
+  try { fn(); } finally {
+    if (info) {
+      var el = document.getElementById(info.id);
+      if (el && el !== info.node && el.tagName === info.node.tagName) {
+        try { el.value = info.value; } catch (er) {}
+        try { el.focus({ preventScroll: true }); } catch (er) {}
+        if (info.s != null) { try { el.setSelectionRange(info.s, info.e); } catch (er) {} }
+      }
+    }
+  }
+}
 function renderFriendsAll() {
-  ensureFriendsDefaults();
-  renderFriendsMyCard();
-  renderFriendsList();
-  friendsRenderSearch();
-  renderFriendsIncoming();
-  renderFriendsOutgoing();
-  renderFriendsParty();
-  renderFriendsChallenges();
-  updateFriendsBadges();
+  _friendsKeepFocus(function () {
+    ensureFriendsDefaults();
+    renderFriendsMyCard();
+    renderFriendsList();
+    friendsRenderSearch();
+    renderFriendsIncoming();
+    renderFriendsOutgoing();
+    renderFriendsParty();
+    renderFriendsChallenges();
+    updateFriendsBadges();
+  });
 }
 
 function updateFriendsBadges() {
@@ -29809,45 +29918,150 @@ function friendsPurgeRelatedRecords(userId) {
 }
 
 // ---------------- QIDIRISH / SO'ROV YUBORISH ----------------
+// 🔧 TUZATILDI: qidiruv qayta yozildi.
+//   • Ilgari renderFriendsAll() (har sinxda, cheksiz sikl bilan esa to'xtovsiz)
+//     friendsRenderSearch() orqali so'rovni QAYTA yuborardi va natijalar qutisini "…" ga
+//     almashtirardi — server 200 + qatorlar qaytarsa ham, javob "eskirgan" deb tashlab
+//     yuborilardi va foydalanuvchi hech kimni ko'rmasdi.
+//   • Endi: tarmoq so'rovi faqat yozilganda (250ms debounce) ketadi; render esa
+//     keshdagi natijani joriy holat (do'st / so'rov yuborilgan / kelgan so'rov) bilan
+//     qayta chizadi, xolos.
+//   • ilike maxsus belgilar (% _ \) va or() ichidagi vergul/qavs/bo'sh joy ekranlanadi.
+//   • O'zingiz, bloklanganlar chiqarilmaydi; do'stlar/so'rov holati ko'rsatiladi.
+var _friendsSearchTimer = null;
+var _friendsSearchRpcOff = false;
+var _friendsSearchState = { q: '', status: 'idle', error: '' }; // idle | short | loading | done | error
+var FRIENDS_SEARCH_MIN_LEN = 2;
+var FRIENDS_SEARCH_DEBOUNCE_MS = 250;
+function _friendsSearchNorm(q) { return String(q || '').replace(/\s+/g, ' ').trim().slice(0, 40); }
+// ilike naqshi uchun: foydalanuvchi matnidagi % _ \ harfma-harf qidirilsin
+function _friendsLikeEscape(s) { return String(s).replace(/[\\%_]/g, function (c) { return '\\' + c; }); }
+// PostgREST or() qiymati: qo'shtirnoq ichida (vergul, qavs, nuqta, bo'sh joy xavfsiz)
+function _friendsOrQuote(s) { return '"' + String(s).replace(/[\\"]/g, function (c) { return '\\' + c; }) + '"'; }
+function _friendsNormRow(u) {
+  if (!u || typeof u !== 'object') return null;
+  var id = u.id || u.user_id || u.uid;
+  if (!id) return null;
+  var name = u.name || u.username || u.nickname || u.display_name || '';
+  return {
+    id: String(id), name: String(name || '—'),
+    avatarUrl: u.photo || u.avatar_url || u.avatarUrl || null,
+    level: u.level || 1, cosmetics: u.cosmetics || null,
+    friendCode: u.friend_code || u.friendCode || ''
+  };
+}
+// oninput: debounce bilan qidiradi
+function friendsOnSearchInput() {
+  var input = document.getElementById('friends-search-input');
+  var q = _friendsSearchNorm(input && input.value);
+  if (_friendsSearchTimer) { clearTimeout(_friendsSearchTimer); _friendsSearchTimer = null; }
+  if (q === _friendsSearchState.q && _friendsSearchState.status === 'done') { friendsRenderSearch(); return; }
+  _friendsSearchReqId++; // eski javoblar endi qabul qilinmaydi
+  _friendsSearchState = { q: q, status: !q ? 'idle' : (q.length < FRIENDS_SEARCH_MIN_LEN ? 'short' : 'loading'), error: '' };
+  if (_friendsSearchState.status !== 'loading') _friendsSearchResults = [];
+  friendsRenderSearch();
+  if (_friendsSearchState.status === 'loading') {
+    _friendsSearchTimer = setTimeout(function () { _friendsSearchTimer = null; friendsRunSearch(q); }, FRIENDS_SEARCH_DEBOUNCE_MS);
+  }
+}
+async function friendsRunSearch(q) {
+  if (!S.cloudLinked || !S.cloudUserId || typeof supabase === 'undefined' || !supabase) { friendsRenderSearch(); return; }
+  var myReqId = ++_friendsSearchReqId;
+  var namePat = '%' + _friendsLikeEscape(q) + '%';
+  var codeOk = /^[A-Za-z0-9_-]{3,}$/.test(q);
+  var restP = (async function () {
+    var query = supabase.from('profiles').select('id,name,photo,level,friend_code');
+    if (codeOk) query = query.or('name.ilike.' + _friendsOrQuote(namePat) + ',friend_code.ilike.' + _friendsOrQuote(_friendsLikeEscape(q.toUpperCase())));
+    else query = query.ilike('name', namePat);
+    return await query.limit(20);
+  })().catch(function (e) { return { data: null, error: e || { message: 'network' } }; });
+  // search_users (security definer) RPC ham bo'lsa — natijalar birlashtiriladi; yo'q bo'lsa e'tiborsiz
+  var rpcP = (async function () {
+    if (_friendsSearchRpcOff || typeof supabase.rpc !== 'function') return { data: null, error: { message: 'no rpc' } };
+    var r = await supabase.rpc('search_users', { p_query: q });
+    // Funksiya yo'q / imzo mos emas bo'lsa — bu sessiyada qayta chaqirmaymiz
+    if (r && r.error && (r.error.code === 'PGRST202' || r.error.code === '42883' || /could not find the function/i.test(r.error.message || ''))) _friendsSearchRpcOff = true;
+    return r;
+  })().catch(function (e) { return { data: null, error: e || { message: 'network' } }; });
+  var out = await Promise.all([restP, rpcP]);
+  if (myReqId !== _friendsSearchReqId) return; // eskirgan so'rov, e'tiborsiz qoldiramiz
+  var rest = out[0] || {}, rpc = out[1] || {};
+  if (rest.error && rpc.error) {
+    console.warn('[Friends search] xatolik:', rest.error && rest.error.message, '|', rpc.error && rpc.error.message);
+    _friendsSearchState = { q: q, status: 'error', error: (rest.error && rest.error.message) || '' };
+    _friendsSearchResults = [];
+    friendsRenderSearch();
+    return;
+  }
+  var seen = {}, rows = [];
+  var qLow = q.toLowerCase(), qUp = q.toUpperCase();
+  [].concat(Array.isArray(rest.data) ? rest.data : [], Array.isArray(rpc.data) ? rpc.data : []).forEach(function (raw) {
+    var u = _friendsNormRow(raw);
+    if (!u || seen[u.id] || u.id === String(S.cloudUserId)) return;
+    seen[u.id] = true; rows.push(u);
+  });
+  // Aniq kod mosligi → nik to'liq mos → nik shu bilan boshlanadi → qolganlar
+  var rank = function (u) {
+    if (u.friendCode && u.friendCode.toUpperCase() === qUp) return 0;
+    var n = (u.name || '').toLowerCase();
+    if (n === qLow) return 1;
+    if (n.indexOf(qLow) === 0) return 2;
+    return 3;
+  };
+  rows.sort(function (a, b) { return rank(a) - rank(b) || (a.name || '').localeCompare(b.name || ''); });
+  _friendsSearchResults = rows.slice(0, 20);
+  _friendsSearchState = { q: q, status: 'done', error: '' };
+  friendsRenderSearch();
+}
+// Faqat chizadi (tarmoqqa chiqmaydi) — renderFriendsAll() har safar shuni chaqiradi
 function friendsRenderSearch() {
   var input = document.getElementById('friends-search-input');
   var box = document.getElementById('friends-search-results');
   if (!box) return;
-  var q = (input && input.value || '').trim();
-  if (!q) { box.innerHTML = ''; _friendsSearchResults = []; return; }
-  if (!S.cloudLinked || !S.cloudUserId) {
-    box.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-xs);text-align:center;padding:10px 0">' + esc(_cl("Qidirish uchun avval tizimga kiring", "Sign in first to search", "Войдите, чтобы искать")) + '</div>';
+  var q = _friendsSearchNorm(input && input.value);
+  var msg = function (txt, color) { return '<div class="friends-search-msg" role="status" style="color:' + (color || 'var(--text-dim)') + ';font-size:var(--fs-xs);text-align:center;padding:10px 0">' + txt + '</div>'; };
+  if (!q) { box.innerHTML = ''; return; }
+  if (!S.cloudLinked || !S.cloudUserId) { box.innerHTML = msg(esc(_cl("Qidirish uchun avval tizimga kiring", "Sign in first to search", "Войдите, чтобы искать"))); return; }
+  // Yozilgan matn keshdagidan farq qilsa (masalan, modal qayta ochilganda) — yangidan qidiramiz
+  if (q !== _friendsSearchState.q) { friendsOnSearchInput(); return; }
+  var st = _friendsSearchState.status;
+  if (st === 'short') { box.innerHTML = msg(esc(_cl("Kamida 2 ta belgi kiriting", "Type at least 2 characters", "Введите минимум 2 символа"))); return; }
+  if (st === 'loading' || st === 'idle') { box.innerHTML = msg('🔎 ' + esc(_cl("Qidirilmoqda…", "Searching…", "Поиск…"))); return; }
+  if (st === 'error') {
+    box.innerHTML = msg('⚠️ ' + esc(_cl("Qidirishda xatolik. Internetni tekshirib, qayta urinib ko'ring.", "Search failed. Check your connection and try again.", "Ошибка поиска. Проверьте интернет и попробуйте снова.")), '#F87171')
+      + '<div style="text-align:center"><button type="button" class="friend-req-btn" onclick="friendsRetrySearch()">↻ ' + esc(_cl("Qayta urinish", "Retry", "Повторить")) + '</button></div>';
     return;
   }
-  box.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-xs);text-align:center;padding:10px 0">…</div>';
-  var myReqId = ++_friendsSearchReqId;
-  (async function () {
-    var excludeIds = (S.friends.list || []).map(function (f) { return f.id; })
-      .concat((S.friends.outgoing || []).map(function (f) { return f.id; }))
-      .concat((S.friends.incoming || []).map(function (f) { return f.id; }))
-      .concat((S.friends.banned || []).map(function (b) { return b.id; }))
-      .concat([S.cloudUserId]);
-    var query = supabase.from('profiles').select('id,name,photo,level,friend_code');
-    var qUpper = q.toUpperCase();
-    if (/^[A-Z0-9-]{3,}$/i.test(q)) {
-      query = query.or('friend_code.ilike.' + qUpper + ',name.ilike.%' + q + '%');
+  var F = S.friends || {};
+  var has = function (arr, id) { return (arr || []).some(function (x) { return x.id === id; }); };
+  var visible = _friendsSearchResults.filter(function (u) { return u.id !== S.cloudUserId && !has(F.banned, u.id); });
+  if (!visible.length) {
+    box.innerHTML = msg('🙁 ' + esc(t('friends_search_none')) + '<br><span style="font-size:var(--fs-2xs)">' + esc(_cl("Nikni yoki do'stlik kodini (masalan, NODIR-2210) tekshiring", "Check the nickname or friend code (e.g. NODIR-2210)", "Проверьте ник или код друга (например, NODIR-2210)")) + '</span>');
+    return;
+  }
+  box.innerHTML = visible.map(function (u) {
+    var uid = esc(u.id), nm = esc(u.name);
+    var actions;
+    if (has(F.list, u.id)) {
+      actions = '<span class="friend-req-btn" style="cursor:default;opacity:.85">✓ ' + esc(_cl("Do'stingiz", "Friends", "Друзья")) + '</span>';
+    } else if (has(F.outgoing, u.id)) {
+      actions = '<span class="friend-req-btn" style="cursor:default;opacity:.85">⏳ ' + esc(_cl("So'rov yuborilgan", "Request sent", "Запрос отправлен")) + '</span>';
+    } else if (has(F.incoming, u.id)) {
+      actions = '<button type="button" class="friend-req-btn accept" onclick="friendsAcceptIncoming(\'' + uid + '\')" aria-label="' + esc(t('friends_accept_btn')) + ' — ' + nm + '">' + t('friends_accept_btn') + '</button>';
     } else {
-      query = query.ilike('name', '%' + q + '%');
+      actions = '<button type="button" class="friend-req-btn accept" onclick="friendsOpenAddReasonModal(\'' + uid + '\')" aria-label="' + esc(t('friends_send_btn')) + ' — ' + nm + '" data-i18n="friends_send_btn">' + t('friends_send_btn') + '</button>';
     }
-    var res = await query.limit(20);
-    if (myReqId !== _friendsSearchReqId) return; // eskirgan so'rov, e'tiborsiz qoldiramiz
-    if (res.error) { box.innerHTML = '<div style="color:#F87171;font-size:var(--fs-xs);text-align:center;padding:10px 0">' + _cl("Xatolik yuz berdi", "Something went wrong", "Произошла ошибка") + '</div>'; return; }
-    var results = (res.data || []).filter(function (u) { return excludeIds.indexOf(u.id) === -1; });
-    _friendsSearchResults = results.map(function (u) { return { id: u.id, name: u.name, avatarUrl: u.photo || null, level: u.level || 1 }; });
-    if (!results.length) {
-      box.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-xs);text-align:center;padding:10px 0">' + t('friends_search_none') + '</div>';
-      return;
-    }
-    box.innerHTML = _friendsSearchResults.map(function (u) {
-      var actions = '<button class="friend-req-btn accept" onclick="friendsOpenAddReasonModal(\'' + u.id + '\')" aria-label="' + esc(t('friends_send_btn')) + ' — ' + esc(u.name) + '" data-i18n="friends_send_btn">' + t('friends_send_btn') + '</button>';
-      return friendCardHtml(u, actions, true, false);
-    }).join('');
-  })();
+    return friendCardHtml(u, actions, true, false);
+  }).join('');
+}
+function friendsRetrySearch() {
+  var input = document.getElementById('friends-search-input');
+  var q = _friendsSearchNorm(input && input.value);
+  if (_friendsSearchTimer) { clearTimeout(_friendsSearchTimer); _friendsSearchTimer = null; }
+  if (!q || q.length < FRIENDS_SEARCH_MIN_LEN) { _friendsSearchState.q = null; friendsOnSearchInput(); return; }
+  _friendsSearchState = { q: q, status: 'loading', error: '' };
+  friendsRenderSearch();
+  friendsRunSearch(q);
 }
 /* friendsSendRequest: blok boshiga (global var sifatida) ko'chirildi */
 /* friendsCancelOutgoing: blok boshiga (global var sifatida) ko'chirildi */
@@ -29947,7 +30161,7 @@ function renderFriendsParty() {
           + chip('data-fpc-metric', 'xp', '⭐ XP', _fpcMetric === 'xp', 'fpcSetMetric') + '</div></div>'
           + '<div class="modal-field"><label>' + _cl('Muddat', 'Duration', 'Срок') + '</label><div class="diff-opts">'
           + [3, 7, 14].map(function (n) { return chip('data-fpc-days', n, n + ' ' + _cl('kun', 'days', 'дн.'), _fpcDays === n, 'fpcSetDays'); }).join('') + '</div></div>'
-          + '<div class="modal-field"><label>' + _cl("Sovrin (💎, sizdan)", 'Prize (💎, from you)', 'Приз (💎, от вас)') + '</label><input type="number" id="fpc-reward" min="0" max="' + GEM_PARTY_REWARD_MAX + '" value="5" /></div>'
+          + '<div class="modal-field"><label>' + _cl("Sovrin (💎, sizdan)", 'Prize (💎, from you)', 'Приз (💎, от вас)') + '</label><input type="number" id="fpc-reward" min="0" max="' + GEM_PARTY_REWARD_MAX + '" value="' + esc(String(_fpcPrize)) + '" oninput="_fpcPrize=this.value" /></div>'
           + '<button class="btn-save" style="width:100%" onclick="friendsStartPartyChallenge()">🏁 ' + _cl('Musobaqani boshlash', 'Start contest', 'Начать конкурс') + '</button>'
           + '</div>';
       } else {
@@ -29969,7 +30183,7 @@ function renderFriendsParty() {
         + '</div>'
       ) : '';
 
-      activeBox.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">'
+      var _partyHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">'
         + '<div style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:var(--text);min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎉 ' + esc(party.name) + '</div>'
         + '<button type="button" class="friend-req-btn ghost" onclick="openPartyStatsModal()" title="Statistika" data-i18n-title="friends_team_stats_btn" style="flex-shrink:0">📊</button>'
         + '<button type="button" class="friend-req-btn ghost" onclick="openPartyChallengeHistoryModal()" title="Tarix" data-i18n-title="friends_team_history_btn" style="flex-shrink:0">🗂</button>'
@@ -29982,6 +30196,26 @@ function renderFriendsParty() {
         + outgoingInvitesHtml
         + challengeHtml
         + noteHtml;
+      // Foydalanuvchi shu blokdagi maydonga (masalan, sovrin) yozayotgan bo'lsa — sinx
+      // sababli innerHTML almashtirilmaydi (yozilgan qiymat/kursor yo'qolmasin);
+      // maydondan chiqqach (focusout) bir marta qayta chiziladi.
+      var _ae = document.activeElement;
+      if (_ae && _ae !== activeBox && activeBox.contains(_ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(_ae.tagName)) {
+        if (!activeBox._deferBound) {
+          activeBox._deferBound = true;
+          activeBox.addEventListener('focusout', function () {
+            setTimeout(function () {
+              if (!activeBox._renderPending || activeBox.contains(document.activeElement)) return;
+              activeBox._renderPending = false;
+              try { renderFriendsParty(); } catch (e) {}
+            }, 400); // tugma bosilishi (click) tugashiga ulgursin
+          });
+        }
+        activeBox._renderPending = true;
+      } else {
+        activeBox._renderPending = false;
+        activeBox.innerHTML = _partyHtml;
+      }
     }
   }
   renderWorldPartyList();
@@ -30225,7 +30459,7 @@ function partyShowSubtab(tab) {
   var worldWrap = document.getElementById('friends-party-world-wrap');
   if (teamWrap) teamWrap.style.display = tab === 'team' ? '' : 'none';
   if (worldWrap) worldWrap.style.display = tab === 'world' ? '' : 'none';
-  if (tab === 'world') renderWorldPartyList();
+  if (tab === 'world') { try { worldPartyCheckExpiry(); } catch (e) {} renderWorldPartyList(); }
 }
 function wpToggleFilters() {
   var box = document.getElementById('wp-filters');
@@ -30323,12 +30557,17 @@ function worldPartyEnsureSim(party) {
   });
 }
 
-function worldPartyCheckExpiry() {
+var _wpExpiryCheckAt = 0;
+function worldPartyCheckExpiry(force) {
   // Eslatma: World Party muddati tugashini va g'olibni endi SERVER
   // hisoblaydi (_world_parties_finalize_expired, get_world_party_data
   // har chaqirilganda avtomatik ishga tushadi) — mahalliy hisoblash
   // va soxta simulyatsiyaga endi hojat yo'q.
-  if (S.cloudLinked && S.cloudUserId) worldPartySyncFromCloud();
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  var now = Date.now();
+  if (!force && now - _wpExpiryCheckAt < 20000) return;
+  _wpExpiryCheckAt = now;
+  worldPartySyncFromCloud();
 }
 function worldPartyFinish(party) {
   if (party.status !== 'active') return;
@@ -30443,7 +30682,7 @@ function wpOnFilterInput() {
   renderWorldPartyList();
 }
 function renderWorldPartyList() {
-  worldPartyCheckExpiry();
+  // Eslatma: render sinx chaqirmaydi (worldPartySyncFromCloud → renderFriendsAll → shu yer → ... cheksiz sikl)
   if (typeof friendsUpdateDueSnapshot === 'function') friendsUpdateDueSnapshot();
   var listBox = document.getElementById('world-party-list');
   var emptyBox = document.getElementById('world-party-empty');
@@ -30822,13 +31061,18 @@ function friendsCompareChallenge(c) {
   }
   return { meS: meS, oppS: oppS, meVal: meVal, oppVal: oppVal };
 }
-function friendsCheckExpiry() {
+var _friendsExpiryCheckAt = 0;
+function friendsCheckExpiry(force) {
   if (!S.friends) return;
   // Eslatma: musobaqa (duel) muddati tugashini endi SERVER hisoblaydi
   // (_duels_finalize_expired, duelsSyncFromCloud chaqirilganda avtomatik
   // ishga tushadi) — bu yerda mahalliy hisoblashga hojat yo'q, chunki
   // ikkala tomonning haqiqiy kunlik ma'lumoti faqat bulutda bor.
-  if (S.cloudLinked && S.cloudUserId) duelsSyncFromCloud();
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  var now = Date.now();
+  if (!force && now - _friendsExpiryCheckAt < 20000) return;
+  _friendsExpiryCheckAt = now;
+  duelsSyncFromCloud();
 }
 var FRIENDS_HISTORY_MAX = 100;
 function friendsPushToHistory(c) {
@@ -30905,7 +31149,7 @@ function renderChallengeHistoryModalBody() {
 
 // ---------------- RO'YXATNI CHIZISH ----------------
 function renderFriendsChallenges() {
-  friendsCheckExpiry();
+  // Eslatma: render sinx chaqirmaydi (aks holda duelsSyncFromCloud → renderFriendsAll → shu yer → ... cheksiz sikl)
   friendsUpdateDueSnapshot();
   renderFriendsChallengeIncoming();
   var pending = S.friends.challengesOutgoing || [];
@@ -31343,6 +31587,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
 setInterval(function () {
   try { if (S.friends) friendsCheckExpiry(); } catch (e) {}
+  try {
+    var _fo = document.getElementById('friends-modal-overlay');
+    if (S.friends && _fo && _fo.classList.contains('open')) worldPartyCheckExpiry();
+  } catch (e) {}
 }, 60000);
 
 // ============================================================
@@ -31601,6 +31849,29 @@ var _cloudRevertNameFromServer = function() {
   });
 };
 
+// 🧼 Mehmon (yoki boshqa akkaunt) holatidan MAVJUD akkauntga kirilganda: qurilmadagi
+// ma'lumotlarni bulutdagisi bilan aralashtirmaslik uchun avval tozalab, sahifani qayta
+// yuklaymiz — qayta yuklangach cloudBoot toza holatga faqat bulutdagini tortadi.
+// Yangi (bo'sh) akkauntda esa mehmon progressi saqlanib qoladi. true — chaqiruvchi to'xtasin.
+var _cloudCleanLoginIfExisting = async function(uid) {
+  if (!uid) return false;
+  var flag = null; try { flag = sessionStorage.getItem('cloudCleanLogin'); } catch (e) {}
+  if (flag === uid) { try { sessionStorage.removeItem('cloudCleanLogin'); } catch (e) {} return false; }
+  var has = false;
+  try {
+    var a = await supabase.from('app_state').select('user_id').eq('user_id', uid).maybeSingle();
+    if (!a.error && a.data) has = true;
+    if (!has) {
+      var td = await supabase.from('todos').select('task_id', { count: 'exact', head: true }).eq('user_id', uid);
+      if (!td.error && (td.count || 0) > 0) has = true;
+    }
+  } catch (e) { return false; }
+  if (!has) return false;
+  try { sessionStorage.setItem('cloudCleanLogin', uid); } catch (e) {}
+  _cloudWipeLocalAndReload(_cl('Akkaunt ma\'lumotlari yuklanmoqda…', 'Loading your account data…', 'Загружаем данные аккаунта…'), true);
+  return true;
+};
+
 var cloudBoot = async function(session, isOAuthReturn) {
   await _cloudWaitBooted();
   if (_cloudAccountSwitchReset(session.user.id)) return;
@@ -31618,8 +31889,10 @@ var cloudBoot = async function(session, isOAuthReturn) {
   // Sessiya bor, lekin qurilmada hali hech kim kirmagan (Google qaytishi yoki boshqa tabda kirilgan) —
   // bulutdan to'liq tiklab, "Create account" oynasini yopamiz.
   if (firstLink) {
+    if (await _cloudCleanLoginIfExisting(S.cloudUserId)) return;
     // Google bilan yangi qurilmada/yangi akkaunt: bulutni to'liq tiklaymiz
     var res = await cloudPullAll(S.cloudUserId);
+    if (res.hadAppState && !res.hadTodos) S.tasks = (S.tasks || []).filter(function (t) { return !t.sample; });
     if (!S.profile) S.profile = {};
     S.profile.loginMethod = hasGoogle ? 'google' : 'email';
     S.welcomeSurveyDone = true;
