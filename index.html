@@ -2758,7 +2758,7 @@
         <div id="friends-panel-add" style="display:none">
           <div class="modal-field" style="margin-bottom:16px">
             <label data-i18n="friends_search_label">ID yoki username orqali qidirish</label>
-            <input type="text" id="friends-search-input" placeholder="Masalan: NODIR-2210" data-i18n-ph="friends_search_ph" oninput="friendsRenderSearch()" />
+            <input type="text" id="friends-search-input" placeholder="Masalan: NODIR-2210" data-i18n-ph="friends_search_ph" oninput="friendsOnSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();friendsRetrySearch();}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" />
           </div>
           <div id="friends-search-results" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
 
@@ -2787,7 +2787,7 @@
               <div style="text-align:center;padding:6px 10px 22px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="friends_party_none_desc">Hali partiyangiz yo'q. Do'stlaringiz bilan birga topshiriq bajarish uchun partiya tuzing!</div>
               <div class="modal-field">
                 <label data-i18n="friends_party_name_label">Partiya nomi</label>
-                <input type="text" id="friends-party-name-input" placeholder="Masalan: Kuchli Jamoa" data-i18n-ph="friends_party_name_ph" />
+                <input type="text" id="friends-party-name-input" placeholder="Masalan: Kuchli Jamoa" data-i18n-ph="friends_party_name_ph" autocomplete="off" enterkeyhint="done" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();friendsCreateParty();}" />
               </div>
               <button class="btn-save" style="width:100%" onclick="friendsCreateParty()" data-i18n="friends_party_create_btn">🎉 Partiya tuzish</button>
             </div>
@@ -2943,7 +2943,7 @@
     <h2 data-i18n="wp_create_title">🌍 Public Party yaratish</h2>
     <div class="modal-field">
       <label data-i18n="friends_party_name_label">Partiya nomi</label>
-      <input type="text" id="wp-name-input" placeholder="Masalan: 100 kunlik marafon" data-i18n-ph="wp_name_ph" />
+      <input type="text" id="wp-name-input" placeholder="Masalan: 100 kunlik marafon" data-i18n-ph="wp_name_ph" autocomplete="off" enterkeyhint="done" onkeydown="if(event.key==='Enter'&&!event.isComposing){event.preventDefault();worldPartyCreate();}" />
     </div>
     <div class="modal-field">
       <label data-i18n="wp_goal_label">Maqsad turi</label>
