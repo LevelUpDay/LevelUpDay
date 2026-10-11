@@ -1794,6 +1794,10 @@
         <button class="diff-opt" data-diff="2" onclick="stSelDiff(2)"><span data-i18n="task_diff_medium">🟡 O'rtacha</span><br><small style="font-size:var(--fs-3xs);opacity:0.6">2 <span data-i18n="task_coin_unit">tanga</span></small></button>
         <button class="diff-opt" data-diff="3" onclick="stSelDiff(3)"><span data-i18n="task_diff_hard">🔴 Qiyin</span><br><small style="font-size:var(--fs-3xs);opacity:0.6">3 <span data-i18n="task_coin_unit">tanga</span></small></button>
       </div>
+      <div class="st-coins-row">
+        <label for="st-coins" id="st-coins-label">🪙 Yoki o'zingiz kiriting (0–12):</label>
+        <input type="number" id="st-coins" min="0" max="12" step="1" inputmode="numeric" value="1" oninput="stSetCoins(this.value)" />
+      </div>
     </div>
 
     <div class="modal-field">

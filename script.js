@@ -476,9 +476,13 @@ var fetchReytingList = async function(scope, metric, subjectFilter) {
     var _ml = myLeague().id;
     all = all.filter(function (p) { return leagueFor(p.seasonCoins || 0).id === _ml; });
   }
-  var idx = me.id ? all.findIndex(function(p){ return p.id === me.id; }) : -1;
-  if (idx !== -1) all[idx] = Object.assign({}, all[idx], me, { id: all[idx].id });
-  else all.push(me);
+  // Serverdagi o'z qatorimizni (id === cloudUserId) lokal "me" bilan
+  // birlashtiramiz — aks holda bitta akkaunt ro'yxatda ikki marta chiqadi.
+  var _myId = S.cloudUserId || null;
+  if (_myId) me.id = _myId;
+  var _mine = all.filter(function (p) { return _myId && p.id === _myId; });
+  all = all.filter(function (p) { return !(_myId && p.id === _myId); });
+  all.push(_mine.length ? Object.assign({}, _mine[0], me) : me);
   all.sort(function(a, b){ return reytingMetricValue(b, metric) - reytingMetricValue(a, metric); });
   all.forEach(function(p, i){ p.rank = i + 1; });
   _reytingLastList = all;
@@ -9811,12 +9815,29 @@ function selLabel(color) {
   });
 }
 
+var ST_COINS_MAX = 12;
 function stSelDiff(d) {
-  stDiff=d;
+  stDiff = Math.max(0, Math.min(ST_COINS_MAX, parseInt(d, 10) || 0));
   document.querySelectorAll('#subtask-modal-box .diff-opt').forEach(el=>{
-    el.classList.toggle('sel', parseInt(el.dataset.diff)===d);
+    el.classList.toggle('sel', parseInt(el.dataset.diff)===stDiff);
   });
+  var inp = document.getElementById('st-coins');
+  if (inp && String(inp.value) !== String(stDiff)) inp.value = stDiff;
+  var lb = document.getElementById('st-coins-label');
+  if (lb) lb.textContent = '🪙 ' + _cl("Yoki o'zingiz kiriting", 'Or enter your own', 'Или введите своё') + ' (0–' + ST_COINS_MAX + '):';
 }
+// Sub-task uchun ixtiyoriy tanga miqdori (0–12) — tugmalardan tashqari
+function stSetCoins(v) {
+  if (v === '' || v == null) return;
+  var n = Math.max(0, Math.min(ST_COINS_MAX, Math.round(Number(v) || 0)));
+  stDiff = n;
+  document.querySelectorAll('#subtask-modal-box .diff-opt').forEach(el=>{
+    el.classList.toggle('sel', parseInt(el.dataset.diff)===n);
+  });
+  var inp = document.getElementById('st-coins');
+  if (inp && Number(inp.value) !== n) inp.value = n;
+}
+function _stDiffFromCoins(c) { return c <= 0 ? 0 : c <= 1 ? 1 : c <= 2 ? 2 : 3; }
 
 function stSelRepeat(r) {
   stRepeat=r;
@@ -11795,7 +11816,7 @@ function openSubtaskModal(taskId, subId) {
   if (existing) {
     // Tahrirlash rejimi — mavjud sub-task qiymatlari bilan to'ldiramiz.
     if (input) input.value = existing.name;
-    stDiff = existing.diff||0; stRepeat = existing.repeat||'daily';
+    stDiff = (existing.coins !== undefined && existing.coins !== null) ? Number(existing.coins) || 0 : (existing.diff||0); stRepeat = existing.repeat||'daily';
     stDays = Array.isArray(existing.days) ? [...existing.days] : [];
     stLabel = existing.label||'';
     if (stInt) stInt.value = existing.interval ? String(existing.interval) : '4';
@@ -11844,7 +11865,7 @@ function saveSubtaskModal() {
     const sub = ensureSubtasks(tk).find(function(s){ return s.id === _subtaskEditId; });
     if (!sub) { closeSubtaskModal(); return; }
     sub.name = name;
-    sub.diff = stDiff; sub.coins = stDiff;
+    sub.diff = _stDiffFromCoins(stDiff); sub.coins = stDiff;
     sub.repeat = stRepeat;
     sub.days = stRepeat==='custom-days' ? [...stDays] : null;
     sub.interval = stRepeat==='interval' ? (parseInt(stInt&&stInt.value)||4) : null;
@@ -11865,7 +11886,7 @@ function saveSubtaskModal() {
 
   ensureSubtasks(tk).push({
     id: genSubtaskId(), name: name, done: false,
-    diff: stDiff, coins: stDiff,
+    diff: _stDiffFromCoins(stDiff), coins: stDiff,
     repeat: stRepeat,
     days: stRepeat==='custom-days' ? [...stDays] : null,
     interval: stRepeat==='interval' ? (parseInt(stInt&&stInt.value)||4) : null,
@@ -14323,9 +14344,11 @@ function refreshAllModulesFromState() {
     var midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5); // 00:00:05
     return midnight - now;
   }
-  function scheduleMidnight() {
-    var delay = msToMidnight();
-    setTimeout(function() { _ludWithLock(function() {
+  var _rolloverBusy = false;
+  function runRollover() {
+    if (_rolloverBusy) return Promise.resolve();
+    _rolloverBusy = true;
+    return _ludWithLock(function() {
       // Bir nechta tab ochiq bo'lsa, har biri yarim tunda shu yerga keladi —
       // avval diskdagi eng so'nggi holatni olamiz: boshqa tab kunni allaqachon
       // almashtirgan bo'lsa (S.lastDate === bugun), checkReset hech narsa qilmaydi
@@ -14342,9 +14365,26 @@ function refreshAllModulesFromState() {
       if(S.pendingSubtaskPenaltyMsg){ setTimeout(function(){ toast(S.pendingSubtaskPenaltyMsg); S.pendingSubtaskPenaltyMsg=null; save(); }, 500); }
       if(S.pendingStreakMsg){ setTimeout(function(){ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 800); }
       if(S.pendingFreezeGrantMsg){ setTimeout(function(){ toast(S.pendingFreezeGrantMsg); S.pendingFreezeGrantMsg=null; save(); renderProfile(); }, 1300); }
-    }).then(function() { scheduleMidnight(); }); // keyingi kunga rejalashtir
-    }, delay);
+    }).then(function() { _rolloverBusy = false; }, function() { _rolloverBusy = false; });
   }
+  var _midTimer = null;
+  function scheduleMidnight() {
+    if (_midTimer) clearTimeout(_midTimer);
+    _midTimer = setTimeout(function() {
+      runRollover().then(function() { scheduleMidnight(); }); // keyingi kunga rejalashtir
+    }, msToMidnight());
+  }
+  // Telefon uxlab qolsa setTimeout kechikadi (jarima ertalab "o'z-o'zidan"
+  // tushgandek ko'rinadi). Ilova qayta ko'ringanda/fokus olganda kun
+  // almashgan bo'lsa — darhol reset qilamiz va taymerni qayta qo'yamiz.
+  function wakeCheck() {
+    if (document.hidden) return;
+    try { if (S.lastDate && S.lastDate !== today()) runRollover(); } catch (e) {}
+    scheduleMidnight();
+  }
+  document.addEventListener('visibilitychange', wakeCheck);
+  window.addEventListener('focus', wakeCheck);
+  window.addEventListener('pageshow', wakeCheck);
   scheduleMidnight();
 })();
 function startEditTitle(){
@@ -16432,7 +16472,11 @@ function addTarixLog(type, desc, amount, uniqueKey, forceDate) {
       return;
     }
   }
-  S.tarix.unshift({type:type, desc:desc, amount:amount, date:t, ts:Date.now(), uniqueKey:uniqueKey||null});
+  // O'tgan kun uchun yozuv (masalan, kechagi jarima) — vaqti o'sha kunning
+  // 23:59 i bo'ladi, ilova qachon ochilganiga qarab tasodifiy soat emas.
+  var _ts = Date.now();
+  if (forceDate && forceDate < today()) { var _fd = new Date(forceDate + 'T23:59:00').getTime(); if (!isNaN(_fd)) _ts = _fd; }
+  S.tarix.unshift({type:type, desc:desc, amount:amount, date:t, ts:_ts, uniqueKey:uniqueKey||null});
   if(amount>0) S.tarixTotalIn += amount;
   else if(amount<0) S.tarixTotalOut += Math.abs(amount);
   // Faqat KO'RINADIGAN ro'yxat 200 taga cheklanadi — umrbod jami
@@ -24831,6 +24875,7 @@ var wsSubmitLogin = async function() {
     }
     var uid = res.data.user ? res.data.user.id : null;
     if (_cloudAccountSwitchReset(uid)) return;
+    if (await _cloudCleanLoginIfExisting(uid)) return;
     S.cloudLinked = true;
     S.cloudUserId = uid;
     S.cloudEmail = emailVal;
@@ -31601,6 +31646,29 @@ var _cloudRevertNameFromServer = function() {
   });
 };
 
+// 🧼 Mehmon (yoki boshqa akkaunt) holatidan MAVJUD akkauntga kirilganda: qurilmadagi
+// ma'lumotlarni bulutdagisi bilan aralashtirmaslik uchun avval tozalab, sahifani qayta
+// yuklaymiz — qayta yuklangach cloudBoot toza holatga faqat bulutdagini tortadi.
+// Yangi (bo'sh) akkauntda esa mehmon progressi saqlanib qoladi. true — chaqiruvchi to'xtasin.
+var _cloudCleanLoginIfExisting = async function(uid) {
+  if (!uid) return false;
+  var flag = null; try { flag = sessionStorage.getItem('cloudCleanLogin'); } catch (e) {}
+  if (flag === uid) { try { sessionStorage.removeItem('cloudCleanLogin'); } catch (e) {} return false; }
+  var has = false;
+  try {
+    var a = await supabase.from('app_state').select('user_id').eq('user_id', uid).maybeSingle();
+    if (!a.error && a.data) has = true;
+    if (!has) {
+      var td = await supabase.from('todos').select('task_id', { count: 'exact', head: true }).eq('user_id', uid);
+      if (!td.error && (td.count || 0) > 0) has = true;
+    }
+  } catch (e) { return false; }
+  if (!has) return false;
+  try { sessionStorage.setItem('cloudCleanLogin', uid); } catch (e) {}
+  _cloudWipeLocalAndReload(_cl('Akkaunt ma\'lumotlari yuklanmoqda…', 'Loading your account data…', 'Загружаем данные аккаунта…'), true);
+  return true;
+};
+
 var cloudBoot = async function(session, isOAuthReturn) {
   await _cloudWaitBooted();
   if (_cloudAccountSwitchReset(session.user.id)) return;
@@ -31618,8 +31686,10 @@ var cloudBoot = async function(session, isOAuthReturn) {
   // Sessiya bor, lekin qurilmada hali hech kim kirmagan (Google qaytishi yoki boshqa tabda kirilgan) —
   // bulutdan to'liq tiklab, "Create account" oynasini yopamiz.
   if (firstLink) {
+    if (await _cloudCleanLoginIfExisting(S.cloudUserId)) return;
     // Google bilan yangi qurilmada/yangi akkaunt: bulutni to'liq tiklaymiz
     var res = await cloudPullAll(S.cloudUserId);
+    if (res.hadAppState && !res.hadTodos) S.tasks = (S.tasks || []).filter(function (t) { return !t.sample; });
     if (!S.profile) S.profile = {};
     S.profile.loginMethod = hasGoogle ? 'google' : 'email';
     S.welcomeSurveyDone = true;

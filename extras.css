@@ -657,3 +657,8 @@ html.layout-mobile .tk-pomo-btn { width: 34px; height: 34px; font-size: 15px; }
   html.x-pomo-running .x-pomo-live::before,
   .pomo-act-card.pomo-act-flash { animation: none !important; }
 }
+
+/* Sub-task: ixtiyoriy tanga miqdori */
+.st-coins-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.st-coins-row label{font-size:var(--fs-2xs);color:var(--text-muted);margin:0}
+.st-coins-row input{width:72px;padding:6px 8px;border-radius:var(--radius-sm,8px);border:1px solid var(--border);background:var(--surface,var(--bg));color:var(--text);font-weight:700;text-align:center}
