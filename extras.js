@@ -575,6 +575,7 @@
   window.xCosMine = function () {
     var st = shopState(), o = {};
     COS_KINDS.forEach(function (k) { if (st[k] && st.owned.indexOf(st[k]) !== -1) o[k] = st[k]; });
+    try { var ach = achShowcaseIds(); if (ach.length) o.ach = ach; } catch (e) {}
     return Object.keys(o).length ? o : null;
   };
   // nameHtml allaqachon escape qilingan bo'lishi kerak
@@ -584,6 +585,126 @@
   };
   window.xCosFrameCls = function (c) { var f = cosItem(c, 'frame'); return f ? ' xf-' + f.v : ''; };
   window.xCosTitle = function (c) { var it = cosItem(c, 'title'); return it ? L(it.tv[0], it.tv[1], it.tv[2]) : ''; };
+
+  // ---------- 🏅 Yutuqlar devori (Achievements wall) ----------
+  // Ta'riflar script.js dagi buildAllBadges() dan olinadi (id, icon, label, desc, group).
+  // Daraja (tier) = id oxiridagi raqam (streak_3 → 3). Tanlov: S.achShowcase = [id...] (≤ 6).
+  var ACH_MAX = 6;
+  var ACH_GROUPS = ['streak', 'tasks', 'coins', 'hard', 'shop', 'focus'];
+  function achDefs() {
+    var list = [];
+    try { list = (typeof buildAllBadges === 'function' ? buildAllBadges() : []) || []; } catch (e) { list = []; }
+    var map = {};
+    list.forEach(function (b) { b.tier = Math.max(1, Math.min(5, parseInt(String(b.id).split('_')[1], 10) || 1)); map[b.id] = b; });
+    return { list: list, map: map };
+  }
+  function achEarned(b) {
+    if (S.badgesUnlocked && S.badgesUnlocked[b.id] === true) return true;
+    try { return !!b.check(S); } catch (e) { return false; }
+  }
+  // Foydalanuvchi hech tanlamagan bo'lsa: eng yuqori darajali 6 ta yutuq
+  function achDefaultIds(defs) {
+    return defs.list.filter(achEarned).map(function (b, i) { return { b: b, i: i }; })
+      .sort(function (a, z) { return (z.b.tier - a.b.tier) || (a.i - z.i); })
+      .slice(0, ACH_MAX).map(function (x) { return x.b.id; });
+  }
+  function achShowcaseIds(defs) {
+    defs = defs || achDefs();
+    if (!Array.isArray(S.achShowcase)) return achDefaultIds(defs);
+    var out = [];
+    S.achShowcase.forEach(function (id) {
+      var b = typeof id === 'string' && defs.map[id];
+      if (b && out.indexOf(id) === -1 && out.length < ACH_MAX && achEarned(b)) out.push(id);
+    });
+    return out;
+  }
+  var ACH_GICON = { streak: '🔥', tasks: '✅', coins: '🪙', hard: '⚡', shop: '🛒', focus: '🧘' };
+  function achGroupName(g) { try { return t('badge_group_' + g); } catch (e) { return g; } }
+  function achBadgeHtml(b, cls) {
+    var gn = achGroupName(b.group);
+    return '<div class="x-aw-b x-aw-t' + b.tier + (cls ? ' ' + cls : '') + '" title="' + H(gn + ' — ' + b.desc) + '">' +
+      '<span class="x-aw-g" aria-hidden="true">' + (ACH_GICON[b.group] || '') + '</span>' +
+      '<span class="x-aw-i">' + H(b.icon) + '</span><span class="x-aw-n">' + H(b.label) + '</span>' +
+      '<span class="x-aw-gn">' + H(gn) + '</span></div>';
+  }
+  // Boshqa foydalanuvchi uchun (cosmetics.ach) — faqat ma'lum id'lar, hammasi escape qilinadi
+  window.xAchWallHtml = function (c) {
+    try {
+      if (!c || typeof c !== 'object' || !Array.isArray(c.ach)) return '';
+      var defs = achDefs(), seen = {}, html = '';
+      c.ach.slice(0, 12).forEach(function (id) {
+        if (typeof id !== 'string' || seen[id] || !Object.prototype.hasOwnProperty.call(defs.map, id) || Object.keys(seen).length >= ACH_MAX) return;
+        seen[id] = 1; html += achBadgeHtml(defs.map[id]);
+      });
+      return html ? '<div class="x-aw-row">' + html + '</div>' : '';
+    } catch (e) { return ''; }
+  };
+  // Profil modallari uchun tayyor bo'lim (bo'sh bo'lsa — '')
+  window.xAchWallSection = function (c) {
+    var inner = window.xAchWallHtml(c);
+    return inner ? '<div class="x-aw-sec"><div class="x-aw-sec-t">🏅 ' + H(L('Yutuqlar devori', 'Achievements wall', 'Стена достижений')) + '</div>' + inner + '</div>' : '';
+  };
+  // Yangi yutuq: vitrinada < 6 ta bo'lsa avtomatik qo'shamiz
+  window.xAchOnEarned = function (id) {
+    if (!Array.isArray(S.achShowcase)) return; // standart (avto) rejimda baribir ko'rinadi
+    var cur = achShowcaseIds();
+    if (cur.length < ACH_MAX && cur.indexOf(id) === -1) { cur.push(id); S.achShowcase = cur; }
+  };
+  window.xAchWallRender = safe(function () {
+    var host = document.getElementById('x-achwall'); if (!host) return;
+    var defs = achDefs(), ids = achShowcaseIds(defs);
+    var earnedN = defs.list.filter(achEarned).length, total = defs.list.length;
+    var cells = ids.map(function (id) { return achBadgeHtml(defs.map[id]); }).join('');
+    if (earnedN) for (var i = ids.length; i < ACH_MAX; i++) cells += '<button type="button" class="x-aw-b x-aw-empty" onclick="xAchPicker()" aria-label="' + H(L('Yutuq tanlash', 'Choose achievement', 'Выбрать достижение')) + '">＋</button>';
+    host.innerHTML =
+      '<div class="x-aw-head"><div class="x-aw-hl"><div class="x-aw-title">🏅 ' + H(L('Yutuqlar devori', 'Achievements wall', 'Стена достижений')) + '</div>' +
+      '<span class="x-aw-count">' + earnedN + ' / ' + total + ' ' + H(L('olingan', 'earned', 'получено')) + '</span></div>' +
+      '<button type="button" class="x-btn sm ghost x-aw-choose" onclick="xAchPicker()"' + (earnedN ? '' : ' disabled') + '>✏️ ' + H(L('Tanlash', 'Choose', 'Выбрать')) + '</button></div>' +
+      (earnedN ? '<div class="x-aw-grid">' + cells + '</div>'
+        : '<div class="x-aw-hint">' + H(L('Birinchi yutug\'ingizni qo\'lga kiriting — u shu yerda do\'stlaringizga ko\'rinadi.', 'Earn your first achievement — it will be shown here for your friends to see.', 'Получите первое достижение — оно появится здесь, и его увидят друзья.')) + '</div>') +
+      '<div class="x-aw-note">👀 ' + H(L('Do\'stlar va reytingda ko\'rinadi', 'Visible to friends and on the leaderboard', 'Видно друзьям и в рейтинге')) + '</div>';
+  });
+  window.xAchPicker = safe(function () {
+    var defs = achDefs(), sel = achShowcaseIds(defs).slice();
+    var meta = {}; try { meta = getBadgeGroupMeta(); } catch (e) {}
+    var ov = xModal('<h3 class="x-h">🏅 ' + H(L('Vitrina uchun yutuqlar', 'Showcase achievements', 'Достижения для витрины')) + '</h3>' +
+      '<div class="x-sub">' + H(L('6 tagacha olingan yutuqni tanlang. Qulflanganlarini tanlab bo\'lmaydi.', 'Pick up to 6 earned achievements. Locked ones can\'t be pinned.', 'Выберите до 6 полученных достижений. Закрытые выбрать нельзя.')) + '</div>' +
+      '<div class="x-aw-pk"></div>' +
+      '<div class="x-aw-foot"><span class="x-aw-sel"></span><button type="button" class="x-btn sm ghost x-aw-clear">' + H(L('Tozalash', 'Clear', 'Очистить')) + '</button>' +
+      '<button type="button" class="x-btn sm x-aw-save">' + H(L('Saqlash', 'Save', 'Сохранить')) + '</button></div>', 'x-aw-box');
+    var body = ov.querySelector('.x-aw-pk'), selEl = ov.querySelector('.x-aw-sel');
+    function draw() {
+      body.innerHTML = ACH_GROUPS.map(function (g) {
+        var items = defs.list.filter(function (b) { return b.group === g; });
+        if (!items.length) return '';
+        return '<div class="x-aw-pk-g">' + H((meta[g] && meta[g].label) || g) + '</div><div class="x-aw-pk-grid">' +
+          items.map(function (b) {
+            var ok = achEarned(b), on = sel.indexOf(b.id) !== -1;
+            return '<button type="button" class="x-aw-b x-aw-t' + b.tier + (ok ? '' : ' locked') + (on ? ' on' : '') + '" data-id="' + H(b.id) + '"' +
+              (ok ? ' aria-pressed="' + on + '"' : ' disabled') + ' title="' + H(b.desc) + '">' +
+              '<span class="x-aw-i">' + (ok ? H(b.icon) : '🔒') + '</span><span class="x-aw-n">' + H(b.label) + '</span>' +
+              (on ? '<span class="x-aw-no">' + (sel.indexOf(b.id) + 1) + '</span>' : '') + '</button>';
+          }).join('') + '</div>';
+      }).join('');
+      selEl.textContent = sel.length + ' / ' + ACH_MAX;
+    }
+    body.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-id]'); if (!btn || btn.disabled) return;
+      var id = btn.getAttribute('data-id'), k = sel.indexOf(id);
+      if (k !== -1) sel.splice(k, 1);
+      else if (sel.length >= ACH_MAX) { toast(L('Ko\'pi bilan 6 ta', 'Up to 6 only', 'Не больше 6')); return; }
+      else sel.push(id);
+      try { SFX.click(); } catch (e2) {}
+      draw();
+    });
+    ov.querySelector('.x-aw-clear').onclick = function () { sel = []; draw(); };
+    ov.querySelector('.x-aw-save').onclick = function () {
+      S.achShowcase = sel.slice(0, ACH_MAX);
+      save(); window.xAchWallRender(); ov._close();
+      toast('✅ ' + L('Vitrina saqlandi', 'Showcase saved', 'Витрина сохранена'));
+    };
+    draw();
+  });
 
   var shopApply = safe(function () {
     var st = shopState(), root = document.documentElement;
@@ -1506,6 +1627,7 @@
       ['pomo', '🍅', L('Pomodoro', 'Pomodoro', 'Pomodoro'), function () { pomoOpenModal(); }],
       ['reyting', '🏆', L('Reyting', 'Leaderboard', 'Рейтинг'), function () { showTab('reyting'); }],
       ['friends', '👥', L('Do\'stlar', 'Friends', 'Друзья'), function () { openFriendsModal(); }],
+      ['clans', '🛡', L('Klanlar', 'Clans', 'Кланы'), function () { openClans(); }],
       ['invite', '🎁', L('Taklif qil', 'Invite', 'Пригласить'), function () { openReferral(); }],
       ['chest', '🎲', 'Chest', function () { showTab('chest'); }],
       ['spin', '🎰', 'Spin', function () { showTab('spin'); }],
@@ -1514,17 +1636,19 @@
       ['cefr', '📘', 'CEFR', function () { showTab('cefr'); }],
       ['secret', '🕵️', L('Shaxsiy nazorat', 'Personal check', 'Личный контроль'), function () { showTab('secret'); }]
     ].filter(function (x) {
-      if (x[0] === 'friends' || x[0] === 'spin' || x[0] === 'invite') return true;
+      if (x[0] === 'friends' || x[0] === 'spin' || x[0] === 'invite' || x[0] === 'clans') return true;
       if (x[0] === 'secret') return !!S.personalCheckEnabled;
       return tabAvailable(x[0]);
     });
     window._xSecActions = {}; items.forEach(function (x) { window._xSecActions[x[0]] = x[3]; });
     return '<div class="x-secs-t">🧩 ' + L('Bo\'limlar', 'Sections', 'Разделы') + '</div><div class="x-secs">' + items.map(function (x) {
-      return '<button type="button" class="x-sec" data-sec-go="' + x[0] + '"><span>' + x[1] + '</span>' + x[2] + '</button>';
+      return '<button type="button" class="x-sec" data-sec-go="' + x[0] + '"><span>' + x[1] + '</span>' + x[2] +
+        (x[0] === 'pomo' ? '<em class="x-pomo-live" aria-hidden="true"></em>' : '') + '</button>';
     }).join('') + '</div>';
   }
   function bindSections(root) {
     root.querySelectorAll('[data-sec-go]').forEach(function (b) { b.onclick = function () { var f = (window._xSecActions || {})[b.dataset.secGo]; if (f) f(); }; });
+    try { if (window.pomoSyncRunIndicator) window.pomoSyncRunIndicator(); } catch (e) {}
   }
   // 📱 Telefonda pastki navigatsiya paneli
   function buildBottomNav() {
@@ -1541,8 +1665,10 @@
     var it = [['tasks', '📋', L('Vazifalar', 'Tasks', 'Задачи')], ['goals', '🎯', L('Maqsadlar', 'Goals', 'Цели')], ['hub', '🚀', 'Hub'],
       ['rewards', '🎁', L('Mukofot', 'Rewards', 'Награды')], ['profile', '👤', L('Profil', 'Profile', 'Профиль')]];
     nav.innerHTML = it.map(function (x) {
-      return '<button type="button" class="' + (x[0] === cur ? 'on' : '') + '" data-bn="' + x[0] + '"><span class="x-bn-i">' + x[1] + '</span><span class="x-bn-l">' + x[2] + '</span></button>';
+      return '<button type="button" class="' + (x[0] === cur ? 'on' : '') + '" data-bn="' + x[0] + '"><span class="x-bn-i">' + x[1] + '</span><span class="x-bn-l">' + x[2] + '</span>' +
+        (x[0] === 'hub' ? '<span class="x-pomo-live" aria-hidden="true"></span>' : '') + '</button>';
     }).join('');
+    try { if (window.pomoSyncRunIndicator) window.pomoSyncRunIndicator(); } catch (e) {}
     nav.querySelectorAll('[data-bn]').forEach(function (b) {
       b.onclick = function () { showTab(b.dataset.bn); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } };
     });
@@ -1723,6 +1849,100 @@
   window.xOpenReferral = openReferral;
   refCaptureFromUrl();
 
+  // =========================================================
+  // 🛡 KLANLAR — 30 kishigacha; haftalik klan jangi: a'zolarning o'rtacha haftalik XP'si
+  //   Hafta oxirida top-3 klan a'zolariga: 1-o'rin 15 💎, 2-o'rin 10 💎, 3-o'rin 5 💎
+  // =========================================================
+  var CLAN_EMOJIS = ['🛡', '🐉', '🦁', '🐺', '🦅', '🔥', '⚡', '🌙', '🚀', '📚', '👑', '💎'];
+  var _clanData = null, _clanEmoji = '🛡';
+  async function clanLoad() {
+    if (!cloudOk()) return null;
+    var r = await supabase.rpc('get_clan_data');
+    if (r.error) { console.warn('[clan]', r.error.message); return null; }
+    _clanData = r.data || {};
+    S.xClanId = _clanData.mine ? _clanData.mine.id : null; // comp_record_event klan XP'sini ham yozishi uchun
+    return _clanData;
+  }
+  async function clanClaim() {
+    if (!cloudOk()) return;
+    try {
+      var r = await supabase.rpc('claim_clan_rewards');
+      if (!r.error && r.data && r.data.gems > 0) { gemsAdd(r.data.gems, 'clan', '🛡 ' + L('Klan jangi mukofoti', 'Clan war reward', 'Награда клановой войны')); try { confetti(); } catch (e) {} save(); }
+    } catch (e) {}
+  }
+  function clanErr(e) {
+    return ({ level_too_low: L('Klan yaratish uchun Lv2 kerak', 'You need Lv2 to create a clan', 'Для создания клана нужен Lv2'),
+      taken: L('Bu nom yoki teg band', 'This name or tag is taken', 'Это имя или тег заняты'),
+      bad_name: L('Nom 3–24 belgi bo\'lsin', 'Name must be 3–24 characters', 'Имя: 3–24 символа'),
+      bad_tag: L('Teg 2–5 ta lotin harfi/raqam', 'Tag: 2–5 letters/digits', 'Тег: 2–5 латинских букв/цифр'),
+      already_in_clan: L('Siz allaqachon klandasiz', 'You are already in a clan', 'Вы уже в клане'),
+      full: L('Klan to\'lgan', 'The clan is full', 'Клан заполнен'),
+      cooldown: L('Klandan chiqqandan keyin 24 soat kutish kerak', 'Wait 24 hours after leaving a clan', 'После выхода из клана нужно подождать 24 часа'),
+      not_found: L('Klan topilmadi', 'Clan not found', 'Клан не найден') })[e] || e;
+  }
+  function clanTagHtml(c) { return '<span class="x-clan-tag">[' + H(c.tag) + ']</span>'; }
+  function clanHtml(d) {
+    var h = '';
+    var lw = d.lastWeek || [];
+    if (d.mine) {
+      var c = d.mine, isLeader = c.leaderId === S.cloudUserId;
+      h += '<div class="x-clan-head"><div class="x-clan-emo">' + H(c.emoji) + '</div><div class="x-clan-hd"><b>' + H(c.name) + ' ' + clanTagHtml(c) + '</b>' +
+        (c.description ? '<small>' + H(c.description) + '</small>' : '') + '</div></div>';
+      h += '<div class="x-clan-stats"><div><b>#' + (c.rank || '—') + '</b><span>' + L('Haftalik o\'rin', 'Weekly rank', 'Место за неделю') + '</span></div>' +
+        '<div><b>' + (c.score || 0) + '</b><span>' + L('O\'rtacha XP', 'Avg XP', 'Средний XP') + '</span></div>' +
+        '<div><b>' + (c.members || []).length + '/' + c.maxMembers + '</b><span>' + L('A\'zolar', 'Members', 'Участники') + '</span></div></div>';
+      h += '<div class="x-clan-note">⚔️ ' + L('Klanlar a\'zolarning shu haftadagi o\'rtacha XP\'si bo\'yicha bellashadi. Hafta oxirida top-3 klan a\'zolari: 🥇 15 💎 · 🥈 10 💎 · 🥉 5 💎', 'Clans compete on members\' average XP this week. At week end, members of the top-3 clans get 🥇 15 💎 · 🥈 10 💎 · 🥉 5 💎', 'Кланы соревнуются по среднему XP участников за неделю. В конце недели участники топ-3 кланов получают 🥇 15 💎 · 🥈 10 💎 · 🥉 5 💎') + '</div>';
+      h += '<div class="x-sec-t">👥 ' + L('A\'zolar — shu hafta', 'Members — this week', 'Участники — эта неделя') + '</div>';
+      h += (c.members || []).map(function (m, i) {
+        var nm = H(m.name || '?'); try { if (window.xCosNameHtml) nm = window.xCosNameHtml(nm, m.cosmetics); } catch (e) {}
+        return '<div class="x-clan-row"><span class="x-clan-pos">' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</span><span class="x-clan-nm">' + nm + (m.role === 'leader' ? ' 👑' : '') + (m.id === S.cloudUserId ? ' <em>(' + L('siz', 'you', 'вы') + ')</em>' : '') + '</span>' +
+          '<b>' + Math.round(m.weekXp || 0) + ' XP</b>' + (isLeader && m.id !== S.cloudUserId ? '<button class="x-link" data-clan-kick="' + H(m.id) + '">✕</button>' : '') + '</div>';
+      }).join('');
+      h += '<button class="x-btn sm ghost x-clan-leave" id="x-clan-leave">🚪 ' + L('Klandan chiqish', 'Leave clan', 'Покинуть клан') + '</button>';
+    } else {
+      var cd = d.cooldownUntil ? new Date(d.cooldownUntil) : null;
+      h += '<div class="x-clan-note">' + L('Klanga qo\'shiling yoki o\'zingiz yarating. Har hafta klanlar a\'zolarning o\'rtacha XP\'si bo\'yicha bellashadi — top-3 klan a\'zolari 💎 oladi.', 'Join a clan or create your own. Every week clans compete on members\' average XP — top-3 clan members earn 💎.', 'Вступите в клан или создайте свой. Каждую неделю кланы соревнуются по среднему XP — участники топ-3 получают 💎.') +
+        (cd && cd > new Date() ? '<br>⏳ ' + L('Yangi klanga kirish: ', 'You can join a new clan after ', 'Вступить в новый клан можно после ') + cd.toLocaleString() : '') + '</div>';
+      h += '<details class="x-clan-create"><summary>➕ ' + L('Klan yaratish (Lv2+)', 'Create a clan (Lv2+)', 'Создать клан (Lv2+)') + '</summary>' +
+        '<div class="x-clan-emos">' + CLAN_EMOJIS.map(function (e) { return '<button type="button" data-clan-emo="' + e + '" class="' + (e === _clanEmoji ? 'on' : '') + '">' + e + '</button>'; }).join('') + '</div>' +
+        '<input id="x-clan-name" maxlength="24" placeholder="' + L('Klan nomi', 'Clan name', 'Название клана') + '">' +
+        '<input id="x-clan-tag" maxlength="5" placeholder="' + L('Teg (2–5): DRM', 'Tag (2–5): DRM', 'Тег (2–5): DRM') + '" style="text-transform:uppercase">' +
+        '<input id="x-clan-desc" maxlength="140" placeholder="' + L('Qisqa tavsif (ixtiyoriy)', 'Short description (optional)', 'Краткое описание (необязательно)') + '">' +
+        '<button class="x-btn" id="x-clan-create">🛡 ' + L('Yaratish', 'Create', 'Создать') + '</button></details>';
+    }
+    if (lw.length) h += '<div class="x-sec-t">🏆 ' + L('O\'tgan hafta g\'oliblari', 'Last week\'s winners', 'Победители прошлой недели') + '</div>' +
+      lw.map(function (w) { return '<div class="x-clan-row"><span class="x-clan-pos">' + (['🥇', '🥈', '🥉'][w.rank - 1] || w.rank) + '</span><span class="x-clan-nm">' + H(w.emoji) + ' ' + H(w.name) + ' ' + clanTagHtml(w) + '</span><b>' + Math.round(w.avgXp) + ' XP</b></div>'; }).join('');
+    h += '<div class="x-sec-t">🌍 ' + L('Klanlar reytingi — shu hafta', 'Clan ranking — this week', 'Рейтинг кланов — эта неделя') + '</div>';
+    h += (d.top || []).length ? (d.top || []).map(function (c, i) {
+      var mineRow = d.mine && c.id === d.mine.id, full = c.members >= c.maxMembers;
+      return '<div class="x-clan-row' + (mineRow ? ' mine' : '') + '"><span class="x-clan-pos">' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</span><span class="x-clan-nm">' + H(c.emoji) + ' ' + H(c.name) + ' ' + clanTagHtml(c) + '<small>👥 ' + c.members + '/' + c.maxMembers + '</small></span><b>' + Math.round(c.score || 0) + ' XP</b>' +
+        (!d.mine && !full ? '<button class="x-btn sm" data-clan-join="' + H(c.id) + '">' + L('Qo\'shilish', 'Join', 'Вступить') + '</button>' : '') + '</div>';
+    }).join('') : '<div class="ad-empty">' + L('Hali klanlar yo\'q — birinchisini siz yarating!', 'No clans yet — create the first one!', 'Кланов пока нет — создайте первый!') + '</div>';
+    return h;
+  }
+  async function openClans() {
+    if (!cloudOk()) { toast('🔐 ' + L('Klanlar uchun akkauntga kiring', 'Sign in to use clans', 'Войдите, чтобы пользоваться кланами')); return; }
+    var ov = xModal('<h3 class="x-h">🛡 ' + L('Klanlar', 'Clans', 'Кланы') + '</h3><div id="x-clan-body"><div class="ad-empty">⏳</div></div>', 'x-clan-box');
+    var body = ov.querySelector('#x-clan-body');
+    var render = async function () {
+      var d = await clanLoad();
+      if (!d) { body.innerHTML = '<div class="ad-empty">⚠️ ' + L('Yuklab bo\'lmadi', 'Could not load', 'Не удалось загрузить') + '</div>'; return; }
+      body.innerHTML = clanHtml(d);
+      var act = async function (fn, okMsg) { var r = await fn(); if (r.error || !(r.data && r.data.ok)) { toast('❌ ' + clanErr(r.error ? r.error.message : r.data && r.data.error)); return; } if (okMsg) toast(okMsg); render(); };
+      body.querySelectorAll('[data-clan-emo]').forEach(function (b) { b.onclick = function () { _clanEmoji = b.dataset.clanEmo; body.querySelectorAll('[data-clan-emo]').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+      var cr = body.querySelector('#x-clan-create'); if (cr) cr.onclick = function () {
+        var nm = (body.querySelector('#x-clan-name').value || '').trim(), tg = (body.querySelector('#x-clan-tag').value || '').trim().toUpperCase(), ds = (body.querySelector('#x-clan-desc').value || '').trim();
+        act(function () { return supabase.rpc('create_clan', { p_name: nm, p_tag: tg, p_emoji: _clanEmoji, p_desc: ds }); }, '🛡 ' + L('Klan yaratildi!', 'Clan created!', 'Клан создан!'));
+      };
+      body.querySelectorAll('[data-clan-join]').forEach(function (b) { b.onclick = function () { act(function () { return supabase.rpc('join_clan', { p_clan: b.dataset.clanJoin }); }, '🛡 ' + L('Klanga qo\'shildingiz!', 'You joined the clan!', 'Вы вступили в клан!')); }; });
+      body.querySelectorAll('[data-clan-kick]').forEach(function (b) { b.onclick = function () { if (confirm(L('A\'zoni klandan chiqarasizmi?', 'Remove this member from the clan?', 'Исключить участника из клана?'))) act(function () { return supabase.rpc('kick_clan_member', { p_user: b.dataset.clanKick }); }); }; });
+      var lv = body.querySelector('#x-clan-leave'); if (lv) lv.onclick = function () { if (confirm(L('Klandan chiqasizmi? 24 soat davomida boshqa klanga kira olmaysiz.', 'Leave the clan? You will not be able to join another clan for 24 hours.', 'Покинуть клан? 24 часа нельзя будет вступить в другой клан.'))) act(function () { return supabase.rpc('leave_clan'); }); };
+    };
+    await clanClaim();
+    render();
+  }
+  window.xOpenClans = openClans;
+
   // ?action=… (manifest shortcuts)
   function handleLaunchAction() {
     try {
@@ -1775,11 +1995,13 @@
     };
     setTimeout(beat, 5000); setInterval(beat, 120000);
     setTimeout(refSync, 6000);
+    setTimeout(function () { clanLoad().then(function () {}, function () {}); clanClaim(); }, 7000);
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') beat(); });
     try { new MutationObserver(function () { renderBottomNav(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tab'] }); } catch (e) {}
     try { bossState(); bossResolve(); } catch (e) {}
     document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(function () { try { bossResolve(); renderBossStrip(false); } catch (e) {} }, 400); });
     shopApply();
+    try { window.xAchWallRender(); } catch (e) {}
     renderTasksExtras();
     maybeShowWrap();
     // render() dan keyin profil/sarlavha qayta chizilganda bezaklar saqlanib qolsin

@@ -10685,7 +10685,7 @@ function initTaskSortable() {
     if (!el) return;
     Sortable.create(el, {
       draggable: '.task-card',
-      filter: '.check-btn, .act-btn, .task-menu-btn, .subtask-item, .subtask-skip-chip, .subtask-dots-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
+      filter: '.check-btn, .act-btn, .task-menu-btn, .tk-pomo-btn, .subtask-item, .subtask-skip-chip, .subtask-dots-btn, .task-note-toggle, .task-label-dot, .task-dots-btn, .task-dropdown-menu, .task-dropdown-item, .task-note, .subtask-add-quick-btn, .task-quick-btn, .subtask-done-toggle, .subtask-check',
       preventOnFilter: false,
       delay: 320,             // bosib turish kerak bo'lgan vaqt (ms) — telefonda surish (scroll) bilan adashmasligi uchun
       delayOnTouchOnly: true, // sichqonchada (desktop) darhol, mobil ekranda ushlab turish talab qilinadi
@@ -12475,7 +12475,11 @@ function renderTimeline() {
   var tasks = tbTodayTimedTasks().map(function (tk) {
     var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
     return { tk: tk, a: a, b: Math.max(b, a + 10) };
-  }).sort(function (x, y) { return x.a - y.a || x.b - y.b; });
+  }).concat(tbNotesForDate(today()).map(function (n) {
+    // 📌 Jadval eslatmalari — vazifa emas, faqat band vaqtni ko'rsatadi
+    var a = _tbMin(n.start), b = _tbMin(n.end);
+    return { note: n, a: a, b: Math.max(b, a + 10) };
+  })).sort(function (x, y) { return x.a - y.a || x.b - y.b; });
   box.style.display = '';
   var now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
   // Faqat vazifalar bor oraliq ko'rsatiladi (+ hozirgi vaqt yaqin bo'lsa) — keraksiz bo'sh soatlar yo'q
@@ -12518,9 +12522,10 @@ function renderTimeline() {
   var html = '<div class="tbl-head" onclick="tbToggleCollapse()"><div class="tbl-title">📅 ' + _cl('Kun jadvali', 'Day schedule', 'Расписание дня') + ' <span class="tbl-caret">' + (collapsed ? '▸' : '▾') + '</span></div>' +
     '<div class="tbl-sum"><span>🟦 ' + _cl('Band', 'Busy', 'Занято') + ': <b>' + (busy ? tbRelLabel(busy) : '0') + '</b></span>' +
     '<span>🟩 ' + _cl("Bo'sh (bugun qolgan)", 'Free (rest of today)', 'Свободно (до конца дня)') + ': <b>' + (freeLeft ? tbRelLabel(freeLeft) : '0') + '</b></span>' +
-    (collapsed || !tasks.length ? '' : '<span class="tbl-zoom" onclick="event.stopPropagation()"><button type="button" onclick="tbZoomStep(-1)" title="' + _cl('Kichiklashtirish', 'Zoom out', 'Уменьшить') + '">－</button><b>' + Math.round(px / TB_PX_DEFAULT * 100) + '%</b><button type="button" onclick="tbZoomStep(1)" title="' + _cl('Kattalashtirish', 'Zoom in', 'Увеличить') + '">＋</button></span>') + '</div></div>';
+    (collapsed || !tasks.length ? '' : '<span class="tbl-zoom" onclick="event.stopPropagation()"><button type="button" class="tbl-addnote" onclick="tbOpenNoteEditor(null)" title="' + _cl("Jadvalga eslatma qo'shish (vazifa emas)", 'Add a schedule note (not a task)', 'Добавить заметку в расписание (не задача)') + '">＋📌</button><button type="button" onclick="tbZoomStep(-1)" title="' + _cl('Kichiklashtirish', 'Zoom out', 'Уменьшить') + '">－</button><b>' + Math.round(px / TB_PX_DEFAULT * 100) + '%</b><button type="button" onclick="tbZoomStep(1)" title="' + _cl('Kattalashtirish', 'Zoom in', 'Увеличить') + '">＋</button></span>') + '</div></div>';
   if (collapsed || !tasks.length) {
-    if (!tasks.length) html += '<div class="tbl-empty">' + _cl("Bugun vaqtli vazifa yo'q. Vazifa qo'shganda vaqtini kiriting.", 'No timed tasks today. Add a time when creating a task.', 'Сегодня нет задач со временем.') + '</div>';
+    if (!tasks.length) html += '<div class="tbl-empty">' + _cl("Bugun vaqtli vazifa yo'q. Vazifa qo'shganda vaqtini kiriting.", 'No timed tasks today. Add a time when creating a task.', 'Сегодня нет задач со временем.') +
+      '<div><button type="button" class="tbl-empty-add" onclick="tbOpenNoteEditor(null)">📌 ' + _cl("Jadvalga yozish (masalan: Maktab)", 'Add to schedule (e.g. School)', 'Добавить в расписание (напр. Школа)') + '</button></div></div>';
     box.innerHTML = html; return;
   }
   html += '<div class="tbl-grid" style="height:' + H + 'px" data-r0="' + r0 + '">';
@@ -12529,10 +12534,19 @@ function renderTimeline() {
   }
   gaps.forEach(function (g) {
     var top = (g.a - r0) * px, hh = (g.b - g.a) * px;
-    html += '<button class="tbl-gap" style="top:' + (top + 3) + 'px;height:' + Math.max(0, hh - 6) + 'px" onclick="tbAddInGap(\'' + _tbHM(g.a) + '\',\'' + _tbHM(Math.min(g.b, g.a + 60)) + '\')">' +
-      '<span>＋ ' + _cl("Bo'sh vaqt", 'Free time', 'Свободно') + ' · ' + tbRelLabel(g.b - g.a) + '</span></button>';
+    html += '<div class="tbl-gap" role="button" style="top:' + (top + 3) + 'px;height:' + Math.max(0, hh - 6) + 'px" title="' + _cl("Bosing — jadvalga yozing", 'Tap to write something here', 'Нажмите, чтобы добавить запись') + '">' +
+      '<span>＋ ' + _cl("Bo'sh vaqt", 'Free time', 'Свободно') + ' · ' + tbRelLabel(g.b - g.a) + '</span></div>';
   });
   tasks.forEach(function (it) {
+    if (it.note) {
+      // 📌 Jadval eslatmasi (vazifa emas)
+      var n = it.note, ntop = (it.a - r0) * px, nh = (it.b - it.a) * px, nw = 100 / it.lanes, nl = nw * it.lane;
+      var ncls = 'tbl-note' + (nh < 34 ? ' short' : '') + (it.b <= nm ? ' past' : (it.a <= nm ? ' now' : ''));
+      html += '<div class="' + ncls + '" data-nid="' + esc(String(n.id)) + '" role="button" style="top:' + ntop + 'px;height:' + (nh - 2) + 'px;left:calc(' + nl + '% + 2px);width:calc(' + nw + '% - 4px)' + (n.color ? ';--tbl-c:' + n.color : '') + '">' +
+        '<div class="tbl-b-main"><div class="tbl-b-name"><span class="tbl-n-pin">📌</span>' + (n.emoji ? n.emoji + ' ' : '') + esc(n.text) + '</div>' +
+        '<div class="tbl-b-time">' + n.start + '–' + n.end + (n.repeat !== 'once' ? ' · 🔁 ' + esc(tbNoteRepeatLabel(n)) : '') + '</div></div></div>';
+      return;
+    }
     var tk = it.tk, st = tbState(tk, false), cls = 'tbl-block';
     if (tk.done) cls += ' done'; else if (tk.skipped) cls += ' skipped'; else if (st && st.state === 'now') cls += ' now'; else if (st && st.state === 'past') cls += ' missed';
     var top = (it.a - r0) * px, hh = (it.b - it.a) * px;
@@ -12585,8 +12599,138 @@ function tbAddInGap(start, end) {
   var a = document.getElementById('m-start'), b = document.getElementById('m-end');
   if (a) a.value = start; if (b) b.value = end;
 }
+
+// 📌 JADVAL ESLATMALARI (S.tbNotes) — vaqt jadvalidagi oddiy yozuvlar (masalan "Maktab 08:00–13:00").
+// Bular vazifa EMAS: tanga/XP, bajarildi belgisi, vazifalar ro'yxati, statistika, kvest va boss'ga kirmaydi.
+var TB_NOTE_EMOJIS = ['', '🏫', '💼', '🎓', '🍽', '🏋️', '🚌', '😴', '🕌', '👨‍👩‍👧', '🎮', '📚'];
+var TB_NOTE_COLORS = ['', '#7C5CFC', '#60A5FA', '#34D399', '#F5A623', '#F87171', '#EC4899', '#94A3B8'];
+function tbNotesList() { if (!Array.isArray(S.tbNotes)) S.tbNotes = []; return S.tbNotes; }
+// Berilgan sanada (YYYY-MM-DD) eslatma ko'rinadimi
+function tbNoteOnDate(n, dateStr) {
+  if (!n || !n.start || !n.end) return false;
+  var dow = new Date(dateStr + 'T00:00:00').getDay();
+  if (n.repeat === 'daily') return true;
+  if (n.repeat === 'weekdays') return dow >= 1 && dow <= 5;
+  if (n.repeat === 'days') return Array.isArray(n.days) && n.days.indexOf(dow) !== -1;
+  return n.date === dateStr; // 'once'
+}
+function tbNotesForDate(dateStr) {
+  return (Array.isArray(S.tbNotes) ? S.tbNotes : []).filter(function (n) { return tbNoteOnDate(n, dateStr); });
+}
+window.tbNotesForDate = tbNotesForDate;
+function tbShortDays() { var l = getLang(); return l === 'en' ? SHORT_DAYS_EN : l === 'ru' ? SHORT_DAYS_RU : SHORT_DAYS; }
+function tbNoteRepeatLabel(n) {
+  if (n.repeat === 'daily') return _cl('Har kuni', 'Every day', 'Каждый день');
+  if (n.repeat === 'weekdays') return _cl('Ish kunlari', 'Weekdays', 'Будни');
+  if (n.repeat === 'days') { var sd = tbShortDays(); return [1, 2, 3, 4, 5, 6, 0].filter(function (d) { return (n.days || []).indexOf(d) !== -1; }).map(function (d) { return sd[d]; }).join(', '); }
+  return _cl('Faqat bugun', 'Only today', 'Только сегодня');
+}
+function tbOpenNoteEditor(noteId, startMin) {
+  var list = tbNotesList();
+  var n = noteId != null ? list.find(function (x) { return String(x.id) === String(noteId); }) : null;
+  if (noteId != null && !n) return;
+  var old = document.getElementById('tbn-ov'); if (old) old.remove();
+  if (startMin == null) { var d0 = new Date(); startMin = Math.ceil((d0.getHours() * 60 + d0.getMinutes()) / 15) * 15; }
+  startMin = Math.max(0, Math.min(23 * 60, startMin));
+  var st = n ? { text: n.text, start: n.start, end: n.end, emoji: n.emoji || '', color: n.color || '', repeat: n.repeat || 'once', days: (n.days || []).slice() }
+    : { text: '', start: _tbHM(startMin), end: _tbHM(Math.min(startMin + 60, 24 * 60 - 1)), emoji: '', color: '', repeat: 'once', days: [] };
+  if (!st.days.length) st.days = [new Date().getDay()];
+  var ov = document.createElement('div');
+  ov.id = 'tbn-ov'; ov.className = 'tbn-ov';
+  var openedAt = Date.now();
+  var reps = [['once', _cl('Faqat bugun', 'Only today', 'Только сегодня')], ['daily', _cl('Har kuni', 'Every day', 'Каждый день')], ['weekdays', _cl('Ish kunlari', 'Weekdays', 'Будни')], ['days', _cl('Kunlarni tanlash', 'Pick days', 'Выбрать дни')]];
+  var sd = tbShortDays();
+  ov.innerHTML = '<div class="tbn-box" role="dialog" aria-modal="true">' +
+    '<div class="tbn-title">📌 ' + (n ? _cl('Jadval yozuvi', 'Schedule note', 'Запись в расписании') : _cl('Jadvalga yozish', 'Add to schedule', 'Добавить в расписание')) + '</div>' +
+    '<div class="tbn-sub">' + _cl("Faqat kun jadvalida ko'rinadi — vazifalarga qo'shilmaydi", 'Shown only on the day schedule — not added to tasks', 'Только в расписании — не добавляется в задачи') + '</div>' +
+    '<input id="tbn-text" class="tbn-input" type="text" maxlength="60" autocomplete="off" placeholder="' + _cl('Masalan: Maktab', 'e.g. School', 'Напр.: Школа') + '" value="' + esc(st.text) + '">' +
+    '<div class="tbn-times"><label>' + _cl('Boshlanish', 'Start', 'Начало') + '<input id="tbn-start" type="time" step="300" value="' + st.start + '"></label>' +
+    '<span class="tbn-dash">–</span><label>' + _cl('Tugash', 'End', 'Конец') + '<input id="tbn-end" type="time" step="300" value="' + st.end + '"></label></div>' +
+    '<div class="tbn-row tbn-emojis">' + TB_NOTE_EMOJIS.map(function (em) { return '<button type="button" data-em="' + em + '" class="' + (em === st.emoji ? 'on' : '') + '">' + (em || '📌') + '</button>'; }).join('') + '</div>' +
+    '<div class="tbn-row tbn-colors">' + TB_NOTE_COLORS.map(function (c) { return '<button type="button" data-c="' + c + '" class="' + (c === st.color ? 'on' : '') + (c ? '' : ' none') + '" style="' + (c ? '--c:' + c : '') + '" aria-label="' + (c || _cl('Rangsiz', 'No color', 'Без цвета')) + '"></button>'; }).join('') + '</div>' +
+    '<div class="tbn-row tbn-reps">' + reps.map(function (r) { return '<button type="button" data-rep="' + r[0] + '" class="' + (r[0] === st.repeat ? 'on' : '') + '">' + r[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="tbn-row tbn-days"' + (st.repeat === 'days' ? '' : ' hidden') + '>' + [1, 2, 3, 4, 5, 6, 0].map(function (d) { return '<button type="button" data-d="' + d + '" class="' + (st.days.indexOf(d) !== -1 ? 'on' : '') + '">' + sd[d] + '</button>'; }).join('') + '</div>' +
+    '<div class="tbn-err" id="tbn-err"></div>' +
+    '<div class="tbn-actions">' +
+      (n ? '<button type="button" class="tbn-del" id="tbn-del">🗑 ' + _cl("O'chirish", 'Delete', 'Удалить') + '</button>' : '<button type="button" class="tbn-astask" id="tbn-astask">' + _cl('Vazifa sifatida', 'As a task', 'Как задачу') + '</button>') +
+      '<button type="button" class="tbn-cancel" id="tbn-cancel">' + _cl('Bekor', 'Cancel', 'Отмена') + '</button>' +
+      '<button type="button" class="tbn-save" id="tbn-save">' + _cl('Saqlash', 'Save', 'Сохранить') + '</button>' +
+    '</div></div>';
+  document.body.appendChild(ov);
+  var $ = function (sel) { return ov.querySelector(sel); };
+  var close = function () { ov.remove(); document.removeEventListener('keydown', onKey, true); };
+  var onKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  document.addEventListener('keydown', onKey, true);
+  // sensorli ekranda "arvoh" click darhol yopib qo'ymasin
+  ov.addEventListener('click', function (e) { if (e.target === ov && Date.now() - openedAt > 400) close(); });
+  var pick = function (wrap, attr, cb) {
+    wrap.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b || !wrap.contains(b)) return;
+      cb(b.getAttribute(attr), b);
+    });
+  };
+  pick($('.tbn-emojis'), 'data-em', function (v, b) { st.emoji = v; $('.tbn-emojis').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+  pick($('.tbn-colors'), 'data-c', function (v, b) { st.color = v; $('.tbn-colors').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+  pick($('.tbn-reps'), 'data-rep', function (v, b) { st.repeat = v; $('.tbn-reps').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); $('.tbn-days').hidden = v !== 'days'; });
+  pick($('.tbn-days'), 'data-d', function (v, b) { var d = +v, i = st.days.indexOf(d); if (i === -1) st.days.push(d); else st.days.splice(i, 1); b.classList.toggle('on', i === -1); });
+  var err = function (msg) { $('#tbn-err').textContent = msg; };
+  $('#tbn-text').addEventListener('input', function () { err(''); });
+  var doSave = function () {
+    var text = $('#tbn-text').value.trim(), s = $('#tbn-start').value, en = $('#tbn-end').value;
+    if (!text) { err(_cl('Matn kiriting', 'Enter some text', 'Введите текст')); $('#tbn-text').focus(); return; }
+    if (!/^\d{2}:\d{2}$/.test(s) || !/^\d{2}:\d{2}$/.test(en)) { err(_cl('Vaqtni kiriting', 'Enter the time', 'Укажите время')); return; }
+    if (_tbMin(en) <= _tbMin(s)) { err(_cl("Tugash vaqti boshlanishdan keyin bo'lishi kerak", 'End time must be after start', 'Конец должен быть позже начала')); return; }
+    if (st.repeat === 'days' && !st.days.length) { err(_cl('Kamida bitta kun tanlang', 'Pick at least one day', 'Выберите хотя бы один день')); return; }
+    var rec = n || { id: 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) };
+    rec.text = text.slice(0, 60); rec.start = s; rec.end = en;
+    rec.emoji = st.emoji || null; rec.color = st.color || null; rec.repeat = st.repeat;
+    rec.days = st.repeat === 'days' ? st.days.slice().sort() : [];
+    if (st.repeat === 'once') rec.date = (n && n.repeat === 'once' && n.date) ? n.date : today(); else delete rec.date;
+    if (!n) list.push(rec);
+    close(); save(); renderTimeline();
+    toast('📌 ' + rec.text + ' · ' + s + '–' + en);
+  };
+  $('#tbn-save').onclick = doSave;
+  $('#tbn-cancel').onclick = close;
+  $('#tbn-text').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doSave(); } });
+  if (n) $('#tbn-del').onclick = function () {
+    S.tbNotes = list.filter(function (x) { return x !== n; });
+    close(); save(); renderTimeline();
+    toast(_cl("Jadvaldan o'chirildi", 'Removed from schedule', 'Удалено из расписания') + ': ' + n.text);
+  };
+  else $('#tbn-astask').onclick = function () { var s = $('#tbn-start').value, en = $('#tbn-end').value, tx = $('#tbn-text').value.trim(); close(); tbAddInGap(s, en); var mi = document.getElementById('m-name'); if (mi && tx && !mi.value) mi.value = tx; };
+  if (!n) setTimeout(function () { try { $('#tbn-text').focus(); } catch (e) {} }, 60);
+}
+window.tbOpenNoteEditor = tbOpenNoteEditor;
+// Bo'sh joyga yoki eslatmaga "tap" (sudrash/aylantirish/pinch hisobga olinmaydi)
+var _tbTap = null;
+function tbBindGridTap(box) {
+  var grid = box.querySelector('.tbl-grid'); if (!grid) return;
+  grid.addEventListener('pointerdown', function (e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (_tbTap) { _tbTap = null; return; } // ikkinchi barmoq (pinch) — tap emas
+    if (e.target.closest('.tbl-block')) return;
+    _tbTap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), st: box.scrollTop, moved: false };
+  });
+  grid.addEventListener('pointermove', function (e) {
+    var t = _tbTap; if (!t || t.id !== e.pointerId) return;
+    if (Math.abs(e.clientX - t.x) > 8 || Math.abs(e.clientY - t.y) > 8) t.moved = true;
+  });
+  grid.addEventListener('pointercancel', function () { _tbTap = null; });
+  grid.addEventListener('pointerup', function (e) {
+    var t = _tbTap; _tbTap = null;
+    if (!t || t.id !== e.pointerId || t.moved || Date.now() - t.t > 700 || Math.abs(box.scrollTop - t.st) > 4) return;
+    if (e.target.closest('.tbl-block')) return;
+    var noteEl = e.target.closest('.tbl-note');
+    if (noteEl) { tbOpenNoteEditor(noteEl.dataset.nid); return; }
+    var gr = grid.getBoundingClientRect();
+    var min = +grid.dataset.r0 + (e.clientY - gr.top) / tbPx();
+    tbOpenNoteEditor(null, Math.floor(min / 15) * 15);
+  });
+}
 var _tbDrag = null;
 function tbBindTimeline(box) {
+  tbBindGridTap(box);
   box.querySelectorAll('.tbl-block').forEach(function (el) {
     el.addEventListener('pointerdown', function (e) {
       if (e.button !== undefined && e.button !== 0) return;
@@ -12736,6 +12880,7 @@ function makeTaskEl(t, future) {
           ${subsDueOrDone.length ? `<span class="tk-chip tk-chip-subs${subsDoneN === subsDueOrDone.length ? ' all' : ''}">☑ ${subsDoneN}/${subsDueOrDone.length}</span>` : ''}
         </div>
       </div>
+      ${(!future && !t.done) ? `<button type="button" class="tk-pomo-btn" onclick="pomoOpenForTask(${t.id}, event)" title="${_cl("Pomodoro'da shu vazifa ustida ishlash", "Focus on this task in Pomodoro", "Работать над задачей в Pomodoro")}" aria-label="${_cl("Pomodoro'da shu vazifa ustida ishlash", "Focus on this task in Pomodoro", "Работать над задачей в Pomodoro")}">🍅</button>` : ''}
       <button class="task-menu-btn tk-more" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="${_cl("Amallar", "Actions", "Действия")}" aria-label="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
     </div>
     ${hasSubtasks?`<div class="task-card-bottom"><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
@@ -15564,7 +15709,9 @@ function showPlayerProfileModal(id) {
       '<div style="display:flex;flex-wrap:wrap;gap:6px">'+
         (p.targetSubjects && p.targetSubjects.length ? renderSubjectBadgesHtml(p.targetSubjects, null, p.appGoalOther) : '<span style="font-size:var(--fs-xs);color:var(--text-dim)">—</span>')+
       '</div>'+
-    '</div>';
+    '</div>'+
+    // 🏅 Yutuqlar devori (extras.js; o'zim uchun — hozirgi tanlov)
+    (function(){ try { return typeof window.xAchWallSection === 'function' ? window.xAchWallSection(_cosOf(p)) : ''; } catch (e) { return ''; } })();
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -16600,6 +16747,7 @@ function _rstResetTasks() {
   S.chestHistory = [];
   S.chestDoneHistory = [];
   S.chestAllDoneDate = null;
+  S.tbNotes = []; // 📌 kun jadvali eslatmalari ham tozalanadi
 }
 
 function _rstResetExams(examTypes) {
@@ -21841,6 +21989,8 @@ function renderBadges() {
       gemsAdd(BADGE_GEM_REWARD, 'badge', '🏅 ' + b.icon + ' ' + b.label, true);
       addTarixLog('in', '🏅 ' + b.icon + ' ' + b.label + ' (+' + BADGE_GEM_REWARD + ' 💎)', 0, 'badge_reward_'+b.id);
       newlyEarned.push(b);
+      // 🏅 Yutuqlar devori: vitrinada joy bo'lsa avtomatik qo'shiladi (extras.js)
+      try { if (typeof window.xAchOnEarned === 'function') window.xAchOnEarned(b.id); } catch (e) {}
     }
   });
   if (newlyEarned.length) {
@@ -21906,6 +22056,7 @@ function renderBadges() {
       '<span style="white-space:nowrap;font-size:var(--fs-2xs);color:var(--text-muted)">' + cur + '/' + nextTarget + ' ' + meta.unit + '</span>';
     prog.appendChild(row);
   });
+  try { if (typeof window.xAchWallRender === 'function') window.xAchWallRender(); } catch (e) {}
 }
 
 
@@ -22635,6 +22786,7 @@ function openTaskSheet(id, future) {
       btns += `<button class="sheet-btn" onclick="closeTaskSheet();unskipTask(${id})">🔄 ${_cl("Qaytarish", "Restore", "Вернуть")}</button>`;
     }
   }
+  if (!future && !t.done) btns += `<button class="sheet-btn" onclick="closeTaskSheet();pomoOpenForTask(${id})">🍅 ${_cl("Pomodoro'da ishlash", "Focus with Pomodoro", "Фокус в Pomodoro")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();openSubtaskModal(${id})">➕ ${_cl("Sub-task qo'shish", "Add subtask", "Добавить подзадачу")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();freezeTask(${id})">🧊 ${tr('freeze_task_sheet_btn')}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();editTask(${id})">✏️ ${_cl('Tahrirlash', 'Edit', 'Изменить')}</button>`;
@@ -26608,7 +26760,7 @@ try {
 
       var isBreak = phase === 'break';
       var cls = 'pomo-act-card' + (isActive ? ' active' : '') + (isRunning ? ' is-running' : '') + (isOver ? ' is-over' : '') + (isBreak ? ' is-break' : '');
-      html += '<div class="' + cls + '" style="--accent-card:' + cardColor + '" onclick="pomoCardClick(event,\'' + act.id + '\')">';
+      html += '<div class="' + cls + '" data-act-id="' + pomoEsc(act.id) + '" style="--accent-card:' + cardColor + '" onclick="pomoCardClick(event,\'' + act.id + '\')">';
 
       // Yuqori qator: ikonka · nom/holat · katta ▶/⏸ tugmasi
       html += '  <div class="pomo-act-top">';
@@ -27044,7 +27196,9 @@ try {
   };
 
   // 🍅 Vaqt bloki boshlanganda Pomodoro'ni avtomatik yoqish
-  window.pomoAutoStartForTask = function (tk) {
+  // Vazifaga mos amaliylikni topadi (bog'langan id → bir xil nom, katta-kichik harf farqsiz)
+  // yoki yangisini yaratadi. Taymerni ishga TUSHIRMAYDI.
+  function pomoEnsureActForTask(tk) {
     if (!tk) return null;
     var act = tk.pomoActId ? pomoFindAct(tk.pomoActId) : null;
     if (!act) {
@@ -27054,10 +27208,11 @@ try {
       }
     }
     if (!act) {
-      var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
+      var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : (a == null ? null : a + 60);
+      var lim = (a != null && b != null && b > a) ? Math.max(5, b - a) : 60;
       act = {
         id: 'pomo_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-        name: String(tk.name || 'Task').slice(0, 60), limit: Math.max(5, b - a),
+        name: String(tk.name || 'Task').slice(0, 60), limit: lim,
         elapsedMs: 0, cycleMs: 0, breakRemainingMs: 0, phase: 'work', running: false, lastTickAt: null,
         emoji: tk.emoji || '🎯', color: '#e2564b'
       };
@@ -27065,8 +27220,33 @@ try {
       pomoSaveActivities();
     }
     tk.pomoActId = act.id;
-    if (!act.running) window.pomoStartOrResume(act.id);
     return act;
+  }
+  window.pomoAutoStartForTask = function (tk) {
+    var act = pomoEnsureActForTask(tk);
+    if (act && !act.running) window.pomoStartOrResume(act.id);
+    return act;
+  };
+
+  // 🍅 Vazifa kartasidagi tugma: Pomodoro'ni shu vazifa amaliyligi tanlangan holda
+  // "Loyihalar" bo'limida ochadi (Start bosishga tayyor, avtomatik boshlanmaydi).
+  window.pomoOpenForTask = function (taskId, ev) {
+    if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    var tk = (S.tasks || []).find(function (x) { return x.id === taskId || String(x.id) === String(taskId); });
+    if (!tk) return;
+    var hadLink = tk.pomoActId;
+    var act = pomoEnsureActForTask(tk);
+    if (!act) return;
+    if (hadLink !== tk.pomoActId) { try { save(); } catch (e) {} }
+    pomoSelectedId = act.id;
+    try { closeAllTaskDropdowns(); } catch (e) {}
+    window.pomoOpenModal(); // o'zi "Loyihalar" navini faollashtiradi va ro'yxatni chizadi
+    var card = document.querySelector('#pomo-activity-list .pomo-act-card[data-act-id="' + act.id + '"]');
+    if (card) {
+      try { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+      card.classList.remove('pomo-act-flash'); void card.offsetWidth; card.classList.add('pomo-act-flash');
+      setTimeout(function () { card.classList.remove('pomo-act-flash'); }, 1600);
+    }
   };
 
   window.pomoStopActivity = function (ev) {
@@ -27194,6 +27374,7 @@ try {
   function pomoMaybeStopTicking() {
     var anyRunning = pomoActivities.some(function (a) { return a.running; });
     if (!anyRunning && pomoTickHandle) { clearInterval(pomoTickHandle); pomoTickHandle = null; }
+    try { pomoSyncRunIndicator(); } catch (e) {}
   }
 
   function pomoFloatDoc() {
@@ -27233,7 +27414,47 @@ try {
     pomoFloatDoc().getElementById('pomo-float').classList.add('show');
     pomoUpdateFloatUI();
   }
+  /* 🍅 Global "Pomodoro ishlayapti" indikatori: <html> klassi (x-pomo-running /
+     x-pomo-break) + Hub tugmasi va Hub'dagi Pomodoro plitkasidagi [.x-pomo-live]
+     matni (joriy fazada qolgan vaqt). Faqat holat o'zgarganda / har tick'da arzon yangilanadi. */
+  var _pomoIndTxt = null;
+  function pomoSyncRunIndicator() {
+    var root = document.documentElement;
+    if (!root) return;
+    var act = pomoActiveId ? pomoFindAct(pomoActiveId) : null;
+    var running = !!(act && act.running);
+    var brk = running && act.phase === 'break';
+    if (root.classList.contains('x-pomo-running') !== running) root.classList.toggle('x-pomo-running', running);
+    if (root.classList.contains('x-pomo-break') !== brk) root.classList.toggle('x-pomo-break', brk);
+    var txt = '';
+    if (running) {
+      var ms = brk ? (act.breakRemainingMs || 0) : Math.max(0, pomoWorkMs() - (act.cycleMs || 0));
+      var sec = Math.ceil(ms / 1000), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60;
+      var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+      txt = (h ? h + ':' : '') + p2(m) + ':' + p2(s2);
+    }
+    var hubBtn = document.getElementById('tab-hub');
+    if (hubBtn && !hubBtn.querySelector('.x-pomo-live')) {
+      var sp = document.createElement('span'); sp.className = 'x-pomo-live'; sp.setAttribute('aria-hidden', 'true');
+      hubBtn.appendChild(sp); _pomoIndTxt = null;
+    }
+    var nodes = document.querySelectorAll('.x-pomo-live');
+    var force = false;
+    for (var i = 0; i < nodes.length; i++) { if (nodes[i].textContent !== txt) { force = true; break; } }
+    if (!force && txt === _pomoIndTxt) return;
+    _pomoIndTxt = txt;
+    var lbl = running ? (brk ? _cl("Pomodoro: tanaffus", "Pomodoro: on a break", "Pomodoro: перерыв") : _cl("Pomodoro ishlayapti", "Pomodoro is running", "Pomodoro идёт")) + ' · ' + txt : '';
+    for (var j = 0; j < nodes.length; j++) nodes[j].textContent = txt;
+    document.querySelectorAll('#tab-hub, #x-bnav [data-bn="hub"], [data-sec-go="pomo"]').forEach(function (b) {
+      // Faqat o'zimiz qo'ygan title'ni olib tashlaymiz (boshqa title'larga tegmaymiz)
+      if (lbl) { b.setAttribute('title', lbl); b.setAttribute('data-x-pomo-title', ''); }
+      else if (b.hasAttribute('data-x-pomo-title')) { b.removeAttribute('title'); b.removeAttribute('data-x-pomo-title'); }
+    });
+  }
+  window.pomoSyncRunIndicator = pomoSyncRunIndicator;
+
   function pomoUpdateFloatUI() {
+    try { pomoSyncRunIndicator(); } catch (e) {}
     var fdoc = pomoFloatDoc();
     var floatEl = fdoc.getElementById('pomo-float');
     var headerBtn = document.getElementById('tab-pomo');
@@ -30399,7 +30620,7 @@ function friendsRecordTaskEvent(taskDelta, coinsDelta, xpDelta) {
 var _compAnyActive = function () {
   var F = S.friends || {};
   var party = (typeof friendsGetMyParty === 'function') ? friendsGetMyParty() : null;
-  return (F.challenges || []).some(function (c) { return c.status === 'active'; }) || !!F.myWorldPartyId || !!(party && party.comp);
+  return (F.challenges || []).some(function (c) { return c.status === 'active'; }) || !!F.myWorldPartyId || !!(party && party.comp) || !!S.xClanId;
 };
 var compReportEvent = async function (deltaDone, deltaXp) {
   if (!S.cloudLinked || !S.cloudUserId || !_compAnyActive()) return;
@@ -30813,6 +31034,7 @@ function showFriendProfileModal(id) {
     + '<div style="font-size:var(--fs-3xs);color:var(--text-muted);margin-bottom:6px">' + t('pp_goal_label') + '</div>'
     + '<div id="fp-goal-badges" style="display:flex;flex-wrap:wrap;gap:6px">' + (renderSubjectBadgesHtml(stats.subjects) || '<span style="font-size:var(--fs-xs);color:var(--text-dim)">—</span>') + '</div>'
     + '</div>'
+    + '<div id="fp-achwall">' + _fpAchWall(base.cosmetics) + '</div>'
     + (reasonText ? ('<div style="background:var(--accent-glow);border:1px solid var(--accent);border-radius:var(--radius-md);padding:10px;margin-bottom:14px">'
       + '<div style="font-size:var(--fs-3xs);color:var(--accent);font-weight:700;margin-bottom:4px">' + t('friends_reason_shown_label') + '</div>'
       + '<div style="font-size:var(--fs-xs);color:var(--text)">' + esc(reasonText) + '</div>'
@@ -30826,6 +31048,9 @@ function showFriendProfileModal(id) {
   // A11y: Esc tugmasi bilan ham yopish mumkin
   document.addEventListener('keydown', _fpEscHandler);
 }
+
+// 🏅 Do'st yutuqlar devori (cosmetics.ach — extras.js da tekshiriladi va escape qilinadi)
+function _fpAchWall(c) { try { return typeof window.xAchWallSection === 'function' ? window.xAchWallSection(c) : ''; } catch (e) { return ''; } }
 
 // Do'st profilidagi statistikani haqiqiy (Supabase) ma'lumot bilan to'ldirish
 function _fpFillStat(boxId, icon, label, value) {
@@ -30851,6 +31076,8 @@ function _fpFillStat(boxId, icon, label, value) {
       _fpFillStat('fp-stat-gems', '', '', (d.gems != null ? Number(d.gems) || 0 : '—') + ' 💎');
       var goal = document.getElementById('fp-goal-badges');
       if (goal && d.target_subjects && d.target_subjects.length) goal.innerHTML = renderSubjectBadgesHtml(d.target_subjects, null, d.app_goal_other);
+      var aw = document.getElementById('fp-achwall');
+      if (aw && d.cosmetics && typeof d.cosmetics === 'object') { var awh = _fpAchWall(d.cosmetics); if (awh) aw.innerHTML = awh; }
     }, function () {});
   };
   window.showFriendProfileModal = showFriendProfileModal;
