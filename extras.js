@@ -575,6 +575,7 @@
   window.xCosMine = function () {
     var st = shopState(), o = {};
     COS_KINDS.forEach(function (k) { if (st[k] && st.owned.indexOf(st[k]) !== -1) o[k] = st[k]; });
+    try { var ach = achShowcaseIds(); if (ach.length) o.ach = ach; } catch (e) {}
     return Object.keys(o).length ? o : null;
   };
   // nameHtml allaqachon escape qilingan bo'lishi kerak
@@ -584,6 +585,126 @@
   };
   window.xCosFrameCls = function (c) { var f = cosItem(c, 'frame'); return f ? ' xf-' + f.v : ''; };
   window.xCosTitle = function (c) { var it = cosItem(c, 'title'); return it ? L(it.tv[0], it.tv[1], it.tv[2]) : ''; };
+
+  // ---------- 🏅 Yutuqlar devori (Achievements wall) ----------
+  // Ta'riflar script.js dagi buildAllBadges() dan olinadi (id, icon, label, desc, group).
+  // Daraja (tier) = id oxiridagi raqam (streak_3 → 3). Tanlov: S.achShowcase = [id...] (≤ 6).
+  var ACH_MAX = 6;
+  var ACH_GROUPS = ['streak', 'tasks', 'coins', 'hard', 'shop', 'focus'];
+  function achDefs() {
+    var list = [];
+    try { list = (typeof buildAllBadges === 'function' ? buildAllBadges() : []) || []; } catch (e) { list = []; }
+    var map = {};
+    list.forEach(function (b) { b.tier = Math.max(1, Math.min(5, parseInt(String(b.id).split('_')[1], 10) || 1)); map[b.id] = b; });
+    return { list: list, map: map };
+  }
+  function achEarned(b) {
+    if (S.badgesUnlocked && S.badgesUnlocked[b.id] === true) return true;
+    try { return !!b.check(S); } catch (e) { return false; }
+  }
+  // Foydalanuvchi hech tanlamagan bo'lsa: eng yuqori darajali 6 ta yutuq
+  function achDefaultIds(defs) {
+    return defs.list.filter(achEarned).map(function (b, i) { return { b: b, i: i }; })
+      .sort(function (a, z) { return (z.b.tier - a.b.tier) || (a.i - z.i); })
+      .slice(0, ACH_MAX).map(function (x) { return x.b.id; });
+  }
+  function achShowcaseIds(defs) {
+    defs = defs || achDefs();
+    if (!Array.isArray(S.achShowcase)) return achDefaultIds(defs);
+    var out = [];
+    S.achShowcase.forEach(function (id) {
+      var b = typeof id === 'string' && defs.map[id];
+      if (b && out.indexOf(id) === -1 && out.length < ACH_MAX && achEarned(b)) out.push(id);
+    });
+    return out;
+  }
+  var ACH_GICON = { streak: '🔥', tasks: '✅', coins: '🪙', hard: '⚡', shop: '🛒', focus: '🧘' };
+  function achGroupName(g) { try { return t('badge_group_' + g); } catch (e) { return g; } }
+  function achBadgeHtml(b, cls) {
+    var gn = achGroupName(b.group);
+    return '<div class="x-aw-b x-aw-t' + b.tier + (cls ? ' ' + cls : '') + '" title="' + H(gn + ' — ' + b.desc) + '">' +
+      '<span class="x-aw-g" aria-hidden="true">' + (ACH_GICON[b.group] || '') + '</span>' +
+      '<span class="x-aw-i">' + H(b.icon) + '</span><span class="x-aw-n">' + H(b.label) + '</span>' +
+      '<span class="x-aw-gn">' + H(gn) + '</span></div>';
+  }
+  // Boshqa foydalanuvchi uchun (cosmetics.ach) — faqat ma'lum id'lar, hammasi escape qilinadi
+  window.xAchWallHtml = function (c) {
+    try {
+      if (!c || typeof c !== 'object' || !Array.isArray(c.ach)) return '';
+      var defs = achDefs(), seen = {}, html = '';
+      c.ach.slice(0, 12).forEach(function (id) {
+        if (typeof id !== 'string' || seen[id] || !Object.prototype.hasOwnProperty.call(defs.map, id) || Object.keys(seen).length >= ACH_MAX) return;
+        seen[id] = 1; html += achBadgeHtml(defs.map[id]);
+      });
+      return html ? '<div class="x-aw-row">' + html + '</div>' : '';
+    } catch (e) { return ''; }
+  };
+  // Profil modallari uchun tayyor bo'lim (bo'sh bo'lsa — '')
+  window.xAchWallSection = function (c) {
+    var inner = window.xAchWallHtml(c);
+    return inner ? '<div class="x-aw-sec"><div class="x-aw-sec-t">🏅 ' + H(L('Yutuqlar devori', 'Achievements wall', 'Стена достижений')) + '</div>' + inner + '</div>' : '';
+  };
+  // Yangi yutuq: vitrinada < 6 ta bo'lsa avtomatik qo'shamiz
+  window.xAchOnEarned = function (id) {
+    if (!Array.isArray(S.achShowcase)) return; // standart (avto) rejimda baribir ko'rinadi
+    var cur = achShowcaseIds();
+    if (cur.length < ACH_MAX && cur.indexOf(id) === -1) { cur.push(id); S.achShowcase = cur; }
+  };
+  window.xAchWallRender = safe(function () {
+    var host = document.getElementById('x-achwall'); if (!host) return;
+    var defs = achDefs(), ids = achShowcaseIds(defs);
+    var earnedN = defs.list.filter(achEarned).length, total = defs.list.length;
+    var cells = ids.map(function (id) { return achBadgeHtml(defs.map[id]); }).join('');
+    if (earnedN) for (var i = ids.length; i < ACH_MAX; i++) cells += '<button type="button" class="x-aw-b x-aw-empty" onclick="xAchPicker()" aria-label="' + H(L('Yutuq tanlash', 'Choose achievement', 'Выбрать достижение')) + '">＋</button>';
+    host.innerHTML =
+      '<div class="x-aw-head"><div class="x-aw-hl"><div class="x-aw-title">🏅 ' + H(L('Yutuqlar devori', 'Achievements wall', 'Стена достижений')) + '</div>' +
+      '<span class="x-aw-count">' + earnedN + ' / ' + total + ' ' + H(L('olingan', 'earned', 'получено')) + '</span></div>' +
+      '<button type="button" class="x-btn sm ghost x-aw-choose" onclick="xAchPicker()"' + (earnedN ? '' : ' disabled') + '>✏️ ' + H(L('Tanlash', 'Choose', 'Выбрать')) + '</button></div>' +
+      (earnedN ? '<div class="x-aw-grid">' + cells + '</div>'
+        : '<div class="x-aw-hint">' + H(L('Birinchi yutug\'ingizni qo\'lga kiriting — u shu yerda do\'stlaringizga ko\'rinadi.', 'Earn your first achievement — it will be shown here for your friends to see.', 'Получите первое достижение — оно появится здесь, и его увидят друзья.')) + '</div>') +
+      '<div class="x-aw-note">👀 ' + H(L('Do\'stlar va reytingda ko\'rinadi', 'Visible to friends and on the leaderboard', 'Видно друзьям и в рейтинге')) + '</div>';
+  });
+  window.xAchPicker = safe(function () {
+    var defs = achDefs(), sel = achShowcaseIds(defs).slice();
+    var meta = {}; try { meta = getBadgeGroupMeta(); } catch (e) {}
+    var ov = xModal('<h3 class="x-h">🏅 ' + H(L('Vitrina uchun yutuqlar', 'Showcase achievements', 'Достижения для витрины')) + '</h3>' +
+      '<div class="x-sub">' + H(L('6 tagacha olingan yutuqni tanlang. Qulflanganlarini tanlab bo\'lmaydi.', 'Pick up to 6 earned achievements. Locked ones can\'t be pinned.', 'Выберите до 6 полученных достижений. Закрытые выбрать нельзя.')) + '</div>' +
+      '<div class="x-aw-pk"></div>' +
+      '<div class="x-aw-foot"><span class="x-aw-sel"></span><button type="button" class="x-btn sm ghost x-aw-clear">' + H(L('Tozalash', 'Clear', 'Очистить')) + '</button>' +
+      '<button type="button" class="x-btn sm x-aw-save">' + H(L('Saqlash', 'Save', 'Сохранить')) + '</button></div>', 'x-aw-box');
+    var body = ov.querySelector('.x-aw-pk'), selEl = ov.querySelector('.x-aw-sel');
+    function draw() {
+      body.innerHTML = ACH_GROUPS.map(function (g) {
+        var items = defs.list.filter(function (b) { return b.group === g; });
+        if (!items.length) return '';
+        return '<div class="x-aw-pk-g">' + H((meta[g] && meta[g].label) || g) + '</div><div class="x-aw-pk-grid">' +
+          items.map(function (b) {
+            var ok = achEarned(b), on = sel.indexOf(b.id) !== -1;
+            return '<button type="button" class="x-aw-b x-aw-t' + b.tier + (ok ? '' : ' locked') + (on ? ' on' : '') + '" data-id="' + H(b.id) + '"' +
+              (ok ? ' aria-pressed="' + on + '"' : ' disabled') + ' title="' + H(b.desc) + '">' +
+              '<span class="x-aw-i">' + (ok ? H(b.icon) : '🔒') + '</span><span class="x-aw-n">' + H(b.label) + '</span>' +
+              (on ? '<span class="x-aw-no">' + (sel.indexOf(b.id) + 1) + '</span>' : '') + '</button>';
+          }).join('') + '</div>';
+      }).join('');
+      selEl.textContent = sel.length + ' / ' + ACH_MAX;
+    }
+    body.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-id]'); if (!btn || btn.disabled) return;
+      var id = btn.getAttribute('data-id'), k = sel.indexOf(id);
+      if (k !== -1) sel.splice(k, 1);
+      else if (sel.length >= ACH_MAX) { toast(L('Ko\'pi bilan 6 ta', 'Up to 6 only', 'Не больше 6')); return; }
+      else sel.push(id);
+      try { SFX.click(); } catch (e2) {}
+      draw();
+    });
+    ov.querySelector('.x-aw-clear').onclick = function () { sel = []; draw(); };
+    ov.querySelector('.x-aw-save').onclick = function () {
+      S.achShowcase = sel.slice(0, ACH_MAX);
+      save(); window.xAchWallRender(); ov._close();
+      toast('✅ ' + L('Vitrina saqlandi', 'Showcase saved', 'Витрина сохранена'));
+    };
+    draw();
+  });
 
   var shopApply = safe(function () {
     var st = shopState(), root = document.documentElement;
@@ -1876,6 +1997,7 @@
     try { bossState(); bossResolve(); } catch (e) {}
     document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(function () { try { bossResolve(); renderBossStrip(false); } catch (e) {} }, 400); });
     shopApply();
+    try { window.xAchWallRender(); } catch (e) {}
     renderTasksExtras();
     maybeShowWrap();
     // render() dan keyin profil/sarlavha qayta chizilganda bezaklar saqlanib qolsin
