@@ -1681,6 +1681,7 @@
         <div class="rw-hero-label" id="rw-hero-label">Balans</div>
         <div class="rw-hero-coins"><span id="rw-hero-coins">0</span> <span class="rw-hero-coin-icon">🪙</span></div>
         <div class="rw-hero-sub" data-i18n="rewards_intro">Vazifalarni bajarsangiz tanga topasiz. Tangalarni mukofotlarga almashtirasiz!</div>
+        <button type="button" class="tier-guide-link" style="margin-top:6px;font-size:var(--fs-2xs)" onclick="openEconomyGuide()">💰 Tanga qoidalari</button>
       </div>
       <button type="button" class="rw-hero-add" id="rw-hero-add" onclick="openAddRewardForm()">+</button>
     </div>
@@ -1900,15 +1901,13 @@
       <input type="text" id="m-emoji" placeholder="Yoki o'zingiz emoji kiriting... 🎯" data-i18n-ph="task_emoji_ph" maxlength="4" style="max-width:120px" oninput="syncTaskEmojiInput()" />
     </div>
 
+    <!-- 💰 Qiyinlik → tanga / XP / jarima yagona jadvaldan (TASK_TIERS) — o'zboshimcha qiymat yo'q -->
     <div class="modal-field">
-      <label id="m-coins-label">Tanga mukofoti</label>
-      <input type="number" id="m-coins" min="0" max="30" step="1" value="1" inputmode="numeric" oninput="tmCoinsInput()" />
-      <div id="m-coins-hint" style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">0 – 30 🪙</div>
-    </div>
-    <div class="modal-field">
-      <label id="m-penalty-label">Jarima (bajarilmasa)</label>
-      <input type="number" id="m-penalty" min="0" max="30" step="1" value="1" inputmode="numeric" oninput="tmPenaltyInput()" />
-      <div id="m-penalty-hint" style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">0 – 30 🪙</div>
+      <label id="m-tier-label">Qiyinlik va mukofot</label>
+      <div class="tier-opts" id="m-tier-opts"></div>
+      <div id="m-tier-hint" class="tier-hint"></div>
+      <input type="hidden" id="m-coins" value="2" />
+      <input type="hidden" id="m-penalty" value="1" />
     </div>
 
     <div class="modal-field">
@@ -2416,12 +2415,11 @@
         <button type="button" class="rcost-chip" data-v="1" onclick="setGoalCoins(1)">1</button>
         <button type="button" class="rcost-chip" data-v="2" onclick="setGoalCoins(2)">2</button>
         <button type="button" class="rcost-chip" data-v="3" onclick="setGoalCoins(3)">3</button>
+        <button type="button" class="rcost-chip" data-v="4" onclick="setGoalCoins(4)">4</button>
         <button type="button" class="rcost-chip" data-v="5" onclick="setGoalCoins(5)">5</button>
-        <button type="button" class="rcost-chip" data-v="10" onclick="setGoalCoins(10)">10</button>
-        <button type="button" class="rcost-chip" data-v="20" onclick="setGoalCoins(20)">20</button>
-        <button type="button" class="rcost-chip" data-v="30" onclick="setGoalCoins(30)">30</button>
+        <button type="button" class="rcost-chip" data-v="7" onclick="setGoalCoins(7)">7</button>
       </div>
-      <input type="number" id="gm-coins" min="0" max="30" step="1" value="1" inputmode="numeric" oninput="gmCoinsInput()" style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:'DM Sans',sans-serif" />
+      <input type="number" id="gm-coins" min="0" max="7" step="1" value="1" inputmode="numeric" oninput="gmCoinsInput()" style="width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:'DM Sans',sans-serif" />
       <div id="gm-coins-hint" style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:4px">0 – 30 🪙</div>
     </div>
     </div>
@@ -2484,7 +2482,7 @@
     </div>
     <div class="modal-field">
       <label id="gm-penalty-label">Jarima</label>
-      <input type="number" id="gm-penalty" min="0" max="30" step="1" value="0" inputmode="numeric" oninput="var v=parseInt(this.value); if(v>30)this.value=30; else if(v<0)this.value=0;" />
+      <input type="number" id="gm-penalty" min="0" max="5" step="1" value="0" inputmode="numeric" oninput="var v=parseInt(this.value); if(v>5)this.value=5; else if(v<0)this.value=0;" />
     </div>
     <div class="modal-field">
       <label id="gm-remind-label">Eslatma</label>
