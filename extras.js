@@ -88,36 +88,93 @@
     { q: 4, icon: '🗑', cls: 'q4', t: function () { return L('Muhim ham, shoshilinch ham emas', 'Neither', 'Ни то, ни другое'); }, s: function () { return L('Kamaytiring', 'Drop it', 'Убрать'); } }
   ];
   function mxChip(t) {
-    return '<div class="x-mx-chip" data-id="' + t.id + '"><button class="x-mx-done" data-done="' + t.id + '" title="✓"></button><span class="x-mx-name" data-edit="' + t.id + '">' +
-      (t.emoji ? t.emoji + ' ' : '') + H(t.name) + (t.startTime ? ' <i>' + t.startTime + '</i>' : '') + '</span></div>';
+    return '<div class="x-mx-chip" data-id="' + t.id + '" tabindex="0" role="button" aria-pressed="false"><button class="x-mx-done" data-done="' + t.id + '" title="✓" aria-label="' + H(L('Bajarildi', 'Mark done', 'Выполнено')) + '"></button><span class="x-mx-name">' +
+      (t.emoji ? t.emoji + ' ' : '') + H(t.name) + (t.startTime ? ' <i>' + t.startTime + '</i>' : '') + '</span>' +
+      '<button class="x-mx-edit" data-edit="' + t.id + '" title="' + H(L('Tahrirlash', 'Edit', 'Изменить')) + '" aria-label="' + H(L('Tahrirlash', 'Edit', 'Изменить')) + ': ' + H(t.name) + '">✏️</button></div>';
+  }
+  // Yagona manba: vazifani kvadrantga ko'chirish (drag ham, tap ham shu orqali)
+  function mxMoveTask(id, q) {
+    var tk = S.tasks.find(function (x) { return x.id === id; });
+    if (!tk) return null;
+    if (q) tk.quad = q; else delete tk.quad;
+    save(); try { renderTaskList(); } catch (e) {}
+    return tk;
+  }
+  function mxQuadName(q) {
+    var Q = QUADS.find(function (x) { return x.q === q; });
+    return Q ? Q.icon + ' ' + Q.t() : '📥 ' + L('Saralanmagan', 'Unsorted', 'Без категории');
   }
   function openMatrix() {
-    var old = document.querySelector('.x-ov.x-mx'); var keep = !!old; if (old) old.remove();
+    var old = document.querySelector('.x-ov.x-mx'); var keep = !!old; if (old) { if (old._mxKey) window.removeEventListener('keydown', old._mxKey, true); old.remove(); }
     var tasks = todaysOpenTasks();
+    var hint = '<em class="x-mx-hint">' + L('Shu yerga ko\'chirish uchun bosing', 'Tap to move here', 'Нажмите, чтобы переместить') + '</em>';
     var html = '<h3 class="x-h">▦ ' + L('Eisenhower matritsasi', 'Eisenhower matrix', 'Матрица Эйзенхауэра') + '</h3>' +
-      '<p class="x-sub">' + L('Vazifalarni sudrab kerakli katakka qo\'ying. ✓ — bajarildi, nomini bossangiz — tahrirlash.', 'Drag tasks into a box. ✓ marks done, tap a name to edit.', 'Перетащите задачи в нужный квадрат.') + '</p>' +
+      '<p class="x-sub">' + L('Vazifani bosing — u belgilanadi, so\'ng kerakli katakni bosing. Sudrab ham qo\'yish mumkin. ✓ — bajarildi, ✏️ — tahrirlash.', 'Tap a task to select it, then tap a box to move it there. Dragging works too. ✓ marks done, ✏️ edits.', 'Нажмите на задачу, чтобы выбрать её, затем нажмите на нужный квадрат. Можно и перетаскивать. ✓ — выполнено, ✏️ — изменить.') + '</p>' +
       '<div class="x-mx-grid">';
     QUADS.forEach(function (Q) {
       var list = tasks.filter(function (t) { return t.quad === Q.q; });
-      html += '<div class="x-mx-q ' + Q.cls + '"><div class="x-mx-qh"><b>' + Q.icon + ' ' + Q.t() + '</b><span>' + Q.s() + ' · ' + list.length + '</span></div>' +
+      html += '<div class="x-mx-q ' + Q.cls + '" data-zone="' + Q.q + '"><div class="x-mx-qh"><b>' + Q.icon + ' ' + Q.t() + '</b><span class="x-mx-cnt">' + Q.s() + ' · ' + list.length + '</span>' + hint + '</div>' +
         '<div class="x-mx-list" data-q="' + Q.q + '">' + list.map(mxChip).join('') + '</div></div>';
     });
     var un = tasks.filter(function (t) { return !t.quad; });
-    html += '</div><div class="x-mx-un"><div class="x-mx-qh"><b>📥 ' + L('Saralanmagan', 'Unsorted', 'Без категории') + '</b><span>' + un.length + '</span></div>' +
+    html += '</div><div class="x-mx-un" data-zone="0"><div class="x-mx-qh"><b>📥 ' + L('Saralanmagan', 'Unsorted', 'Без категории') + '</b><span class="x-mx-cnt">' + un.length + '</span>' + hint + '</div>' +
       '<div class="x-mx-list" data-q="0">' + un.map(mxChip).join('') + '</div></div>';
     var ov = xModal(html, 'x-mx-box'); ov.classList.add('x-mx');
     if (keep) ov.classList.add('open');
+    var box = ov.querySelector('.x-box');
+    var selId = null, lastDragEnd = 0, dragging = false;
+    function zoneOf(el) { var z = el && el.closest('[data-zone]'); return z ? +z.dataset.zone : null; }
+    function clearSel() {
+      selId = null; box.classList.remove('x-mx-picking');
+      box.querySelectorAll('.x-mx-chip.x-mx-sel').forEach(function (c) { c.classList.remove('x-mx-sel'); c.setAttribute('aria-pressed', 'false'); });
+      box.querySelectorAll('[data-zone].x-mx-src').forEach(function (z) { z.classList.remove('x-mx-src'); });
+    }
+    function select(chip) {
+      clearSel();
+      selId = +chip.dataset.id; chip.classList.add('x-mx-sel'); chip.setAttribute('aria-pressed', 'true');
+      box.classList.add('x-mx-picking');
+      var z = chip.closest('[data-zone]'); if (z) z.classList.add('x-mx-src');
+    }
     ov.querySelectorAll('[data-done]').forEach(function (b) { b.onclick = function (e) { e.stopPropagation(); toggleTask(+b.dataset.done); setTimeout(openMatrix, 50); }; });
-    ov.querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function () { ov._close(); editTask(+b.dataset.edit); }; });
+    ov.querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function (e) { e.stopPropagation(); ov._close(); editTask(+b.dataset.edit); }; });
+    ov.querySelectorAll('.x-mx-chip').forEach(function (c) {
+      // Faqat sichqoncha (desktop bonus) — telefonda ikki marta tez bosish tanlov/bekor qilishdir
+      c.addEventListener('pointerdown', function (e) { c._pt = e.pointerType; });
+      c.ondblclick = function (e) { if (c._pt === 'touch' || e.target.closest('button')) return; ov._close(); editTask(+c.dataset.id); };
+      c.onkeydown = function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target === c) { e.preventDefault(); c.click(); } };
+    });
+    box.addEventListener('click', function (e) {
+      if (dragging || Date.now() - lastDragEnd < 350) return;
+      if (e.target.closest('button')) return; // ✓, ✏️, ✕ — o'z ishlovchilari bor
+      var chip = e.target.closest('.x-mx-chip');
+      var zone = zoneOf(e.target);
+      if (selId == null) { if (chip) select(chip); return; }
+      var cur = box.querySelector('.x-mx-chip.x-mx-sel');
+      var curZone = zoneOf(cur);
+      if (zone != null && zone !== curZone) {
+        var tk = mxMoveTask(selId, zone);
+        clearSel();
+        if (tk) { openMatrix(); try { toast('✓ ' + L('Ko\'chirildi', 'Moved', 'Перемещено') + ' → ' + mxQuadName(zone)); } catch (er) {} }
+        return;
+      }
+      if (chip && chip !== cur) { select(chip); return; }
+      clearSel(); // o'sha vazifa / o'sha katak / tashqarisi — bekor
+    });
+    var onKey = function (e) {
+      if (!ov.isConnected) { window.removeEventListener('keydown', onKey, true); return; }
+      if (e.key === 'Escape' && selId != null) { e.stopPropagation(); e.preventDefault(); clearSel(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    ov._mxKey = onKey;
     if (typeof Sortable !== 'undefined') {
       ov.querySelectorAll('.x-mx-list').forEach(function (el) {
         Sortable.create(el, {
-          group: 'x-mx', animation: 150, delay: 120, delayOnTouchOnly: true, filter: '.x-mx-done', preventOnFilter: false,
+          group: 'x-mx', animation: 150, delay: 120, delayOnTouchOnly: true, filter: '.x-mx-done, .x-mx-edit', preventOnFilter: false,
+          onStart: function () { dragging = true; clearSel(); },
+          onEnd: function () { dragging = false; lastDragEnd = Date.now(); },
           onAdd: function (ev) {
-            var id = +ev.item.dataset.id, q = +el.dataset.q;
-            var tk = S.tasks.find(function (x) { return x.id === id; });
-            if (tk) { if (q) tk.quad = q; else delete tk.quad; save(); try { renderTaskList(); } catch (e) {} }
-            ov.querySelectorAll('.x-mx-q').forEach(function (qd) { var n = qd.querySelectorAll('.x-mx-chip').length; var sp = qd.querySelector('.x-mx-qh span'); if (sp) sp.textContent = sp.textContent.replace(/\d+$/, n); });
+            mxMoveTask(+ev.item.dataset.id, +el.dataset.q);
+            ov.querySelectorAll('[data-zone]').forEach(function (qd) { var n = qd.querySelectorAll('.x-mx-chip').length; var sp = qd.querySelector('.x-mx-cnt'); if (sp) sp.textContent = sp.textContent.replace(/\d+$/, n); });
           }
         });
       });
