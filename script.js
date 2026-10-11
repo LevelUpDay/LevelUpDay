@@ -30399,7 +30399,7 @@ function friendsRecordTaskEvent(taskDelta, coinsDelta, xpDelta) {
 var _compAnyActive = function () {
   var F = S.friends || {};
   var party = (typeof friendsGetMyParty === 'function') ? friendsGetMyParty() : null;
-  return (F.challenges || []).some(function (c) { return c.status === 'active'; }) || !!F.myWorldPartyId || !!(party && party.comp);
+  return (F.challenges || []).some(function (c) { return c.status === 'active'; }) || !!F.myWorldPartyId || !!(party && party.comp) || !!S.xClanId;
 };
 var compReportEvent = async function (deltaDone, deltaXp) {
   if (!S.cloudLinked || !S.cloudUserId || !_compAnyActive()) return;

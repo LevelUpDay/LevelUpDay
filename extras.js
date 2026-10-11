@@ -1506,6 +1506,7 @@
       ['pomo', '🍅', L('Pomodoro', 'Pomodoro', 'Pomodoro'), function () { pomoOpenModal(); }],
       ['reyting', '🏆', L('Reyting', 'Leaderboard', 'Рейтинг'), function () { showTab('reyting'); }],
       ['friends', '👥', L('Do\'stlar', 'Friends', 'Друзья'), function () { openFriendsModal(); }],
+      ['clans', '🛡', L('Klanlar', 'Clans', 'Кланы'), function () { openClans(); }],
       ['invite', '🎁', L('Taklif qil', 'Invite', 'Пригласить'), function () { openReferral(); }],
       ['chest', '🎲', 'Chest', function () { showTab('chest'); }],
       ['spin', '🎰', 'Spin', function () { showTab('spin'); }],
@@ -1514,7 +1515,7 @@
       ['cefr', '📘', 'CEFR', function () { showTab('cefr'); }],
       ['secret', '🕵️', L('Shaxsiy nazorat', 'Personal check', 'Личный контроль'), function () { showTab('secret'); }]
     ].filter(function (x) {
-      if (x[0] === 'friends' || x[0] === 'spin' || x[0] === 'invite') return true;
+      if (x[0] === 'friends' || x[0] === 'spin' || x[0] === 'invite' || x[0] === 'clans') return true;
       if (x[0] === 'secret') return !!S.personalCheckEnabled;
       return tabAvailable(x[0]);
     });
@@ -1723,6 +1724,100 @@
   window.xOpenReferral = openReferral;
   refCaptureFromUrl();
 
+  // =========================================================
+  // 🛡 KLANLAR — 30 kishigacha; haftalik klan jangi: a'zolarning o'rtacha haftalik XP'si
+  //   Hafta oxirida top-3 klan a'zolariga: 1-o'rin 15 💎, 2-o'rin 10 💎, 3-o'rin 5 💎
+  // =========================================================
+  var CLAN_EMOJIS = ['🛡', '🐉', '🦁', '🐺', '🦅', '🔥', '⚡', '🌙', '🚀', '📚', '👑', '💎'];
+  var _clanData = null, _clanEmoji = '🛡';
+  async function clanLoad() {
+    if (!cloudOk()) return null;
+    var r = await supabase.rpc('get_clan_data');
+    if (r.error) { console.warn('[clan]', r.error.message); return null; }
+    _clanData = r.data || {};
+    S.xClanId = _clanData.mine ? _clanData.mine.id : null; // comp_record_event klan XP'sini ham yozishi uchun
+    return _clanData;
+  }
+  async function clanClaim() {
+    if (!cloudOk()) return;
+    try {
+      var r = await supabase.rpc('claim_clan_rewards');
+      if (!r.error && r.data && r.data.gems > 0) { gemsAdd(r.data.gems, 'clan', '🛡 ' + L('Klan jangi mukofoti', 'Clan war reward', 'Награда клановой войны')); try { confetti(); } catch (e) {} save(); }
+    } catch (e) {}
+  }
+  function clanErr(e) {
+    return ({ level_too_low: L('Klan yaratish uchun Lv2 kerak', 'You need Lv2 to create a clan', 'Для создания клана нужен Lv2'),
+      taken: L('Bu nom yoki teg band', 'This name or tag is taken', 'Это имя или тег заняты'),
+      bad_name: L('Nom 3–24 belgi bo\'lsin', 'Name must be 3–24 characters', 'Имя: 3–24 символа'),
+      bad_tag: L('Teg 2–5 ta lotin harfi/raqam', 'Tag: 2–5 letters/digits', 'Тег: 2–5 латинских букв/цифр'),
+      already_in_clan: L('Siz allaqachon klandasiz', 'You are already in a clan', 'Вы уже в клане'),
+      full: L('Klan to\'lgan', 'The clan is full', 'Клан заполнен'),
+      cooldown: L('Klandan chiqqandan keyin 24 soat kutish kerak', 'Wait 24 hours after leaving a clan', 'После выхода из клана нужно подождать 24 часа'),
+      not_found: L('Klan topilmadi', 'Clan not found', 'Клан не найден') })[e] || e;
+  }
+  function clanTagHtml(c) { return '<span class="x-clan-tag">[' + H(c.tag) + ']</span>'; }
+  function clanHtml(d) {
+    var h = '';
+    var lw = d.lastWeek || [];
+    if (d.mine) {
+      var c = d.mine, isLeader = c.leaderId === S.cloudUserId;
+      h += '<div class="x-clan-head"><div class="x-clan-emo">' + H(c.emoji) + '</div><div class="x-clan-hd"><b>' + H(c.name) + ' ' + clanTagHtml(c) + '</b>' +
+        (c.description ? '<small>' + H(c.description) + '</small>' : '') + '</div></div>';
+      h += '<div class="x-clan-stats"><div><b>#' + (c.rank || '—') + '</b><span>' + L('Haftalik o\'rin', 'Weekly rank', 'Место за неделю') + '</span></div>' +
+        '<div><b>' + (c.score || 0) + '</b><span>' + L('O\'rtacha XP', 'Avg XP', 'Средний XP') + '</span></div>' +
+        '<div><b>' + (c.members || []).length + '/' + c.maxMembers + '</b><span>' + L('A\'zolar', 'Members', 'Участники') + '</span></div></div>';
+      h += '<div class="x-clan-note">⚔️ ' + L('Klanlar a\'zolarning shu haftadagi o\'rtacha XP\'si bo\'yicha bellashadi. Hafta oxirida top-3 klan a\'zolari: 🥇 15 💎 · 🥈 10 💎 · 🥉 5 💎', 'Clans compete on members\' average XP this week. At week end, members of the top-3 clans get 🥇 15 💎 · 🥈 10 💎 · 🥉 5 💎', 'Кланы соревнуются по среднему XP участников за неделю. В конце недели участники топ-3 кланов получают 🥇 15 💎 · 🥈 10 💎 · 🥉 5 💎') + '</div>';
+      h += '<div class="x-sec-t">👥 ' + L('A\'zolar — shu hafta', 'Members — this week', 'Участники — эта неделя') + '</div>';
+      h += (c.members || []).map(function (m, i) {
+        var nm = H(m.name || '?'); try { if (window.xCosNameHtml) nm = window.xCosNameHtml(nm, m.cosmetics); } catch (e) {}
+        return '<div class="x-clan-row"><span class="x-clan-pos">' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</span><span class="x-clan-nm">' + nm + (m.role === 'leader' ? ' 👑' : '') + (m.id === S.cloudUserId ? ' <em>(' + L('siz', 'you', 'вы') + ')</em>' : '') + '</span>' +
+          '<b>' + Math.round(m.weekXp || 0) + ' XP</b>' + (isLeader && m.id !== S.cloudUserId ? '<button class="x-link" data-clan-kick="' + H(m.id) + '">✕</button>' : '') + '</div>';
+      }).join('');
+      h += '<button class="x-btn sm ghost x-clan-leave" id="x-clan-leave">🚪 ' + L('Klandan chiqish', 'Leave clan', 'Покинуть клан') + '</button>';
+    } else {
+      var cd = d.cooldownUntil ? new Date(d.cooldownUntil) : null;
+      h += '<div class="x-clan-note">' + L('Klanga qo\'shiling yoki o\'zingiz yarating. Har hafta klanlar a\'zolarning o\'rtacha XP\'si bo\'yicha bellashadi — top-3 klan a\'zolari 💎 oladi.', 'Join a clan or create your own. Every week clans compete on members\' average XP — top-3 clan members earn 💎.', 'Вступите в клан или создайте свой. Каждую неделю кланы соревнуются по среднему XP — участники топ-3 получают 💎.') +
+        (cd && cd > new Date() ? '<br>⏳ ' + L('Yangi klanga kirish: ', 'You can join a new clan after ', 'Вступить в новый клан можно после ') + cd.toLocaleString() : '') + '</div>';
+      h += '<details class="x-clan-create"><summary>➕ ' + L('Klan yaratish (Lv2+)', 'Create a clan (Lv2+)', 'Создать клан (Lv2+)') + '</summary>' +
+        '<div class="x-clan-emos">' + CLAN_EMOJIS.map(function (e) { return '<button type="button" data-clan-emo="' + e + '" class="' + (e === _clanEmoji ? 'on' : '') + '">' + e + '</button>'; }).join('') + '</div>' +
+        '<input id="x-clan-name" maxlength="24" placeholder="' + L('Klan nomi', 'Clan name', 'Название клана') + '">' +
+        '<input id="x-clan-tag" maxlength="5" placeholder="' + L('Teg (2–5): DRM', 'Tag (2–5): DRM', 'Тег (2–5): DRM') + '" style="text-transform:uppercase">' +
+        '<input id="x-clan-desc" maxlength="140" placeholder="' + L('Qisqa tavsif (ixtiyoriy)', 'Short description (optional)', 'Краткое описание (необязательно)') + '">' +
+        '<button class="x-btn" id="x-clan-create">🛡 ' + L('Yaratish', 'Create', 'Создать') + '</button></details>';
+    }
+    if (lw.length) h += '<div class="x-sec-t">🏆 ' + L('O\'tgan hafta g\'oliblari', 'Last week\'s winners', 'Победители прошлой недели') + '</div>' +
+      lw.map(function (w) { return '<div class="x-clan-row"><span class="x-clan-pos">' + (['🥇', '🥈', '🥉'][w.rank - 1] || w.rank) + '</span><span class="x-clan-nm">' + H(w.emoji) + ' ' + H(w.name) + ' ' + clanTagHtml(w) + '</span><b>' + Math.round(w.avgXp) + ' XP</b></div>'; }).join('');
+    h += '<div class="x-sec-t">🌍 ' + L('Klanlar reytingi — shu hafta', 'Clan ranking — this week', 'Рейтинг кланов — эта неделя') + '</div>';
+    h += (d.top || []).length ? (d.top || []).map(function (c, i) {
+      var mineRow = d.mine && c.id === d.mine.id, full = c.members >= c.maxMembers;
+      return '<div class="x-clan-row' + (mineRow ? ' mine' : '') + '"><span class="x-clan-pos">' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</span><span class="x-clan-nm">' + H(c.emoji) + ' ' + H(c.name) + ' ' + clanTagHtml(c) + '<small>👥 ' + c.members + '/' + c.maxMembers + '</small></span><b>' + Math.round(c.score || 0) + ' XP</b>' +
+        (!d.mine && !full ? '<button class="x-btn sm" data-clan-join="' + H(c.id) + '">' + L('Qo\'shilish', 'Join', 'Вступить') + '</button>' : '') + '</div>';
+    }).join('') : '<div class="ad-empty">' + L('Hali klanlar yo\'q — birinchisini siz yarating!', 'No clans yet — create the first one!', 'Кланов пока нет — создайте первый!') + '</div>';
+    return h;
+  }
+  async function openClans() {
+    if (!cloudOk()) { toast('🔐 ' + L('Klanlar uchun akkauntga kiring', 'Sign in to use clans', 'Войдите, чтобы пользоваться кланами')); return; }
+    var ov = xModal('<h3 class="x-h">🛡 ' + L('Klanlar', 'Clans', 'Кланы') + '</h3><div id="x-clan-body"><div class="ad-empty">⏳</div></div>', 'x-clan-box');
+    var body = ov.querySelector('#x-clan-body');
+    var render = async function () {
+      var d = await clanLoad();
+      if (!d) { body.innerHTML = '<div class="ad-empty">⚠️ ' + L('Yuklab bo\'lmadi', 'Could not load', 'Не удалось загрузить') + '</div>'; return; }
+      body.innerHTML = clanHtml(d);
+      var act = async function (fn, okMsg) { var r = await fn(); if (r.error || !(r.data && r.data.ok)) { toast('❌ ' + clanErr(r.error ? r.error.message : r.data && r.data.error)); return; } if (okMsg) toast(okMsg); render(); };
+      body.querySelectorAll('[data-clan-emo]').forEach(function (b) { b.onclick = function () { _clanEmoji = b.dataset.clanEmo; body.querySelectorAll('[data-clan-emo]').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+      var cr = body.querySelector('#x-clan-create'); if (cr) cr.onclick = function () {
+        var nm = (body.querySelector('#x-clan-name').value || '').trim(), tg = (body.querySelector('#x-clan-tag').value || '').trim().toUpperCase(), ds = (body.querySelector('#x-clan-desc').value || '').trim();
+        act(function () { return supabase.rpc('create_clan', { p_name: nm, p_tag: tg, p_emoji: _clanEmoji, p_desc: ds }); }, '🛡 ' + L('Klan yaratildi!', 'Clan created!', 'Клан создан!'));
+      };
+      body.querySelectorAll('[data-clan-join]').forEach(function (b) { b.onclick = function () { act(function () { return supabase.rpc('join_clan', { p_clan: b.dataset.clanJoin }); }, '🛡 ' + L('Klanga qo\'shildingiz!', 'You joined the clan!', 'Вы вступили в клан!')); }; });
+      body.querySelectorAll('[data-clan-kick]').forEach(function (b) { b.onclick = function () { if (confirm(L('A\'zoni klandan chiqarasizmi?', 'Remove this member from the clan?', 'Исключить участника из клана?'))) act(function () { return supabase.rpc('kick_clan_member', { p_user: b.dataset.clanKick }); }); }; });
+      var lv = body.querySelector('#x-clan-leave'); if (lv) lv.onclick = function () { if (confirm(L('Klandan chiqasizmi? 24 soat davomida boshqa klanga kira olmaysiz.', 'Leave the clan? You will not be able to join another clan for 24 hours.', 'Покинуть клан? 24 часа нельзя будет вступить в другой клан.'))) act(function () { return supabase.rpc('leave_clan'); }); };
+    };
+    await clanClaim();
+    render();
+  }
+  window.xOpenClans = openClans;
+
   // ?action=… (manifest shortcuts)
   function handleLaunchAction() {
     try {
@@ -1775,6 +1870,7 @@
     };
     setTimeout(beat, 5000); setInterval(beat, 120000);
     setTimeout(refSync, 6000);
+    setTimeout(function () { clanLoad().then(function () {}, function () {}); clanClaim(); }, 7000);
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') beat(); });
     try { new MutationObserver(function () { renderBottomNav(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tab'] }); } catch (e) {}
     try { bossState(); bossResolve(); } catch (e) {}
