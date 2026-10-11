@@ -3417,3 +3417,25 @@ html[data-tab]:not([data-tab="tasks"]) .wrapper > #streak-milestones { display: 
 .tbn-actions .tbn-save { flex: 1; border: none; background: var(--accent); color: #fff; font-weight: 600; }
 .tbn-actions .tbn-del { color: var(--red, #ef4444); border-color: color-mix(in srgb, var(--red, #ef4444) 45%, transparent); }
 .tbn-actions .tbn-del, .tbn-actions .tbn-astask { margin-right: auto; }
+
+/* 💰 Qiyinlik → tanga tanlagich va "Tanga qoidalari" oynasi */
+.tier-opts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.tier-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-family: inherit; min-width: 0; }
+.tier-opt b { font-size: var(--fs-2xs); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tier-opt small { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.tier-opt .tier-i { font-size: 16px; line-height: 1; }
+.tier-opt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface2)); box-shadow: 0 0 0 1px var(--accent) inset; }
+.tier-hint { font-size: var(--fs-2xs); color: var(--text-muted); margin-top: 8px; line-height: 1.6; }
+.tier-guide-link { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+@media (max-width: 420px) { .tier-opts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.econ-ov { position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.econ-box { position: relative; width: 100%; max-width: 480px; max-height: 86vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 18px 18px 14px; color: var(--text); }
+.econ-box h3 { margin: 0 0 6px; font-family: Syne, sans-serif; }
+.econ-x { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); cursor: pointer; }
+.econ-p { font-size: 13px; color: var(--text-muted); line-height: 1.55; margin: 4px 0 10px; }
+.econ-p b { color: var(--text); }
+.econ-h { font-weight: 700; font-size: 13.5px; margin-top: 10px; }
+.econ-t { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0 4px; }
+.econ-t th { text-align: left; font-size: 11px; color: var(--text-muted); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+.econ-t td { padding: 7px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.econ-t td small { display: block; color: var(--text-muted); font-size: 11px; }

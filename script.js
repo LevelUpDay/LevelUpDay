@@ -369,7 +369,10 @@ var loadUserDataAndInit = async function() {
       coins: 1
     }];
     S.nextCtId = 1001;
-    S.chestTasks = [{ id: 1000, name: t('chest_example_task_name'), diff: 1 }];
+    S.chestTasks = [{ id: 1000, name: t('chest_example_task_name'), diff: 1, coins: 4 }];
+    // 💰 Har bir qiyinlikdan bittadan misol vazifa — har bir vazifa qancha tanga berishini darrov ko'rsatadi
+    try { econSampleTasks(); } catch (e) {}
+    S.econV = 2;
     // 🎉 Yangi foydalanuvchi — birinchi marta ochilganda "Xush kelibsiz"
     // so'rovnomasini ko'rsatish uchun bayroq o'rnatamiz (render() dan keyin ishlatiladi).
     S.showWelcomeSurveyPending = true;
@@ -7350,14 +7353,14 @@ function getMonthsFullArr() { var l=getLang(); return l==='en' ? MONTHS_EN : l==
 function getShortDaysArr() { var l=getLang(); return l==='en' ? SHORT_DAYS_EN : l==='ru' ? SHORT_DAYS_RU : SHORT_DAYS; }
 
 var defaultRewards = [
-  {id:1,name:'Instagram 10 daqiqa',icon:'📱',cost:5,rtype:'time',amount:10},
-  {id:2,name:"O'yin 15 daqiqa",icon:'🎮',cost:6,rtype:'time',amount:15},
-  {id:3,name:'YouTube 15 daqiqa',icon:'📺',cost:6,rtype:'time',amount:15},
-  {id:4,name:'TikTok 10 daqiqa',icon:'📱',cost:5,rtype:'time',amount:10},
-  {id:5,name:'Muzqaymoq yoki shirinlik',icon:'🍦',cost:12,rtype:'count',amount:1},
-  {id:6,name:"Film ko'rish 1 soat",icon:'🎬',cost:25,rtype:'time',amount:60},
-  {id:7,name:"Uxlash vaqtini 30 daqiqa kechiktirish",icon:'😴',cost:18,rtype:'time',amount:30},
-  {id:8,name:"Choy/kofe dam olish",icon:'☕',cost:4,rtype:'count',amount:1},
+  {id:1,name:'Instagram 10 daqiqa',icon:'📱',cost:8,rtype:'time',amount:10},
+  {id:2,name:"O'yin 15 daqiqa",icon:'🎮',cost:10,rtype:'time',amount:15},
+  {id:3,name:'YouTube 15 daqiqa',icon:'📺',cost:10,rtype:'time',amount:15},
+  {id:4,name:'TikTok 10 daqiqa',icon:'📱',cost:8,rtype:'time',amount:10},
+  {id:5,name:'Muzqaymoq yoki shirinlik',icon:'🍦',cost:20,rtype:'count',amount:1},
+  {id:6,name:"Film ko'rish 1 soat",icon:'🎬',cost:40,rtype:'time',amount:60},
+  {id:7,name:"Uxlash vaqtini 30 daqiqa kechiktirish",icon:'😴',cost:25,rtype:'time',amount:30},
+  {id:8,name:"Choy/kofe dam olish",icon:'☕',cost:5,rtype:'count',amount:1},
 ];
 
 
@@ -7426,9 +7429,25 @@ function addXP(amount, reason) {
   }
 }
 
+// 💰 YAGONA IQTISOD JADVALI — vazifa qiyinligi tanga, XP va jarimani belgilaydi (o'zboshimcha qiymat yo'q).
+// Kuniga ~8 ta aralash vazifa ≈ 30–40 🪙 — mukofotlar, do'kon va spin narxlari shunga moslangan.
+var TASK_TIERS = {
+  0: { c: 0,  xp: 0,  p: 0, icon: '⚪', key: 'free' },
+  1: { c: 2,  xp: 3,  p: 1, icon: '🟢', key: 'easy' },
+  2: { c: 4,  xp: 6,  p: 2, icon: '🟡', key: 'medium' },
+  3: { c: 7,  xp: 9,  p: 3, icon: '🔴', key: 'hard' },
+  4: { c: 12, xp: 14, p: 5, icon: '🟣', key: 'epic' }
+};
+function taskTier(d) { return TASK_TIERS[d] || TASK_TIERS[1]; }
+function taskTierName(d) {
+  return [_cl('Bepul', 'Free', 'Бесплатно'), _cl('Oson', 'Easy', 'Легко'), _cl("O'rta", 'Medium', 'Средне'), _cl('Qiyin', 'Hard', 'Сложно'), _cl('Juda katta', 'Epic', 'Эпично')][d] || '';
+}
+function taskTierTime(d) {
+  return ['', _cl('~15 daq', '~15 min', '~15 мин'), _cl('~30 daq', '~30 min', '~30 мин'), _cl('~1 soat', '~1 hour', '~1 час'), _cl('2+ soat', '2+ hours', '2+ часа')][d] || '';
+}
 function taskXPValue(tsk) {
   if (taskCoinValue(tsk) === 0) return 0;
-  var base = tsk.diff===3 ? XP_PER_TASK_HARD : tsk.diff===2 ? XP_PER_TASK_MED : XP_PER_TASK_EASY;
+  var base = tsk.diff===4 ? TASK_TIERS[4].xp : tsk.diff===3 ? XP_PER_TASK_HARD : tsk.diff===2 ? XP_PER_TASK_MED : XP_PER_TASK_EASY;
   return Math.max(1, Math.round(base * getDifficultyMultipliers().coinXp));
 }
 
@@ -7799,7 +7818,8 @@ function gemsExchangeRate() {
     if (r.uniqueKey && String(r.uniqueKey).indexOf('gemx_') === 0) return;
     sum += r.amount;
   });
-  return Math.max(GEM_EXCHANGE_MIN_RATE, Math.round(sum / 14));
+  // 1 💎 ≈ kunlik o'rtacha daromadning 1/5 qismi (kuniga ~5 💎 topiladi) — 3..15 🪙 oralig'ida
+  return Math.max(3, Math.min(15, Math.round(sum / 14 / 5)));
 }
 function gemsExchange(n) {
   gemsEnsure();
@@ -9701,13 +9721,8 @@ function editTask(id) {
   document.getElementById('m-startdate').value = tk.nextDate || today();
   document.getElementById('m-strict-schedule').checked = !!tk.strictSchedule;
   setTaskEmoji(mEmoji);
-  selDiff(mDiff);
+  mDiff = (typeof tk.diff === 'number' && tk.diff >= 0 && tk.diff <= 4) ? tk.diff : (tk.coins === 0 ? 0 : 1);
   tmFillLabels();
-  var _tc = (typeof tk.coins === 'number') ? tk.coins : mDiff;
-  var _tp = (typeof tk.penalty === 'number') ? tk.penalty : _tc;
-  mPenaltyTouched = (_tp !== _tc);
-  document.getElementById('m-coins').value = _tc;
-  document.getElementById('m-penalty').value = _tp;
   selRepeat(mRepeat);
   selLabel(mLabel);
   // custom-days tugmalarini belgilash
@@ -9750,34 +9765,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
 var mPenaltyTouched = false;
 function selDiff(d) {
-  mDiff=d;
-  document.querySelectorAll('.diff-opt').forEach(el=>{
-    el.classList.toggle('sel', parseInt(el.dataset.diff)===d);
-  });
-  // Qiyinlik tanlansa, tanga (va tegilmagan bo'lsa jarima) shu qiymatga o'rnatiladi;
-  // keyin ularni 0–30 oralig'ida o'zingiz o'zgartirishingiz mumkin.
-  var c = document.getElementById('m-coins');
-  if (c) { c.value = d; if (!mPenaltyTouched) { var pe = document.getElementById('m-penalty'); if (pe) pe.value = d; } }
+  // 💰 Qiyinlik darajasi tangani, XP'ni va jarimani yagona jadvaldan (TASK_TIERS) oladi
+  d = (d >= 0 && d <= 4) ? d : 1;
+  mDiff = d;
+  var tr = taskTier(d);
+  var c = document.getElementById('m-coins'); if (c) c.value = tr.c;
+  var pe = document.getElementById('m-penalty'); if (pe) pe.value = tr.p;
+  document.querySelectorAll('#m-tier-opts .tier-opt').forEach(function (el) { el.classList.toggle('sel', parseInt(el.dataset.tier) === d); });
+  var h = document.getElementById('m-tier-hint');
+  if (h) h.innerHTML = d === 0 ? _cl("Bepul vazifa — tanga va jarima yo'q", 'Free task — no coins, no penalty', 'Бесплатная задача — без монет и штрафа')
+    : '✅ +' + taskCoinValue({ coins: tr.c, diff: d }) + ' 🪙 · +' + taskXPValue({ coins: tr.c, diff: d }) + ' XP &nbsp; ❌ ' + _cl('bajarilmasa', 'if missed', 'если пропустить') + ' −' + taskPenaltyValue({ coins: tr.c, penalty: tr.p }) + ' 🪙'
+      + ' &nbsp;<button type="button" class="tier-guide-link" onclick="openEconomyGuide()">💰 ' + _cl('Tanga qoidalari', 'Coin rules', 'Правила монет') + '</button>';
 }
-function _tmClamp(el) {
-  if (el.value === '') return;
-  var v = parseInt(el.value);
-  if (isNaN(v)) { el.value = ''; return; }
-  if (v > 30) el.value = 30; else if (v < 0) el.value = 0;
-}
-function tmCoinsInput() {
-  var c = document.getElementById('m-coins'); _tmClamp(c);
-  if (!mPenaltyTouched) { var pe = document.getElementById('m-penalty'); if (pe) pe.value = c.value; }
-}
-function tmPenaltyInput() { mPenaltyTouched = true; _tmClamp(document.getElementById('m-penalty')); }
 function tmReadCoins(id, fallback) {
   var v = parseInt((document.getElementById(id) || {}).value);
   return isNaN(v) ? fallback : Math.max(0, Math.min(30, v));
 }
 function tmFillLabels() {
   var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
-  set('m-coins-label', _cl('Tanga mukofoti (0–30)', 'Coin reward (0–30)', 'Награда монетами (0–30)'));
-  set('m-penalty-label', _cl('Jarima: bajarilmasa necha tanga olinadi (0–30)', 'Penalty if missed (0–30 coins)', 'Штраф за пропуск (0–30 монет)'));
+  set('m-tier-label', _cl('Qiyinlik va mukofot', 'Difficulty & reward', 'Сложность и награда'));
+  var box = document.getElementById('m-tier-opts');
+  if (box) box.innerHTML = [1, 2, 3, 4, 0].map(function (d) {
+    var tr = taskTier(d);
+    return '<button type="button" class="tier-opt" data-tier="' + d + '" onclick="selDiff(' + d + ')"><span class="tier-i">' + tr.icon + '</span><b>' + taskTierName(d) + '</b>'
+      + '<small>' + (d ? taskTierTime(d) + ' · +' + taskCoinValue({ coins: tr.c, diff: d }) + '🪙' : '0🪙') + '</small></button>';
+  }).join('');
+  selDiff(typeof mDiff === 'number' ? mDiff : 1);
 }
 
 function selRepeat(r) {
@@ -9901,10 +9914,8 @@ function saveTask() {
         if (!confirm(t('task_startdate_change_warning'))) return;
       }
       tk.name = name;
-      var _oldC = (typeof tk.coins==='number') ? tk.coins : tk.diff;
-      tk.coins = tmReadCoins('m-coins', mDiff);
-      if (tk.coins !== _oldC || tk.diff===undefined) tk.diff = tmDiffFromCoins(tk.coins);
-      tk.penalty = tmReadCoins('m-penalty', tk.coins);
+      // 💰 Qiyinlik → tanga / jarima (TASK_TIERS)
+      tk.diff = mDiff; tk.coins = taskTier(mDiff).c; tk.penalty = taskTier(mDiff).p;
       tk.repeat = mRepeat;
       tk.days = mRepeat==='custom-days' ? [...mDays] : null;
       tk.interval = mRepeat==='interval' ? interval : null;
@@ -9938,7 +9949,7 @@ function saveTask() {
   }
 
   const task = {
-    id: S.nextId++, name, diff:tmDiffFromCoins(tmReadCoins('m-coins', mDiff)), coins:tmReadCoins('m-coins', mDiff), penalty:tmReadCoins('m-penalty', tmReadCoins('m-coins', mDiff)),
+    id: S.nextId++, name, diff: mDiff, coins: taskTier(mDiff).c, penalty: taskTier(mDiff).p,
     repeat:mRepeat, days:mRepeat==='custom-days'?[...mDays]:null,
     interval: mRepeat==='interval'?interval:null,
     nextDate: mRepeat==='interval'?startDate:null,
@@ -10406,7 +10417,7 @@ function moveTaskToTrash(id) {
 
   var adj = { coinsDeducted:0, actualCoinsDeducted:0, totalCoinsDeducted:0, taskCountDecremented:false, hardDecremented:false };
   if (task.done) {
-    adj.coinsDeducted = task.coins || 0;
+    adj.coinsDeducted = taskCoinValue(task) || 0; // xom task.coins emas — haqiqatda berilgan miqdor
     adj.actualCoinsDeducted = Math.min(adj.coinsDeducted, Math.max(0, S.coins || 0));
     S.coins = Math.max(0, (S.coins || 0) - adj.coinsDeducted);
     // Himoya sifatida: S.totalCoins hech qachon manfiyga tushmasin (garchi
@@ -13595,7 +13606,80 @@ function dedupeTaskIds() {
   return changed;
 }
 
+// 💰 Iqtisod v2: eski vazifalar (0–30 erkin tanga) yagona jadvalga ko'chiriladi — bir marta
+function econSampleTasks() {
+  if (!Array.isArray(S.tasks)) S.tasks = [];
+  if (S.tasks.length) return;
+  if (typeof S.nextId !== 'number') S.nextId = 1;
+  [[1, '📖', _cl("10 daqiqa kitob o'qish", 'Read a book for 10 minutes', 'Читать книгу 10 минут')],
+   [2, '🏃', _cl('30 daqiqa sport', '30 minutes of exercise', '30 минут спорта')],
+   [3, '📝', _cl('IELTS Reading mock test (1 soat)', 'IELTS Reading mock test (1 hour)', 'Пробный тест IELTS Reading (1 час)')],
+   [4, '💻', _cl('2 soat loyiha ustida ishlash', 'Work on a project for 2 hours', '2 часа работы над проектом')]
+  ].forEach(function (x) {
+    var tr = taskTier(x[0]);
+    S.tasks.push({ id: S.nextId++, name: x[2], diff: x[0], coins: tr.c, penalty: 0, repeat: 'once', days: null, interval: null, nextDate: null,
+      strictSchedule: false, dueDate: null, remindAt: null, startTime: null, endTime: null, autoPomo: false, pinned: false,
+      done: false, doneDate: null, skipped: false, skippedDate: null, lastDoneDate: null, createdAt: today(), label: null,
+      note: _cl("Misol vazifa — o'chirib yuborishingiz mumkin", 'Example task — feel free to delete it', 'Пример задачи — можно удалить'),
+      emoji: x[1], isFrozen: false, frozenAt: null, subtasks: [], sample: true });
+  });
+  try { ensureFullTaskOrder(); } catch (e) {}
+}
+// 💰 "Tanga qoidalari" — butun iqtisod bir joyda
+function openEconomyGuide() {
+  var old = document.getElementById('econ-guide-modal'); if (old) old.remove();
+  var m = getDifficultyMultipliers().coinXp;
+  var rows = [1, 2, 3, 4].map(function (d) {
+    var tr = taskTier(d);
+    return '<tr><td>' + tr.icon + ' ' + taskTierName(d) + '<small>' + taskTierTime(d) + '</small></td><td>+' + taskCoinValue({ coins: tr.c, diff: d }) + ' 🪙</td><td>+' + taskXPValue({ coins: tr.c, diff: d }) + '</td><td>−' + taskPenaltyValue({ coins: tr.c, penalty: tr.p }) + ' 🪙</td></tr>';
+  }).join('');
+  var ov = document.createElement('div');
+  ov.id = 'econ-guide-modal'; ov.className = 'econ-ov';
+  ov.innerHTML = '<div class="econ-box"><button class="econ-x" aria-label="close">✕</button>'
+    + '<h3>💰 ' + _cl('Tanga qoidalari', 'Coin rules', 'Правила монет') + '</h3>'
+    + '<p class="econ-p">' + _cl("Vazifaning qiyinligi tangani belgilaydi — o'zboshimcha son yozilmaydi, hamma uchun bir xil.", 'Task difficulty sets the coins — no custom numbers, the same rules for everyone.', 'Сложность задачи определяет монеты — одинаково для всех.')
+    + (m !== 1 ? ' ' + _cl("O'yin qiyinligi", 'Game difficulty', 'Сложность игры') + ': ×' + m : '') + '</p>'
+    + '<table class="econ-t"><thead><tr><th>' + _cl('Qiyinlik', 'Difficulty', 'Сложность') + '</th><th>' + _cl('Bajarsa', 'Done', 'Выполнено') + '</th><th>XP</th><th>' + _cl('Bajarmasa', 'Missed', 'Пропуск') + '</th></tr></thead><tbody>' + rows + '</tbody></table>'
+    + '<div class="econ-h">📈 ' + _cl('Kunlik daromad', 'Daily income', 'Доход за день') + '</div>'
+    + '<p class="econ-p">' + _cl("Kuniga ~8 ta aralash vazifa ≈ <b>30–40 🪙</b>. Qo'shimcha: o'z vaqtida bajarsa +1, 25+ daqiqa fokus +1, 7–10 soat uyqu +1, kunlik bepul spin (o'rtacha ~3 🪙), boss g'alabasi 10–220 🪙, yangi daraja 50–1500 🪙.", '~8 mixed tasks a day ≈ <b>30–40 🪙</b>. Extras: on time +1, 25+ min focus +1, 7–10 h sleep +1, a free daily spin (~3 🪙 on average), boss wins 10–220 🪙, level-ups 50–1500 🪙.', '~8 разных задач в день ≈ <b>30–40 🪙</b>. Плюс: вовремя +1, фокус 25+ мин +1, сон 7–10 ч +1, бесплатный спин (~3 🪙), победа над боссом 10–220 🪙, новый уровень 50–1500 🪙.') + '</p>'
+    + '<div class="econ-h">🛍 ' + _cl('Sarflash', 'Spending', 'Траты') + '</div>'
+    + '<p class="econ-p">' + _cl("Mukofotlar: choy/kofe 5, Instagram/TikTok 10 daq 8, YouTube/o'yin 15 daq 10, shirinlik 20, uyquni 30 daq kechiktirish 25, 1 soat film 40 🪙. Do'kondagi bezaklar 80–300 🪙 (2–8 kunlik daromad).", 'Rewards: tea/coffee 5, Instagram/TikTok 10 min 8, YouTube/game 15 min 10, a treat 20, sleep 30 min later 25, a 1-hour movie 40 🪙. Shop cosmetics 80–300 🪙 (2–8 days of income).', 'Награды: чай/кофе 5, Instagram/TikTok 10 мин 8, YouTube/игра 15 мин 10, сладкое 20, сон на 30 мин позже 25, фильм 1 час 40 🪙. Косметика 80–300 🪙 (2–8 дней дохода).') + '</p>'
+    + '<div class="econ-h">💎 ' + _cl('Olmos', 'Gems', 'Алмазы') + '</div>'
+    + '<p class="econ-p">' + _cl("Kuniga ~5 💎: 3 ta kunlik kvest, Pomodoro (har 25 daq — 1, kuniga 4 tagacha), streak bosqichlari, yutuqlar, boss. 1 💎 ≈ ", '~5 💎 a day: 3 daily quests, Pomodoro (1 per 25 min, up to 4/day), streak milestones, badges, bosses. 1 💎 ≈ ', '~5 💎 в день: 3 ежедневных квеста, Помодоро (1 за 25 мин, до 4 в день), серии, значки, боссы. 1 💎 ≈ ') + gemsExchangeRate() + ' 🪙</p>'
+    + '</div>';
+  document.body.appendChild(ov);
+  var close = function () { ov.remove(); };
+  ov.querySelector('.econ-x').onclick = close;
+  ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+}
+
+function econMigrate() {
+  if (S.econV === 2) return;
+  var tierFromCoins = function (c) { c = Number(c) || 0; return c <= 0 ? 0 : c <= 2 ? 1 : c <= 5 ? 2 : c <= 10 ? 3 : 4; };
+  (S.tasks || []).forEach(function (t) {
+    if (!t) return;
+    var d = (typeof t.coins === 'number') ? tierFromCoins(t.coins) : ((typeof t.diff === 'number' && t.diff >= 0 && t.diff <= 4) ? t.diff : 1);
+    if (typeof t.diff === 'number' && t.diff > d && t.coins !== 0) d = Math.min(4, t.diff); // qiyin deb belgilangan, lekin kam tanga — qiyinlikni saqlaymiz
+    t.diff = d; t.coins = taskTier(d).c; t.penalty = taskTier(d).p;
+  });
+  (S.goals || []).forEach(function (g) { if (g && typeof g.coins === 'number' && g.coins > 7) g.coins = 7; if (g && typeof g.penalty === 'number' && g.penalty > 5) g.penalty = 5; });
+  (S.chestTasks || []).forEach(function (c) { if (c && typeof c.coins === 'number' && c.coins > 12) c.coins = 12; });
+  if (S.secretCfg) {
+    if (S.secretCfg.daily > 10) S.secretCfg.daily = 10;
+    ['fail', 'fail2x'].forEach(function (k) { if (S.secretCfg[k] > 20) S.secretCfg[k] = 20; });
+    Object.keys(S.secretCfg.tiers || {}).forEach(function (k) { if (S.secretCfg.tiers[k] > 200) S.secretCfg.tiers[k] = 200; });
+  }
+  // Standart mukofotlar narxi (foydalanuvchi o'zgartirmagan bo'lsa) yangi narxga
+  var oldCost = { 1: 5, 2: 6, 3: 6, 4: 5, 5: 12, 6: 25, 7: 18, 8: 4 };
+  (S.rewards || []).forEach(function (r) {
+    var def = defaultRewards.find(function (x) { return x.id === r.id; });
+    if (def && oldCost[r.id] === r.cost && r.name === def.name) r.cost = def.cost;
+  });
+  S.econV = 2;
+}
+
 function render() {
+  try { econMigrate(); } catch (e) { console.warn('[econ]', e); }
   if (dedupeTaskIds()) { try { save(); } catch (e) {} }
   updateHeaderUserTitle();
   recordIntervalDueLog(today());
@@ -17508,7 +17592,9 @@ function secCfg() {
 function secCfgSet(key, val) {
   if (!S.secretCfg) S.secretCfg = { tiers:{} };
   if (!S.secretCfg.tiers) S.secretCfg.tiers = {};
-  var v = Math.max(0, Math.min(key.indexOf('t')===0 ? 5000 : 1000, Math.round(Number(val) || 0)));
+  // 💰 Iqtisod chegarasi: kunlik 0–10, streak bosqichlari 0–200, jarima 0–20
+  var cap = key.indexOf('t') === 0 ? 200 : (key === 'daily' ? 10 : 20);
+  var v = Math.max(0, Math.min(cap, Math.round(Number(val) || 0)));
   if (key.indexOf('t') === 0) S.secretCfg.tiers[key.slice(1)] = v; else S.secretCfg[key] = v;
   save();
 }
@@ -18041,7 +18127,7 @@ function setGoalEmoji(e) {
 
 function setGoalCoins(val) {
   var v = parseInt(val); if (isNaN(v)) v = 0;
-  v = Math.max(0, Math.min(30, v));
+  v = Math.max(0, Math.min(7, v));
   document.getElementById('gm-coins').value = v;
   gmSyncCoinChips();
 }
@@ -18050,7 +18136,7 @@ function gmCoinsInput() {
   if (el.value === '') { gmSyncCoinChips(); return; }
   var v = parseInt(el.value);
   if (isNaN(v)) { el.value = ''; return; }
-  if (v > 30) el.value = 30; else if (v < 0) el.value = 0;
+  if (v > 7) el.value = 7; else if (v < 0) el.value = 0;
   gmSyncCoinChips();
 }
 function gmSyncCoinChips() {
@@ -18085,9 +18171,9 @@ function saveGoal() {
   var desc = (document.getElementById('gm-desc').value || '').trim();
   var emoji = (document.getElementById('gm-emoji').value || '').trim() || '🎯';
   var coinsRaw = parseInt(document.getElementById('gm-coins').value);
-  var coins = isNaN(coinsRaw) ? 1 : Math.max(0, Math.min(30, coinsRaw));
+  var coins = isNaN(coinsRaw) ? 1 : Math.max(0, Math.min(7, coinsRaw));
   var dur = (gmRepeat === 'once') ? 1 : (gmOngoing ? 0 : (parseInt(document.getElementById('gm-duration').value) || 0));
-  var penVal = Math.max(0, Math.min(30, parseInt((document.getElementById('gm-penalty') || {}).value) || 0));
+  var penVal = Math.max(0, Math.min(5, parseInt((document.getElementById('gm-penalty') || {}).value) || 0));
   var remindVal = ((document.getElementById('gm-remind') || {}).value || '').trim() || null;
   var interval = Math.max(1, parseInt(document.getElementById('gm-interval').value) || 4);
   var startDateInput = document.getElementById('gm-startdate').value || today();
@@ -22075,14 +22161,14 @@ function allDailyDone() {
 }
 
 // Chest vazifalarini qo'shish modali
-var _ctEditId = null, _ctCoinsInit = 5;
+var _ctEditId = null, _ctCoinsInit = 4;
 function ctCoinsClamp() {
   var e = document.getElementById('ct-coins'); if (!e || e.value === '') return;
   var v = Math.round(Number(e.value)); if (isNaN(v)) v = 0;
-  e.value = Math.max(0, Math.min(100, v));
+  e.value = Math.max(0, Math.min(12, v));
 }
 function ctCoinsOf(tk) {
-  if (tk && typeof tk.coins === 'number') return tk.coins;
+  if (tk && typeof tk.coins === 'number') return Math.max(0, Math.min(12, tk.coins));
   var d = (tk && tk.diff) || 1;
   return CHEST_REWARDS[d] || CHEST_REWARDS[1];
 }
@@ -22090,7 +22176,7 @@ function openAddChestTask(editId) {
   _ctEditId = (typeof editId === 'number') ? editId : null;
   var _ex = _ctEditId !== null ? (S.chestTasks || []).find(function(x){ return x.id === _ctEditId; }) : null;
   if (_ctEditId !== null && !_ex) _ctEditId = null;
-  _ctCoinsInit = _ex ? ctCoinsOf(_ex) : 5;
+  _ctCoinsInit = _ex ? ctCoinsOf(_ex) : 4;
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;display:flex;align-items:flex-end;justify-content:center;padding:0';
   ov.className = 'ct-modal-overlay';
@@ -22103,10 +22189,10 @@ function openAddChestTask(editId) {
         '<input id="ct-name" class="ct-input" type="text" maxlength="120" autocomplete="off" placeholder="' + t('ct_name_ph') + '" />' +
       '</div>' +
       '<div class="ct-field">' +
-        '<label class="ct-label" for="ct-coins">' + _cl('Mukofot tangasi (0–100)','Reward coins (0–100)','Награда (0–100)') + '</label>' +
-        '<input id="ct-coins" class="ct-input" type="number" min="0" max="100" step="1" inputmode="numeric" value="' + _ctCoinsInit + '" oninput="ctCoinsClamp();ctSyncPresets()" />' +
+        '<label class="ct-label" for="ct-coins">' + _cl('Mukofot tangasi (0–12)','Reward coins (0–12)','Награда (0–12)') + '</label>' +
+        '<input id="ct-coins" class="ct-input" type="number" min="0" max="12" step="1" inputmode="numeric" value="' + _ctCoinsInit + '" oninput="ctCoinsClamp();ctSyncPresets()" />' +
         '<div class="ct-presets">' +
-          [2,5,10,20,50].map(function(v){ return '<button type="button" class="ct-preset" data-v="' + v + '" onclick="ctPickCoins(' + v + ')">' + v + ' \u{1FA99}</button>'; }).join('') +
+          [2,4,7,12].map(function(v){ return '<button type="button" class="ct-preset" data-v="' + v + '" onclick="ctPickCoins(' + v + ')">' + v + ' \u{1FA99}</button>'; }).join('') +
         '</div>' +
       '</div>' +
       '<div class="ct-actions">' +
@@ -22163,7 +22249,7 @@ function saveChestTask() {
   if (!S.chestTasks) S.chestTasks = [];
   if (!S.nextCtId) S.nextCtId = 1000;
   ctCoinsClamp();
-  var _cv = Math.max(0, Math.min(100, Math.round(Number((document.getElementById('ct-coins')||{}).value) || 0)));
+  var _cv = Math.max(0, Math.min(12, Math.round(Number((document.getElementById('ct-coins')||{}).value) || 0)));
   var _dd = _cv <= 0 ? 1 : _cv <= 3 ? 1 : _cv <= 8 ? 2 : 3;
   var _ed = _ctEditId !== null ? S.chestTasks.find(function(x){ return x.id === _ctEditId; }) : null;
   if (_ed) { _ed.name = name; _ed.coins = _cv; _ed.diff = _dd; }
@@ -22311,7 +22397,7 @@ function claimChestTask(btn, bonusCoins, uid) {
   S.coins = (S.coins || 0) + bonusCoins;
   S.totalCoins = (S.totalCoins || 0) + bonusCoins;
   if (!S.xp) S.xp = 0;
-  S.xp += bonusCoins * 2;
+  S.xp += Math.round(bonusCoins * 1.2); // vazifalar bilan bir xil nisbat (tanga×2 juda ko'p edi)
 
   // ✅ BAJARILDI hisoblagichi va log
   if (!S.totalTasksDone) S.totalTasksDone = 0;
@@ -31421,7 +31507,7 @@ var _cloudPullTodos = async function(uid) {
   if (!todosRes.error && todosRes.data && todosRes.data.length) {
     // Mehmon rejimida (hech qachon akkauntga ulanmagan) yozilgan tasklar
     // yo'qolmasin: bulutdagilarga qo'shib olamiz, id to'qnashsa yangi id beramiz.
-    var guestTasks = (!S.lastCloudUserId && S.tasks && S.tasks.length) ? S.tasks.slice() : [];
+    var guestTasks = (!S.lastCloudUserId && S.tasks && S.tasks.length) ? S.tasks.filter(function (t) { return !t.sample; }) : []; // misol vazifalar mavjud akkauntga qo'shilmaydi
     var cloudTasks = todosRes.data.map(function (r) { return r.task_data; });
     var order = todosRes.data.map(function (r) { return r.task_id; });
     var used = {}; var maxId = Number(S.nextId) || 0;
