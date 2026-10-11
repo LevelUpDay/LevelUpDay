@@ -978,10 +978,11 @@
     var cur = open.find(function (t) { var a = hm2m(t.startTime), b = t.endTime ? hm2m(t.endTime) : a + 60; return a != null && nm >= a && nm < b; });
     return cur || open.find(function (t) { return t.quad === 1; }) || open.find(function (t) { return t.pinned; }) || open[0] || null;
   }
-  function openFocus(taskId) {
+  function openFocus(taskId, autoStart) {
     if (FX) return;
     var open = todaysOpenTasks();
     var tk = taskId ? S.tasks.find(function (t) { return t.id === taskId; }) : focusPickTask();
+    if (tk && open.indexOf(tk) === -1) open.unshift(tk);
     var ov = document.createElement('div'); ov.className = 'x-focus';
     ov.innerHTML = '<div class="x-fc-in"><div class="x-fc-top"><span>🎯 ' + L('Fokus rejimi', 'Focus mode', 'Режим фокуса') + '</span><button class="x-fc-x" title="Esc">✕</button></div>' +
       '<select class="x-fc-sel">' + '<option value="">— ' + L('Vazifasiz', 'No task', 'Без задачи') + ' —</option>' + open.map(function (t) { return '<option value="' + t.id + '"' + (tk && tk.id === t.id ? ' selected' : '') + '>' + H((t.emoji ? t.emoji + ' ' : '') + t.name + (t.startTime ? ' · ' + t.startTime : '')) + '</option>'; }).join('') + '</select>' +
@@ -1052,6 +1053,7 @@
     FX.onKey = function (e) { if (e.key === 'Escape' && !document.querySelector('.modal-overlay.open')) { e.stopPropagation(); closeFocus(); } else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); ov.querySelector('.x-fc-play').click(); } };
     document.addEventListener('keydown', FX.onKey, true);
     FX.timer = setInterval(draw, 250); draw();
+    if (autoStart) ov.querySelector('.x-fc-play').click();
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { if (FX) FX.wake = w; }).catch(function () {}); } catch (e) {}
     requestAnimationFrame(function () { ov.classList.add('open'); });
   }
@@ -1978,7 +1980,7 @@
   window.xOpenMatrix = safe(openMatrix);
   window.xOpenReview = function () {};
   window.xOpenWrap = safe(function (ym) { openWrap(ym); });
-  window.xOpenFocus = safe(function (id) { openFocus(id); });
+  window.xOpenFocus = safe(function (id, autoStart) { openFocus(id, autoStart); });
   window.xWaterAdd = function () {};
   window.xDismissReview = function () {};
   window.xSleepSet = safe(sleepSet);

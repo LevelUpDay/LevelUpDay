@@ -9792,7 +9792,7 @@ function tmFillLabels() {
   if (box) box.innerHTML = [1, 2, 3, 4, 0].map(function (d) {
     var tr = taskTier(d);
     return '<button type="button" class="tier-opt" data-tier="' + d + '" onclick="selDiff(' + d + ')"><span class="tier-i">' + tr.icon + '</span><b>' + taskTierName(d) + '</b>'
-      + '<small>' + (d ? taskTierTime(d) + ' · +' + taskCoinValue({ coins: tr.c, diff: d }) + '🪙' : '0🪙') + '</small></button>';
+      + (d ? '<small>' + taskTierTime(d) + '</small><small class="tier-c">+' + taskCoinValue({ coins: tr.c, diff: d }) + ' 🪙</small>' : '<small>&nbsp;</small><small class="tier-c">0 🪙</small>') + '</button>';
   }).join('');
   selDiff(typeof mDiff === 'number' ? mDiff : 1);
 }
@@ -9816,6 +9816,12 @@ function selLabel(color) {
 }
 
 var ST_COINS_MAX = 12;
+// Vazifa yonidagi 🎯 tugmasi — Fokus rejimini shu vazifa bilan ochib, taymerni darhol boshlaydi
+function taskOpenFocus(id, ev) {
+  if (ev) { try { ev.stopPropagation(); ev.preventDefault(); } catch (e) {} }
+  if (typeof window.xOpenFocus === 'function') window.xOpenFocus(id, true);
+  else if (typeof window.pomoOpenForTask === 'function') window.pomoOpenForTask(id, ev);
+}
 function stSelDiff(d) {
   stDiff = Math.max(0, Math.min(ST_COINS_MAX, parseInt(d, 10) || 0));
   document.querySelectorAll('#subtask-modal-box .diff-opt').forEach(el=>{
@@ -12912,7 +12918,7 @@ function makeTaskEl(t, future) {
           ${subsDueOrDone.length ? `<span class="tk-chip tk-chip-subs${subsDoneN === subsDueOrDone.length ? ' all' : ''}">☑ ${subsDoneN}/${subsDueOrDone.length}</span>` : ''}
         </div>
       </div>
-      ${(!future && !t.done) ? `<button type="button" class="tk-pomo-btn" onclick="pomoOpenForTask(${t.id}, event)" title="${_cl("Pomodoro'da shu vazifa ustida ishlash", "Focus on this task in Pomodoro", "Работать над задачей в Pomodoro")}" aria-label="${_cl("Pomodoro'da shu vazifa ustida ishlash", "Focus on this task in Pomodoro", "Работать над задачей в Pomodoro")}">🍅</button>` : ''}
+      ${(!future && !t.done) ? `<button type="button" class="tk-pomo-btn" onclick="taskOpenFocus(${t.id}, event)" title="${_cl("Fokus rejimida shu vazifa ustida ishlash", "Focus on this task (Focus mode)", "Работать над задачей в режиме фокуса")}" aria-label="${_cl("Fokus rejimida shu vazifa ustida ishlash", "Focus on this task (Focus mode)", "Работать над задачей в режиме фокуса")}">🎯</button>` : ''}
       <button class="task-menu-btn tk-more" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="${_cl("Amallar", "Actions", "Действия")}" aria-label="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
     </div>
     ${hasSubtasks?`<div class="task-card-bottom"><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
@@ -22916,7 +22922,7 @@ function openTaskSheet(id, future) {
       btns += `<button class="sheet-btn" onclick="closeTaskSheet();unskipTask(${id})">🔄 ${_cl("Qaytarish", "Restore", "Вернуть")}</button>`;
     }
   }
-  if (!future && !t.done) btns += `<button class="sheet-btn" onclick="closeTaskSheet();pomoOpenForTask(${id})">🍅 ${_cl("Pomodoro'da ishlash", "Focus with Pomodoro", "Фокус в Pomodoro")}</button>`;
+  if (!future && !t.done) btns += `<button class="sheet-btn" onclick="closeTaskSheet();taskOpenFocus(${id})">🎯 ${_cl("Fokus rejimida ishlash", "Focus mode", "Режим фокуса")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();openSubtaskModal(${id})">➕ ${_cl("Sub-task qo'shish", "Add subtask", "Добавить подзадачу")}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();freezeTask(${id})">🧊 ${tr('freeze_task_sheet_btn')}</button>`;
   btns += `<button class="sheet-btn" onclick="closeTaskSheet();editTask(${id})">✏️ ${_cl('Tahrirlash', 'Edit', 'Изменить')}</button>`;

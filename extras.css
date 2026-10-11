@@ -662,3 +662,24 @@ html.layout-mobile .tk-pomo-btn { width: 34px; height: 34px; font-size: 15px; }
 .st-coins-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
 .st-coins-row label{font-size:var(--fs-2xs);color:var(--text-muted);margin:0;text-transform:none;letter-spacing:normal}
 .st-coins-row input{width:72px;padding:6px 8px;border-radius:var(--radius-sm,8px);border:1px solid var(--border);background:var(--surface,var(--bg));color:var(--text);font-weight:700;text-align:center}
+
+/* ✏️ "Yangi vazifa" oynasi — kengroq va tartibli */
+#modal-box{max-width:680px}
+@media (min-width:900px){
+  #modal-box{max-width:900px;width:min(900px,94vw);padding:28px 32px}
+  #modal-box .modal-fields-columns{column-gap:40px}
+}
+#modal-box .modal-field{margin-bottom:18px}
+#modal-box #m-emoji{width:100%;max-width:none}
+#modal-box .tier-opts{gap:8px}
+#modal-box .tier-opt{padding:10px 4px 8px;gap:3px;min-height:86px;justify-content:flex-start}
+#modal-box .tier-opt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.2}
+#modal-box .tier-opt small.tier-c{color:var(--gold);font-weight:700}
+#modal-box .tk-time-row{display:flex;align-items:center;gap:8px}
+#modal-box input[type="time"]{flex:1;min-width:0;width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-base);font-family:inherit;outline:none;color-scheme:dark}
+#modal-box input[type="time"]:focus{border-color:var(--accent)}
+#modal-box input[type="date"]{color-scheme:dark}
+body.light #modal-box input[type="time"],body.light #modal-box input[type="date"]{color-scheme:light}
+#modal-box #m-remind{max-width:200px}
+#modal-box .tk-time-check{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:normal;font-size:var(--fs-xs);color:var(--text-muted);margin:10px 0 0;cursor:pointer}
+#modal-box .tk-time-check input[type="checkbox"]{width:18px;height:18px;margin:0;flex:none;accent-color:var(--accent);cursor:pointer}
