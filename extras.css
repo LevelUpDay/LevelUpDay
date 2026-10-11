@@ -500,3 +500,53 @@ html.layout-mobile input, html.layout-mobile select, html.layout-mobile textarea
 .x-ref-by { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
 .x-ref-row { display: flex; justify-content: space-between; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
 .x-ref-row em { font-style: normal; color: var(--text-muted); }
+
+/* ---------- 🏅 Yutuqlar devori (Achievements wall) ---------- */
+.x-aw-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg, 18px); padding: 14px 16px; margin-bottom: 12px; }
+.x-aw-card:empty { display: none; }
+.x-aw-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.x-aw-title { font-size: var(--fs-xs, 12px); color: var(--text-muted); letter-spacing: .05em; text-transform: uppercase; font-weight: 600; }
+.x-aw-count { font-size: var(--fs-2xs, 11px); color: var(--gold, #F5A623); background: var(--gold-dim, rgba(245,166,35,.15)); border-radius: 999px; padding: 2px 8px; font-weight: 700; white-space: nowrap; }
+.x-aw-choose { margin-left: auto; }
+.x-aw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 600px) { .x-aw-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.x-aw-hint { font-size: var(--fs-xs, 12px); color: var(--text-dim, var(--text-muted)); text-align: center; padding: 10px 6px; line-height: 1.45; }
+.x-aw-note { font-size: var(--fs-3xs, 10px); color: var(--text-dim, var(--text-muted)); margin-top: 10px; text-align: right; }
+
+/* bitta badge */
+.x-aw-b { --tc: #CD7F32; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 10px 4px 8px; border-radius: 14px; border: 1.5px solid color-mix(in srgb, var(--tc) 70%, transparent); background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--tc) 22%, transparent), transparent 70%), var(--surface2, var(--bg)); box-shadow: 0 0 12px color-mix(in srgb, var(--tc) 18%, transparent); color: var(--text); font-family: inherit; text-align: center; box-sizing: border-box; }
+.x-aw-t1 { --tc: #CD7F32; } .x-aw-t2 { --tc: #B8C2CC; } .x-aw-t3 { --tc: #F5A623; } .x-aw-t4 { --tc: #22D3EE; } .x-aw-t5 { --tc: #C084FC; }
+.x-aw-i { font-size: 26px; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
+.x-aw-n { font-size: var(--fs-2xs, 11px); font-weight: 700; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.x-aw-empty { --tc: var(--border); border-style: dashed; background: transparent; box-shadow: none; color: var(--text-dim, var(--text-muted)); font-size: 20px; cursor: pointer; min-height: 64px; }
+.x-aw-empty:hover { color: var(--accent); border-color: var(--accent); }
+
+/* boshqalar profilida — ixcham qator */
+.x-aw-sec { margin-top: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md, 12px); padding: 10px; }
+.x-aw-sec-t { font-size: var(--fs-3xs, 10px); color: var(--text-muted); margin-bottom: 8px; }
+.x-aw-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.x-aw-row .x-aw-b { padding: 7px 3px 6px; border-radius: 11px; gap: 3px; background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--tc) 22%, transparent), transparent 70%), var(--surface); }
+.x-aw-row .x-aw-i { font-size: 20px; }
+.x-aw-row .x-aw-n { font-size: var(--fs-3xs, 10px); }
+#friend-profile-modal .x-aw-sec { margin: 0 0 12px; }
+
+/* tanlash oynasi */
+.x-aw-box { max-width: 560px; }
+.x-aw-pk-g { font-size: var(--fs-xs, 12px); font-weight: 700; color: var(--text-muted); margin: 12px 0 6px; }
+.x-aw-pk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 420px) { .x-aw-pk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.x-aw-pk-grid .x-aw-b { cursor: pointer; padding: 8px 3px 7px; transition: transform .12s, box-shadow .12s; }
+.x-aw-pk-grid .x-aw-b:active { transform: scale(.96); }
+.x-aw-pk-grid .x-aw-b .x-aw-i { font-size: 22px; }
+.x-aw-pk-grid .x-aw-b.on { outline: 2px solid var(--accent); outline-offset: 1px; box-shadow: 0 0 0 4px var(--accent-glow, rgba(0,0,0,.1)), 0 0 14px color-mix(in srgb, var(--tc) 35%, transparent); }
+.x-aw-pk-grid .x-aw-b.locked { --tc: var(--border); opacity: .45; cursor: not-allowed; box-shadow: none; filter: grayscale(1); }
+.x-aw-no { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.x-aw-foot { position: sticky; bottom: -18px; display: flex; align-items: center; gap: 8px; margin: 14px -18px -18px; padding: 12px 18px; background: var(--surface); border-top: 1px solid var(--border); }
+.x-aw-sel { font-weight: 800; color: var(--text); margin-right: auto; font-size: var(--fs-sm, 13px); }
+.x-aw-head { flex-wrap: nowrap; align-items: center; }
+.x-aw-hl { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1; }
+.x-aw-choose { flex-shrink: 0; }
+.x-aw-g { position: absolute; top: 5px; left: 6px; font-size: 11px; line-height: 1; opacity: .85; }
+.x-aw-gn { font-size: var(--fs-3xs, 10px); color: var(--text-muted); line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: -2px; }
+.x-aw-row .x-aw-g { top: 3px; left: 4px; font-size: 9px; }
+.x-aw-row .x-aw-gn { font-size: 9px; }

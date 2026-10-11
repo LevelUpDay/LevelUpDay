@@ -15549,7 +15549,9 @@ function showPlayerProfileModal(id) {
       '<div style="display:flex;flex-wrap:wrap;gap:6px">'+
         (p.targetSubjects && p.targetSubjects.length ? renderSubjectBadgesHtml(p.targetSubjects, null, p.appGoalOther) : '<span style="font-size:var(--fs-xs);color:var(--text-dim)">—</span>')+
       '</div>'+
-    '</div>';
+    '</div>'+
+    // 🏅 Yutuqlar devori (extras.js; o'zim uchun — hozirgi tanlov)
+    (function(){ try { return typeof window.xAchWallSection === 'function' ? window.xAchWallSection(_cosOf(p)) : ''; } catch (e) { return ''; } })();
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
@@ -21826,6 +21828,8 @@ function renderBadges() {
       gemsAdd(BADGE_GEM_REWARD, 'badge', '🏅 ' + b.icon + ' ' + b.label, true);
       addTarixLog('in', '🏅 ' + b.icon + ' ' + b.label + ' (+' + BADGE_GEM_REWARD + ' 💎)', 0, 'badge_reward_'+b.id);
       newlyEarned.push(b);
+      // 🏅 Yutuqlar devori: vitrinada joy bo'lsa avtomatik qo'shiladi (extras.js)
+      try { if (typeof window.xAchOnEarned === 'function') window.xAchOnEarned(b.id); } catch (e) {}
     }
   });
   if (newlyEarned.length) {
@@ -21891,6 +21895,7 @@ function renderBadges() {
       '<span style="white-space:nowrap;font-size:var(--fs-2xs);color:var(--text-muted)">' + cur + '/' + nextTarget + ' ' + meta.unit + '</span>';
     prog.appendChild(row);
   });
+  try { if (typeof window.xAchWallRender === 'function') window.xAchWallRender(); } catch (e) {}
 }
 
 
@@ -30746,6 +30751,7 @@ function showFriendProfileModal(id) {
     + '<div style="font-size:var(--fs-3xs);color:var(--text-muted);margin-bottom:6px">' + t('pp_goal_label') + '</div>'
     + '<div id="fp-goal-badges" style="display:flex;flex-wrap:wrap;gap:6px">' + (renderSubjectBadgesHtml(stats.subjects) || '<span style="font-size:var(--fs-xs);color:var(--text-dim)">—</span>') + '</div>'
     + '</div>'
+    + '<div id="fp-achwall">' + _fpAchWall(base.cosmetics) + '</div>'
     + (reasonText ? ('<div style="background:var(--accent-glow);border:1px solid var(--accent);border-radius:var(--radius-md);padding:10px;margin-bottom:14px">'
       + '<div style="font-size:var(--fs-3xs);color:var(--accent);font-weight:700;margin-bottom:4px">' + t('friends_reason_shown_label') + '</div>'
       + '<div style="font-size:var(--fs-xs);color:var(--text)">' + esc(reasonText) + '</div>'
@@ -30759,6 +30765,9 @@ function showFriendProfileModal(id) {
   // A11y: Esc tugmasi bilan ham yopish mumkin
   document.addEventListener('keydown', _fpEscHandler);
 }
+
+// 🏅 Do'st yutuqlar devori (cosmetics.ach — extras.js da tekshiriladi va escape qilinadi)
+function _fpAchWall(c) { try { return typeof window.xAchWallSection === 'function' ? window.xAchWallSection(c) : ''; } catch (e) { return ''; } }
 
 // Do'st profilidagi statistikani haqiqiy (Supabase) ma'lumot bilan to'ldirish
 function _fpFillStat(boxId, icon, label, value) {
@@ -30784,6 +30793,8 @@ function _fpFillStat(boxId, icon, label, value) {
       _fpFillStat('fp-stat-gems', '', '', (d.gems != null ? Number(d.gems) || 0 : '—') + ' 💎');
       var goal = document.getElementById('fp-goal-badges');
       if (goal && d.target_subjects && d.target_subjects.length) goal.innerHTML = renderSubjectBadgesHtml(d.target_subjects, null, d.app_goal_other);
+      var aw = document.getElementById('fp-achwall');
+      if (aw && d.cosmetics && typeof d.cosmetics === 'object') { var awh = _fpAchWall(d.cosmetics); if (awh) aw.innerHTML = awh; }
     }, function () {});
   };
   window.showFriendProfileModal = showFriendProfileModal;
