@@ -2736,6 +2736,7 @@ html.layout-desktop #ds-aside .gems-text { font-size: var(--fs-xs) !important; }
 .tk-chip-diff.d1 { color: var(--green); background: rgba(52,211,153,0.12); }
 .tk-chip-diff.d2 { color: var(--gold); background: var(--gold-dim); }
 .tk-chip-diff.d3 { color: var(--red); background: rgba(248,113,113,0.12); }
+.tk-chip-diff.d4 { color: #A78BFA; background: rgba(167,139,250,0.14); }
 .tk-chip-coin { color: var(--gold); background: var(--gold-dim); }
 .tk-chip-subs { color: var(--info); background: rgba(96,165,250,0.12); }
 .tk-chip-subs.all { color: var(--green); background: rgba(52,211,153,0.12); }

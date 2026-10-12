@@ -12959,7 +12959,7 @@ function makeTaskEl(t, future) {
   const dueLineF = dueLine ? dueLine.replace(/\d{4}-\d{2}-\d{2}/g, _fmtD) : '';
   const coinsV = taskCoinValue(t);
   const diffV = taskDiffOrDefault(t);
-  const diffTxt = diffV === 0 ? _cl('Bepul', 'Free', 'Бесплатно') : diffV === 3 ? _cl('Qiyin', 'Hard', 'Сложно') : diffV === 2 ? _cl("O'rtacha", 'Medium', 'Средне') : _cl('Oson', 'Easy', 'Легко');
+  const diffTxt = diffV === 4 ? _cl('Epik', 'Epic', 'Эпик') : diffV === 0 ? _cl('Bepul', 'Free', 'Бесплатно') : diffV === 3 ? _cl('Qiyin', 'Hard', 'Сложно') : diffV === 2 ? _cl("O'rtacha", 'Medium', 'Средне') : _cl('Oson', 'Easy', 'Легко');
   const subsDueOrDone = subs.filter(function (s) { return subtaskDoneOnDate(t.id, s.id, today()) || subtaskDueToday(s, today()); });
   const subsDoneN = subs.filter(function (s) { return subtaskDoneOnDate(t.id, s.id, today()); }).length;
   if (t.label) d.style.setProperty('--tk-label', t.label);
