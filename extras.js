@@ -586,6 +586,18 @@
     { id: 'b_gem', kind: 'badge', v: '💎', icon: '💎', n: ['Olmos nishon', 'Diamond badge', 'Значок алмаз'], gems: 25 },
     { id: 'b_crown', kind: 'badge', v: '👑', icon: '👑', n: ['Toj nishon', 'Crown badge', 'Значок корона'], gems: 40 }
   ];
+  // 🎨 Pullik fon dizaynlari (narxlar designs.js da — yagona manba). Egalik id: 'd_<dizayn>'
+  try {
+    if (window.LUDesign && window.LUDesign.catalog) window.LUDesign.catalog().forEach(function (d) {
+      if (d.price) SHOP.push({ id: 'd_' + d.id, kind: 'design', v: d.id, icon: '🎨', n: d.n, coins: d.price.coins, gems: d.price.gems });
+    });
+  } catch (e) {}
+  // ✨ UI effektlar (effects.js). Bir nechtasi bir vaqtda yoqilishi mumkin: S.shop.ufx = [id...]
+  try {
+    if (window.LUFx && window.LUFx.catalog) window.LUFx.catalog().forEach(function (f) {
+      SHOP.push({ id: f.id, kind: 'ufx', v: f.key, icon: f.icon, n: f.n, d: f.d, coins: f.coins, gems: f.gems, desktop: f.desktop });
+    });
+  } catch (e) {}
   function shopState() { S.shop = S.shop || { owned: [], frame: null, nick: null, title: null, theme: null, effect: null, badge: null }; if (!Array.isArray(S.shop.owned)) S.shop.owned = []; return S.shop; }
   function shopBuy(id) {
     var it = SHOP.find(function (x) { return x.id === id; }); if (!it) return;
@@ -602,14 +614,38 @@
     }
     st.owned.push(id);
     try { SFX.coin(); confetti(); } catch (e) {}
+    if (it.kind === 'design') {
+      // Dizayn: sotib olindi → "Qo'llash" tugmasi (avtomatik qo'llanmaydi)
+      toast('🛍 ' + nm + ' ' + L('sotib olindi! Endi "Qo\'llash"ni bosing', 'purchased! Tap "Apply" to use it', 'куплено! Нажмите «Применить»'));
+      save(); renderHubSection('shop');
+      try { window.LUDesign.renderPicker(); } catch (e) {}
+      return;
+    }
     toast('🛍 ' + nm + ' ' + L('sotib olindi!', 'purchased!', 'куплено!'));
     shopEquip(id, true);
   }
   function shopEquip(id, silent) {
     var it = SHOP.find(function (x) { return x.id === id; }); var st = shopState(); if (!it) return;
+    if (it.kind === 'design') { shopApplyDesign(it.v); return; }
+    if (it.kind === 'ufx') {
+      if (!Array.isArray(st.ufx)) st.ufx = [];
+      var ix = st.ufx.indexOf(id), turnOn = ix === -1;
+      if (turnOn) st.ufx.push(id); else st.ufx.splice(ix, 1);
+      save(); try { window.LUFx.sync(); window.LUDesign.renderPicker(); } catch (e) {} renderHubSection('shop');
+      if (!silent || turnOn) toast(turnOn ? '✨ ' + L('Effekt yoqildi', 'Effect on', 'Эффект включён') : L('Effekt o\'chirildi', 'Effect off', 'Эффект выключен'));
+      return;
+    }
     st[it.kind] = (st[it.kind] === id) ? null : id;
     save(); shopApply(); try { render(); } catch (e) {} renderHubSection('shop');
     if (!silent) toast(st[it.kind] ? '✅ ' + L('Kiyildi', 'Equipped', 'Надето') : L('Olib tashlandi', 'Removed', 'Снято'));
+  }
+  function shopApplyDesign(did) {
+    if (!window.LUDesign) return;
+    if (window.LUDesign.current() === did) { toast('✅ ' + L('Bu dizayn allaqachon qo\'llangan', 'This design is already applied', 'Этот дизайн уже применён')); return; }
+    if (window.LUDesign.apply(did) !== false) {
+      toast('🎨 ' + L('Dizayn qo\'llandi', 'Design applied', 'Дизайн применён'));
+      renderHubSection('shop');
+    }
   }
   function fxBurst(chars, x, y) {
     var arr = Array.from(chars || '🎉'); var n = 16;
@@ -800,6 +836,8 @@
 
   var shopApply = safe(function () {
     var st = shopState(), root = document.documentElement;
+    try { if (window.LUDesign) window.LUDesign.enforce(); } catch (e) {} // sotib olinmagan dizayn qo'llanmasin
+    try { if (window.LUFx) window.LUFx.sync(); } catch (e) {}
     var f = SHOP.find(function (x) { return x.id === st.frame; }), n = SHOP.find(function (x) { return x.id === st.nick; });
     if (f) root.setAttribute('data-x-frame', f.v); else root.removeAttribute('data-x-frame');
     if (n) root.setAttribute('data-x-nick', n.v); else root.removeAttribute('data-x-nick');
@@ -830,8 +868,35 @@
       ['badge', '🏅 ' + L('Nik yonidagi nishon', 'Nickname badge', 'Значок у ника')], ['title', '🏷 ' + L('Unvonlar', 'Titles', 'Титулы')],
       ['theme', '🎨 ' + L('Ilova rangi', 'App color', 'Цвет приложения')], ['effect', '🎉 ' + L('Bajarilganda effekt', 'Task-done effect', 'Эффект выполнения')]];
     var h = '<div class="x-shop-bal"><span>🪙 <b>' + (S.coins || 0) + '</b></span><span>💎 <b>' + (S.gems || 0) + '</b></span></div>';
+    // Bo'limlarga tez o'tish
+    h += '<div class="x-shop-cats">' + [['design', '🎨 ' + L('Dizaynlar', 'Designs', 'Дизайны')], ['ufx', '✨ ' + L('Effektlar', 'Effects', 'Эффекты')]].concat(groups.map(function (g) { return [g[0], g[1]]; }))
+      .map(function (g) { return '<button type="button" data-shop-cat="' + g[0] + '">' + H(g[1]) + '</button>'; }).join('') + '</div>';
+    // 🎨 Dizaynlar (bepullari ham ko'rsatiladi)
+    var curD = window.LUDesign ? window.LUDesign.current() : 'default';
+    h += '<div class="x-sec-t" id="x-shop-sec-design">🎨 ' + L('Dizaynlar', 'Designs', 'Дизайны') + '</div><div class="x-shop-grid">';
+    (window.LUDesign ? window.LUDesign.catalog() : []).forEach(function (d) {
+      var own = window.LUDesign.isOwned(d.id), on = curD === d.id, sid = 'd_' + d.id;
+      var lbl = on ? '✅ ' + L('Qo\'llangan', 'Applied', 'Применён') : own ? (d.price ? '' : L('Bepul', 'Free', 'Бесплатно') + ' · ') + L('Qo\'llash', 'Apply', 'Применить')
+        : (d.price.gems ? d.price.gems + ' 💎' : d.price.coins + ' 🪙');
+      h += '<button class="x-shop-it x-shop-dz ' + (on ? 'on' : own ? 'own' : '') + '" ' + (own ? 'data-dz-apply="' + d.id + '"' : 'data-shop="' + sid + '"') + ' data-shop-item="' + sid + '">' +
+        '<span class="dz-prev dz-prev-' + d.id + '"><span class="dz-prev-in"></span>' + (own ? '' : '<span class="dz-lock">🔒</span>') + '</span>' +
+        '<div class="x-shop-n">' + H(L(d.n[0], d.n[1], d.n[2])) + '</div><div class="x-shop-p">' + lbl + '</div></button>';
+    });
+    h += '</div>';
+    // ✨ UI effektlar
+    h += '<div class="x-sec-t" id="x-shop-sec-ufx">✨ ' + L('UI effektlar', 'UI effects', 'UI-эффекты') + '</div><div class="x-shop-grid">';
+    var ufxOn = Array.isArray(st.ufx) ? st.ufx : [];
+    SHOP.filter(function (x) { return x.kind === 'ufx'; }).forEach(function (it) {
+      var own = st.owned.indexOf(it.id) !== -1, on = own && ufxOn.indexOf(it.id) !== -1;
+      h += '<button class="x-shop-it ' + (on ? 'on' : own ? 'own' : '') + '" data-shop="' + it.id + '" data-shop-item="' + it.id + '">' +
+        (window.LUFx ? window.LUFx.previewHtml(it.v) : '') +
+        '<div class="x-shop-n">' + H(L(it.n[0], it.n[1], it.n[2])) + '</div>' +
+        (it.desktop ? '<div class="x-shop-note">🖱 ' + L('Faqat kompyuterda', 'Desktop only', 'Только ПК') + '</div>' : '') +
+        '<div class="x-shop-p">' + (on ? '✅ ' + L('Yoqilgan', 'On', 'Вкл') : own ? L('Yoqish', 'Turn on', 'Включить') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙')) + '</div></button>';
+    });
+    h += '</div>';
     groups.forEach(function (g) {
-      h += '<div class="x-sec-t">' + g[1] + '</div><div class="x-shop-grid">';
+      h += '<div class="x-sec-t" id="x-shop-sec-' + g[0] + '">' + g[1] + '</div><div class="x-shop-grid">';
       SHOP.filter(function (x) { return x.kind === g[0]; }).forEach(function (it) {
         var own = st.owned.indexOf(it.id) !== -1, on = st[it.kind] === it.id;
         var prev = it.kind === 'frame' ? '<div class="x-shop-av xf-' + it.v + '">' + H((getDisplayUsername() || '?').charAt(0).toUpperCase()) + '</div>'
@@ -840,7 +905,7 @@
           : it.kind === 'effect' ? '<div class="x-shop-fx" data-fx="' + it.id + '">' + it.v + '</div>'
           : it.kind === 'badge' ? '<div class="x-shop-nk">' + H(getDisplayUsername() || 'Nick') + ' ' + it.v + '</div>'
           : '<div class="x-shop-tt">' + L(it.tv[0], it.tv[1], it.tv[2]) + '</div>';
-        h += '<button class="x-shop-it ' + (on ? 'on' : own ? 'own' : '') + '" data-shop="' + it.id + '">' + prev +
+        h += '<button class="x-shop-it ' + (on ? 'on' : own ? 'own' : '') + '" data-shop="' + it.id + '" data-shop-item="' + it.id + '">' + prev +
           '<div class="x-shop-n">' + L(it.n[0], it.n[1], it.n[2]).replace(/^[^:]+:\s*/, '') + '</div>' +
           '<div class="x-shop-p">' + (on ? '✅ ' + L('Kiyilgan', 'Equipped', 'Надето') : own ? L('Kiyish', 'Equip', 'Надеть') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙')) + '</div></button>';
       });
@@ -1769,6 +1834,10 @@
     if (sec === 'health') bindWellbeing(body);
     if (sec === 'shop') {
       body.querySelectorAll('[data-shop]').forEach(function (b) { b.onclick = function () { shopBuy(b.dataset.shop); }; });
+      body.querySelectorAll('[data-dz-apply]').forEach(function (b) { b.onclick = function () { shopApplyDesign(b.dataset.dzApply); }; });
+      body.querySelectorAll('[data-shop-cat]').forEach(function (b) {
+        b.onclick = function () { var t = document.getElementById('x-shop-sec-' + b.dataset.shopCat); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      });
       body.querySelectorAll('.x-shop-fx').forEach(function (f) { f.onmouseenter = function () { var r = f.getBoundingClientRect(); var it = SHOP.find(function (z) { return z.id === f.dataset.fx; }); if (it) fxBurst(it.v, r.left + r.width / 2, r.top + r.height / 2); }; });
     }
     if (sec === 'boss') bindBossHub(body);
@@ -2441,6 +2510,18 @@
   window.xDismissReview = function () {};
   window.xSleepSet = safe(sleepSet);
   window.xOpenHub = function (sec) { if (sec) S.xHubSec = sec; showTab('hub'); };
+  // 🛍 Do'konni ochib, kerakli mahsulotga aylantirish (Sozlamalardagi qulflangan dizayn/effektdan)
+  window.xOpenShopItem = safe(function (itemId) {
+    S.xHubSec = 'shop'; showTab('hub');
+    setTimeout(function () {
+      var el = document.querySelector('[data-shop-item="' + itemId + '"]');
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('x-shop-flash'); void el.offsetWidth; el.classList.add('x-shop-flash');
+      setTimeout(function () { el.classList.remove('x-shop-flash'); }, 1800);
+    }, 260);
+  });
+  window.xShopRefresh = function () { try { renderHubSection('shop'); } catch (e) {} };
 
   function boot() {
     try { markMovedTabs(); buildBottomNav(); renderInstallUI(); handleLaunchAction(); } catch (e) { console.warn('[extras nav]', e); }
