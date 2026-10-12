@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="extras.css">
   <link rel="stylesheet" href="designs.css">
   <script src="designs.js"></script>
+  <link rel="stylesheet" href="ui-kit.css">
 </head>
 <body>
 
@@ -1451,10 +1452,12 @@
       <button onclick="tarixQuickRange('all')" style="flex:1;padding:7px;border-radius:var(--radius-full);font-size:var(--fs-2xs);cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-family:DM Sans,sans-serif" data-i18n="tarix_range_all">Barchasi</button>
     </div>
 
-    <div style="display:flex;gap:6px;margin-bottom:14px">
+    <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">
+      <div id="ttab-seg" style="flex:1;display:flex;gap:6px;min-width:0">
       <button id="ttab-all" onclick="switchTarixTab('all')" style="flex:1;padding:9px;border-radius:var(--radius-full);font-size:var(--fs-sm);font-weight:500;cursor:pointer;border:1px solid transparent;background:var(--accent);color:#fff;font-family:DM Sans,sans-serif" data-i18n="tarix_tab_all">Hammasi</button>
       <button id="ttab-in"  onclick="switchTarixTab('in')"  style="flex:1;padding:9px;border-radius:var(--radius-full);font-size:var(--fs-sm);font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-family:DM Sans,sans-serif" data-i18n="tarix_tab_in">⬆ Kirim</button>
       <button id="ttab-out" onclick="switchTarixTab('out')" style="flex:1;padding:9px;border-radius:var(--radius-full);font-size:var(--fs-sm);font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-family:DM Sans,sans-serif" data-i18n="tarix_tab_out">⬇ Chiqim</button>
+      </div>
       <button onclick="confirmClearHistory()" title="Tarixni tozalash" data-i18n-title="tarix_clear_confirm_title" style="padding:9px 12px;border-radius:var(--radius-full);font-size:var(--fs-sm);cursor:pointer;border:1px solid rgba(248,113,113,0.4);background:rgba(248,113,113,0.08);color:#F87171;font-family:DM Sans,sans-serif">🗑️</button>
     </div>
     <div id="tarix-list"></div>
@@ -3447,6 +3450,7 @@
 
 
 
+  <script src="ui-kit.js"></script>
   <script src="script.js"></script>
   <script src="extras.js"></script>
 </body>
