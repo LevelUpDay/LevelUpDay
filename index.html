@@ -162,6 +162,8 @@
       <button class="all-toggle" id="time-view-btn" onclick="toggleTimeView()" data-i18n="time_view_btn">🕒 Vaqt</button>
       <button class="all-toggle" id="bulk-toggle-btn" onclick="toggleBulkMode()" data-i18n="bulk_select_btn">☑️ Tanlash</button>
     </div>
+    <!-- 🗂 Bo'lim filtri (Hammasi / Ish / O'qish ...) -->
+    <div id="task-cat-bar" class="tc-bar" style="display:none"></div>
     <!-- Ommaviy amallar paneli (faqat "Tanlash" rejimida ko'rinadi) -->
     <div id="bulk-action-bar" style="display:none;position:sticky;top:0;z-index:12;background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
       <span id="bulk-selected-label" style="font-size:var(--fs-sm);color:var(--text);font-weight:600">0</span>
@@ -1879,6 +1881,12 @@
     <div class="modal-field">
       <label data-i18n="task_name_label">Vazifa nomi</label>
       <input type="text" id="m-name" placeholder="Masalan: Writing, Mock, Reading..." data-i18n-ph="task_name_ph" maxlength="80" />
+    </div>
+
+    <!-- 🗂 Bo'lim (Ish / O'qish / Shaxsiy ...) -->
+    <div class="modal-field">
+      <label id="m-cat-label">Bo'lim</label>
+      <div class="tc-opts" id="m-cat-opts"></div>
     </div>
 
     <div class="modal-field">
