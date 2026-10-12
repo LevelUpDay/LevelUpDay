@@ -26232,6 +26232,16 @@ function startRealtimeSync() {
   if (!S.cloudLinked || !S.cloudUserId || _realtimeChannel) return;
 
   _realtimeChannel = supabase.channel('user-sync-' + S.cloudUserId)
+    // --- Umumiy holat (vaqt jadvali eslatmalari, bo'limlar, sozlamalar...): boshqa qurilmada o'zgarsa ---
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'app_state',
+      filter: 'user_id=eq.' + S.cloudUserId
+    }, function (payload) {
+      var row = payload.new;
+      if (!row || !row.updated_at) return;
+      if ((Date.parse(row.updated_at) || 0) <= (S._cloudSyncedAt || 0) + 5) return; // o'zimiz yozganmiz
+      _cloudRefreshAppState(true);
+    })
     // --- Tasklar: shu akkaunt boshqa qurilmada o'zgartirsa ---
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'todos',
@@ -32508,6 +32518,26 @@ function _appStatePayload() {
   return JSON.parse(JSON.stringify(d));
 }
 
+// ☁️ Bulutdagi umumiy holat yangiroq bo'lsa — tortib, ekranni yangilaymiz (realtime / ilova qayta ochilganda)
+var _cloudRefreshBusy = false;
+function _cloudRefreshAppState(showToast) {
+  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _cloudRefreshBusy) return;
+  _cloudRefreshBusy = true;
+  // Mahalliy, hali yuborilmagan o'zgarish bo'lsa — avval uni yuboramiz (aks holda yo'qolardi)
+  if (_appStateTimer) { _cloudRefreshBusy = false; scheduleAppStateSync(true); return; }
+  cloudPullAppState(false).then(function (r) {
+    if (r && r.applied) {
+      try { applyLanguage(); } catch (e) {}
+      try { render(); } catch (e) {}
+      try { if (typeof renderTimeline === 'function') renderTimeline(); } catch (e) {}
+      if (showToast) { try { toast(t('realtime_updated_toast')); } catch (e) {} }
+    }
+  }).catch(function () {}).then(function () { _cloudRefreshBusy = false; });
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') setTimeout(function () { _cloudRefreshAppState(false); }, 600);
+});
+
 function scheduleAppStateSync(immediate) {
   if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone) return;
   if (_appStateTimer) clearTimeout(_appStateTimer);
@@ -32518,6 +32548,25 @@ function scheduleAppStateSync(immediate) {
       var payload = _appStatePayload();
       var cmp = JSON.stringify(Object.assign({}, payload, { _savedAt: 0 }));
       if (cmp === _appStateLastCmp) return;
+      // Boshqa qurilma bizdan keyin yozgan bo'lsa — eski nusxa bilan ustidan yozmaymiz:
+      // avval bulutdagini olamiz, so'ng hozirgi mahalliy o'zgarishni ustiga qo'yib yuboramiz.
+      try {
+        var chk = await supabase.from('app_state').select('updated_at').eq('user_id', S.cloudUserId).maybeSingle();
+        var remoteMs = chk && chk.data && Date.parse(chk.data.updated_at) || 0;
+        if (remoteMs > (S._cloudSyncedAt || 0) + 5) {
+          var mine = _appStatePayload();
+          var base = _appStateLastCmp ? JSON.parse(_appStateLastCmp) : {};
+          await cloudPullAppState(true);
+          // faqat shu qurilmada o'zgargan kalitlarni qaytadan qo'yamiz
+          Object.keys(mine).forEach(function (k) {
+            if (k === '_ls' || k === '_savedAt' || _CLOUD_LOCAL_ONLY.indexOf(k) !== -1) return;
+            if (JSON.stringify(mine[k]) !== JSON.stringify(base[k])) S[k] = mine[k];
+          });
+          try { saveToLocalStorage(S); render(); } catch (e) {}
+          payload = _appStatePayload();
+          cmp = JSON.stringify(Object.assign({}, payload, { _savedAt: 0 }));
+        }
+      } catch (e) {}
       var nowMs = Date.now();
       var r = await supabase.from('app_state').upsert({
         user_id: S.cloudUserId, data: payload, updated_at: new Date(nowMs).toISOString()
