@@ -903,3 +903,127 @@ body.light .x-hb-dl .x-in { color-scheme: light; }
 }
 /* Yorug' rejimda "Navbatda emas" legend kvadrati ko'rinmasdi */
 body.light #goal-cal-modal-box span[style*="opacity:0.45"] { border: 1px solid var(--border); }
+
+/* 📨 Fikrlar qutisi (admin) + "Mening xabarlarim" (foydalanuvchi) */
+.fbx { color: var(--text); font-size: 13px; }
+.fbx-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.fbx-title { font-family: Syne, sans-serif; font-weight: 800; font-size: 16px; }
+.fbx-sum { display: flex; gap: 6px; margin-right: auto; font-size: 12px; color: var(--text-muted); align-items: center; }
+.fbx-unread { padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, #EF4444 18%, transparent); color: #EF4444; font-weight: 700; }
+.fbx-seg-wrap { margin-bottom: 10px; max-width: 100%; }
+#fbx-seg.uk-seg { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+#fbx-seg.uk-seg::-webkit-scrollbar { display: none; }
+#fbx-seg .uk-seg-item { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
+.fbx-cnt { font-style: normal; font-size: 10.5px; min-width: 16px; padding: 0 5px; border-radius: 999px; background: color-mix(in srgb, currentColor 16%, transparent); font-variant-numeric: tabular-nums; line-height: 16px; }
+.fbx-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.fbx-chips > button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font: 600 12px/1.2 inherit; font-family: inherit; cursor: pointer; }
+.fbx-chips > button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.fbx-tools { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-bottom: 8px; }
+.fbx-in { width: 100%; box-sizing: border-box; padding: 9px 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font: 13px/1.4 inherit; font-family: inherit; outline: none; }
+.fbx-in:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.fbx-sel { width: auto; cursor: pointer; padding-right: 8px; }
+.fbx-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 0; margin-bottom: 8px; }
+.fbx-bulk:empty { display: none; }
+.fbx-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+.fbx-chk input, .fbx-cb input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; margin: 0; }
+.fbx-bulk-a { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.fbx-danger { background: var(--red, #EF4444) !important; color: #fff !important; border-color: transparent !important; }
+.fbx-list { display: flex; flex-direction: column; gap: 8px; }
+.fbx-item { --pc: transparent; position: relative; background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--pc); border-radius: 12px; padding: 10px 12px; transition: border-color .15s, background .15s; min-width: 0; }
+.fbx-item.is-new { background: color-mix(in srgb, var(--accent) 7%, var(--surface2)); }
+.fbx-item.is-sel { border-color: var(--accent); border-left-color: var(--accent); }
+.fbx-ih { display: flex; gap: 8px; align-items: flex-start; }
+.fbx-cb { padding-top: 2px; flex-shrink: 0; }
+.fbx-ih-m { flex: 1; min-width: 0; cursor: pointer; }
+.fbx-ih-1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fbx-ih-2 { display: flex; gap: 4px 10px; flex-wrap: wrap; font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.fbx-who { font-weight: 700; font-size: 13.5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbx-who i { font-weight: 500; color: var(--text-muted); }
+.fbx-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); flex-shrink: 0; }
+.fbx-kind, .fbx-st { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text-muted); }
+.fbx-k-bug { background: color-mix(in srgb, #EF4444 16%, transparent); color: #F87171; }
+.fbx-k-idea { background: color-mix(in srgb, #F59E0B 16%, transparent); color: #F59E0B; }
+.fbx-k-complaint { background: color-mix(in srgb, #A78BFA 18%, transparent); color: #A78BFA; }
+.fbx-st-new { background: color-mix(in srgb, #3B82F6 16%, transparent); color: #60A5FA; }
+.fbx-st-in_progress { background: color-mix(in srgb, #F59E0B 16%, transparent); color: #F59E0B; }
+.fbx-st-done { background: color-mix(in srgb, #10B981 16%, transparent); color: #34D399; }
+.fbx-st-wontfix { background: color-mix(in srgb, #64748B 22%, transparent); color: #94A3B8; }
+body.light .fbx-k-bug { color: #DC2626; } body.light .fbx-k-idea, body.light .fbx-st-in_progress { color: #B45309; }
+body.light .fbx-st-done { color: #047857; } body.light .fbx-st-new { color: #2563EB; } body.light .fbx-k-complaint { color: #7C3AED; } body.light .fbx-st-wontfix { color: #475569; }
+.fbx-flag { --fc: var(--text-muted); color: var(--fc); font-weight: 800; font-size: 12px; display: inline-flex; align-items: center; gap: 1px; }
+.fbx-flag b { font-size: 10px; }
+.fbx-flag.off { opacity: .4; }
+.fbx-replied { font-size: 12px; color: var(--accent); font-weight: 700; }
+.fbx-chev { background: none; border: none; color: var(--text-muted); font-size: 14px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+.fbx-msg { margin: 8px 0 0 24px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; cursor: pointer; }
+.fbx-msg.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.fbx-more { margin: 2px 0 0 24px; background: none; border: none; padding: 2px 0; color: var(--accent); font: 600 12px inherit; font-family: inherit; cursor: pointer; }
+.fbx-item.is-open .fbx-msg { cursor: text; user-select: text; }
+.fbx-body { margin: 10px 0 0 24px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.fbx-row { display: flex; gap: 8px; align-items: baseline; font-size: 12px; margin-bottom: 4px; min-width: 0; }
+.fbx-lbl { color: var(--text-muted); flex-shrink: 0; min-width: 84px; }
+.fbx-val { min-width: 0; word-break: break-word; overflow-wrap: anywhere; }
+.fbx-ua { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, monospace; }
+.fbx-mini { background: none; border: none; cursor: pointer; padding: 0 2px; font-size: 12px; }
+.fbx-sec-t { font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin: 12px 0 6px; display: flex; align-items: center; gap: 6px; }
+.fbx-saved { font-weight: 600; color: var(--green, #34D399); }
+.fbx-dim { color: var(--text-muted); font-weight: 500; font-size: 11.5px; }
+.fbx-sts, .fbx-pris, .fbx-tpls, .fbx-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.fbx-stb, .fbx-prb, .fbx-tpl { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 600 12px/1.2 inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.fbx-stb.on { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+.fbx-stb:disabled { opacity: .5; }
+.fbx-prb { --fc: var(--text-muted); color: var(--fc); }
+.fbx-prb.on { background: color-mix(in srgb, var(--fc) 18%, var(--surface)); border-color: var(--fc); }
+.fbx-tpl { font-weight: 500; color: var(--text-muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.fbx-tpl:hover, .fbx-stb:hover, .fbx-prb:hover { border-color: var(--accent); }
+.fbx-note, .fbx-reply { resize: vertical; min-height: 44px; }
+.fbx-reply { margin-top: 8px; min-height: 70px; }
+.fbx-reply-f { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.fbx-reply-old { margin-bottom: 8px; }
+.fbx-reply-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.fbx-noacc { padding: 8px 10px; border-radius: 10px; background: var(--surface); line-height: 1.45; }
+.fbx-acts { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.fbx-acts .fbx-danger { margin-left: auto; }
+.fbx-del-q { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface2); font-size: 12.5px; text-align: left; white-space: pre-wrap; word-break: break-word; max-height: 90px; overflow: hidden; }
+.fbx-err { padding: 12px; border-radius: 12px; background: color-mix(in srgb, #EF4444 10%, transparent); color: var(--text); font-size: 13px; line-height: 1.45; }
+.fbx-err small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 11px; word-break: break-word; }
+.fbx-badge, .fbx-udot { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 999px; background: #EF4444; color: #fff; font-size: 11px; font-weight: 700; line-height: 1; vertical-align: middle; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+.x-hub-tools [data-tool] { position: relative; }
+.x-hub-tools [data-tool] .fbx-badge { position: absolute; top: 4px; right: 4px; margin: 0; }
+.settings-sub-icon.fbx-has-dot { position: relative; }
+.settings-sub-icon.fbx-has-dot::after { content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: #EF4444; box-shadow: 0 0 0 2px var(--surface); }
+/* Foydalanuvchi modali */
+.fbx-mtabs { margin-bottom: 14px; }
+.fbx-mtabs.uk-seg { width: 100%; display: flex !important; }
+.fbx-mtabs .uk-seg-item { display: inline-flex; align-items: center; justify-content: center; }
+body.light #feedback-modal > .fbx-modal { background: var(--surface) !important; border-color: var(--border) !important; }
+.fbx-guest-mini { font-size: 11.5px; color: var(--text-muted); background: var(--surface2); border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; line-height: 1.4; }
+.fbx-guest { padding: 16px; border-radius: 14px; background: var(--surface2); font-size: 13px; line-height: 1.55; color: var(--text-muted); text-align: center; }
+.fbx-guest b { color: var(--text); font-size: 14px; }
+.fbx-mine { display: flex; flex-direction: column; gap: 12px; }
+.fbx-thread { padding: 10px; border-radius: 14px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface2) 60%, transparent); display: flex; flex-direction: column; gap: 6px; }
+.fbx-thread.is-fresh { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.fbx-th-h { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fbx-th-h .fbx-dim { margin-left: auto; }
+.fbx-bubble { max-width: 88%; padding: 9px 12px; border-radius: 16px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; box-sizing: border-box; }
+.fbx-bubble.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 5px; }
+.fbx-bubble-w { align-self: flex-start; max-width: 88%; display: flex; flex-direction: column; }
+.fbx-bubble-w .fbx-bubble { max-width: 100%; }
+.fbx-bubble.admin { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
+.fbx-reply-old .fbx-bubble.admin { max-width: 100%; }
+.fbx-bubble-who { font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+.fbx-new-tag { padding: 0 6px; border-radius: 999px; background: #EF4444; color: #fff; font-size: 10px; }
+.fbx-await { align-self: flex-start; font-size: 11.5px; color: var(--text-muted); padding-left: 4px; }
+html.design-fx .fbx-item, html.design-fx .fbx-thread { background: color-mix(in srgb, var(--glass-strong, var(--surface2)) 70%, transparent); }
+@media (max-width: 560px) {
+  .fbx-tools { grid-template-columns: 1fr 1fr; }
+  .fbx-tools #fbx-q { grid-column: 1 / -1; }
+  .fbx-sel { width: 100%; }
+  .fbx-msg, .fbx-more, .fbx-body { margin-left: 0; }
+  .fbx-item { padding: 10px; }
+  .fbx-lbl { min-width: 70px; }
+  .fbx-bulk-a { margin-left: 0; }
+  .fbx-tpls { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .fbx-tpls::-webkit-scrollbar { display: none; }
+  .fbx-tpl { flex: 0 0 auto; }
+}
