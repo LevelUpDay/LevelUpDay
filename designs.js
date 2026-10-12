@@ -1,5 +1,6 @@
 // ============================================================
-// 🎨 DESIGNS — ilova uchun 5 ta dizayn (mavzu) tizimi:
+// 🎨 DESIGNS — ilova uchun 6 ta dizayn (mavzu) tizimi:
+//   galaxy   — Galaxy          (yulduzlar maydoni + warp; WebGL2 bo'lsa #version 300 es, shaffof)
 //   default  — Klassik (oddiy, avvalgi ko'rinish)
 //   rings    — Magic Rings     (konsentrik porlovchi halqalar)
 //   blinds   — Gradient Blinds (gradient "parda" plankalari)
@@ -8,13 +9,15 @@
 // Har bir animatsion dizayn: bitta fixed <canvas id="design-bg"> (UI ortida,
 // pointer-events:none) + xom WebGL fragment shader. WebGL bo'lmasa — statik
 // CSS gradient. Tanlov localStorage 'appTheme' da, animatsiya — 'designAnim'.
+// 🛍 Pullik dizaynlar (D[id].price) do'kondan sotib olinadi; faqat bepul yoki
+// sotib olingan dizaynni qo'llash mumkin (Galaxy va Klassik — bepul).
 // Bu fayl <head> ichida (script.js dan OLDIN) yuklanadi, shunda dizayn
 // atributi birinchi chizishdan oldin qo'yiladi (miltillash bo'lmaydi).
 // ============================================================
 (function () {
   'use strict';
 
-  var IDS = ['default', 'rings', 'blinds', 'grid', 'prism'];
+  var IDS = ['galaxy', 'default', 'rings', 'blinds', 'grid', 'prism'];
   var LS_KEY = 'appTheme', ANIM_KEY = 'designAnim';
   var root = document.documentElement;
 
@@ -26,13 +29,30 @@
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
   // ---------- Dizaynlar ta'rifi ----------
+  // n/d: [uz, en, ru]. price: { coins } yoki { gems } — yo'q bo'lsa bepul.
   var D = {
-    default: { name: function () { return L('Klassik', 'Classic', 'Классика'); }, desc: function () { return L('Avvalgi oddiy ko\'rinish', 'The original clean look', 'Исходный простой вид'); }, base: '#0E0E12', meta: '#7C5CFC' },
-    rings: { name: function () { return 'Magic Rings'; }, desc: function () { return L('Porlovchi sehrli halqalar', 'Glowing magic rings', 'Светящиеся кольца'); }, base: '#07050f', meta: '#130b24', scale: 0.6, idleHover: 0 },
-    blinds: { name: function () { return 'Gradient Blinds'; }, desc: function () { return L('Yumshoq gradient pardalar', 'Soft gradient blinds', 'Мягкие градиентные жалюзи'); }, base: '#0b0618', meta: '#160b30', scale: 0.5, idleHover: 0.75 },
-    grid: { name: function () { return 'Grid Scan'; }, desc: function () { return L('Skanerlovchi 3D to\'r', 'Scanning 3D grid', 'Сканирующая 3D-сетка'); }, base: '#07080c', meta: '#0b0d14', scale: 0.75, idleHover: 0.5 },
-    prism: { name: function () { return 'Prismatic Burst'; }, desc: function () { return L('Prizmatik nur portlashi', 'Prismatic light burst', 'Призматическая вспышка'); }, base: '#06040d', meta: '#120a26', scale: 0.5, idleHover: 0.35 }
+    galaxy: { n: ['Galaxy', 'Galaxy', 'Galaxy'], d: ['Yulduzlar orasida parvoz', 'Fly through the stars', 'Полёт среди звёзд'], base: '#04050f', meta: '#070a1c', scale: 0.7 },
+    default: { n: ['Klassik', 'Classic', 'Классика'], d: ['Avvalgi oddiy ko\'rinish', 'The original clean look', 'Исходный простой вид'], base: '#0E0E12', meta: '#7C5CFC' },
+    rings: { n: ['Magic Rings', 'Magic Rings', 'Magic Rings'], d: ['Porlovchi sehrli halqalar', 'Glowing magic rings', 'Светящиеся кольца'], base: '#07050f', meta: '#130b24', scale: 0.6, idleHover: 0, price: { coins: 250 } },
+    blinds: { n: ['Gradient Blinds', 'Gradient Blinds', 'Gradient Blinds'], d: ['Yumshoq gradient pardalar', 'Soft gradient blinds', 'Мягкие градиентные жалюзи'], base: '#0b0618', meta: '#160b30', scale: 0.5, idleHover: 0.75, price: { coins: 300 } },
+    grid: { n: ['Grid Scan', 'Grid Scan', 'Grid Scan'], d: ['Skanerlovchi 3D to\'r', 'Scanning 3D grid', 'Сканирующая 3D-сетка'], base: '#07080c', meta: '#0b0d14', scale: 0.75, idleHover: 0.5, price: { gems: 25 } },
+    prism: { n: ['Prismatic Burst', 'Prismatic Burst', 'Prismatic Burst'], d: ['Prizmatik nur portlashi', 'Prismatic light burst', 'Призматическая вспышка'], base: '#06040d', meta: '#120a26', scale: 0.5, idleHover: 0.35, price: { gems: 35 } }
   };
+  Object.keys(D).forEach(function (k) {
+    var o = D[k];
+    o.name = function () { return L(o.n[0], o.n[1], o.n[2]); };
+    o.desc = function () { return L(o.d[0], o.d[1], o.d[2]); };
+  });
+
+  // ---------- 🛍 Egalik: S.shop.owned ichida 'd_<id>' (app_state orqali sinxronlanadi) ----------
+  function appS() { try { return (typeof S !== 'undefined' && S) ? S : null; } catch (e) { return null; } }
+  function isFree(id) { return !D[id] || !D[id].price; }
+  function isOwned(id) {
+    if (isFree(id)) return true;
+    var s = appS(), st = s && s.shop;
+    return !!(st && Array.isArray(st.owned) && st.owned.indexOf('d_' + id) !== -1);
+  }
+  function priceTxt(id) { var p = D[id] && D[id].price; return !p ? '' : p.gems ? p.gems + ' 💎' : p.coins + ' 🪙'; }
 
   // ---------- Saqlangan tanlov + eski qiymatlar migratsiyasi ----------
   function normalize(id) { return IDS.indexOf(id) !== -1 ? id : 'default'; }
@@ -44,6 +64,7 @@
   try { reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)'); } catch (e) {}
   function reducedMotion() { return !!(reduceMQ && reduceMQ.matches); }
   function isFx(id) { return id !== 'default'; }
+  function isGalaxy(id) { return id === 'galaxy'; }
 
   function setRootAttrs(id) {
     root.setAttribute('data-design', id);
@@ -270,10 +291,154 @@
     '}'
   ].join('\n');
 
+  // --- 5) Galaxy (React Bits Galaxy porti): density 1, glowIntensity 0.3, flareIntensity 1, starSpeed 0.5,
+  //        mouseRepulsion, repulsionStrength 2, clickWarp, intro, hueShift 140, saturation 0, twinkle 0.3,
+  //        rotationSpeed 0.1, layers 4 (mobil 3), transparent. PALETTE/REPEL/WARP variantlari — define
+  //        o'rniga uniform'lar (uColorCount>0, push>0, uWarp>0) bilan; bitta dastur.
+  //        WebGL2 bo'lsa '#version 300 es', aks holda GLSL ES 1.00 (FRAG makrosi bilan).
+  var GAL_BODY = [
+    'uniform float uTime;uniform vec3 uResolution;uniform vec2 uFocal;uniform vec2 uRotation;',
+    'uniform float uGloss;uniform float uDepth;uniform float uDensity;uniform float uHueShift;uniform float uSpeed;',
+    'uniform vec2 uMouse;uniform float uStarGlow;uniform float uFlareGain;uniform float uSquash;uniform float uSaturation;',
+    'uniform float uMouseRepulsion;uniform float uTwinkleIntensity;uniform float uRotationAngle;uniform float uRepulsionStrength;',
+    'uniform float uMouseActiveFactor;uniform float uAutoCenterRepulsion;uniform float uLayers;uniform vec3 uColors[4];',
+    'uniform float uColorCount;uniform float uWarp;uniform float uReveal;uniform float uMode;uniform vec3 uBackground;uniform float uOpacity;',
+    '#define MAT45 mat2(0.7071,-0.7071,0.7071,0.7071)',
+    '#define PERIOD 3.0',
+    '#define STAR_COLOR_CUTOFF 0.2',
+    'float Hash21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}',
+    'float tri(float x){return abs(fract(x)*2.0-1.0);}',
+    'float tris(float x){float t=fract(x);return 1.0-smoothstep(0.0,1.0,abs(2.0*t-1.0));}',
+    'float trisn(float x){float t=fract(x);return 2.0*(1.0-smoothstep(0.0,1.0,abs(2.0*t-1.0)))-1.0;}',
+    'vec3 hsv2rgb(vec3 c){vec4 K=vec4(1.0,2.0/3.0,1.0/3.0,3.0);vec3 p=abs(fract(c.xxx+K.xyz)*6.0-K.www);return c.z*mix(K.xxx,clamp(p-K.xxx,0.0,1.0),c.y);}',
+    // GLSL ES 1.00 da uniform massivni o'zgaruvchan indeks bilan o'qib bo'lmaydi — sikl bilan tanlaymiz
+    'vec3 pickColor(float h){int idx=int(h*uColorCount);vec3 c=uColors[0];for(int k=1;k<4;k++){if(k==idx)c=uColors[k];}return c;}',
+    'float Star(vec2 uv,float flare,vec2 radial,float invReach){',
+    '  float d;',
+    '  if(uWarp>0.0){float along=dot(uv,radial);d=sqrt(max(dot(uv,uv)-uSquash*along*along,0.0));}',
+    '  else d=length(uv);',
+    '  float m=uStarGlow/max(d,1e-4);',
+    '  float rays=smoothstep(0.0,1.0,1.0-abs(uv.x*uv.y*1000.0));',
+    '  m+=rays*flare*uFlareGain;',
+    '  uv*=MAT45;',
+    '  rays=smoothstep(0.0,1.0,1.0-abs(uv.x*uv.y*1000.0));',
+    '  m+=rays*0.3*flare*uFlareGain;',
+    '  m*=smoothstep(1.0,0.2,d*invReach);',
+    '  if(uWarp>0.0) m*=mix(1.0,smoothstep(1.0,0.55,length(uv)*invReach),min(uWarp*4.0,1.0));',
+    '  return m;',
+    '}',
+    'vec3 StarLayer(vec2 uv,vec2 radial,vec2 repelAt,float pushCells,float spread){',
+    '  vec3 col=vec3(0.0);',
+    '  vec2 gv=fract(uv)-0.5; vec2 id=floor(uv);',
+    '  for(int y=-1;y<=1;y++){',
+    '    for(int x=-1;x<=1;x++){',
+    '      vec2 offset=vec2(float(x),float(y)); vec2 si=id+offset;',
+    '      float seed=Hash21(si);',
+    '      float size=fract(seed*345.32);',
+    '      float glossLocal=tri(uGloss/(PERIOD*seed+1.0));',
+    '      float flareSize=smoothstep(0.9,1.0,size)*glossLocal;',
+    '      vec3 base;',
+    '      if(uColorCount>0.5){ base=pickColor(Hash21(si+7.0)); }',
+    '      else {',
+    '        float red=smoothstep(STAR_COLOR_CUTOFF,1.0,Hash21(si+1.0))+STAR_COLOR_CUTOFF;',
+    '        float blu=smoothstep(STAR_COLOR_CUTOFF,1.0,Hash21(si+3.0))+STAR_COLOR_CUTOFF;',
+    '        float grn=min(red,blu)*seed;',
+    '        base=vec3(red,grn,blu);',
+    '        float hue=atan(base.g-base.r,base.b-base.r)/(2.0*3.14159)+0.5;',
+    '        hue=fract(hue+uHueShift/360.0);',
+    '        float sat=length(base-vec3(dot(base,vec3(0.299,0.587,0.114))))*uSaturation;',
+    '        float val=max(max(base.r,base.g),base.b);',
+    '        base=hsv2rgb(vec3(hue,sat,val));',
+    '      }',
+    '      vec2 pad=vec2(tris(seed*34.0+uTime*uSpeed/10.0),tris(seed*38.0+uTime*uSpeed/30.0))-0.5;',
+    '      vec2 shift=vec2(0.0); float invReach=1.0;',
+    '      if(pushCells>0.0){',
+    '        vec2 away=si+0.5+pad-repelAt; float dist=length(away); float q=dist*spread;',
+    '        float cells=pushCells*exp(-q*q);',
+    '        float moved=cells*inversesqrt(1.0+cells*cells*2.78);',
+    '        shift=away*(moved/max(dist,1e-4)); invReach=1.0/(1.0-moved);',
+    '      }',
+    '      float star=Star(gv-offset-pad-shift,flareSize,radial,invReach);',
+    '      float twinkle=mix(1.0,trisn(uTime*uSpeed+seed*6.2831)*0.5+1.0,uTwinkleIntensity);',
+    '      col+=star*twinkle*size*base;',
+    '    }',
+    '  }',
+    '  return col;',
+    '}',
+    'void main(){',
+    '  vec2 focalPx=uFocal*uResolution.xy;',
+    '  vec2 uv=(gl_FragCoord.xy-focalPx)/uResolution.y;',
+    '  vec2 repelAt=vec2(0.0); float push=0.0; float strength=0.0;',
+    '  if(uAutoCenterRepulsion>0.0){ strength=uAutoCenterRepulsion; push=strength*0.05; }',
+    '  else if(uMouseRepulsion>0.5){',
+    '    repelAt=(uMouse*uResolution.xy-focalPx)/uResolution.y;',
+    '    strength=max(uRepulsionStrength,0.0); push=strength*0.05*uMouseActiveFactor;',
+    '  } else { uv+=(uMouse-vec2(0.5))*0.1*uMouseActiveFactor; }',
+    '  float radius=0.16+0.04*strength;',
+    '  float ul=length(uv); vec2 radial=ul>1e-5?uv/ul:vec2(0.0,1.0);',
+    '  float ca=cos(uRotationAngle), sa=sin(uRotationAngle);',
+    '  mat2 autoRot=mat2(ca,-sa,sa,ca);',
+    '  mat2 rot=mat2(uRotation.x,-uRotation.y,uRotation.y,uRotation.x);',
+    '  uv=rot*(autoRot*uv); radial=rot*(autoRot*radial); repelAt=rot*(autoRot*repelAt);',
+    '  vec3 col=vec3(0.0);',
+    '  for(int k=0;k<8;k++){',
+    '    if(float(k)>=uLayers) break;',
+    '    float i=float(k)/uLayers;',
+    '    float depth=fract(i+uDepth);',
+    '    float scale=mix(20.0*uDensity,0.5*uDensity,depth);',
+    '    float fade=depth*smoothstep(1.0,0.9,depth);',
+    '    vec2 offset=vec2(i*453.32);',
+    '    col+=StarLayer(uv*scale+offset,radial,repelAt*scale+offset,push*scale,1.0/(scale*radius))*fade;',
+    '  }',
+    '  col*=uReveal;',
+    '  if(uMode>0.5){',
+    '    float alpha=min(smoothstep(0.0,0.3,length(col)),1.0)*uOpacity;',
+    '    FRAG=vec4(col*alpha,alpha);',
+    '  } else {',
+    '    FRAG=vec4(uBackground+col,1.0);',
+    '  }',
+    '}'
+  ].join('\n');
+  var GAL_FS2 = '#version 300 es\nprecision highp float;\nout vec4 fragColor;\n#define FRAG fragColor\n' + GAL_BODY;
+  var GAL_FS1 = '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n#define FRAG gl_FragColor\n' + GAL_BODY;
+  var VERT2 = '#version 300 es\nin vec2 aPos;void main(){gl_Position=vec4(aPos,0.0,1.0);}';
+  var GAL_UNIFORMS = ['uTime', 'uResolution', 'uFocal', 'uRotation', 'uGloss', 'uDepth', 'uDensity', 'uHueShift', 'uSpeed', 'uMouse',
+    'uStarGlow', 'uFlareGain', 'uSquash', 'uSaturation', 'uMouseRepulsion', 'uTwinkleIntensity', 'uRotationAngle', 'uRepulsionStrength',
+    'uMouseActiveFactor', 'uAutoCenterRepulsion', 'uLayers', 'uColors', 'uColorCount', 'uWarp', 'uReveal', 'uMode', 'uBackground', 'uOpacity'];
+  var STD_UNIFORMS = ['uRes', 'uTime', 'uMouse', 'uHover', 'uIntro', 'uPx', 'uCount', 'uBursts'];
+
+  // Galaxy sozlamalari (React Bits prop'lari) + kadr holati
+  var GCFG = {
+    focal: [0.5, 0.5], rotation: [1.0, 0.0], starSpeed: 0.5, density: 1, hueShift: 140, speed: 1.0,
+    glowIntensity: 0.3, flareIntensity: 1, starSize: 1, saturation: 0, mouseRepulsion: true, repulsionStrength: 2,
+    twinkleIntensity: 0.3, rotationSpeed: 0.1, autoCenterRepulsion: 0, clickWarp: true, intro: true, opacity: 1,
+    colors: [] // bo'sh — PALETTE o'chiq (hue/saturation bilan rang)
+  };
+  var G = { reveal: 1, boost: 0, time: 0, gloss: 0, depth: 0, angle: 0, mx: 0.5, my: 0.5, tx: 0.5, ty: 0.5, active: 0, tActive: 0 };
+  function galaxyIntro() { if (GCFG.intro) { G.reveal = 0; G.boost = Math.max(G.boost, 1.4); } }
+  function galaxyStep(dt) {
+    dt = Math.min(Math.max(dt, 0), 0.1);
+    if (GCFG.intro && G.reveal < 1) {
+      G.reveal = Math.min(1, G.reveal + dt / 2.2);
+      G.boost = Math.max(G.boost, Math.pow(1 - G.reveal, 2) * 1.4);
+    }
+    var flight = GCFG.starSpeed / 10;
+    G.time += dt;
+    G.gloss += dt * flight;
+    G.depth += dt * flight * GCFG.speed * (1 + G.boost * 14);
+    G.angle += dt * GCFG.rotationSpeed;
+    G.boost *= Math.exp(-dt * 1.3);
+    if (G.boost < 1e-4) G.boost = 0;
+    var follow = 1 - Math.exp(-dt / 0.325);
+    G.mx += (G.tx - G.mx) * follow; G.my += (G.ty - G.my) * follow;
+    G.active += (G.tActive - G.active) * follow;
+    if (G.depth > 1000) G.depth -= 1000; // aniqlik yo'qolmasin (fract davriy)
+  }
+
   var SHADERS = { rings: FS_RINGS, blinds: FS_BLINDS, grid: FS_GRID, prism: FS_PRISM };
 
   var R = {
-    canvas: null, gl: null, prog: null, progId: null, buf: null, u: null, failed: false, lost: false,
+    canvas: null, gl: null, kind: null, gl2: false, prog: null, progId: null, buf: null, u: null, failed: false, lost: false,
     raf: 0, running: false, last: 0, time: 0, w: 0, h: 0, scale: 0.6,
     mouse: { x: 0, y: 0, tx: 0, ty: 0, hover: 0, th: 0, lastMove: -1e9, inited: false },
     bursts: [], introStart: -1, introDone: {}, frameN: 0, modalOpen: false
@@ -291,23 +456,45 @@
     document.body.insertBefore(c, document.body.firstChild);
     R.canvas = c;
     c.addEventListener('webglcontextlost', function (e) {
-      e.preventDefault(); R.lost = true; R.prog = null; R.progId = null; R.buf = null; R.u = null; stopLoop();
+      e.preventDefault();
+      if (c !== R.canvas) return; // almashtirilgan eski canvas — e'tiborsiz
+      R.lost = true; R.prog = null; R.progId = null; R.buf = null; R.u = null; stopLoop();
     }, false);
     c.addEventListener('webglcontextrestored', function () {
+      if (c !== R.canvas) return;
       R.lost = false; R.gl = null; refresh();
     }, false);
     return c;
   }
 
+  // Kontekst turi: Galaxy — shaffof (alpha) + WebGL2 (bo'lsa); qolganlari — shaffofmas WebGL1
+  // (ular GLSL 1.00 + OES_standard_derivatives ishlatadi, WebGL2 da bu kengaytma yo'q).
+  // Canvas konteksti turini o'zgartirib bo'lmaydi — tur almashsa canvas qayta yaratiladi.
+  function wantKind() { return isGalaxy(current) ? 'alpha' : 'opaque'; }
+  function swapCanvas() {
+    var old = R.canvas;
+    try { var ext = R.gl && R.gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext(); } catch (e) {}
+    R.canvas = null; R.gl = null; R.kind = null; R.gl2 = false; R.prog = null; R.progId = null; R.buf = null; R.u = null; R.lost = false;
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    R.w = R.h = 0;
+    ensureCanvas();
+  }
   function getGL() {
-    if (R.gl && !R.lost) return R.gl;
+    var kind = wantKind();
+    if (R.gl && !R.lost && R.kind === kind) return R.gl;
     if (R.failed || !R.canvas) return null;
-    var gl = null;
+    if (R.gl && R.kind !== kind) { swapCanvas(); if (!R.canvas) return null; }
+    if (R.lost) return null;
+    var gl = null, gl2 = false;
     var opts = { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' };
-    try { gl = R.canvas.getContext('webgl', opts) || R.canvas.getContext('experimental-webgl', opts); } catch (e) { gl = null; }
+    if (kind === 'alpha') {
+      opts.alpha = true; opts.premultipliedAlpha = true;
+      try { gl = R.canvas.getContext('webgl2', opts); gl2 = !!gl; } catch (e) { gl = null; }
+    }
+    if (!gl) { try { gl = R.canvas.getContext('webgl', opts) || R.canvas.getContext('experimental-webgl', opts); } catch (e) { gl = null; } }
     if (!gl) { R.failed = true; root.classList.add('design-nogl'); return null; }
-    try { gl.getExtension('OES_standard_derivatives'); } catch (e) {}
-    R.gl = gl;
+    if (!gl2) { try { gl.getExtension('OES_standard_derivatives'); } catch (e) {} }
+    R.gl = gl; R.kind = kind; R.gl2 = gl2;
     return gl;
   }
 
@@ -325,7 +512,10 @@
     var gl = getGL(); if (!gl) return false;
     if (R.progId === id && R.prog) return true;
     if (R.prog) { try { gl.deleteProgram(R.prog); } catch (e) {} R.prog = null; R.progId = null; }
-    var vs = compile(gl, gl.VERTEX_SHADER, VERT), fs = compile(gl, gl.FRAGMENT_SHADER, SHADERS[id]);
+    var gal = isGalaxy(id);
+    var vsSrc = gal && R.gl2 ? VERT2 : VERT;
+    var fsSrc = gal ? (R.gl2 ? GAL_FS2 : GAL_FS1) : SHADERS[id];
+    var vs = compile(gl, gl.VERTEX_SHADER, vsSrc), fs = compile(gl, gl.FRAGMENT_SHADER, fsSrc);
     if (!vs || !fs) { R.failed = !gl.isContextLost(); if (R.failed) root.classList.add('design-nogl'); return false; }
     var p = gl.createProgram();
     gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
@@ -345,10 +535,14 @@
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     R.u = {};
-    ['uRes', 'uTime', 'uMouse', 'uHover', 'uIntro', 'uPx', 'uCount', 'uBursts'].forEach(function (n) {
-      R.u[n] = gl.getUniformLocation(p, n === 'uBursts' ? 'uBursts[0]' : n);
+    (gal ? GAL_UNIFORMS : STD_UNIFORMS).forEach(function (n) {
+      R.u[n] = gl.getUniformLocation(p, (n === 'uBursts' || n === 'uColors') ? n + '[0]' : n);
     });
     R.prog = p; R.progId = id;
+    if (gal) {
+      gl.disable(gl.BLEND); // shader o'zi premultiplied alpha beradi
+      gl.clearColor(0, 0, 0, 0);
+    }
     return true;
   }
 
@@ -367,9 +561,62 @@
 
   function animating() { return animOn && !reducedMotion(); }
 
+  function hex3(h) {
+    h = String(h || '').replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16) || 0;
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+  function drawGalaxy(gl) {
+    var u = R.u, c = GCFG;
+    var layers = isMobile() ? 3 : 4;
+    var stretch = 1 + G.boost * 5;
+    var rv = Math.min(1, G.reveal / 0.35); rv = rv * rv * (3 - 2 * rv);
+    gl.viewport(0, 0, R.w, R.h);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(u.uTime, G.time);
+    gl.uniform3f(u.uResolution, R.w, R.h, R.w / R.h);
+    gl.uniform2f(u.uFocal, c.focal[0], c.focal[1]);
+    gl.uniform2f(u.uRotation, c.rotation[0], c.rotation[1]);
+    gl.uniform1f(u.uGloss, G.gloss);
+    gl.uniform1f(u.uDepth, G.depth);
+    gl.uniform1f(u.uDensity, c.density);
+    gl.uniform1f(u.uHueShift, c.hueShift);
+    gl.uniform1f(u.uSpeed, c.speed);
+    gl.uniform2f(u.uMouse, G.mx, G.my);
+    gl.uniform1f(u.uStarGlow, 0.05 * c.glowIntensity * c.starSize / Math.pow(1 + G.boost * 5, 0.6));
+    gl.uniform1f(u.uFlareGain, c.glowIntensity * c.flareIntensity);
+    gl.uniform1f(u.uSquash, 1 - 1 / (stretch * stretch));
+    gl.uniform1f(u.uSaturation, c.saturation);
+    gl.uniform1f(u.uMouseRepulsion, c.mouseRepulsion ? 1 : 0);
+    gl.uniform1f(u.uTwinkleIntensity, c.twinkleIntensity);
+    gl.uniform1f(u.uRotationAngle, G.angle);
+    gl.uniform1f(u.uRepulsionStrength, c.repulsionStrength);
+    gl.uniform1f(u.uMouseActiveFactor, G.active);
+    gl.uniform1f(u.uAutoCenterRepulsion, c.autoCenterRepulsion);
+    gl.uniform1f(u.uLayers, layers);
+    var cols = new Float32Array(12), cc = Math.min(4, c.colors.length);
+    for (var i = 0; i < cc; i++) { var rgb = hex3(c.colors[i]); cols[i * 3] = rgb[0]; cols[i * 3 + 1] = rgb[1]; cols[i * 3 + 2] = rgb[2]; }
+    gl.uniform3fv(u.uColors, cols);
+    gl.uniform1f(u.uColorCount, cc);
+    gl.uniform1f(u.uWarp, G.boost);
+    gl.uniform1f(u.uReveal, rv);
+    gl.uniform1f(u.uMode, 1); // shaffof (ilova foni ustida)
+    gl.uniform3f(u.uBackground, 0, 0, 0);
+    gl.uniform1f(u.uOpacity, c.opacity);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
   function draw() {
     if (!isFx(current) || R.lost) return;
     var gl = getGL(); if (!gl || !useProgram(current)) return;
+    if (isGalaxy(current)) {
+      if (!R.running) { // harakatsiz kadr (reduce motion / animatsiya o'chiq / pauza)
+        if (!animating()) { G.reveal = 1; G.boost = 0; if (G.time < 1) { G.time = 6.5; G.gloss = 0.33; G.depth = 0.37; G.angle = 0.6; } }
+      }
+      drawGalaxy(gl);
+      return;
+    }
     var M = R.mouse, u = R.u;
     // Sichqoncha uzoq vaqt qimirlamasa — "idle" yo'l bo'ylab sekin harakat (telefonlarda ham jonli ko'rinsin)
     var idle = (performance.now() - M.lastMove) > 3500;
@@ -410,7 +657,9 @@
     var dt = now - R.last;
     if (dt < 1000 / fps - 2) return;
     R.last = now;
-    R.time += Math.min(dt, 100) / 1000;
+    var sec = Math.min(dt, 100) / 1000;
+    R.time += sec;
+    if (isGalaxy(current)) galaxyStep(sec);
     for (var i = R.bursts.length - 1; i >= 0; i--) if (R.time - R.bursts[i].t > 2.5) R.bursts.splice(i, 1);
     draw();
   }
@@ -438,8 +687,14 @@
   function toCanvas(e) {
     return { x: e.clientX * (R.w / Math.max(1, window.innerWidth)), y: R.h - e.clientY * (R.h / Math.max(1, window.innerHeight)) };
   }
+  function galaxyPointer(e) {
+    G.tx = e.clientX / Math.max(1, window.innerWidth);
+    G.ty = 1 - e.clientY / Math.max(1, window.innerHeight); // y teskari
+    G.tActive = 1;
+  }
   window.addEventListener('pointermove', function (e) {
     if (!R.running) return;
+    if (isGalaxy(current)) { galaxyPointer(e); return; }
     var p = toCanvas(e);
     R.mouse.tx = p.x; R.mouse.ty = p.y; R.mouse.th = 1; R.mouse.lastMove = performance.now();
   }, { passive: true });
@@ -448,12 +703,23 @@
     var tg = e.target && e.target.closest ? e.target : null;
     if (tg && tg.closest('input, textarea, select, [contenteditable="true"]')) return; // yozish paytida — hech narsa
     var subtle = tg && tg.closest('button, a, label, [onclick], [role="button"], [role="switch"], .modal, .x-box');
+    if (isGalaxy(current)) {
+      galaxyPointer(e);
+      // clickWarp: bo'sh joyga bosish — to'liq warp sakrash; tugma/kartalarda — yengil (UI chalg'itmasin)
+      if (GCFG.clickWarp) G.boost = Math.min(1.6, G.boost + (subtle ? 0.35 : 1));
+      return;
+    }
     var p = toCanvas(e);
     R.mouse.tx = p.x; R.mouse.ty = p.y; R.mouse.th = 1; R.mouse.lastMove = performance.now();
     R.bursts.push({ x: p.x, y: p.y, t: R.time, s: subtle ? 0.35 : 1 });
     if (R.bursts.length > 4) R.bursts.shift();
   }, { passive: true });
-  window.addEventListener('pointerleave', function () { R.mouse.lastMove = -1e9; }, { passive: true });
+  function pointerGone() { R.mouse.lastMove = -1e9; G.tActive = 0; }
+  window.addEventListener('pointerleave', pointerGone, { passive: true });
+  document.addEventListener('mouseout', function (e) { if (!e.relatedTarget) pointerGone(); }, { passive: true });
+  window.addEventListener('pointerup', function (e) { if (e.pointerType === 'touch') G.tActive = 0; }, { passive: true });
+  window.addEventListener('pointercancel', function () { G.tActive = 0; }, { passive: true });
+  window.addEventListener('blur', function () { G.tActive = 0; });
 
   var rzT = 0;
   function onResize() { clearTimeout(rzT); rzT = setTimeout(resize, 120); }
@@ -463,7 +729,7 @@
     if (document.hidden) stopLoop(); else startLoop();
   });
   if (reduceMQ) {
-    var onRM = function () { refresh(); renderPicker(); };
+    var onRM = function () { refresh(); renderPicker(); notify(); };
     if (reduceMQ.addEventListener) reduceMQ.addEventListener('change', onRM); else if (reduceMQ.addListener) reduceMQ.addListener(onRM);
   }
 
@@ -478,19 +744,52 @@
     try { if (typeof updateThemeToggleUI === 'function') updateThemeToggleUI(); } catch (e) {}
   }
 
+  function notify() {
+    root.classList.toggle('lu-still', !animating()); // CSS effektlar/preview'lar uchun
+    try { window.dispatchEvent(new CustomEvent('lu:design', { detail: { id: current, anim: animating() } })); } catch (e) {}
+  }
+
+  // Qulflangan (sotib olinmagan) dizayn — do'konga yo'naltiramiz
+  function openShopFor(id) {
+    var nm = D[id] ? D[id].name() : id;
+    try { if (typeof toast === 'function') toast('🔒 ' + nm + ' — ' + priceTxt(id) + '. ' + L('Do\'kondan sotib oling', 'Buy it in the Shop', 'Купите в магазине')); } catch (e) {}
+    try { if (typeof window.xOpenShopItem === 'function') window.xOpenShopItem('d_' + id); } catch (e) {}
+  }
+
   function apply(id, opts) {
     id = normalize(id);
+    // Faqat bepul yoki sotib olingan dizayn (ilova holati S yuklangan bo'lsa tekshiriladi)
+    if (!(opts && opts.force) && appS() && !isOwned(id)) { openShopFor(id); return false; }
     var changed = id !== current;
     current = id;
     lsSet(LS_KEY, id);
     setRootAttrs(id);
     if (id === 'prism' && changed) R.introStart = R.time; // har safar tanlanganda intro
+    if (isGalaxy(id) && changed) galaxyIntro();           // warp'dan chiqib kelish
     syncLightClass();
     refresh();
     renderPicker();
+    notify();
     if (changed && !(opts && opts.silent)) {
       try { if (typeof scheduleAppStateSync === 'function') scheduleAppStateSync(); } catch (e) {}
     }
+    return true;
+  }
+
+  // Ilova holati yuklangach: joriy dizayn sotib olinmagan bo'lsa — Klassik'ga qaytaramiz.
+  // Migratsiya: pullik dizaynlar paydo bo'lishidan oldin tanlangan dizayn bir marta "sovg'a" qilinadi
+  // (S.shop.dzGrand), aks holda eski foydalanuvchilar dizaynini to'satdan yo'qotardi.
+  function enforce() {
+    var s = appS(); if (!s) return;
+    if (!s.shop || typeof s.shop !== 'object') s.shop = { owned: [] };
+    if (!Array.isArray(s.shop.owned)) s.shop.owned = [];
+    if (!s.shop.dzGrand) {
+      s.shop.dzGrand = 1;
+      if (!isFree(current) && s.shop.owned.indexOf('d_' + current) === -1) s.shop.owned.push('d_' + current);
+      try { if (typeof save === 'function') save(); } catch (e) {}
+    }
+    if (!isOwned(current)) apply('default', { force: true, silent: true });
+    else renderPicker();
   }
 
   function setAnim(on) {
@@ -498,6 +797,7 @@
     lsSet(ANIM_KEY, animOn ? '1' : '0');
     refresh();
     renderPicker();
+    notify();
   }
 
   // ============================================================
@@ -510,11 +810,16 @@
     var html = '<div class="dz-title">🎨 ' + esc2(L('Dizayn mavzusi', 'Design theme', 'Тема оформления')) + '</div>' +
       '<div class="dz-grid" role="radiogroup" aria-label="' + esc2(L('Dizayn', 'Design', 'Дизайн')) + '">';
     IDS.forEach(function (id) {
-      var sel = id === current;
-      html += '<button type="button" class="dz-card' + (sel ? ' sel' : '') + '" role="radio" aria-checked="' + sel + '" data-design-pick="' + id + '">' +
-        '<span class="dz-prev dz-prev-' + id + '"><span class="dz-prev-in"></span>' + (sel ? '<span class="dz-check">✓</span>' : '') + '</span>' +
+      var sel = id === current, own = isOwned(id);
+      var attr = own ? 'role="radio" aria-checked="' + sel + '" data-design-pick="' + id + '"'
+        : 'data-design-buy="' + id + '" aria-label="' + esc2(D[id].name() + ' — ' + L('qulflangan', 'locked', 'заблокировано') + ', ' + priceTxt(id)) + '"';
+      html += '<button type="button" class="dz-card' + (sel ? ' sel' : '') + (own ? '' : ' locked') + '" ' + attr + '>' +
+        '<span class="dz-prev dz-prev-' + id + '"><span class="dz-prev-in"></span>' + (sel ? '<span class="dz-check">✓</span>' : '') +
+        (own ? (isFree(id) && id === 'galaxy' ? '<span class="dz-tag">' + esc2(L('Yangi', 'New', 'Новое')) + '</span>' : '')
+          : '<span class="dz-lock">🔒</span><span class="dz-price">' + esc2(priceTxt(id)) + '</span>') + '</span>' +
         '<span class="dz-name">' + esc2(D[id].name()) + '</span>' +
-        '<span class="dz-desc">' + esc2(D[id].desc()) + '</span></button>';
+        (own ? '<span class="dz-desc">' + esc2(D[id].desc()) + '</span>'
+          : '<span class="dz-buy">🛍 ' + esc2(L('Shop\'da sotib olish', 'Buy in Shop', 'Купить в магазине')) + '</span>') + '</button>';
     });
     html += '</div>';
     var rm = reducedMotion();
@@ -528,14 +833,18 @@
       html += '<div class="dz-note">🌙 ' + esc2(L('Animatsion dizaynlar faqat tungi rejimda ishlaydi. Yorug\' rejim uchun "Klassik"ni tanlang.',
         'Animated designs always use dark mode. Pick "Classic" for light mode.', 'Анимированные темы всегда тёмные. Для светлой выберите «Классика».')) + '</div>';
     }
+    // ✨ UI effektlar (effects.js) — yoqish/o'chirish
+    try { if (window.LUFx && typeof window.LUFx.settingsHtml === 'function') html += window.LUFx.settingsHtml(); } catch (e) {}
     host.innerHTML = html;
   }
   document.addEventListener('click', function (e) {
-    var t = e.target && e.target.closest ? e.target.closest('[data-design-pick], [data-design-anim]') : null;
+    var t = e.target && e.target.closest ? e.target.closest('[data-design-pick], [data-design-anim], [data-design-buy]') : null;
     if (!t) return;
     if (t.hasAttribute('data-design-pick')) {
       apply(t.getAttribute('data-design-pick'));
       try { if (typeof SFX !== 'undefined' && SFX.click) SFX.click(); } catch (e2) {}
+    } else if (t.hasAttribute('data-design-buy')) {
+      openShopFor(t.getAttribute('data-design-buy'));
     } else setAnim(!animOn);
   });
   document.addEventListener('keydown', function (e) {
@@ -552,12 +861,20 @@
   window.LUDesign = {
     apply: apply, current: function () { return current; }, list: IDS.slice(),
     forcesDark: function () { return isFx(current); }, setAnim: setAnim, anim: function () { return animOn; },
-    darkNote: darkNote, renderPicker: renderPicker, syncLight: syncLightClass
+    animating: animating, reducedMotion: reducedMotion,
+    darkNote: darkNote, renderPicker: renderPicker, syncLight: syncLightClass,
+    // 🛍 do'kon uchun
+    isOwned: isOwned, isFree: isFree, enforce: enforce, priceText: priceTxt,
+    catalog: function () {
+      return IDS.map(function (id) { var o = D[id]; return { id: id, n: o.n.slice(), d: o.d.slice(), price: o.price ? { coins: o.price.coins, gems: o.price.gems } : null }; });
+    }
   };
   window.changeAppTheme = function (id) { apply(id); }; // eski nom bilan moslik
 
   function boot() {
     if (current === 'prism') R.introStart = 0;
+    if (isGalaxy(current)) galaxyIntro();
+    root.classList.toggle('lu-still', !animating());
     refresh();
     renderPicker();
     // Til o'zgarganda kartalar matni ham yangilansin
@@ -572,5 +889,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
   // Ilova S.themeMode ni keyinroq (loadTheme) qo'llaydi — animatsion dizaynda light'ni qaytaramiz
-  window.addEventListener('load', function () { syncLightClass(); });
+  window.addEventListener('load', function () { syncLightClass(); try { enforce(); } catch (e) {} });
 })();
