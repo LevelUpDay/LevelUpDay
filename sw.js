@@ -27,6 +27,8 @@ const PRECACHE_URLS = [
   './ui-kit.css',
   './effects.js',
   './effects.css',
+  './exam-prep.js',
+  './exam-prep.css',
   './manifest.json',
   './icons/logo.svg',
   './icons/favicon-32.png',
