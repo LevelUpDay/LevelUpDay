@@ -21193,12 +21193,12 @@ function openIeltsModal(examType) {
   var targetInp = document.getElementById('ielts-target-input');
   var numRow  = document.getElementById('ielts-target-numeric-row');
   var cefrRow = document.getElementById('ielts-target-cefr-row');
-  if (titleEl) titleEl.textContent = isCefr ? '📘 CEFR Imtihon sanasi' : (isSat ? '📐 SAT Imtihon sanasi' : '📝 IELTS Imtihon sanasi');
+  if (titleEl) titleEl.textContent = (isCefr ? '📘 CEFR' : (isSat ? '📐 SAT' : '📝 IELTS')) + ' · ' + _cl('Imtihon sanasi va maqsad', 'Exam date & target', 'Дата экзамена и цель');
   if (numRow)  numRow.style.display  = isCefr ? 'none' : '';
   if (cefrRow) cefrRow.style.display = isCefr ? '' : 'none';
   if (!isCefr) {
-    if (labelEl) labelEl.textContent = isSat ? "Maqsad ball (400–1600, ixtiyoriy)" : "Maqsad ball (0–9, ixtiyoriy)";
-    if (targetInp) targetInp.placeholder = isSat ? 'masalan: 1400' : 'masalan: 7.0';
+    if (labelEl) labelEl.textContent = isSat ? _cl("Maqsad ball (400–1600, ixtiyoriy)", 'Target score (400–1600, optional)', 'Целевой балл (400–1600, необязательно)') : _cl("Maqsad ball (0–9, ixtiyoriy)", 'Target band (0–9, optional)', 'Целевой балл (0–9, необязательно)');
+    if (targetInp) targetInp.placeholder = isSat ? _cl('masalan: 1400', 'e.g. 1400', 'напр. 1400') : _cl('masalan: 7.0', 'e.g. 7.0', 'напр. 7.0');
   } else {
     _renderIeltsCefrTargetBtns(null);
   }
@@ -21304,7 +21304,7 @@ function clearIeltsDate() {
   var examType = _ieltsModalEditingType || getExamType();
   // 3) O'chirishdan oldin aniq tasdiqlash so'raladi — tasodifan bosilib,
   // saqlangan sana/maqsad yo'qolib qolmasligi uchun.
-  showConfirmModal(t('ielts_clear_confirm_msg'), function () {
+  showHoldConfirmModal(t('ielts_clear_confirm_msg'), function () {
     clearExamDateData(examType);
     save();
     closeIeltsModal();
