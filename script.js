@@ -10178,13 +10178,15 @@ function toggleTask(id) {
   if (!tsk.done) {
     ensureSubtaskAutoSettingsDefaults();
     var _subs = ensureSubtasks(tsk);
-    var _hasPending = _subs.some(function (s) { return !s.done && !s.skipped; });
+    // Faqat BUGUN bajarilishi kerak bo'lgan sub-tasklar (boshqa kunlarnikiga tegmaymiz)
+    var _td = today();
+    var _hasPending = _subs.some(function (s) { return !s.done && !s.skipped && subtaskDueToday(s, _td); });
     if (S.subtaskAskCompleteOnParentDone && _hasPending) {
       askMarkSubtasksDoneModal(tsk, function (markAll) {
         if (markAll) {
           _suppressAutoParentComplete = true;
           _subs.forEach(function (s) {
-            if (!s.done && !s.skipped) toggleSubtask(tsk.id, s.id, null, true);
+            if (!s.done && !s.skipped && subtaskDueToday(s, _td)) toggleSubtask(tsk.id, s.id, null, true);
           });
           _suppressAutoParentComplete = false;
         }
@@ -12160,7 +12162,7 @@ function toggleSubtask(taskId, subId, dateStr, silent) {
   if (!_suppressAutoParentComplete) {
     ensureSubtaskAutoSettingsDefaults();
     if (S.subtaskAutoCompleteParent) {
-      var _allSubs = ensureSubtasks(tk);
+      var _allSubs = ensureSubtasks(tk).filter(function (s) { return subtaskDueToday(s, dateStr); }); // faqat shu kunga tegishlilari
       var _allResolved = _allSubs.length > 0 && _allSubs.every(function (s) {
         return subtaskDoneOnDate(tk.id, s.id, dateStr) || s.skipped;
       });
@@ -22313,6 +22315,7 @@ function calToggleTaskDone(id, dateStr) {
     ensureSubtaskAutoSettingsDefaults();
     var _subs = ensureSubtasks(tk);
     var _hasPending = _subs.some(function (s) {
+      if (!subtaskDueToday(s, dateStr)) return false; // boshqa kunning sub-taski
       if (dateStr === today()) {
         return !subtaskDoneOnDate(tk.id, s.id, dateStr) && !s.skipped;
       }
@@ -22323,7 +22326,7 @@ function calToggleTaskDone(id, dateStr) {
         if (markAll) {
           _suppressAutoParentComplete = true;
           _subs.forEach(function (s) {
-            if (!subtaskDoneOnDate(tk.id, s.id, dateStr) && !s.skipped) toggleSubtask(tk.id, s.id, dateStr, true);
+            if (subtaskDueToday(s, dateStr) && !subtaskDoneOnDate(tk.id, s.id, dateStr) && !s.skipped) toggleSubtask(tk.id, s.id, dateStr, true);
           });
           _suppressAutoParentComplete = false;
         }
