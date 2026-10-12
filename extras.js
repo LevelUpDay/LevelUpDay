@@ -1169,10 +1169,347 @@
   }
   function renderSleepCards() {
     document.querySelectorAll('.x-sleep-card').forEach(function (el) { var sh = sleepCardHtml(); el._h = sh; el.innerHTML = sh; bindSleep(el); });
+    document.querySelectorAll('.x-wk-card').forEach(function (el) { var t = document.createElement('div'); t.innerHTML = weeklyHtml(); el.replaceWith(t.firstChild); });
     try { renderToday(); } catch (e) {}
   }
   function healthHtml() { return '<div class="x-card x-sleep-card">' + sleepCardHtml() + '</div>'; }
   function bindHealth(root) { bindSleep(root); }
+
+  // =========================================================
+  // 🧘 SALOMATLIK qo'shimchalari: kunlik tasdiq · SOS tinchlanish ·
+  //    haftalik tahlil · odatni tashlash hisoblagichlari
+  //    Ma'lumot: S.xAffirm {date, idx} · S.xCalmLog[date]=n ·
+  //    S.xHabits [{id,name,emoji,start,best,created,shown[]}] · S.xWkSeen
+  // =========================================================
+  function daysBetween(a, b) { return Math.round((parseD(b) - parseD(a)) / 86400000); }
+  function wbRerender() { if ((S.xHubSec || 'boss') === 'health' && document.getElementById('x-hub-body')) renderHubSection('health', true); }
+
+  // ---------- 💬 Kunlik tasdiq ----------
+  var AFFIRM = [
+    ['Har bir kichik qadam ham — oldinga qadam.', 'Every small step is still a step forward.', 'Каждый маленький шаг — всё равно шаг вперёд.'],
+    ['Bugun o\'zingga mehribon bo\'l.', 'Be kind to yourself today.', 'Будь добр к себе сегодня.'],
+    ['Mukammallik emas, davomiylik muhim.', 'Consistency beats perfection.', 'Постоянство важнее совершенства.'],
+    ['Sen o\'ylaganingdan kuchliroqsan.', 'You are stronger than you think.', 'Ты сильнее, чем думаешь.'],
+    ['Dam olish ham — ishning bir qismi.', 'Rest is part of the work.', 'Отдых — тоже часть работы.'],
+    ['Bitta vazifa. Bitta nafas. Bitta qadam.', 'One task. One breath. One step.', 'Одна задача. Один вдох. Один шаг.'],
+    ['Kecha qanday bo\'lganidan qat\'i nazar, bugun yangi imkoniyat.', 'Whatever yesterday was, today is a fresh chance.', 'Каким бы ни был вчерашний день, сегодня — новый шанс.'],
+    ['O\'z tezligingda yur — bu poyga emas.', 'Move at your own pace — it\'s not a race.', 'Иди в своём темпе — это не гонка.'],
+    ['Xato qilish — o\'rganayotganingning belgisi.', 'Mistakes mean you are learning.', 'Ошибки — значит, ты учишься.'],
+    ['Sen yetarlicha yaxshisan, hozirning o\'zida.', 'You are enough, right now.', 'Ты достаточно хорош — прямо сейчас.'],
+    ['Kichik g\'alabalarni ham nishonla.', 'Celebrate the small wins too.', 'Празднуй и маленькие победы.'],
+    ['Boshlash uchun zo\'r bo\'lish shart emas, zo\'r bo\'lish uchun boshlash shart.', 'You don\'t have to be great to start, but you have to start to be great.', 'Не нужно быть великим, чтобы начать, но нужно начать, чтобы стать великим.'],
+    ['Fikrlaringni kuzat, lekin ularga ishonib qolma.', 'Notice your thoughts — you don\'t have to believe all of them.', 'Замечай мысли — не обязательно верить им всем.'],
+    ['Bugungi harakating — ertangi natijang.', 'Today\'s effort is tomorrow\'s result.', 'Сегодняшние усилия — завтрашний результат.'],
+    ['Chuqur nafas ol. Sen uddalaysan.', 'Take a deep breath. You\'ve got this.', 'Сделай глубокий вдох. Ты справишься.'],
+    ['Taraqqiyot — chiziq emas, lekin u baribir oldinga.', 'Progress isn\'t linear, but it still moves forward.', 'Прогресс не линеен, но он всё равно движется вперёд.'],
+    ['O\'zingni boshqalar bilan emas, kechagi o\'zing bilan solishtir.', 'Compare yourself to who you were yesterday, not to others.', 'Сравнивай себя со вчерашним собой, а не с другими.'],
+    ['"Yo\'q" deyish ham o\'zingga g\'amxo\'rlik.', 'Saying "no" can be self-care.', 'Сказать «нет» — тоже забота о себе.'],
+    ['Har kuni 1% yaxshiroq — bir yilda 37 barobar.', '1% better every day adds up fast.', 'На 1% лучше каждый день — и это быстро накапливается.'],
+    ['Qiyin kunlar ham o\'tib ketadi.', 'Hard days pass too.', 'Трудные дни тоже проходят.'],
+    ['Sen o\'z hayotingning muallifisan.', 'You are the author of your own story.', 'Ты автор своей истории.'],
+    ['Tanang va ongingni tingla — ular senga yordam bermoqchi.', 'Listen to your body and mind — they are on your side.', 'Слушай тело и разум — они на твоей стороне.'],
+    ['Intizom — o\'zingga bergan va\'dangni bajarish.', 'Discipline is keeping promises to yourself.', 'Дисциплина — это держать обещания себе.'],
+    ['Bugun kimgadir tabassum ulash.', 'Share a smile with someone today.', 'Подари кому-нибудь улыбку сегодня.'],
+    ['Eng yaxshi vaqt — hozir.', 'The best time is now.', 'Лучшее время — сейчас.'],
+    ['Charchoq — to\'xtash emas, sekinlash signali.', 'Tired means slow down, not give up.', 'Усталость — сигнал замедлиться, а не сдаться.'],
+    ['Qilgan ishlaring uchun o\'zingga rahmat ayt.', 'Thank yourself for what you\'ve done.', 'Поблагодари себя за то, что уже сделал.'],
+    ['Katta maqsad — kichik odatlardan quriladi.', 'Big goals are built from small habits.', 'Большие цели строятся из маленьких привычек.'],
+    ['Sen bu yerdasan — bu allaqachon jasorat.', 'You showed up — that already takes courage.', 'Ты здесь — это уже смелость.'],
+    ['Diqqatingni nazorat qila oladigan narsalarga qarat.', 'Focus on what you can control.', 'Сосредоточься на том, что можешь контролировать.'],
+    ['Har tong — yangi sahifa.', 'Every morning is a new page.', 'Каждое утро — новая страница.'],
+    ['Sekin borsang ham, to\'xtamasang bas.', 'It doesn\'t matter how slowly you go, as long as you don\'t stop.', 'Неважно, как медленно ты идёшь, главное — не останавливаться.'],
+    ['Sening qadring natijalaring bilan o\'lchanmaydi.', 'Your worth is not measured by your output.', 'Твоя ценность не измеряется результатами.']
+  ];
+  function affirmIdx() {
+    var a = S.xAffirm;
+    if (a && a.date === today() && a.idx >= 0 && a.idx < AFFIRM.length) return a.idx;
+    var s = today(), h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h % AFFIRM.length;
+  }
+  function affirmHtml() {
+    var q = AFFIRM[affirmIdx()];
+    return '<div class="x-card x-aff-card"><span class="x-aff-ic" aria-hidden="true">✨</span><div class="x-aff-t"><small>' + L('Kunlik tasdiq', 'Daily affirmation', 'Аффирмация дня') + '</small><q>' + H(L(q[0], q[1], q[2])) + '</q></div>' +
+      '<button type="button" class="x-aff-re" data-aff-re="1" aria-label="' + L('Boshqasi', 'Another one', 'Другая') + '" title="' + L('Boshqasi', 'Another one', 'Другая') + '">↻</button></div>';
+  }
+
+  // ---------- 😮‍💨 SOS: tinchlanish ----------
+  function calmBtnHtml() {
+    var n = (S.xCalmLog || {})[today()] || 0;
+    return '<button type="button" class="x-card x-calm-card" data-calm="1"><span class="x-calm-e" aria-hidden="true">😮‍💨</span><span class="x-calm-t"><b>' + L('Tinchlanish (SOS)', 'Calm down (SOS)', 'Успокоиться (SOS)') + '</b><span>' +
+      L('Hozir stressdamisiz? Nafas mashqi yoki 5-4-3-2-1', 'Stressed right now? Breathing or 5-4-3-2-1', 'Стресс прямо сейчас? Дыхание или 5-4-3-2-1') + '</span></span>' +
+      (n ? '<span class="x-calm-n" title="' + L('Bugungi seanslar', 'Sessions today', 'Сеансов сегодня') + '">✓ ' + n + '</span>' : '<span class="x-mood-go">›</span>') + '</button>';
+  }
+  function calmLog() { S.xCalmLog = S.xCalmLog || {}; S.xCalmLog[today()] = (S.xCalmLog[today()] || 0) + 1; save(); }
+  function reducedMotion() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
+  var CALM = null;
+  function openCalm() {
+    if (CALM) return;
+    var ov = document.createElement('div');
+    ov.className = 'x-calm-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
+    ov.innerHTML = '<button type="button" class="x-calm-x" aria-label="' + L('Yopish', 'Close', 'Закрыть') + '">✕</button>' +
+      '<div class="x-calm-in"><div class="x-calm-tabs" role="tablist">' +
+      '<button type="button" class="on" data-cm="breath">🌬 ' + L('Nafas', 'Breathing', 'Дыхание') + '</button>' +
+      '<button type="button" data-cm="ground">🖐 5-4-3-2-1</button></div><div class="x-calm-body"></div></div>';
+    document.body.appendChild(ov);
+    CALM = { ov: ov, timer: null, mode: 'breath' };
+    var body = ov.querySelector('.x-calm-body');
+    var stop = function () { if (CALM && CALM.timer) { clearInterval(CALM.timer); CALM.timer = null; } };
+    var close = function () {
+      if (!CALM) return; stop(); document.removeEventListener('keydown', CALM.onKey, true);
+      CALM = null; ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 200);
+      document.documentElement.classList.remove('x-calm-on'); wbRerender();
+    };
+    var PH = [[4, L('Nafas oling…', 'Breathe in…', 'Вдох…'), 'in'], [4, L('Ushlab turing…', 'Hold…', 'Задержите…'), 'hold'], [6, L('Chiqaring…', 'Breathe out…', 'Выдох…'), 'out']];
+    var CYCLE = 14;
+    var breath = function () {
+      stop(); var mins = CALM.mins || 1;
+      body.innerHTML = '<div class="x-br-wrap"><div class="x-br-c" aria-hidden="true"></div><div class="x-br-txt"><b class="x-br-ph">' + L('Tayyormisiz?', 'Ready?', 'Готовы?') + '</b><span class="x-br-cd"></span></div></div>' +
+        '<div class="x-br-left" aria-live="polite"></div>' +
+        '<div class="x-br-mins">' + [1, 2, 3].map(function (m) { return '<button type="button" class="' + (m === mins ? 'on' : '') + '" data-bm="' + m + '">' + m + ' ' + L('daq', 'min', 'мин') + '</button>'; }).join('') + '</div>' +
+        '<button type="button" class="x-btn x-br-go">▶ ' + L('Boshlash', 'Start', 'Начать') + '</button>' +
+        '<p class="x-calm-hint">' + L('4 soniya nafas oling, 4 soniya ushlang, 6 soniya sekin chiqaring.', 'Inhale 4 s, hold 4 s, exhale slowly 6 s.', 'Вдох 4 с, задержка 4 с, медленный выдох 6 с.') + '</p>';
+      var c = body.querySelector('.x-br-c'), ph = body.querySelector('.x-br-ph'), cd = body.querySelector('.x-br-cd'), left = body.querySelector('.x-br-left'), go = body.querySelector('.x-br-go');
+      var rm = reducedMotion();
+      body.querySelectorAll('[data-bm]').forEach(function (b) { b.onclick = function () { CALM.mins = +b.dataset.bm; breath(); }; });
+      go.onclick = function () {
+        if (CALM.timer) { breath(); return; }
+        var total = (CALM.mins || 1) * 60, t0 = Date.now(), lastPh = -1;
+        body.querySelectorAll('[data-bm]').forEach(function (b) { b.disabled = true; });
+        go.textContent = '■ ' + L('To\'xtatish', 'Stop', 'Стоп'); go.classList.add('ghost');
+        var tick = function () {
+          var el = (Date.now() - t0) / 1000;
+          if (el >= total) {
+            stop(); calmLog(); c.className = 'x-br-c'; c.style.transitionDuration = '';
+            ph.textContent = '🌿 ' + L('Barakalla!', 'Well done!', 'Молодец!');
+            cd.textContent = ''; left.textContent = L('Mashq tugadi. O\'zingizni qanday his qilyapsiz?', 'Session complete. How do you feel now?', 'Упражнение завершено. Как вы себя чувствуете?');
+            go.textContent = '↻ ' + L('Yana', 'Again', 'Ещё раз'); go.classList.remove('ghost');
+            body.querySelectorAll('[data-bm]').forEach(function (b) { b.disabled = false; });
+            return;
+          }
+          var inC = el % CYCLE, i = 0, acc = 0;
+          while (inC >= acc + PH[i][0]) { acc += PH[i][0]; i++; }
+          var phaseIdx = Math.floor(el / CYCLE) * 3 + i;
+          if (phaseIdx !== lastPh) {
+            lastPh = phaseIdx; ph.textContent = PH[i][1];
+            if (!rm) { c.style.transitionDuration = PH[i][0] + 's'; }
+            c.className = 'x-br-c ' + PH[i][2];
+          }
+          cd.textContent = Math.ceil(PH[i][0] - (inC - acc));
+          var rem = Math.ceil(total - el); left.textContent = L('Qoldi', 'Remaining', 'Осталось') + ': ' + Math.floor(rem / 60) + ':' + pad2(rem % 60);
+        };
+        CALM.timer = setInterval(tick, 200); tick();
+      };
+    };
+    var GSTEPS = [
+      [5, '👀', L('ta narsani ko\'ring', 'things you can see', 'вещей, которые вы видите'), L('Atrofga qarang va ularni ichingizda nomlang.', 'Look around and name them in your head.', 'Оглянитесь и назовите их про себя.')],
+      [4, '✋', L('ta narsaga teging', 'things you can touch', 'вещи, которые можно потрогать'), L('Ularning sirtini, haroratini his qiling.', 'Notice their texture and temperature.', 'Почувствуйте их текстуру и температуру.')],
+      [3, '👂', L('ta tovushni eshiting', 'things you can hear', 'звука, которые вы слышите'), L('Uzoq va yaqin tovushlarga e\'tibor bering.', 'Notice sounds near and far.', 'Обратите внимание на близкие и далёкие звуки.')],
+      [2, '👃', L('ta hidni seziring', 'things you can smell', 'запаха, которые вы чувствуете'), L('Agar hid bo\'lmasa, sevimli hidingizni eslang.', 'If nothing, recall a smell you love.', 'Если ничего нет — вспомните любимый запах.')],
+      [1, '👅', L('ta ta\'mni his qiling', 'thing you can taste', 'вкус, который вы ощущаете'), L('Bir qultum suv iching yoki og\'zingizdagi ta\'mga e\'tibor bering.', 'Take a sip of water or notice the taste in your mouth.', 'Сделайте глоток воды или заметьте вкус во рту.')]
+    ];
+    var ground = function (step) {
+      stop(); step = step || 0;
+      if (step >= GSTEPS.length) {
+        calmLog();
+        body.innerHTML = '<div class="x-gr-card done"><div class="x-gr-e">🌿</div><b>' + L('Barakalla!', 'Well done!', 'Молодец!') + '</b><p>' + L('Siz hozirgi lahzadasiz. Sekin nafas oling va davom eting.', 'You are here, in the present moment. Breathe slowly and carry on.', 'Вы здесь, в настоящем моменте. Дышите медленно и продолжайте.') + '</p></div>' +
+          '<div class="x-gr-nav"><button type="button" class="x-btn ghost" data-gr="0">↻ ' + L('Qaytadan', 'Restart', 'Заново') + '</button><button type="button" class="x-btn" data-grx="1">' + L('Yopish', 'Close', 'Закрыть') + '</button></div>';
+      } else {
+        var g = GSTEPS[step];
+        body.innerHTML = '<div class="x-gr-dots">' + GSTEPS.map(function (_, i) { return '<i class="' + (i < step ? 'ok' : i === step ? 'on' : '') + '"></i>'; }).join('') + '</div>' +
+          '<div class="x-gr-card"><div class="x-gr-e" aria-hidden="true">' + g[1] + '</div><div class="x-gr-n">' + g[0] + '</div><b>' + g[0] + ' ' + g[2] + '</b><p>' + g[3] + '</p></div>' +
+          '<div class="x-gr-nav">' + (step ? '<button type="button" class="x-btn ghost" data-gr="' + (step - 1) + '">‹ ' + L('Orqaga', 'Back', 'Назад') + '</button>' : '') +
+          '<button type="button" class="x-btn" data-gr="' + (step + 1) + '">' + (step === GSTEPS.length - 1 ? L('Tugatish', 'Finish', 'Завершить') : L('Keyingi', 'Next', 'Далее') + ' ›') + '</button></div>';
+      }
+      body.querySelectorAll('[data-gr]').forEach(function (b) { b.onclick = function () { ground(+b.dataset.gr); }; });
+      var bx = body.querySelector('[data-grx]'); if (bx) bx.onclick = close;
+    };
+    var setMode = function (m) {
+      CALM.mode = m;
+      ov.querySelectorAll('[data-cm]').forEach(function (b) { b.classList.toggle('on', b.dataset.cm === m); b.setAttribute('aria-selected', b.dataset.cm === m ? 'true' : 'false'); });
+      if (m === 'breath') breath(); else ground(0);
+    };
+    ov.querySelectorAll('[data-cm]').forEach(function (b) { b.onclick = function () { setMode(b.dataset.cm); }; });
+    ov.querySelector('.x-calm-x').onclick = close;
+    CALM.onKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    document.addEventListener('keydown', CALM.onKey, true);
+    CALM.close = close;
+    document.documentElement.classList.add('x-calm-on');
+    setMode('breath');
+    requestAnimationFrame(function () { ov.classList.add('open'); });
+  }
+
+  // ---------- 📊 Haftalik tahlil ----------
+  var MOOD_SCORE = { '🥳': 5, '🙂': 4, '😇': 4, '🧐': 3, '😑': 3, '🥵': 2, '🤯': 2, '😭': 1, '😡': 1, '🤮': 1 };
+  function moodScore(ds) {
+    var m = (S.moods || {})[ds]; if (!m) return null;
+    if (typeof m.level === 'number') return m.level;
+    var e = m.emoji || m.mood || (typeof m === 'string' ? m : null);
+    return e && MOOD_SCORE[e] != null ? MOOD_SCORE[e] : (e ? 3 : null);
+  }
+  function doneCounts() {
+    var c = {}, log = S.taskDoneLog || {};
+    Object.keys(log).forEach(function (id) { var arr = log[id]; if (!Array.isArray(arr)) return; var seen = {}; arr.forEach(function (d) { if (typeof d === 'string' && !seen[d]) { seen[d] = 1; c[d] = (c[d] || 0) + 1; } }); });
+    return c;
+  }
+  function avg(a) { return a.length ? a.reduce(function (s, x) { return s + x; }, 0) / a.length : null; }
+  function r1(v) { return Math.round(v * 10) / 10; }
+  function weekStats(off, dc) {
+    var ms = [], ss = [], ts = [];
+    for (var k = 6; k >= 0; k--) { var ds = addDays(today(), -(k + off)); var m = moodScore(ds), s = sleepOf(ds); if (m != null) ms.push(m); if (s) ss.push(s); ts.push(dc[ds] || 0); }
+    return { mood: avg(ms), sleep: avg(ss), tasks: avg(ts), total: ts.reduce(function (a, b) { return a + b; }, 0), days: ts };
+  }
+  function wkInsights(dc) {
+    var out = [], gS = [], bS = [], gM = [], bM = [], mG = [], mB = [], anyT = 0;
+    for (var k = 0; k < 28; k++) {
+      var ds = addDays(today(), -k), t = dc[ds] || 0, s = sleepOf(ds), m = moodScore(ds);
+      if (k === 0 && !t && s == null && m == null) continue; // bugun hali boshlanmagan
+      if (s) (s >= 7 ? gS : bS).push(t);
+      if (m != null) { if (m >= 4) gM.push(t); else if (m <= 2) bM.push(t); }
+      if (s && m != null) (s >= 7 ? mG : mB).push(m);
+      anyT += t;
+    }
+    if (!anyT) { gS = bS = gM = bM = []; } // vazifa bajarilmagan bo'lsa, vazifa bo'yicha xulosa chiqarmaymiz
+    if (gS.length >= 2 && bS.length >= 2) {
+      var a = r1(avg(gS)), b = r1(avg(bS));
+      out.push('😴 ' + L('7+ soat uxlagan kunlaringda o\'rtacha <b>' + a + '</b> ta vazifa bajargansiz, kam uxlagan kunlarda — <b>' + b + '</b> ta.',
+        'On days you slept 7+ hours you completed <b>' + a + '</b> tasks on average, on short-sleep days — <b>' + b + '</b>.',
+        'В дни, когда вы спали 7+ часов, вы выполняли в среднем <b>' + a + '</b> задач, при недосыпе — <b>' + b + '</b>.'));
+    }
+    if (gM.length >= 2 && bM.length >= 2) {
+      var ga = avg(gM), ba = avg(bM);
+      if (ba > 0 && Math.abs(ga - ba) / ba >= 0.1) {
+        var p = Math.round(Math.abs(ga - ba) / ba * 100);
+        out.push(ga > ba ? '🙂 ' + L('Kayfiyat yaxshi kunlarda vazifalar <b>' + p + '%</b> ko\'proq bajarilgan.', 'On good-mood days you completed <b>' + p + '%</b> more tasks.', 'В дни хорошего настроения задач выполнено на <b>' + p + '%</b> больше.')
+          : '💡 ' + L('Kayfiyat past kunlarda ham <b>' + p + '%</b> ko\'proq vazifa bajargansiz — ish sizni chalg\'itadi, lekin dam olishni unutmang.', 'On low-mood days you did <b>' + p + '%</b> more tasks — keep an eye on rest too.', 'В дни плохого настроения вы сделали на <b>' + p + '%</b> больше задач — не забывайте об отдыхе.'));
+      } else {
+        out.push('🙂 ' + L('Kayfiyat yaxshi va past kunlarda bajarilgan vazifalar soni deyarli bir xil — barqarorsiz!', 'You complete about the same number of tasks on good and low-mood days — steady!', 'В дни хорошего и плохого настроения вы делаете примерно одинаково задач — стабильно!'));
+      }
+    }
+    if (mG.length >= 2 && mB.length >= 2) {
+      var x = avg(mG), y = avg(mB);
+      if (x - y >= 0.5) out.push('🌙 ' + L('Yaxshi uxlagan kunlaringizda kayfiyatingiz sezilarli yaxshiroq (' + r1(x) + ' vs ' + r1(y) + ' / 5).', 'Your mood is noticeably better after a good night\'s sleep (' + r1(x) + ' vs ' + r1(y) + ' / 5).', 'После хорошего сна ваше настроение заметно лучше (' + r1(x) + ' vs ' + r1(y) + ' / 5).'));
+    }
+    return out.slice(0, 3);
+  }
+  function wkDelta(cur, prev, unit, dec) {
+    if (cur == null) return '';
+    if (prev == null || prev === 0) return '';
+    var d = cur - prev; if (Math.abs(d) < (dec ? 0.05 : 0.5) && Math.abs(d) < 0.1) return '<em class="x-wk-d">=</em>';
+    return '<em class="x-wk-d ' + (d > 0 ? 'up' : 'dn') + '">' + (d > 0 ? '▲' : '▼') + ' ' + r1(Math.abs(d)) + (unit || '') + '</em>';
+  }
+  function weeklyHtml() {
+    var dc = doneCounts(), w = weekStats(0, dc), p = weekStats(7, dc), ins = wkInsights(dc);
+    var wk = mondayOf(today()), isNew = S.xWkSeen !== wk;
+    var lbls = []; for (var k = 6; k >= 0; k--) lbls.push(weekdaysShort()[(parseD(addDays(today(), -k)).getDay() + 6) % 7]);
+    var mx = Math.max.apply(null, w.days.concat([1]));
+    var bars = '<div class="x-wk-bars" aria-hidden="true">' + w.days.map(function (v, i) {
+      return '<div class="x-wk-b' + (i === 6 ? ' td' : '') + '" title="' + lbls[i] + ': ' + v + '"><span class="x-wk-bn">' + (v || '') + '</span><i style="height:' + (v ? Math.max(10, v / mx * 100) : 4) + '%"></i><span>' + lbls[i] + '</span></div>';
+    }).join('') + '</div>';
+    var moodE = w.mood == null ? '—' : (w.mood >= 4.3 ? '🥳' : w.mood >= 3.5 ? '🙂' : w.mood >= 2.5 ? '😑' : w.mood >= 1.8 ? '🥵' : '😭');
+    var stat = function (ic, lab, val, dl) { return '<div class="x-wk-s"><span>' + ic + ' ' + lab + '</span><b>' + val + '</b>' + dl + '</div>'; };
+    var html = '<div class="x-card x-wk-card"><div class="x-card-h"><b>📊 ' + L('Haftalik tahlil', 'Weekly analysis', 'Недельный анализ') + (isNew ? ' <span class="x-new">' + L('Yangi', 'New', 'Новое') + '</span>' : '') + '</b><span>' + L('So\'nggi 7 kun', 'Last 7 days', 'Последние 7 дней') + '</span></div>' +
+      '<div class="x-wk-grid">' +
+      stat(moodE, L('Kayfiyat', 'Mood', 'Настроение'), w.mood == null ? '—' : r1(w.mood) + '<small>/5</small>', wkDelta(w.mood, p.mood, '', true)) +
+      stat('😴', L('Uyqu', 'Sleep', 'Сон'), w.sleep == null ? '—' : r1(w.sleep) + '<small>' + L('soat', 'h', 'ч') + '</small>', wkDelta(w.sleep, p.sleep, L('s', 'h', 'ч'), true)) +
+      stat('✅', L('Vazifa/kun', 'Tasks/day', 'Задач/день'), r1(w.tasks), wkDelta(w.tasks, p.tasks, '', true)) +
+      '</div>' + bars +
+      '<div class="x-wk-cmp">' + L('O\'tgan haftaga nisbatan', 'vs previous week', 'по сравнению с прошлой неделей') + ': ' + w.total + ' / ' + p.total + ' ' + L('ta vazifa', 'tasks', 'задач') + '</div>' +
+      (ins.length ? '<ul class="x-wk-ins">' + ins.map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ul>'
+        : '<div class="x-wk-hint">🌱 ' + L('Ko\'proq ma\'lumot yig\'ilsin — kayfiyat va uyquni har kuni belgilab boring.', 'Let\'s collect more data — log your mood and sleep every day.', 'Нужно больше данных — отмечайте настроение и сон каждый день.') + '</div>') +
+      '</div>';
+    if (isNew) { S.xWkSeen = wk; try { save(); } catch (e) {} }
+    return html;
+  }
+
+  // ---------- 🚭 Odatni tashlash ----------
+  var HAB_PRESETS = [
+    ['🍬', 'Shirinliksiz', 'No sweets', 'Без сладкого'],
+    ['📱', 'Ijtimoiy tarmoqsiz', 'No social media', 'Без соцсетей'],
+    ['🚭', 'Chekmaslik', 'No smoking', 'Не курю'],
+    ['🥤', 'Gazli ichimliksiz', 'No soda', 'Без газировки'],
+    ['🍔', 'Fast-foodsiz', 'No fast food', 'Без фастфуда'],
+    ['🎮', 'O\'yinsiz', 'No gaming', 'Без игр']
+  ];
+  var HAB_MS = [3, 7, 14, 30, 60, 100];
+  var HAB_MAX = 10;
+  function habDays(h) { return Math.max(0, daysBetween(h.start, today())); }
+  function habCheckMilestones() {
+    var changed = false;
+    (S.xHabits || []).forEach(function (h) {
+      h.shown = h.shown || []; var d = habDays(h), hit = null;
+      HAB_MS.forEach(function (m) { if (d >= m && h.shown.indexOf(m) === -1) { h.shown.push(m); hit = m; changed = true; } });
+      if (hit) setTimeout(function () {
+        toast('🎉 ' + h.emoji + ' ' + h.name + ' — ' + L(hit + ' kun! Zo\'r!', hit + ' days! Amazing!', hit + ' дн.! Отлично!'));
+        try { confetti(); } catch (e) {}
+      }, 300);
+    });
+    if (changed) save();
+  }
+  function daysWord(n) { return L(n + ' kun', n + (n === 1 ? ' day' : ' days'), n + ' дн.'); }
+  function habitsHtml() {
+    var list = S.xHabits || [];
+    var rows = list.map(function (h) {
+      var d = habDays(h), best = Math.max(h.best || 0, d);
+      var next = HAB_MS.find(function (m) { return m > d; }); var prevM = 0; HAB_MS.forEach(function (m) { if (m <= d) prevM = m; });
+      var pct = next ? Math.round((d - prevM) / (next - prevM) * 100) : 100;
+      return '<div class="x-hb-row" data-hid="' + H(h.id) + '"><span class="x-hb-e">' + H(h.emoji || '🚫') + '</span><div class="x-hb-m"><b>' + H(h.name) + '</b>' +
+        '<span class="x-hb-n"><strong>' + daysWord(d) + '</strong> · 🏆 ' + L('Rekord', 'Best', 'Рекорд') + ': ' + daysWord(best) + '</span>' +
+        '<div class="x-hb-bar" title="' + (next ? L('Keyingi marra: ', 'Next milestone: ', 'Следующая цель: ') + daysWord(next) : '') + '"><i style="width:' + pct + '%"></i></div></div>' +
+        '<div class="x-hb-act"><button type="button" class="x-btn ghost sm" data-hreset="' + H(h.id) + '">' + L('Uzildi', 'Slipped', 'Сорвался') + '</button>' +
+        '<button type="button" class="x-link danger" data-hdel="' + H(h.id) + '" aria-label="' + L('O\'chirish', 'Delete', 'Удалить') + '">🗑</button></div></div>';
+    }).join('');
+    var form = '<div class="x-hb-form" hidden><div class="x-hb-pre">' + HAB_PRESETS.map(function (p, i) { return '<button type="button" data-hpre="' + i + '">' + p[0] + ' ' + L(p[1], p[2], p[3]) + '</button>'; }).join('') + '</div>' +
+      '<div class="x-row"><input class="x-in x-hb-ei" maxlength="4" value="🚫" aria-label="emoji"><input class="x-in x-hb-ni" maxlength="40" placeholder="' + L('Masalan: Kofesiz', 'e.g. No coffee', 'Напр.: Без кофе') + '"></div>' +
+      '<label class="x-hb-dl">' + L('Qachondan beri?', 'Since when?', 'С какого дня?') + ' <input type="date" class="x-in x-hb-di" value="' + today() + '" max="' + today() + '"></label>' +
+      '<div class="x-row"><button type="button" class="x-btn" data-hsave="1">' + L('Qo\'shish', 'Add', 'Добавить') + '</button><button type="button" class="x-btn ghost" data-hcancel="1">' + L('Bekor', 'Cancel', 'Отмена') + '</button></div></div>';
+    return '<div class="x-card x-hb-card"><div class="x-card-h"><b>🚭 ' + L('Odatni tashlash', 'Quit a habit', 'Бросить привычку') + '</b>' +
+      (list.length < HAB_MAX ? '<button type="button" class="x-btn sm" data-hadd="1">＋ ' + L('Qo\'shish', 'Add', 'Добавить') + '</button>' : '<span>' + list.length + '/' + HAB_MAX + '</span>') + '</div>' +
+      (rows || '<div class="x-hb-empty">' + L('Yomon odatdan voz kechyapsizmi? Hisoblagich qo\'shing — har bir "toza" kun hisoblanadi.', 'Quitting a bad habit? Add a counter — every clean day counts.', 'Бросаете вредную привычку? Добавьте счётчик — каждый «чистый» день на счету.') + '</div>') + form + '</div>';
+  }
+  function bindHabits(root) {
+    var card = root.querySelector('.x-hb-card'); if (!card) return;
+    var form = card.querySelector('.x-hb-form'), ni = card.querySelector('.x-hb-ni'), ei = card.querySelector('.x-hb-ei'), di = card.querySelector('.x-hb-di');
+    var add = card.querySelector('[data-hadd]'); if (add) add.onclick = function () { form.hidden = !form.hidden; if (!form.hidden) ni.focus(); };
+    card.querySelector('[data-hcancel]').onclick = function () { form.hidden = true; };
+    card.querySelectorAll('[data-hpre]').forEach(function (b) { b.onclick = function () { var p = HAB_PRESETS[+b.dataset.hpre]; ei.value = p[0]; ni.value = L(p[1], p[2], p[3]); card.querySelectorAll('[data-hpre]').forEach(function (z) { z.classList.toggle('on', z === b); }); }; });
+    var doSave = function () {
+      var nm = ni.value.trim(); if (!nm) { ni.focus(); toast(L('Nomini yozing', 'Enter a name', 'Введите название')); return; }
+      S.xHabits = S.xHabits || []; if (S.xHabits.length >= HAB_MAX) { toast(L('Ko\'pi bilan ' + HAB_MAX + ' ta', 'Max ' + HAB_MAX, 'Максимум ' + HAB_MAX)); return; }
+      var st = di.value && /^\d{4}-\d{2}-\d{2}$/.test(di.value) && di.value <= today() ? di.value : today();
+      var h = { id: 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: nm.slice(0, 40), emoji: (ei.value.trim() || '🚫').slice(0, 4), start: st, best: 0, created: Date.now(), shown: [] };
+      S.xHabits.push(h); save(); toast('✅ ' + h.emoji + ' ' + h.name); wbRerender();
+    };
+    card.querySelector('[data-hsave]').onclick = doSave;
+    ni.onkeydown = function (e) { if (e.key === 'Enter') doSave(); };
+    card.querySelectorAll('[data-hreset]').forEach(function (b) { b.onclick = function () {
+      var h = (S.xHabits || []).find(function (x) { return x.id === b.dataset.hreset; }); if (!h) return;
+      var d = habDays(h);
+      if (!confirm(L('"' + h.name + '" hisoblagichi 0 dan boshlansinmi? (' + d + ' kun rekordga yoziladi)', 'Reset "' + h.name + '" to 0? (' + d + ' days will be kept as a record)', 'Сбросить «' + h.name + '» до 0? (' + d + ' дн. сохранятся в рекорде)'))) return;
+      h.best = Math.max(h.best || 0, d); h.start = today(); h.shown = []; save();
+      toast('💪 ' + L('Hechqisi yo\'q — qaytadan boshlaymiz!', 'It\'s okay — let\'s start again!', 'Ничего страшного — начнём заново!')); wbRerender();
+    }; });
+    card.querySelectorAll('[data-hdel]').forEach(function (b) { b.onclick = function () {
+      var h = (S.xHabits || []).find(function (x) { return x.id === b.dataset.hdel; }); if (!h) return;
+      if (!confirm(L('"' + h.name + '" o\'chirilsinmi?', 'Delete "' + h.name + '"?', 'Удалить «' + h.name + '»?'))) return;
+      S.xHabits = S.xHabits.filter(function (x) { return x !== h; }); save(); wbRerender();
+    }; });
+  }
+
+  function wellbeingHtml(moodCard) { habCheckMilestones(); return affirmHtml() + calmBtnHtml() + moodCard + healthHtml() + weeklyHtml() + habitsHtml(); }
+  function bindWellbeing(root) {
+    bindHealth(root); bindHabits(root);
+    var re = root.querySelector('[data-aff-re]'); if (re) re.onclick = function () {
+      var cur = affirmIdx(), n = cur; while (n === cur) n = Math.floor(Math.random() * AFFIRM.length);
+      S.xAffirm = { date: today(), idx: n }; save();
+      var card = root.querySelector('.x-aff-card'); if (card) { var tmp = document.createElement('div'); tmp.innerHTML = affirmHtml(); card.replaceWith(tmp.firstChild); bindWellbeing(root); }
+    };
+    var cb = root.querySelector('[data-calm]'); if (cb) cb.onclick = openCalm;
+  }
+  // kayfiyat saqlanganda Salomatlik bo'limi yangilansin
+  (function () {
+    var orig = window.saveMoodEntry;
+    if (typeof orig === 'function') window.saveMoodEntry = function () { var r = orig.apply(this, arguments); try { wbRerender(); } catch (e) {} return r; };
+  })();
 
   // =========================================================
   // 📰 17. DO'STLAR LENTASI  ·  👥 16. BIRGALIKDAGI VAZIFA (Supabase)
@@ -1358,7 +1695,8 @@
     } else if (sec === 'health') {
       var md = (S.moods || {})[today()];
       h = '<button type="button" class="x-card x-mood-card" onclick="openMoodCalendar()"><span class="x-mood-e">' + (md ? md.emoji : '🙂') + '</span><span class="x-mood-t"><b>' + L('Kayfiyat kundaligi', 'Mood journal', 'Дневник настроения') + '</b><span>' +
-        (md ? L('Bugun belgilangan', 'Logged today', 'Отмечено сегодня') : L('Bugun qanday? Belgilang', 'How are you today? Log it', 'Как вы сегодня?')) + '</span></span><span class="x-mood-go">›</span></button>' + healthHtml();
+        (md ? L('Bugun belgilangan', 'Logged today', 'Отмечено сегодня') : L('Bugun qanday? Belgilang', 'How are you today? Log it', 'Как вы сегодня?')) + '</span></span><span class="x-mood-go">›</span></button>';
+      h = wellbeingHtml(h);
     } else if (sec === 'shop') {
       h = '<div class="x-card">' + shopHtml() + '</div>';
     } else if (sec === 'together') {
@@ -1367,7 +1705,7 @@
       h = '<div id="x-hub-feed"></div>';
     }
     body.innerHTML = h;
-    if (sec === 'health') bindHealth(body);
+    if (sec === 'health') bindWellbeing(body);
     if (sec === 'shop') {
       body.querySelectorAll('[data-shop]').forEach(function (b) { b.onclick = function () { shopBuy(b.dataset.shop); }; });
       body.querySelectorAll('.x-shop-fx').forEach(function (f) { f.onmouseenter = function () { var r = f.getBoundingClientRect(); var it = SHOP.find(function (z) { return z.id === f.dataset.fx; }); if (it) fxBurst(it.v, r.left + r.width / 2, r.top + r.height / 2); }; });
