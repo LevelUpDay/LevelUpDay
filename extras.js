@@ -1104,7 +1104,7 @@
     };
     ov.querySelector('.x-fc-reset').onclick = function () { if (FX.running) credit(); FX.running = false; FX.left = FX.total; draw(); };
     ov.querySelector('.x-fc-sel').onchange = function () { var id = +this.value; setTask(id ? S.tasks.find(function (t) { return t.id === id; }) : null); };
-    ov.querySelector('.x-fc-done').onclick = function () { if (FX.tk && !FX.tk.done) { toggleTask(FX.tk.id); } closeFocus(); };
+    ov.querySelector('.x-fc-done').onclick = function () { if (FX.tk && !FX.tk.done) { toggleTask(FX.tk.id); } closeFocus(); try { showTab('tasks'); window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {} };
     ov.querySelector('.x-fc-snd').onclick = function () { try { openFocusPlayer(); } catch (e) { toast('🎵 —'); } };
     ov.querySelector('.x-fc-x').onclick = closeFocus;
     FX.onKey = function (e) { if (e.key === 'Escape' && !document.querySelector('.modal-overlay.open')) { e.stopPropagation(); closeFocus(); } else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); ov.querySelector('.x-fc-play').click(); } };
@@ -1340,12 +1340,13 @@
     var tools = [['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')],
       ['stats', '📊', L('Statistika', 'Statistics', 'Статистика')]];
     if (window._isAdmin) tools.push(['admin', '👑', L('Admin', 'Admin', 'Админ')]);
-    v.innerHTML = sectionsGrid() + '<div class="x-hub-tools">' + tools.map(function (t) { return '<button data-tool="' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</div>' +
+    v.innerHTML = '<div id="x-hub-pomo"></div>' + sectionsGrid() + '<div class="x-hub-tools">' + tools.map(function (t) { return '<button data-tool="' + t[0] + '"><span>' + t[1] + '</span>' + t[2] + '</button>'; }).join('') + '</div>' +
       '<div class="x-hub-nav">' + HUB_SECS.map(function (s) { return '<button class="' + (s[0] === sec ? 'on' : '') + '" data-sec="' + s[0] + '">' + s[1] + ' ' + L(s[2][0], s[2][1], s[2][2]) + '</button>'; }).join('') + '</div>' +
       '<div id="x-hub-body"></div>';
     v.querySelectorAll('[data-tool]').forEach(function (b) { b.onclick = function () { ({ matrix: openMatrix, stats: function () { showTab('profile'); try { showProfileSubtab('stats'); } catch (e) {} }, admin: function () { window.openAdminPanel(); } })[b.dataset.tool](); }; });
     v.querySelectorAll('[data-sec]').forEach(function (b) { b.onclick = function () { S.xHubSec = b.dataset.sec; save(); renderHub(); }; });
     bindSections(v);
+    try { if (typeof window.pomoSyncHubBar === 'function') window.pomoSyncHubBar(); } catch (e) {}
     renderHubSection(sec, true);
   }
   function renderHubSection(sec, force) {
@@ -1398,8 +1399,8 @@
   var SORTS = {
     color: { icon: '🎨', n: ['Rang', 'Color', 'Цвет'] },
     diff: { icon: '💪', n: ['Qiyinchilik', 'Difficulty', 'Сложность'],
-      groups: function () { return [[3, '🔴 ' + L('Qiyin', 'Hard', 'Сложно')], [2, '🟠 ' + L('O\'rtacha', 'Medium', 'Средне')], [1, '🟢 ' + L('Oson', 'Easy', 'Легко')], [0, '⚪ ' + L('Bepul', 'Free', 'Бесплатно')]]; },
-      key: function (t) { var d = t.diff; if (d == null) d = 1; return Math.max(0, Math.min(3, d)); }, desc: true },
+      groups: function () { return [[4, '🟣 ' + L('Epik', 'Epic', 'Эпик')], [3, '🔴 ' + L('Qiyin', 'Hard', 'Сложно')], [2, '🟠 ' + L('O\'rtacha', 'Medium', 'Средне')], [1, '🟢 ' + L('Oson', 'Easy', 'Легко')], [0, '⚪ ' + L('Bepul', 'Free', 'Бесплатно')]]; },
+      key: function (t) { var d = t.diff; if (d == null) d = 1; return Math.max(0, Math.min(4, d)); }, desc: true },
     time: { icon: '🕒', n: ['Vaqt', 'Time', 'Время'],
       groups: function () { return [[0, '🌅 ' + L('Ertalab (12:00 gacha)', 'Morning (before 12)', 'Утро (до 12)')], [1, '☀️ ' + L('Kunduzi (12–17)', 'Afternoon (12–17)', 'День (12–17)')], [2, '🌙 ' + L('Kechqurun (17 dan)', 'Evening (17+)', 'Вечер (с 17)')], [3, '⏳ ' + L('Vaqtsiz', 'No time', 'Без времени')]]; },
       key: function (t) { var m = hm2m(t.startTime); return m == null ? 3 : m < 720 ? 0 : m < 1020 ? 1 : 2; },

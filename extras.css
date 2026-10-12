@@ -698,3 +698,17 @@ body.light #modal-box input[type="time"],body.light #modal-box input[type="date"
 #modal-box #m-remind{max-width:200px}
 #modal-box .tk-time-check{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:normal;font-size:var(--fs-xs);color:var(--text-muted);margin:10px 0 0;cursor:pointer}
 #modal-box .tk-time-check input[type="checkbox"]{width:18px;height:18px;margin:0;flex:none;accent-color:var(--accent);cursor:pointer}
+
+/* 🍅 Hub tepasidagi Pomodoro paneli (suzuvchi taymer o'rniga) */
+.x-hub-pomo{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:0 0 12px;border-radius:var(--radius-md,12px);border:1px solid color-mix(in srgb,var(--x-pomo,#ef4444) 45%,var(--border));background:color-mix(in srgb,var(--x-pomo,#ef4444) 10%,var(--surface))}
+.x-hub-pomo.brk{border-color:color-mix(in srgb,#34D399 45%,var(--border));background:color-mix(in srgb,#34D399 10%,var(--surface))}
+.x-hub-pomo .x-hp-ic{font-size:22px;line-height:1}
+.x-hub-pomo .x-hp-t{display:flex;flex-direction:column;min-width:0;flex:1}
+.x-hub-pomo .x-hp-t b{font-size:var(--fs-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.x-hub-pomo .x-hp-s{font-size:var(--fs-3xs);color:var(--text-muted)}
+.x-hub-pomo .x-hp-time{font-family:'Syne',sans-serif;font-weight:700;font-size:var(--fs-lg);font-variant-numeric:tabular-nums}
+.x-hub-pomo.on .x-hp-time{color:var(--x-pomo,#ef4444)}
+.x-hub-pomo.brk .x-hp-time{color:#34D399}
+.x-hub-pomo .x-hp-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--x-pomo,#ef4444);color:#fff;font-size:16px;cursor:pointer;flex:none}
+.x-hub-pomo .x-hp-btn.ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+@media (max-width:420px){.x-hub-pomo .x-hp-time{font-size:var(--fs-base)}}

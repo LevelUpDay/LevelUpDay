@@ -7963,14 +7963,14 @@ function _mqPick(pool, n, seed) {
 }
 function mqGetQuests() {
   var td = today(), ws = _mqWeekStart(td), days = _mqDaysOfWeek(ws).filter(function (d) { return d <= td; });
-  var claims = S.questClaims || {};
+  var claims = S.questClaims || {}, rv = S.questRevoked || {};
   var daily = _mqPick(mqDailyPool(), 3, 'd' + td).map(function (q) {
     var v = q.get(td), key = 'd:' + td + ':' + q.id;
-    return { key: key, kind: 'daily', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key], reward: MQ_DAILY_REWARD };
+    return { key: key, kind: 'daily', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key] && rv[key] === undefined, reward: MQ_DAILY_REWARD };
   });
   var weekly = _mqPick(mqWeeklyPool(), 2, 'w' + ws).map(function (q) {
     var v = q.get(days), key = 'w:' + ws + ':' + q.id;
-    return { key: key, kind: 'weekly', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key], reward: MQ_WEEKLY_REWARD };
+    return { key: key, kind: 'weekly', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key] && rv[key] === undefined, reward: MQ_WEEKLY_REWARD };
   });
   return { daily: daily, weekly: weekly, weekStart: ws };
 }
@@ -7978,10 +7978,20 @@ function mqClaim(key) {
   var all = mqGetQuests(); var q = all.daily.concat(all.weekly).find(function (x) { return x.key === key; });
   if (!q || !q.done || q.claimed) return;
   S.questClaims = S.questClaims || {};
+  S.questRevoked = S.questRevoked || {};
+  // Avval olingan, keyin sharti bekor qilinib qaytarib olingan kvest: faqat haqiqatan
+  // qaytarib olingan miqdor qaytariladi (olmos sarflangan bo'lsa — 0), qayta to'liq mukofot yo'q.
+  if (S.questRevoked[key] !== undefined) {
+    var back = Math.max(0, Math.min(q.reward, Number(S.questRevoked[key]) || 0));
+    delete S.questRevoked[key];
+    if (back > 0) gemsAdd(back, 'quest', '🎯 ' + q.text);
+    else toast('✓ ' + _cl('Kvest yana bajarildi (mukofot avval olingan)', 'Quest done again (reward already received)', 'Квест снова выполнен (награда уже получена)'));
+    save(); renderQuests(); return;
+  }
   S.questClaims[key] = Date.now();
   // eski da'volarni tozalash (60 kundan eski)
   var cut = addDays(today(), -60);
-  Object.keys(S.questClaims).forEach(function (k) { var d = k.split(':')[1]; if (d && d < cut) delete S.questClaims[k]; });
+  Object.keys(S.questClaims).forEach(function (k) { var d = k.split(':')[1]; if (d && d < cut) { delete S.questClaims[k]; delete S.questRevoked[k]; } });
   gemsAdd(q.reward, 'quest', '🎯 ' + q.text);
   try { confetti(); SFX.coin(); } catch (e) {}
   save(); renderQuests();
@@ -7989,15 +7999,17 @@ function mqClaim(key) {
 // ↩ Mukofoti olingan kvest sharti keyin bekor qilinsa (masalan vazifa "undone"),
 // mukofot qaytarib olinadi va kvest yana ochiladi — cheksiz mukofot olishning oldi olinadi.
 function mqReconcile() {
-  var Q = mqGetQuests(), claims = S.questClaims || {}, changed = false;
+  var Q = mqGetQuests(), changed = false;
+  S.questRevoked = S.questRevoked || {};
   Q.daily.concat(Q.weekly).forEach(function (q) {
     if (!q.claimed || q.done) return;
-    delete claims[q.key];
-    gemsAdd(-q.reward, 'quest', '↩ ' + q.text, true);
-    try { toast('↩ ' + _cl('Kvest sharti bekor qilindi', 'Quest condition undone', 'Условие квеста отменено') + ': −' + q.reward + ' 💎'); } catch (e) {}
+    // da'vo o'chirilmaydi — qancha qaytarib olingani yoziladi (qayta bajarilsa faqat shuncha qaytadi)
+    var taken = -gemsAdd(-q.reward, 'quest', '↩ ' + q.text, true) || 0;
+    S.questRevoked[q.key] = taken;
+    try { toast('↩ ' + _cl('Kvest sharti bekor qilindi', 'Quest condition undone', 'Условие квеста отменено') + (taken ? ': −' + taken + ' 💎' : '')); } catch (e) {}
     changed = true;
   });
-  if (changed) { S.questClaims = claims; save(); }
+  if (changed) save();
   return changed;
 }
 function renderQuests() {
@@ -11264,6 +11276,7 @@ function repeatLabel(t) {
 }
 
 function diffBadge(d) {
+  if(d===4) return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#A78BFA;flex-shrink:0" title="'+taskTierName(4)+'"></span>';
   if(d===3) return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F87171;flex-shrink:0" title="'+tr('diff_hard_title')+'"></span>';
   if(d===2) return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5A623;flex-shrink:0" title="'+tr('diff_medium_title')+'"></span>';
   if(d===0) return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F0EEF8;border:1px solid rgba(0,0,0,0.25);flex-shrink:0" title="'+tr('diff_free_title')+'"></span>';
@@ -19186,6 +19199,7 @@ function _csvEscape(val) {
   return s;
 }
 function _diffLabelPlain(d) {
+  if (d === 4) return taskTierName(4);
   if (d === 3) return tr('diff_hard_title');
   if (d === 2) return tr('diff_medium_title');
   if (d === 0) return tr('diff_free_title');
@@ -19504,7 +19518,7 @@ function renderStats() {
     if (!iconEl || !nameEl || !countEl) return;
 
     if (topTask && topCount > 0) {
-      var diffIcons = ['🟢','🟡','🔴'];
+      var diffIcons = ['🟢','🟡','🔴','🟣'];
       iconEl.textContent  = diffIcons[(topTask.diff||1)-1];
       nameEl.textContent  = topTask.name;
       countEl.textContent = topCount + t('stat_times_done');
@@ -20109,7 +20123,7 @@ function renderTopTaskList() {
     return;
   }
 
-  var diffIcons = ['🟢', '🟡', '🔴'];
+  var diffIcons = ['🟢', '🟡', '🔴', '🟣'];
   var html = '';
   rows.forEach(function(r) {
     var icon = r.task.emoji || diffIcons[(r.task.diff || 1) - 1];
@@ -21806,7 +21820,7 @@ function renderDayDetailContent(dateStr) {
     var color = done ? '#34D399' : skipped ? '#F5A623' : 'var(--text-dim)';
     var coins = done ? '+' + tsk.coins + ' 🪙' : '';
 
-    var diffRgb = tsk.diff === 3 ? '248,113,113' : tsk.diff === 2 ? '245,166,35' : tsk.diff === 0 ? '240,238,248' : '52,211,153';
+    var diffRgb = tsk.diff === 4 ? '167,139,250' : tsk.diff === 3 ? '248,113,113' : tsk.diff === 2 ? '245,166,35' : tsk.diff === 0 ? '240,238,248' : '52,211,153';
     var rowBg = 'rgba(' + diffRgb + ',0.12)';
     var rowBorder = 'rgba(' + diffRgb + ',0.3)';
 
@@ -24906,7 +24920,9 @@ var wsSubmitLogin = async function() {
     startRealtimeSync();
 
     // Bulutdan hamma narsani tiklaymiz: app_state → profil → tasklar
-    var pulled = await cloudPullAll(uid);
+    window._cloudBootBusy = true;
+    var pulled;
+    try { pulled = await cloudPullAll(uid); } finally { setTimeout(function () { window._cloudBootBusy = false; }, 300); }
     if (pulled.profile && pulled.profile.name) wsState.name = pulled.profile.name;
     if (pulled.hadProfile || pulled.hadAppState) {
       // wsFinish so'rovnoma javoblari bilan bulutdagi sozlamalarni bosib yubormasin
@@ -27581,8 +27597,10 @@ try {
     if (root.classList.contains('x-pomo-running') !== running) root.classList.toggle('x-pomo-running', running);
     if (root.classList.contains('x-pomo-break') !== brk) root.classList.toggle('x-pomo-break', brk);
     var txt = '';
+    try { pomoSyncHubBar(act); } catch (e) {}
     if (running) {
-      var ms = brk ? (act.breakRemainingMs || 0) : Math.max(0, pomoWorkMs() - (act.cycleMs || 0));
+      // Ish fazasida — qancha vaqt o'tgani (soat:daq:son), tanaffusda — qolgan vaqt
+      var ms = brk ? (act.breakRemainingMs || 0) : Math.max(0, act.elapsedMs || 0);
       var sec = Math.ceil(ms / 1000), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60;
       var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
       txt = (h ? h + ':' : '') + p2(m) + ':' + p2(s2);
@@ -27607,6 +27625,33 @@ try {
   }
   window.pomoSyncRunIndicator = pomoSyncRunIndicator;
 
+  // 🍅 Hub sahifasi tepasidagi Pomodoro paneli (suzuvchi vidjet o'rniga): nom, o'tgan vaqt, ⏸/▶, ochish
+  var _hubBarState = null;
+  function pomoSyncHubBar(act) {
+    var bar = document.getElementById('x-hub-pomo');
+    if (!bar) return;
+    if (!act) { if (_hubBarState !== '') { bar.innerHTML = ''; bar.className = ''; _hubBarState = ''; } return; }
+    var brk = act.phase === 'break';
+    var st = act.id + '|' + (act.running ? 1 : 0) + '|' + (brk ? 1 : 0) + '|' + act.name;
+    if (_hubBarState !== st || !bar.firstChild) {
+      _hubBarState = st;
+      bar.className = 'x-hub-pomo' + (act.running ? ' on' : '') + (brk ? ' brk' : '');
+      bar.innerHTML = '<span class="x-hp-ic">' + (brk ? '☕' : '🍅') + '</span>'
+        + '<span class="x-hp-t"><b></b><span class="x-hp-s"></span></span>'
+        + '<span class="x-hp-time"></span>'
+        + '<button type="button" class="x-hp-btn" data-hp="toggle" aria-label="' + (act.running ? _cl('Pauza', 'Pause', 'Пауза') : _cl('Davom ettirish', 'Resume', 'Продолжить')) + '">' + (act.running ? '⏸' : '▶') + '</button>'
+        + '<button type="button" class="x-hp-btn ghost" data-hp="open" aria-label="Pomodoro">↗</button>';
+      bar.querySelector('b').textContent = act.name || 'Pomodoro';
+      bar.querySelector('.x-hp-s').textContent = brk ? _cl('Tanaffus', 'Break', 'Перерыв') : (act.running ? _cl('Ishlayapti', 'Running', 'Идёт') : _cl("To'xtatilgan", 'Paused', 'На паузе'));
+      bar.querySelector('[data-hp="toggle"]').onclick = function () { window.pomoFloatToggle(); };
+      bar.querySelector('[data-hp="open"]').onclick = function () { window.pomoOpenModal(); };
+    }
+    var ms = brk ? (act.breakRemainingMs || 0) : (act.elapsedMs || 0);
+    var tEl = bar.querySelector('.x-hp-time'), tx = pomoFormatHMS(ms);
+    if (tEl && tEl.textContent !== tx) tEl.textContent = tx;
+  }
+  window.pomoSyncHubBar = function () { _hubBarState = null; try { pomoSyncHubBar(pomoActiveId ? pomoFindAct(pomoActiveId) : null); } catch (e) {} };
+
   function pomoUpdateFloatUI() {
     try { pomoSyncRunIndicator(); } catch (e) {}
     var fdoc = pomoFloatDoc();
@@ -27625,11 +27670,10 @@ try {
       var ov = document.getElementById('pomo-modal-overlay');
       return !!(ov && ov.classList.contains('open'));
     })();
-    if (pomoModalOpen) {
-      floatEl.classList.remove('show');
-    } else if (!pomoFloatDismissed) {
-      floatEl.classList.add('show');
-    }
+    // Suzuvchi vidjet asosiy sahifada endi ko'rsatilmaydi — o'rniga Hub tugmasi va Hub paneli.
+    // Faqat PiP (kichik oyna) rejimida ko'rinadi.
+    if (mainDoc || pomoModalOpen) floatEl.classList.remove('show');
+    else floatEl.classList.add('show');
     floatEl.classList.toggle('break-mode', act.phase === 'break');
     floatEl.classList.toggle('running', !!act.running); // 🆕 PiP oynachadagi vaqt matnining nafas oluvchi (pulse) animatsiyasi shunga bog'liq
     fdoc.getElementById('pomo-float-label').textContent = act.name + (act.phase === 'break' ? (act.lastBreakIsLong ? ' · 🌿 ' + _cl("Uzoq tanaffus", "Long break", "Длинный перерыв") : ' · ☕ ' + _cl("Qisqa tanaffus", "Short break", "Короткий перерыв")) : '') + (act.running ? '' : ' · ' + _cl("To'xtatilgan", "Paused", "На паузе"));
@@ -31744,7 +31788,12 @@ var cloudPullAppState = async function(force) {
   _appStateLastCmp = JSON.stringify(Object.assign({}, _appStatePayload(), { _savedAt: 0 }));
   if (needReload && !sessionStorage.getItem('cloudPomoReloaded')) {
     try { sessionStorage.setItem('cloudPomoReloaded', '1'); } catch (e) {}
-    setTimeout(function () { location.reload(); }, 400);
+    // Kirish jarayoni (cloudBoot/login) tugamaguncha qayta yuklamaymiz — aks holda
+    // loginMethod saqlanmay qolib, kirish qaytadan boshlanib aylanib qolardi.
+    (function waitAndReload(n) {
+      if (window._cloudBootBusy && n < 100) return setTimeout(function () { waitAndReload(n + 1); }, 200);
+      setTimeout(function () { try { save(); } catch (e) {} location.reload(); }, 400);
+    })(0);
   }
   return { ok: true, had: true, applied: true };
 };
@@ -31856,7 +31905,9 @@ var _cloudRevertNameFromServer = function() {
 var _cloudCleanLoginIfExisting = async function(uid) {
   if (!uid) return false;
   var flag = null; try { flag = sessionStorage.getItem('cloudCleanLogin'); } catch (e) {}
-  if (flag === uid) { try { sessionStorage.removeItem('cloudCleanLogin'); } catch (e) {} return false; }
+  var done = null; try { done = sessionStorage.getItem('cloudCleanDone'); } catch (e) {}
+  if (done === uid) return false; // shu tabda bu akkaunt uchun tozalash allaqachon qilingan — qayta aylanmasin
+  if (flag === uid) { try { sessionStorage.removeItem('cloudCleanLogin'); sessionStorage.setItem('cloudCleanDone', uid); } catch (e) {} return false; }
   var has = false;
   try {
     var a = await supabase.from('app_state').select('user_id').eq('user_id', uid).maybeSingle();
@@ -31873,6 +31924,10 @@ var _cloudCleanLoginIfExisting = async function(uid) {
 };
 
 var cloudBoot = async function(session, isOAuthReturn) {
+  window._cloudBootBusy = true;
+  try { return await _cloudBootInner(session, isOAuthReturn); } finally { window._cloudBootBusy = false; }
+};
+var _cloudBootInner = async function(session, isOAuthReturn) {
   await _cloudWaitBooted();
   if (_cloudAccountSwitchReset(session.user.id)) return;
   S.cloudLinked = true;
