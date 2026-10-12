@@ -553,15 +553,21 @@ var pinKey = async function(k) {
     if (res.ok) {
       pcSetSessionPin(_pinBuffer); // cloud sinxronlash uchun sessiyada keshlaymiz
       _secretUnlocked = true;
-      document.getElementById('secret-pin-overlay').style.display = 'none';
-      document.getElementById('secret-content').style.display = '';
-      renderSecretContent();
-      _pcResetAutoLockTimer();
+      pinSlotsStatus('secret', 'success');
+      // slotlardagi "to'lqin" ko'rinib ulgurishi uchun qisqa kechikish
+      setTimeout(function(){
+        if (!_secretUnlocked) return;
+        document.getElementById('secret-pin-overlay').style.display = 'none';
+        document.getElementById('secret-content').style.display = '';
+        renderSecretContent();
+        _pcResetAutoLockTimer();
+      }, (window.UIKit ? 320 : 0));
     } else if (res.locked) {
       showPinLockout('pin-error', 'secret-pin-keypad', res.remainingSec);
       _pinBuffer = '';
     } else {
       document.getElementById('pin-error').textContent = t('pin_wrong_error');
+      pinSlotsStatus('secret', 'error');
       _pinBuffer = '';
       // shake dots
       var dots = document.getElementById('pin-dots');
@@ -603,6 +609,7 @@ var chpinKey = async function(k) {
     }
     var res = await pcVerifyPinBuffer(_chpinBuf);
     if (res.ok) {
+      pinSlotsStatus('chpin', 'success');
       _chpinStep = 'new'; _chpinBuf = '';
       document.getElementById('chpin-step-label').textContent = t('chpin_enter_new');
       document.getElementById('chpin-error').textContent = '';
@@ -611,6 +618,7 @@ var chpinKey = async function(k) {
       _chpinBuf = '';
     } else {
       document.getElementById('chpin-error').textContent = t('chpin_wrong_old');
+      pinSlotsStatus('chpin', 'error');
       _chpinBuf = '';
     }
   } else if (_chpinStep === 'new') {
@@ -631,6 +639,7 @@ var chpinKey = async function(k) {
       toast(t('pin_changed_toast'));
     } else {
       document.getElementById('chpin-error').textContent = t('chpin_mismatch');
+      pinSlotsStatus('chpin', 'error');
       _chpinBuf = ''; _chpinStep = 'new'; _chpinNew = '';
       document.getElementById('chpin-step-label').textContent = t('chpin_enter_new');
     }
@@ -675,6 +684,7 @@ var pcCreateKey = async function(k) {
       if (typeof _pcSetupAfterPinCreated === 'function' && _pcSetupInProgress) _pcSetupAfterPinCreated();
     } else {
       document.getElementById('pc-create-error').textContent = t('chpin_mismatch');
+      pinSlotsStatus('pccreate', 'error');
       _pcCreateBuf = ''; _pcCreateStep = 'new'; _pcCreateNew = '';
       document.getElementById('pc-create-step-label').textContent = t('chpin_enter_new');
     }
@@ -736,6 +746,7 @@ var pcVerifyKey = async function(k) {
     _pcVerifyBuf = '';
   } else {
     document.getElementById('pc-verify-error').textContent = t('pin_wrong_error');
+    pinSlotsStatus('pcverify', 'error');
     _pcVerifyBuf = '';
     updatePcVerifyDots();
   }
@@ -8717,7 +8728,7 @@ function openExportPinPrompt(chosen) {
     '<div style="font-size:var(--fs-5xl);margin-bottom:12px">🔐</div>' +
     '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:700;color:#B48EFF;margin-bottom:10px">' + t('export_pin_title') + '</h3>' +
     '<p style="font-size:var(--fs-xs);color:var(--text-muted);margin-bottom:16px;line-height:1.6">' + t('export_pin_desc') + '</p>' +
-    '<input id="export-pin-input" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*" autocomplete="off" style="width:100%;padding:12px;text-align:center;letter-spacing:8px;font-size:var(--fs-lg);border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);margin-bottom:8px;box-sizing:border-box">' +
+    '<div id="export-pin-slots" class="pin-slots-host"></div>' +
     '<div id="export-pin-error" style="color:#F87171;font-size:var(--fs-xs);min-height:18px;margin-bottom:10px"></div>' +
     '<div style="display:flex;gap:10px">' +
       '<button id="export-pin-cancel" style="flex:1;padding:12px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer">' + t('btn_cancel') + '</button>' +
@@ -8725,9 +8736,9 @@ function openExportPinPrompt(chosen) {
     '</div>';
   ov.appendChild(box);
   document.body.appendChild(ov);
-  var input = document.getElementById('export-pin-input');
   var errEl = document.getElementById('export-pin-error');
-  input.focus();
+  // 🔢 UIKit.codeSlots — 4 xonali PIN (avvalgi type=password input o'rniga)
+  var input = _pinPromptSlots('export-pin-slots', function(){ trySubmit(); }, errEl);
 
   function cleanup() { ov.remove(); }
 
@@ -8739,7 +8750,7 @@ function openExportPinPrompt(chosen) {
       errEl.textContent = t('pin_locked_error').replace('{s}', Math.ceil(lockedMs / 1000));
       return;
     }
-    var buf = input.value.trim();
+    var buf = input.getValue();
     if (buf.length !== 4) { errEl.textContent = t('chpin_enter_4digits'); return; }
     var res = await pcVerifyPinBuffer(buf);
     if (res.ok) {
@@ -8748,15 +8759,14 @@ function openExportPinPrompt(chosen) {
       performExport(chosen, buf);
     } else if (res.locked) {
       errEl.textContent = t('pin_locked_error').replace('{s}', res.remainingSec);
-      input.value = '';
+      input.setStatus('error');
     } else {
       errEl.textContent = t('pin_wrong_error');
-      input.value = '';
+      input.setStatus('error');
     }
   }
 
   document.getElementById('export-pin-confirm').onclick = trySubmit;
-  input.addEventListener('keydown', function(e){ if (e.key === 'Enter') trySubmit(); });
   document.getElementById('export-pin-cancel').onclick = cleanup;
 }
 
@@ -8891,6 +8901,27 @@ function showImportConfirmModal(backup) {
   };
 }
 
+// Export/Import PIN so'rovlari uchun CodeSlots. UIKit yuklanmagan bo'lsa —
+// oddiy input'ga qaytadi (xuddi shu getValue/setStatus interfeysi bilan).
+function _pinPromptSlots(hostId, onComplete, errEl) {
+  var host = document.getElementById(hostId);
+  if (window.UIKit && host) {
+    return UIKit.codeSlots(host, {
+      length: 4, mask: true, slotSize: 48, gap: 10, autoFocus: true,
+      label: _cl('PIN kod, 4 ta raqam', 'PIN code, 4 digits', 'PIN-код, 4 цифры'),
+      onChange: function () { if (errEl) errEl.textContent = ''; },
+      onComplete: function () { onComplete(); }
+    });
+  }
+  var inp = document.createElement('input');
+  inp.type = 'password'; inp.inputMode = 'numeric'; inp.maxLength = 4; inp.autocomplete = 'off';
+  inp.style.cssText = 'width:100%;padding:12px;text-align:center;letter-spacing:8px;font-size:var(--fs-lg);border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);margin-bottom:8px;box-sizing:border-box';
+  if (host) host.appendChild(inp);
+  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') onComplete(); });
+  setTimeout(function () { inp.focus(); }, 30);
+  return { getValue: function () { return inp.value.trim(); }, setStatus: function () { inp.value = ''; }, focus: function () { inp.focus(); } };
+}
+
 function promptImportDecryptPin(enc, onSuccess, onSkip) {
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -8900,7 +8931,7 @@ function promptImportDecryptPin(enc, onSuccess, onSkip) {
     '<div style="font-size:var(--fs-5xl);margin-bottom:12px">🔐</div>' +
     '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-lg);font-weight:700;color:#B48EFF;margin-bottom:10px">' + t('import_pin_title') + '</h3>' +
     '<p style="font-size:var(--fs-xs);color:var(--text-muted);margin-bottom:16px;line-height:1.6">' + t('import_pin_desc') + '</p>' +
-    '<input id="import-pin-input" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*" autocomplete="off" style="width:100%;padding:12px;text-align:center;letter-spacing:8px;font-size:var(--fs-lg);border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);margin-bottom:8px;box-sizing:border-box">' +
+    '<div id="import-pin-slots" class="pin-slots-host"></div>' +
     '<div id="import-pin-error" style="color:#F87171;font-size:var(--fs-xs);min-height:18px;margin-bottom:10px"></div>' +
     '<div style="display:flex;gap:10px">' +
       '<button id="import-pin-skip" style="flex:1;padding:12px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-2xs);cursor:pointer">' + t('import_pin_skip_btn') + '</button>' +
@@ -8908,14 +8939,13 @@ function promptImportDecryptPin(enc, onSuccess, onSkip) {
     '</div>';
   ov.appendChild(box);
   document.body.appendChild(ov);
-  var input = document.getElementById('import-pin-input');
   var errEl = document.getElementById('import-pin-error');
-  input.focus();
+  var input = _pinPromptSlots('import-pin-slots', function(){ trySubmit(); }, errEl);
 
   function cleanup() { ov.remove(); }
 
   async function trySubmit() {
-    var buf = input.value.trim();
+    var buf = input.getValue();
     if (buf.length !== 4) { errEl.textContent = t('chpin_enter_4digits'); return; }
     try {
       var decrypted = await pcDecryptWithPin(buf, enc);
@@ -8923,12 +8953,11 @@ function promptImportDecryptPin(enc, onSuccess, onSkip) {
       onSuccess(decrypted);
     } catch (e) {
       errEl.textContent = t('pin_wrong_error');
-      input.value = '';
+      input.setStatus('error');
     }
   }
 
   document.getElementById('import-pin-confirm').onclick = trySubmit;
-  input.addEventListener('keydown', function(e){ if (e.key === 'Enter') trySubmit(); });
   document.getElementById('import-pin-skip').onclick = function(){ cleanup(); onSkip(); };
 }
 
@@ -10418,6 +10447,20 @@ function deleteTask(id) {
   var _delToast = t('task_deleted_toast');
   var tk = S.tasks.find(function(x){return x.id===id;});
   if (!tk) return;
+  if (window.UIKit) {
+    // 🗑 HoldButton: o'chirish faqat to'liq bosib turilgandan so'ng (savat + "Qaytarish" toast saqlanadi)
+    showHoldConfirmModal(
+      '«' + esc(tk.name) + '»<br><span style="color:var(--red);font-size:var(--fs-xs)">' + _delWarning + '</span>',
+      function(){
+        SFX.delete();
+        moveTaskToTrash(id);
+        showUndoToast(_delToast, function () { restoreTask(id); });
+      },
+      { icon: '🗑️', title: _delTitle, holdTime: 1500, holdLabel: '🗑 ' + _cl("O'chirish uchun bosib turing", 'Hold to delete', 'Удерживайте для удаления'),
+        onCancel: function(){ try { SFX.click(); } catch (e) {} } }
+    );
+    return;
+  }
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px';
   var box = document.createElement('div');
@@ -11068,10 +11111,10 @@ function deleteReward(id) {
     save();
     renderRewards();
   };
-  if (typeof showConfirmModal === 'function') {
-    showConfirmModal(
+  if (typeof showHoldConfirmModal === 'function') {
+    showHoldConfirmModal(
       _cl('«' + esc(r.name) + '» mukofotini o\'chirasizmi?', 'Delete reward «' + esc(r.name) + '»?', 'Удалить награду «' + esc(r.name) + '»?'),
-      doDelete, { icon: '🗑️' }
+      doDelete, { icon: '🗑️', title: _cl("Mukofotni o'chirish", 'Delete reward', 'Удалить награду') }
     );
   } else {
     doDelete();
@@ -16769,6 +16812,14 @@ function addTarixLog(type, desc, amount, uniqueKey, forceDate) {
 // "Tozalash" bosilganda darhol o'chirish o'rniga — tasdiqlash modali.
 function confirmClearHistory() {
   if((S.tarix||[]).length===0) { toast(t('tarix_empty_all')); return; }
+  if (window.UIKit) {
+    showHoldConfirmModal(t('tarix_clear_confirm_desc'), function(){ clearHistory(); }, {
+      icon: '⚠️', title: t('tarix_clear_confirm_title'),
+      holdLabel: '🧹 ' + _cl('Tozalash uchun bosib turing', 'Hold to clear', 'Удерживайте для очистки'),
+      doneLabel: '✓ ' + _cl('Tozalandi', 'Cleared', 'Очищено')
+    });
+    return;
+  }
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px';
   var box = document.createElement('div');
@@ -16848,6 +16899,7 @@ function switchTarixTab(tab) {
     var btn = document.getElementById('ttab-'+t);
     if(!btn) return;
     var active = t === tab;
+    btn.classList.toggle('active', active); // UIKit.rubberSegment thumb'i shu class'ga ergashadi
     btn.style.background = active ? 'var(--accent)' : 'var(--surface)';
     btn.style.color = active ? '#fff' : 'var(--text-muted)';
     btn.style.borderColor = active ? 'transparent' : 'var(--border)';
@@ -16914,6 +16966,7 @@ function switchTarixChartPeriod(p) {
     var btn = document.getElementById('tchart-'+pp);
     if(!btn) return;
     var active = pp === p;
+    btn.classList.toggle('active', active); // UIKit.rubberSegment thumb'i shu class'ga ergashadi
     btn.style.background = active ? 'var(--accent)' : 'var(--surface)';
     btn.style.color = active ? '#fff' : 'var(--text-muted)';
     btn.style.borderColor = active ? 'transparent' : 'var(--border)';
@@ -17467,6 +17520,8 @@ function showPinLockout(errorElId, keypadElId, secs) {
   var padEl = keypadElId ? document.getElementById(keypadElId) : null;
   if (_pcLockoutIntervals[errorElId]) clearInterval(_pcLockoutIntervals[errorElId]);
   if (padEl) { padEl.style.opacity = '0.4'; padEl.style.pointerEvents = 'none'; }
+  var slotsEl = pinSlotsForPad(keypadElId);
+  if (slotsEl) slotsEl.disable(true);
   function tick() {
     if (errEl) errEl.textContent = t('pin_locked_error').replace('{s}', secs);
     secs--;
@@ -17475,6 +17530,7 @@ function showPinLockout(errorElId, keypadElId, secs) {
       delete _pcLockoutIntervals[errorElId];
       if (errEl) errEl.textContent = '';
       if (padEl) { padEl.style.opacity = ''; padEl.style.pointerEvents = ''; }
+      if (slotsEl) { slotsEl.disable(false); }
     }
   }
   tick();
@@ -17525,11 +17581,63 @@ function openSecretTab() {
   document.getElementById('secret-content').style.display = 'none';
   document.getElementById('pin-error').textContent = '';
   _secretUnlocked = false;
+  pinSlotsFocus('secret');
 }
 
 /* pinKey: blok boshiga (global var sifatida) ko'chirildi */
 
+// 🔢 PIN slotlari (UIKit.codeSlots) — eski 4 ta nuqta o'rniga. Ekrandagi
+// raqamli klaviatura (keypad) saqlanadi: u buferni o'zgartiradi, slotlar
+// esa buferdan sinxronlanadi (setValue — jim). Slotga to'g'ridan-to'g'ri
+// yozilganda (fizik / tizim klaviaturasi, paste) bufer onChange orqali
+// yangilanadi va 4-raqamdan so'ng xuddi "OK" bosilgandek tekshiriladi —
+// tekshirish mantig'i (pinKey/chpinKey/pcCreateKey/pcVerifyKey) o'zgarmadi.
+var _PIN_SLOT_CFG = {
+  secret:   { host: 'pin-dots',       err: 'pin-error',       pad: 'secret-pin-keypad', get: function(){ return _pinBuffer; },    set: function(v){ _pinBuffer = v; },    key: function(k){ return pinKey(k); } },
+  chpin:    { host: 'chpin-dots',     err: 'chpin-error',     pad: 'chpin-keypad',      get: function(){ return _chpinBuf; },     set: function(v){ _chpinBuf = v; },     key: function(k){ return chpinKey(k); } },
+  pccreate: { host: 'pc-create-dots', err: 'pc-create-error', pad: 'pc-create-keypad',  get: function(){ return _pcCreateBuf; },  set: function(v){ _pcCreateBuf = v; },  key: function(k){ return pcCreateKey(k); } },
+  pcverify: { host: 'pc-verify-dots', err: 'pc-verify-error', pad: 'pc-verify-keypad',  get: function(){ return _pcVerifyBuf; },  set: function(v){ _pcVerifyBuf = v; },  key: function(k){ return pcVerifyKey(k); } }
+};
+var _pinSlotsInst = {};
+function pinSlots(name) {
+  if (_pinSlotsInst[name]) return _pinSlotsInst[name];
+  var cfg = _PIN_SLOT_CFG[name];
+  if (!cfg || !window.UIKit) return null;
+  var host = document.getElementById(cfg.host);
+  if (!host) return null;
+  host.innerHTML = '';
+  host.classList.add('pin-slots-host');
+  var inst = UIKit.codeSlots(host, {
+    length: 4, mask: true, slotSize: 50, gap: 10,
+    label: _cl('PIN kod, 4 ta raqam', 'PIN code, 4 digits', 'PIN-код, 4 цифры'),
+    onChange: function (v) {
+      cfg.set(v);
+      var e = document.getElementById(cfg.err);
+      if (e && !_pcLockoutIntervals[cfg.err]) e.textContent = '';
+    },
+    onComplete: function () { setTimeout(function () { cfg.key('ok'); }, 120); }
+  });
+  _pinSlotsInst[name] = inst;
+  return inst;
+}
+function pinSlotsSync(name) { var s = pinSlots(name); if (s) s.setValue(_PIN_SLOT_CFG[name].get()); }
+function pinSlotsStatus(name, st) { var s = pinSlots(name); if (s) s.setStatus(st); }
+function pinSlotsFocus(name) {
+  var s = pinSlots(name);
+  if (!s) return;
+  // Sensorli qurilmada tizim klaviaturasi ekrandagi keypad'ni yopib qo'ymasin —
+  // avtofokus faqat sichqoncha/trackpad'li qurilmalarda.
+  var fine = false;
+  try { fine = window.matchMedia('(pointer: fine)').matches; } catch (e) {}
+  if (fine) setTimeout(function () { s.focus(); }, 60);
+}
+function pinSlotsForPad(padId) {
+  for (var k in _PIN_SLOT_CFG) if (_PIN_SLOT_CFG[k].pad === padId) return pinSlots(k);
+  return null;
+}
+
 function updatePinDots() {
+  pinSlotsSync('secret');
   for(var i=0;i<4;i++){
     var dot = document.getElementById('pd'+i);
     if(!dot) continue;
@@ -17585,6 +17693,7 @@ function openChangePinModal() {
   document.getElementById('chpin-error').textContent = '';
   updateChpinDots();
   document.getElementById('change-pin-overlay').style.display = 'flex';
+  pinSlotsFocus('chpin');
 }
 function closeChangePinModal() {
   document.getElementById('change-pin-overlay').style.display = 'none';
@@ -17592,6 +17701,7 @@ function closeChangePinModal() {
 }
 /* chpinKey: blok boshiga (global var sifatida) ko'chirildi */
 function updateChpinDots() {
+  pinSlotsSync('chpin');
   for (var i = 0; i < 4; i++) {
     var dot = document.getElementById('cpd' + i);
     if (!dot) continue;
@@ -17826,6 +17936,7 @@ function openPcCreatePinModal() {
   document.getElementById('pc-create-error').textContent = '';
   updatePcCreateDots();
   document.getElementById('pc-create-pin-overlay').style.display = 'flex';
+  pinSlotsFocus('pccreate');
 }
 function closePcCreatePinModal() {
   document.getElementById('pc-create-pin-overlay').style.display = 'none';
@@ -17835,6 +17946,7 @@ function closePcCreatePinModal() {
 }
 /* pcCreateKey: blok boshiga (global var sifatida) ko'chirildi */
 function updatePcCreateDots() {
+  pinSlotsSync('pccreate');
   for (var i = 0; i < 4; i++) {
     var dot = document.getElementById('pccd' + i);
     if (!dot) continue;
@@ -17858,6 +17970,7 @@ function openPcVerifyPinModal(purpose) {
   if (descEl) descEl.textContent = t(descKey);
   updatePcVerifyDots();
   document.getElementById('pc-verify-pin-overlay').style.display = 'flex';
+  pinSlotsFocus('pcverify');
 }
 function closePcVerifyPinModal() {
   document.getElementById('pc-verify-pin-overlay').style.display = 'none';
@@ -17866,6 +17979,7 @@ function closePcVerifyPinModal() {
 }
 /* pcVerifyKey: blok boshiga (global var sifatida) ko'chirildi */
 function updatePcVerifyDots() {
+  pinSlotsSync('pcverify');
   for (var i = 0; i < 4; i++) {
     var dot = document.getElementById('pcvd' + i);
     if (!dot) continue;
@@ -17882,6 +17996,8 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
+  // UIKit.codeSlots inputi o'zi klaviaturani qayta ishlaydi — ikki marta kiritilmasin
+  if (e.target && e.target.closest && e.target.closest('.uk-cs')) return;
   var isDigit = (e.key >= '0' && e.key <= '9');
   var isBackspace = (e.key === 'Backspace');
   var isEnter = (e.key === 'Enter');
@@ -19000,11 +19116,11 @@ function deleteGoal(id) {
   if (!g) return;
   var name = g.name || '';
   var msg = esc(t('goal_delete_confirm').replace('{name}', name));
-  showConfirmModal(msg, function(){
+  showHoldConfirmModal(msg, function(){
     try{SFX.delete();}catch(e){}
     S.goals = (S.goals||[]).filter(function(x){return x.id!==id;});
     save(); renderGoals(); renderGoalsCalendar(); toast(t('goal_deleted_toast'));
-  }, { icon: '🗑️' });
+  }, { icon: '🗑️', title: _cl("Maqsadni o'chirish", 'Delete goal', 'Удалить цель') });
 }
 
 // ============================================================
@@ -21011,6 +21127,26 @@ function showConfirmModal(message, onConfirm, opts) {
   document.getElementById('scm-confirm').onclick = function () { ov.remove(); onConfirm(); };
 }
 
+// 🗑 Qaytarib bo'lmaydigan (destruktiv) amallar uchun: oddiy "Tasdiqlash"
+// tugmasi o'rniga UIKit.holdButton — bosib turib tasdiqlanadi. UIKit
+// yuklanmagan bo'lsa, odatiy showConfirmModal'ga qaytadi.
+// opts: { icon, title, holdLabel, doneLabel, holdTime, onCancel }
+function showHoldConfirmModal(message, onConfirm, opts) {
+  opts = opts || {};
+  if (!window.UIKit || typeof UIKit.holdConfirm !== 'function') {
+    return showConfirmModal(message, onConfirm, { icon: opts.icon, confirmLabel: opts.holdLabel });
+  }
+  return UIKit.holdConfirm({
+    icon: opts.icon, title: opts.title, message: message,
+    holdLabel: opts.holdLabel || ('🗑 ' + _cl("O'chirish uchun bosib turing", 'Hold to delete', 'Удерживайте для удаления')),
+    doneLabel: opts.doneLabel || ('✓ ' + _cl("O'chirildi", 'Deleted', 'Удалено')),
+    hint: opts.hint,
+    holdTime: opts.holdTime || 2000,
+    onConfirm: onConfirm,
+    onCancel: opts.onCancel
+  });
+}
+
 function showPromptModal(message, defaultValue, onConfirm, opts) {
   opts = opts || {};
   var ov = document.createElement('div');
@@ -21330,9 +21466,14 @@ function updateThemeToggleUI() {
   sw.style.borderColor = isDark ? 'var(--accent)' : 'var(--border)';
   knob.style.left = isDark ? '22px' : '2px';
   knob.style.background = isDark ? '#fff' : 'var(--text-dim)';
+  var forced = !!(window.LUDesign && LUDesign.forcesDark());
+  sw.style.opacity = forced ? '0.5' : '';
+  sw.style.cursor = forced ? 'not-allowed' : 'pointer';
 }
 
 function toggleTheme() {
+  // Animatsion dizaynlar faqat tungi rejimda — light'ga o'tkazmaymiz, izoh ko'rsatamiz
+  if (window.LUDesign && LUDesign.forcesDark()) { try { LUDesign.darkNote(); } catch (e) {} updateThemeToggleUI(); return; }
   var isLight = document.body.classList.toggle('light');
   S.themeMode = isLight ? 'light' : 'dark';
   save();
@@ -21340,20 +21481,8 @@ function toggleTheme() {
   try { SFX.click(); } catch (e) {}
 }
 
-// 🎨 Theme Selector (Default Dark / Cyberpunk Neon) — dark/light rejimidan mustaqil,
-// vizual "skin" almashtiradi (qarang: html[data-theme="cyberpunk"] CSS'da).
-function changeAppTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('appTheme', theme);
-}
-(function initAppTheme() {
-  var saved = localStorage.getItem('appTheme') || 'default';
-  document.documentElement.setAttribute('data-theme', saved);
-  document.addEventListener('DOMContentLoaded', function () {
-    var sel = document.getElementById('theme-select');
-    if (sel) sel.value = saved;
-  });
-})();
+// 🎨 Dizayn mavzulari (Klassik / Magic Rings / Gradient Blinds / Grid Scan / Prismatic Burst)
+// endi designs.js da: window.LUDesign va window.changeAppTheme (localStorage 'appTheme').
 
 var _dsMoved = [];
 function _dsMove(el, target) {
@@ -21703,7 +21832,7 @@ function updateLayoutSettingUI(mode) {
 function loadTheme() {
   try {
     var mode = S.themeMode;
-    if (mode === 'light') {
+    if (mode === 'light' && !(window.LUDesign && LUDesign.forcesDark())) {
       document.body.classList.add('light');
     } else {
       document.body.classList.remove('light');
@@ -30186,7 +30315,7 @@ function renderFriendsStats() {
     cell('💎', (typeof gemsAvailable === 'function' ? gemsAvailable() : (S.gems || 0)), _cl("Tikish uchun", "To wager", "Для ставок"), 'fr-stat-gems');
 }
 function friendsRemoveFriend(userId) {
-  showConfirmModal(esc(t('friends_remove_confirm')), function () {
+  showHoldConfirmModal(esc(t('friends_remove_confirm')), function () {
     (S.friends.parties || []).forEach(function (p) {
       p.members = (p.members || []).filter(function (m) { return m.id !== userId; });
     });
@@ -30197,7 +30326,9 @@ function friendsRemoveFriend(userId) {
       if (res.error) { toast('❌ ' + res.error.message); return; }
       await friendsSyncFromCloud();
     })();
-  }, { icon: '👋' });
+  }, { icon: '👋', title: _cl("Do'stni o'chirish", 'Remove friend', 'Удалить друга'),
+       holdLabel: _cl("O'chirish uchun bosib turing", 'Hold to remove', 'Удерживайте для удаления'),
+       doneLabel: '✓ ' + _cl("O'chirildi", 'Removed', 'Удалён') });
 }
 function friendsPurgeRelatedRecords(userId) {
   var F = S.friends;
@@ -32098,7 +32229,7 @@ var cloudPullAll = async function(uid) {
 // bo'lsa, kirish sessiyasi saqlanadi). Akkaunt almashganda, chiqishda va o'chirishda ishlatiladi —
 // ma'lumotlar bulutda qoladi va qayta kirilganda tiklanadi.
 var _cloudWipeLocalAndReload = function(msg, keepAuth) {
-  var KEEP = ['appTheme', 'appLayout', 'sfxVolume', 'soundEnabled', 'dsSidebarW', 'dsAsideW', 'settingsPanelOpen'];
+  var KEEP = ['appTheme', 'designAnim', 'appLayout', 'sfxVolume', 'soundEnabled', 'dsSidebarW', 'dsAsideW', 'settingsPanelOpen'];
   try {
     window._cloudPullDone = false;
     if (typeof _appStateTimer !== 'undefined' && _appStateTimer) { clearTimeout(_appStateTimer); _appStateTimer = null; }
@@ -32297,10 +32428,25 @@ var cloudForgotPassword = async function() {
 
 var cloudDeleteAccount = async function() {
   if (!S.cloudLinked) return;
-  if (!confirm(_cl('Akkaunt va bulutdagi BARCHA ma\'lumotlar butunlay o\'chiriladi. Davom etasizmi?',
+  var _msg1 = _cl('Akkaunt va bulutdagi BARCHA ma\'lumotlar butunlay o\'chiriladi. Davom etasizmi?',
     'Your account and ALL cloud data will be permanently deleted. Continue?',
-    'Аккаунт и ВСЕ облачные данные будут удалены навсегда. Продолжить?'))) return;
-  if (!confirm(_cl('Aniq o\'chiraymi? Buni qaytarib bo\'lmaydi.', 'Really delete? This cannot be undone.', 'Точно удалить? Это нельзя отменить.'))) return;
+    'Аккаунт и ВСЕ облачные данные будут удалены навсегда. Продолжить?');
+  var _msg2 = _cl('Aniq o\'chiraymi? Buni qaytarib bo\'lmaydi.', 'Really delete? This cannot be undone.', 'Точно удалить? Это нельзя отменить.');
+  // Ikki marta native confirm() o'rniga — bitta modal + 2.5 soniya bosib turish
+  var _ok;
+  if (window.UIKit && typeof UIKit.holdConfirmAsync === 'function') {
+    _ok = await UIKit.holdConfirmAsync({
+      icon: '⚠️',
+      title: _cl("Akkauntni o'chirish", 'Delete account', 'Удалить аккаунт'),
+      message: esc(_msg1) + '<br><b>' + esc(_msg2) + '</b>',
+      holdLabel: '🗑 ' + _cl("Akkauntni o'chirish uchun bosib turing", 'Hold to delete account', 'Удерживайте, чтобы удалить'),
+      doneLabel: '✓ ' + _cl("O'chirilmoqda…", 'Deleting…', 'Удаление…'),
+      holdTime: 2500
+    });
+  } else {
+    _ok = confirm(_msg1) && confirm(_msg2);
+  }
+  if (!_ok) return;
   // Avatarni Storage API orqali o'chiramiz (SQL orqali storage jadvaliga tegish taqiqlangan)
   try {
     var uidA = S.cloudUserId;
@@ -32650,3 +32796,36 @@ var _fbAdminFilter = 'new';
 } catch (_blockErr10) {
   console.error('[script.js] Blok 10 ichida xatolik (qolgan kod baribir ishga tushadi):', _blockErr10);
 }
+
+
+// ============================================================
+// 🧩 UIKit integratsiyalari — RubberSegment ("rezina" thumb'li segment).
+// adopt-rejim: mavjud tugmalar (id, onclick, .active/.sel class'lari)
+// o'zgarishsiz qoladi — segment faqat ularni kuzatib, thumb'ni harakatlantiradi.
+// Bosilganda/klaviatura/sudrash orqali tanlanganda tugmaning o'z onclick'i
+// (setReytingScope, switchTarixTab, wpSetDuration ...) chaqiriladi.
+// ============================================================
+function initUiKitSegments() {
+  if (!window.UIKit || typeof UIKit.rubberSegment !== 'function') return;
+  function byId(id) { return document.getElementById(id); }
+  function parentOf(id) { var e = byId(id); return e ? e.parentNode : null; }
+  function mk(el, o) {
+    if (!el || el.classList.contains('uk-seg')) return;
+    try { UIKit.rubberSegment(el, Object.assign({ adopt: true }, o)); } catch (e) { console.warn('[UIKit] segment:', e); }
+  }
+  // Tarix: boshlang'ich holatni class'ga ko'chiramiz (ilgari faqat inline style edi)
+  try {
+    ['all', 'in', 'out'].forEach(function (k) { var b = byId('ttab-' + k); if (b) b.classList.toggle('active', k === _tarixTab); });
+    ['7d', '30d', '90d'].forEach(function (k) { var b = byId('tchart-' + k); if (b) b.classList.toggle('active', k === _tarixChartPeriod); });
+  } catch (e) {}
+  mk(byId('reyting-scope-toggle'),  { radius: 999, equalSlots: true, label: _cl('Reyting doirasi', 'Leaderboard scope', 'Охват рейтинга') });
+  mk(byId('reyting-metric-toggle'), { radius: 999, label: _cl('Reyting mezoni', 'Leaderboard metric', 'Метрика рейтинга') });
+  mk(parentOf('tchart-7d'),         { radius: 999, size: 'sm', label: _cl('Grafik davri', 'Chart period', 'Период графика') });
+  mk(byId('ttab-seg'),              { radius: 999, equalSlots: true, label: _cl('Tarix filtri', 'History filter', 'Фильтр истории') });
+  mk(byId('friends-list-filter-bar'), { equalSlots: true, label: _cl("Do'stlar filtri", 'Friends filter', 'Фильтр друзей') });
+  mk(parentOf('wp-goal-percent'),   { activeClass: 'sel', equalSlots: true, label: _cl('Maqsad turi', 'Goal type', 'Тип цели') });
+  mk(parentOf('wp-dur-7'),          { activeClass: 'sel', equalSlots: true, size: 'sm', label: _cl('Muddat', 'Duration', 'Длительность') });
+  mk(parentOf('fnc-crit-percent'),  { activeClass: 'sel', equalSlots: true, label: _cl('Chorlov mezoni', 'Challenge metric', 'Метрика вызова') });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initUiKitSegments);
+else initUiKitSegments();

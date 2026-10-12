@@ -13,6 +13,13 @@
 
   var L = function (uz, en, ru) { return _cl(uz, en, ru); };
   var H = function (s) { return esc(s == null ? '' : String(s)); };
+  // 🗑 Destruktiv tasdiqlash: HoldButton'li modal (script.js showHoldConfirmModal),
+  // u mavjud bo'lmasa — native confirm() (msg HTML-escape qilingan bo'ladi).
+  var holdAsk = function (msgHtml, onOk, opts) {
+    if (typeof showHoldConfirmModal === 'function') return showHoldConfirmModal(msgHtml, onOk, opts);
+    var tmp = document.createElement('div'); tmp.innerHTML = msgHtml;
+    if (confirm(tmp.textContent)) onOk();
+  };
   function pad2(n) { return String(n).padStart(2, '0'); }
   function dkey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function parseD(ds) { return new Date(ds + 'T00:00:00'); }
@@ -1512,14 +1519,20 @@
     card.querySelectorAll('[data-hreset]').forEach(function (b) { b.onclick = function () {
       var h = (S.xHabits || []).find(function (x) { return x.id === b.dataset.hreset; }); if (!h) return;
       var d = habDays(h);
-      if (!confirm(L('"' + h.name + '" hisoblagichi 0 dan boshlansinmi? (' + d + ' kun rekordga yoziladi)', 'Reset "' + h.name + '" to 0? (' + d + ' days will be kept as a record)', 'Сбросить «' + h.name + '» до 0? (' + d + ' дн. сохранятся в рекорде)'))) return;
-      h.best = Math.max(h.best || 0, d); h.start = today(); h.shown = []; save();
-      toast('💪 ' + L('Hechqisi yo\'q — qaytadan boshlaymiz!', 'It\'s okay — let\'s start again!', 'Ничего страшного — начнём заново!')); wbRerender();
+      var doReset = function () {
+        h.best = Math.max(h.best || 0, d); h.start = today(); h.shown = []; save();
+        toast('💪 ' + L('Hechqisi yo\'q — qaytadan boshlaymiz!', 'It\'s okay — let\'s start again!', 'Ничего страшного — начнём заново!')); wbRerender();
+      };
+      holdAsk(H(L('"' + h.name + '" hisoblagichi 0 dan boshlansinmi? (' + d + ' kun rekordga yoziladi)', 'Reset "' + h.name + '" to 0? (' + d + ' days will be kept as a record)', 'Сбросить «' + h.name + '» до 0? (' + d + ' дн. сохранятся в рекорде)')),
+        doReset, { icon: '🔄', title: L('Hisoblagichni nollash', 'Reset counter', 'Сбросить счётчик'),
+          holdLabel: '🔄 ' + L('Nollash uchun bosib turing', 'Hold to reset', 'Удерживайте для сброса'),
+          doneLabel: '✓ ' + L('Nollandi', 'Reset', 'Сброшено') });
     }; });
     card.querySelectorAll('[data-hdel]').forEach(function (b) { b.onclick = function () {
       var h = (S.xHabits || []).find(function (x) { return x.id === b.dataset.hdel; }); if (!h) return;
-      if (!confirm(L('"' + h.name + '" o\'chirilsinmi?', 'Delete "' + h.name + '"?', 'Удалить «' + h.name + '»?'))) return;
-      S.xHabits = S.xHabits.filter(function (x) { return x !== h; }); save(); wbRerender();
+      holdAsk(H(L('"' + h.name + '" o\'chirilsinmi?', 'Delete "' + h.name + '"?', 'Удалить «' + h.name + '»?')), function () {
+        S.xHabits = S.xHabits.filter(function (x) { return x !== h; }); save(); wbRerender();
+      }, { icon: '🗑️', title: L("Odatni o'chirish", 'Delete habit', 'Удалить привычку') });
     }; });
   }
 
@@ -1682,8 +1695,9 @@
     });
     box.querySelectorAll('[data-shd]').forEach(function (b) {
       b.onclick = function () {
-        if (!confirm(L('Umumiy vazifa o\'chirilsinmi? (ikkalangiz uchun)', 'Delete this shared task? (for both of you)', 'Удалить общую задачу? (для обоих)'))) return;
-        supabase.rpc('delete_shared_task', { p_task: b.dataset.shd }).then(function (r) { if (r.error) toast('⚠️ ' + sqlHint(r.error)); loadShared(); });
+        holdAsk(H(L('Umumiy vazifa o\'chirilsinmi? (ikkalangiz uchun)', 'Delete this shared task? (for both of you)', 'Удалить общую задачу? (для обоих)')), function () {
+          supabase.rpc('delete_shared_task', { p_task: b.dataset.shd }).then(function (r) { if (r.error) toast('⚠️ ' + sqlHint(r.error)); loadShared(); });
+        }, { icon: '🗑️', title: L("Umumiy vazifani o'chirish", 'Delete shared task', 'Удалить общую задачу') });
       };
     });
   }
