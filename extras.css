@@ -698,3 +698,47 @@ body.light #modal-box input[type="time"],body.light #modal-box input[type="date"
 #modal-box #m-remind{max-width:200px}
 #modal-box .tk-time-check{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:normal;font-size:var(--fs-xs);color:var(--text-muted);margin:10px 0 0;cursor:pointer}
 #modal-box .tk-time-check input[type="checkbox"]{width:18px;height:18px;margin:0;flex:none;accent-color:var(--accent);cursor:pointer}
+
+/* 📅 Kalendarlar — telefon ekranlari uchun tuzatishlar (desktop o'zgarmaydi) */
+/* Sensorli ekranda "hover" yopishib qoladi: bosilgan katak scale(1.12) bo'lib qo'shnilarini yopardi */
+@media (hover: none) {
+  #cal-grid > [data-date], #gcal-grid > [data-date], #goal-cal-grid > [data-date],
+  .calx-day:not(.future):hover, .moodx-day:hover:not(.fut) { transform: none !important; }
+}
+@media (max-width: 600px) {
+  /* Oy navigatsiyasi: kattaroq bosish maydoni (≥38px) */
+  #calendar-section > div:nth-child(2) > button, #goals-calendar-section > div:nth-child(2) > button,
+  #goal-cal-modal-box > div:nth-of-type(2) > button, #tt-filter-panel > div:first-child > button,
+  #cal-monthyear-modal-overlay .modal > div:first-child > button,
+  .mood-nav-btn, .pomo-cal-nav-btn { width: 38px !important; height: 38px !important; }
+  #cal-today-btn, #gcal-today-btn { padding: 3px 12px !important; margin-top: 1px; border-radius: 999px !important; }
+  #cal-month-label, #gcal-month-label, #goal-cal-month-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+  /* Asosiy kalendar katagi: emoji/tanga/chiziq bir-birini bosmasin */
+  #cal-grid, #cal-day-headers, #gcal-grid, #gcal-day-headers { gap: 4px !important; }
+  .calx-day { border-radius: 10px; gap: 2px; padding-bottom: 2px; }
+  .calx-num { font-size: 12px; }
+  .calx-coin { font-size: 9px; }
+  .calx-mood { top: 2px; right: 2px; font-size: 9px; }
+  .calx-day:has(.calx-mood) { padding-top: 6px; }
+  .calx-day > div { display: none; } /* streak nuqtasi — pastki chiziq bilan ustma-ust tushardi */
+  #cal-detail-title, #gcal-detail-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #cal-detail-header, #gcal-detail-header { gap: 8px; min-height: 40px; }
+
+  /* Maqsadlar kalendari: 7px "0/1" yozuvi o'qib bo'lmasdi */
+  #gcal-grid > [data-date] > span + span { font-size: 9px !important; }
+
+  /* Kayfiyat kalendari: kun raqami emojini bosib qolardi */
+  .moodx-day.has .moodx-n { top: 2px; left: 4px; font-size: 8px; }
+  .moodx-day.has .moodx-e { font-size: 18px; margin-top: 7px; }
+  #mood-cal-grid { gap: 5px !important; }
+
+  /* Pomodoro kalendari: vaqt yozuvi (8px) siqilib qolardi */
+  .pomo-cal-day .pomo-cal-daytime { font-size: 8.5px; letter-spacing: -.2px; white-space: nowrap; }
+
+  /* Filtr kalendari (barcha vazifalar statistikasi) */
+  #tt-filter-panel { padding: 12px !important; }
+  #tt-cal-grid { gap: 4px !important; }
+}
+/* Yorug' rejimda "Navbatda emas" legend kvadrati ko'rinmasdi */
+body.light #goal-cal-modal-box span[style*="opacity:0.45"] { border: 1px solid var(--border); }
