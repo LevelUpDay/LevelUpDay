@@ -2451,3 +2451,624 @@
   }
   if (document.readyState === 'complete') setTimeout(boot, 600); else window.addEventListener('load', function () { setTimeout(boot, 600); });
 })();
+
+// ============================================================
+// 📨 FIKRLAR: admin inbox (javob, izoh, prioritet, ommaviy amallar)
+//    + foydalanuvchi uchun "Mening xabarlarim" (admin javoblari).
+// RPC'lar: admin_list_feedback, admin_set_feedback_status,
+// admin_delete_feedback, admin_reply_feedback, admin_update_feedback_meta,
+// get_my_feedback, mark_feedback_replies_seen.
+// script.js dagi adminRenderFeedback / adminFeedbackSet / adminFeedbackDelete /
+// openFeedbackModal shu yerda kengaytiriladi (global nomlar saqlanadi).
+// ⚠️ Fikr matni — ishonchsiz kiritma: hammasi H() orqali escape qilinadi.
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  var H = function (s) { return esc(s == null ? '' : String(s)); };
+  function cloudOk() { return !!(S.cloudLinked && S.cloudUserId && typeof supabase !== 'undefined' && supabase && supabase.rpc); }
+  function lang() { try { return getLang(); } catch (e) { return 'uz'; } }
+  function locale() { var l = lang(); return l === 'ru' ? 'ru-RU' : (l === 'en' ? 'en-GB' : 'uz-UZ'); }
+  // RPC — hech qachon throw qilmaydi: { data, error }
+  function rpc(name, args) {
+    try {
+      if (typeof supabase === 'undefined' || !supabase || !supabase.rpc) return Promise.resolve({ data: null, error: { message: 'offline' } });
+      return Promise.resolve(supabase.rpc(name, args || {})).then(function (r) { return r || { data: null, error: { message: 'empty' } }; },
+        function (e) { return { data: null, error: { message: (e && e.message) || String(e) } }; });
+    } catch (e) { return Promise.resolve({ data: null, error: { message: (e && e.message) || String(e) } }); }
+  }
+  function errHtml(err) {
+    var m = (err && err.message) || '';
+    var missing = /function|does not exist|schema cache|404|PGRST202/i.test(m);
+    return '<div class="fbx-err">⚠️ ' + (missing
+      ? L('Bu funksiya serverda hali yoqilmagan. Keyinroq urinib ko\'ring.', 'This feature is not enabled on the server yet. Please try later.', 'Эта функция ещё не включена на сервере. Попробуйте позже.')
+      : L('Yuklab bo\'lmadi. Internetni tekshirib, qayta urinib ko\'ring.', 'Could not load. Check your connection and try again.', 'Не удалось загрузить. Проверьте соединение и повторите.')) +
+      (m ? '<small>' + H(m.slice(0, 160)) + '</small>' : '') + '</div>';
+  }
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso); if (isNaN(d)) return '';
+    var diff = (Date.now() - d.getTime()) / 1000;
+    if (diff < 60) return L('hozirgina', 'just now', 'только что');
+    if (diff < 3600) return Math.floor(diff / 60) + ' ' + L('daq oldin', 'min ago', 'мин назад');
+    if (diff < 86400) return Math.floor(diff / 3600) + ' ' + L('soat oldin', 'h ago', 'ч назад');
+    try { return d.toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) + ' ' + d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return d.toLocaleString(); }
+  }
+  function fullDate(iso) { try { return new Date(iso).toLocaleString(locale()); } catch (e) { return String(iso || ''); } }
+  function shortDevice(ua) {
+    ua = String(ua || ''); if (!ua) return '';
+    var os = /iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS X|Macintosh/.test(ua) ? 'macOS' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : '';
+    var br = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung' : /YaBrowser/.test(ua) ? 'Yandex' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '';
+    var mob = /Mobile|Android|iPhone/.test(ua) ? '📱' : '💻';
+    return mob + ' ' + ([os, br].filter(Boolean).join(' · ') || ua.slice(0, 30));
+  }
+  function kinds() {
+    return { bug: ['🐞', L('Xato', 'Bug', 'Ошибка')], idea: ['💡', L('G\'oya', 'Idea', 'Идея')], complaint: ['😕', L('Shikoyat', 'Complaint', 'Жалоба')], other: ['💬', L('Boshqa', 'Other', 'Другое')] };
+  }
+  function kindBadge(k) {
+    var known = kinds()[k];
+    var m = known || ['💬', H(k || '?')];
+    return '<span class="fbx-kind fbx-k-' + (known ? k : 'other') + '">' + m[0] + ' ' + m[1] + '</span>';
+  }
+  function stMeta() {
+    return {
+      'new': ['🆕', L('Yangi', 'New', 'Новый')],
+      read: ['👁', L('O\'qilgan', 'Read', 'Прочитан')],
+      in_progress: ['🛠', L('Jarayonda', 'In progress', 'В работе')],
+      done: ['✅', L('Bajarildi', 'Done', 'Готово')],
+      wontfix: ['🚫', L('Qilinmaydi', 'Won\'t fix', 'Не будет')]
+    };
+  }
+  function stChip(st) {
+    var known = stMeta()[st];
+    var m = known || ['•', H(st)];
+    return '<span class="fbx-st fbx-st-' + (known ? st : 'new') + '">' + m[0] + ' ' + m[1] + '</span>';
+  }
+  var PRI_COL = ['', '#60A5FA', '#F59E0B', '#EF4444'];
+  function priLabel(p) { return [L('Yo\'q', 'None', 'Нет'), L('Past', 'Low', 'Низкий'), L('O\'rta', 'Medium', 'Средний'), L('Yuqori', 'High', 'Высокий')][p] || ''; }
+  function flag(p) {
+    p = Math.max(0, Math.min(3, Number(p) || 0));
+    return '<span class="fbx-flag' + (p ? '' : ' off') + '"' + (p ? ' style="--fc:' + PRI_COL[p] + '"' : '') + ' title="' + H(priLabel(p)) + '">⚑' + (p ? '<b>' + p + '</b>' : '') + '</span>';
+  }
+  function copyText(t) {
+    var ok = function () { toast('📋 ' + L('Nusxalandi', 'Copied', 'Скопировано')); };
+    var fallback = function () {
+      try { var ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); ok(); }
+      catch (e) { toast('⚠️ ' + L('Nusxalab bo\'lmadi', 'Could not copy', 'Не удалось скопировать')); }
+    };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(ok, fallback); return; } } catch (e) {}
+    fallback();
+  }
+  var holdAsk = function (msgHtml, onOk, opts) {
+    if (typeof showHoldConfirmModal === 'function') return showHoldConfirmModal(msgHtml, onOk, opts);
+    if (window.UIKit && UIKit.holdConfirm) return UIKit.holdConfirm(Object.assign({ message: msgHtml, onConfirm: onOk }, opts || {}));
+    var tmp = document.createElement('div'); tmp.innerHTML = msgHtml; if (confirm(tmp.textContent)) onOk();
+  };
+  // Segment: UIKit.rubberSegment (adopt-rejimda — o'zimizning tugmalar), bo'lmasa oddiy chiplar
+  function segment(host, items, cur, onChange, label, opts) {
+    host.innerHTML = '';
+    items.forEach(function (it) {
+      var b = document.createElement('button'); b.type = 'button'; b.innerHTML = it.html || H(it.label);
+      if (it.id) b.id = it.id;
+      b.dataset.v = it.value;
+      if (it.value === cur) b.className = 'active';
+      b.onclick = function () {
+        host.querySelectorAll(':scope > button').forEach(function (x) { x.classList.toggle('active', x === b); });
+        onChange(it.value);
+      };
+      host.appendChild(b);
+    });
+    if (window.UIKit && typeof UIKit.rubberSegment === 'function') {
+      try { UIKit.rubberSegment(host, Object.assign({ adopt: true, radius: 999, size: 'sm', label: label }, opts || {})); return; } catch (e) {}
+    }
+    host.classList.add('fbx-chips');
+  }
+
+  // =========================================================
+  // 👑 ADMIN INBOX
+  // =========================================================
+  var A = { tab: 'inbox', kind: '', q: '', sort: 'new', rows: null, err: null, sel: {}, open: {}, drafts: {}, newCount: null };
+  var TABS = ['inbox', 'in_progress', 'done', 'wontfix', 'all'];
+  function inTab(f, tab) {
+    if (tab === 'all') return true;
+    if (tab === 'inbox') return f.status === 'new' || f.status === 'read' || !f.status;
+    return f.status === tab;
+  }
+  function tabLabel(t) {
+    return { inbox: '📥 ' + L('Kiruvchi', 'Inbox', 'Входящие'), in_progress: '🛠 ' + L('Jarayonda', 'In progress', 'В работе'), done: '✅ ' + L('Bajarildi', 'Done', 'Готово'), wontfix: '🚫 ' + L('Qilinmaydi', 'Won\'t fix', 'Не будет'), all: '🗂 ' + L('Hammasi', 'All', 'Все') }[t];
+  }
+  function countFor(t) { return (A.rows || []).filter(function (f) { return inTab(f, t); }).length; }
+  function unreadCount() { return (A.rows || []).filter(function (f) { return f.status === 'new'; }).length; }
+  function visibleRows() {
+    var q = A.q.trim().toLowerCase();
+    var list = (A.rows || []).filter(function (f) {
+      if (!inTab(f, A.tab)) return false;
+      if (A.kind && f.kind !== A.kind) return false;
+      if (q) {
+        var hay = [f.message, f.user_name, f.contact, f.admin_note, f.admin_reply, f.id].join(' ').toLowerCase();
+        if (hay.indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+    var t = function (f) { return new Date(f.created_at).getTime() || 0; };
+    list.sort(function (a, b) {
+      if (A.sort === 'priority') { var d = (Number(b.priority) || 0) - (Number(a.priority) || 0); if (d) return d; }
+      if (A.sort === 'old') return t(a) - t(b);
+      return t(b) - t(a);
+    });
+    return list;
+  }
+  function rowById(id) { id = String(id); return (A.rows || []).find(function (f) { return String(f.id) === id; }); }
+  function box() { return document.getElementById('admin-feedback-box'); }
+
+  function adminShell() {
+    var b = box(); if (!b) return;
+    b.innerHTML = '<div class="fbx">' +
+      '<div class="fbx-top"><div class="fbx-title">📨 ' + L('Fikrlar qutisi', 'Feedback inbox', 'Входящие отзывы') + '</div><div class="fbx-sum" id="fbx-sum"></div>' +
+      '<button type="button" class="x-btn ghost sm" id="fbx-reload" title="' + L('Yangilash', 'Reload', 'Обновить') + '">↻</button></div>' +
+      '<div class="fbx-seg-wrap"><div id="fbx-seg"></div></div>' +
+      '<div class="fbx-tools">' +
+        '<input id="fbx-q" type="search" class="fbx-in" maxlength="80" placeholder="🔎 ' + L('Qidirish: matn, ism, aloqa...', 'Search: text, name, contact...', 'Поиск: текст, имя, контакт...') + '" />' +
+        '<select id="fbx-kind" class="fbx-in fbx-sel" aria-label="kind"><option value="">' + L('Barcha turlar', 'All kinds', 'Все типы') + '</option>' +
+          Object.keys(kinds()).map(function (k) { return '<option value="' + k + '">' + kinds()[k][0] + ' ' + kinds()[k][1] + '</option>'; }).join('') + '</select>' +
+        '<select id="fbx-sort" class="fbx-in fbx-sel" aria-label="sort"><option value="new">↓ ' + L('Eng yangi', 'Newest', 'Сначала новые') + '</option><option value="priority">⚑ ' + L('Prioritet', 'Priority', 'Приоритет') + '</option><option value="old">↑ ' + L('Eng eski', 'Oldest', 'Сначала старые') + '</option></select>' +
+      '</div>' +
+      '<div id="fbx-bulk" class="fbx-bulk"></div>' +
+      '<div id="fbx-list" class="fbx-list"><div class="ad-empty">⏳ ' + L('Yuklanmoqda...', 'Loading...', 'Загрузка...') + '</div></div></div>';
+    var q = b.querySelector('#fbx-q'); q.value = A.q;
+    var qt = 0; q.oninput = function () { clearTimeout(qt); qt = setTimeout(function () { A.q = q.value; renderList(); }, 150); };
+    var k = b.querySelector('#fbx-kind'); k.value = A.kind; k.onchange = function () { A.kind = k.value; renderList(); };
+    var so = b.querySelector('#fbx-sort'); so.value = A.sort; so.onchange = function () { A.sort = so.value; renderList(); };
+    b.querySelector('#fbx-reload').onclick = function () { adminLoad(); };
+    renderSeg(true);
+    var list = b.querySelector('#fbx-list');
+    list.addEventListener('click', onListClick);
+    list.addEventListener('input', onListInput);
+    list.addEventListener('change', onListChange);
+    b.querySelector('#fbx-bulk').addEventListener('click', onBulkClick);
+    b.querySelector('#fbx-bulk').addEventListener('change', onBulkClick);
+  }
+  function segHtml(t) { var n = A.rows ? countFor(t) : ''; return H(tabLabel(t)) + (n !== '' ? ' <em class="fbx-cnt">' + n + '</em>' : ''); }
+  function renderSeg(build) {
+    var host = document.getElementById('fbx-seg'); if (!host) return;
+    if (!build && host.children.length) {
+      // faqat sonlarni yangilash (thumb ResizeObserver orqali ergashadi)
+      host.querySelectorAll(':scope > button[data-v]').forEach(function (b) { var h = segHtml(b.dataset.v); if (b.innerHTML !== h) b.innerHTML = h; });
+      return;
+    }
+    segment(host, TABS.map(function (t) { return { value: t, html: segHtml(t) }; }), A.tab, function (v) { A.tab = v; A.sel = {}; renderList(); }, L('Holat filtri', 'Status filter', 'Фильтр статуса'));
+  }
+  function renderSum() {
+    var el = document.getElementById('fbx-sum'); if (!el || !A.rows) return;
+    var n = unreadCount();
+    el.innerHTML = '<span>' + A.rows.length + ' ' + L('ta', 'total', 'всего') + '</span>' + (n ? '<span class="fbx-unread">' + n + ' ' + L('yangi', 'new', 'новых') + '</span>' : '');
+  }
+  function selIds() { return Object.keys(A.sel).filter(function (k) { return A.sel[k] && rowById(k); }); }
+  function renderBulk() {
+    var el = document.getElementById('fbx-bulk'); if (!el) return;
+    var ids = selIds();
+    var vis = visibleRows();
+    if (!vis.length || A.err) { el.innerHTML = ''; return; }
+    var allOn = vis.every(function (f) { return A.sel[f.id]; });
+    el.innerHTML = '<label class="fbx-chk"><input type="checkbox" data-bulk="all"' + (allOn ? ' checked' : '') + '> ' + (ids.length ? '<b>' + ids.length + '</b> ' + L('tanlandi', 'selected', 'выбрано') : L('Hammasini tanlash', 'Select all', 'Выбрать все')) + '</label>' +
+      (ids.length ? '<span class="fbx-bulk-a"><button type="button" class="x-btn sm" data-bulk="done">✅ ' + L('Bajarildi', 'Mark done', 'Готово') + '</button>' +
+        '<button type="button" class="x-btn ghost sm" data-bulk="read">👁 ' + L('O\'qildi', 'Read', 'Прочитано') + '</button>' +
+        '<button type="button" class="x-btn sm fbx-danger" data-bulk="del">🗑 ' + L('O\'chirish', 'Delete', 'Удалить') + '</button>' +
+        '<button type="button" class="x-btn ghost sm" data-bulk="clear" aria-label="clear">✕</button></span>' : '');
+  }
+  function templates() {
+    return [
+      { icon: '✅', uz: 'Rahmat! Tuzatdik ✅', en: 'Thanks! We fixed it ✅', ru: 'Спасибо! Исправили ✅' },
+      { icon: '👀', uz: 'Ko\'rib chiqyapmiz, tez orada xabar beramiz.', en: 'We\'re looking into it and will update you soon.', ru: 'Изучаем, скоро сообщим.' },
+      { icon: '✍️', uz: 'Batafsilroq yozing: qaysi qurilma va qanday qadamlardan keyin bo\'ldi?', en: 'Please tell us more: which device and what steps led to it?', ru: 'Напишите подробнее: какое устройство и после каких шагов?' },
+      { icon: '💡', uz: 'Ajoyib g\'oya! Rejamizga qo\'shdik 💡', en: 'Great idea! We added it to our plans 💡', ru: 'Отличная идея! Добавили в планы 💡' },
+      { icon: '🙏', uz: 'Fikringiz uchun rahmat! 🙏', en: 'Thank you for your feedback! 🙏', ru: 'Спасибо за ваш отзыв! 🙏' }
+    ];
+  }
+  function tplShort(t) { var s = t[lang()] || t.uz; return s.length > 26 ? s.slice(0, 24) + '…' : s; }
+  function itemHtml(f) {
+    var open = !!A.open[f.id], sel = !!A.sel[f.id], p = Math.max(0, Math.min(3, Number(f.priority) || 0));
+    var msg = String(f.message || '');
+    var long = msg.length > 220 || msg.split('\n').length > 4;
+    var who = f.user_name ? H(f.user_name) : '<i>' + L('Mehmon', 'Guest', 'Гость') + '</i>';
+    var meta = [shortDevice(f.device), f.lang ? '🌐 ' + String(f.lang).toUpperCase() : '', f.user_id ? '' : '👤 ' + L('akkauntsiz', 'no account', 'без аккаунта')].filter(Boolean);
+    var sid = H(f.id);
+    var h = '<div class="fbx-item' + (f.status === 'new' ? ' is-new' : '') + (open ? ' is-open' : '') + (sel ? ' is-sel' : '') + '" data-id="' + sid + '"' + (p ? ' style="--pc:' + PRI_COL[p] + '"' : '') + '>' +
+      '<div class="fbx-ih">' +
+        '<label class="fbx-cb" title="' + L('Tanlash', 'Select', 'Выбрать') + '"><input type="checkbox" data-act="sel"' + (sel ? ' checked' : '') + '></label>' +
+        '<div class="fbx-ih-m" data-act="toggle">' +
+          '<div class="fbx-ih-1">' + (f.status === 'new' ? '<i class="fbx-dot" aria-label="new"></i>' : '') + '<b class="fbx-who">' + who + '</b>' + kindBadge(f.kind) + stChip(f.status) + (p ? flag(p) : '') + (f.admin_reply ? '<span class="fbx-replied" title="' + H(L('Javob berilgan', 'Replied', 'Есть ответ')) + '">↩︎</span>' : '') + '</div>' +
+          '<div class="fbx-ih-2"><span title="' + H(fullDate(f.created_at)) + '">' + H(fmtDate(f.created_at)) + '</span>' + meta.map(function (m) { return '<span>' + H(m) + '</span>'; }).join('') + '</div>' +
+        '</div>' +
+        '<button type="button" class="fbx-chev" data-act="toggle" aria-label="expand" aria-expanded="' + open + '">' + (open ? '▴' : '▾') + '</button>' +
+      '</div>' +
+      '<div class="fbx-msg' + (open || !long ? '' : ' clamp') + '" data-act="toggle">' + H(msg) + '</div>';
+    if (!open) return h + (long ? '<button type="button" class="fbx-more" data-act="toggle">' + L('Ko\'proq', 'Show more', 'Ещё') + ' ▾</button>' : '') + '</div>';
+    var rl = ['uz', 'en', 'ru'].indexOf(f.lang) >= 0 ? f.lang : lang();
+    h += '<div class="fbx-body">' +
+      (f.contact ? '<div class="fbx-row"><span class="fbx-lbl">✉️ ' + L('Aloqa', 'Contact', 'Контакт') + '</span><span class="fbx-val">' + H(f.contact) + '</span><button type="button" class="fbx-mini" data-act="copy-contact" aria-label="copy">📋</button></div>' : '') +
+      (f.device ? '<div class="fbx-row"><span class="fbx-lbl">🖥 ' + L('Qurilma', 'Device', 'Устройство') + '</span><span class="fbx-val fbx-ua">' + H(f.device) + '</span></div>' : '') +
+      '<div class="fbx-row"><span class="fbx-lbl">#</span><span class="fbx-val">' + sid + ' · ' + H(fullDate(f.created_at)) + '</span></div>' +
+      '<div class="fbx-sec-t">' + L('Holat', 'Status', 'Статус') + '</div><div class="fbx-sts">' +
+        ['read', 'in_progress', 'done', 'wontfix'].map(function (s) { var m = stMeta()[s]; return '<button type="button" class="fbx-stb fbx-st-' + s + (f.status === s ? ' on' : '') + '" data-act="status" data-st="' + s + '" aria-pressed="' + (f.status === s) + '">' + m[0] + ' ' + m[1] + '</button>'; }).join('') +
+      '</div>' +
+      '<div class="fbx-sec-t">' + L('Prioritet', 'Priority', 'Приоритет') + '</div><div class="fbx-pris">' +
+        [0, 1, 2, 3].map(function (n) { return '<button type="button" class="fbx-prb' + (p === n ? ' on' : '') + '" data-act="pri" data-p="' + n + '"' + (n ? ' style="--fc:' + PRI_COL[n] + '"' : '') + ' aria-pressed="' + (p === n) + '">' + (n ? '⚑ ' : '○ ') + priLabel(n) + '</button>'; }).join('') +
+      '</div>' +
+      '<div class="fbx-sec-t">🔒 ' + L('Shaxsiy izoh (faqat admin)', 'Private note (admin only)', 'Личная заметка (только админ)') + ' <span class="fbx-saved" data-saved></span></div>' +
+      '<textarea class="fbx-in fbx-note" data-act="note" rows="2" maxlength="1000" placeholder="' + L('Masalan: v2.3 da tuzatiladi', 'e.g. fix in v2.3', 'напр.: исправить в v2.3') + '">' + H(f.admin_note || '') + '</textarea>' +
+      '<div class="fbx-sec-t">↩︎ ' + L('Javob', 'Reply', 'Ответ') + ' <span class="fbx-dim">(' + L('foydalanuvchi ko\'radi', 'visible to the user', 'увидит пользователь') + ')</span></div>' +
+      (f.admin_reply ? '<div class="fbx-reply-old"><div class="fbx-bubble admin">' + H(f.admin_reply) + '</div><div class="fbx-reply-meta">' + H(fmtDate(f.replied_at)) + ' · ' + (f.reply_seen ? '👁 ' + L('ko\'rildi', 'seen', 'просмотрено') : '⏳ ' + L('hali ko\'rilmadi', 'not seen yet', 'ещё не просмотрено')) + '</div></div>' : '') +
+      (f.user_id ? '<div class="fbx-tpls">' + templates().map(function (t, i) { return '<button type="button" class="fbx-tpl" data-act="tpl" data-i="' + i + '" data-l="' + rl + '" title="' + H(t[rl] || t.uz) + '">' + t.icon + ' ' + H(tplShort(t)) + '</button>'; }).join('') + '</div>' +
+        '<textarea class="fbx-in fbx-reply" data-act="reply-draft" rows="3" maxlength="2000" placeholder="' + L('Javob yozing...', 'Write a reply...', 'Напишите ответ...') + '">' + H(A.drafts[f.id] || '') + '</textarea>' +
+        '<div class="fbx-reply-f"><span class="fbx-dim" data-rc>' + String(A.drafts[f.id] || '').length + ' / 2000</span><button type="button" class="x-btn sm" data-act="reply">' + (f.admin_reply ? '✏️ ' + L('Javobni yangilash', 'Update reply', 'Обновить ответ') : '📤 ' + L('Javob yuborish', 'Send reply', 'Отправить ответ')) + '</button></div>'
+        : '<div class="fbx-dim fbx-noacc">👤 ' + L('Akkauntsiz yuborilgan — foydalanuvchi ilovada javobni ko\'ra olmaydi. Aloqa orqali yozing.', 'Sent without an account — the user can\'t see in-app replies. Use the contact.', 'Отправлено без аккаунта — ответ в приложении не увидят. Используйте контакт.') + '</div>') +
+      '<div class="fbx-acts">' +
+        '<button type="button" class="x-btn ghost sm" data-act="copy">📋 ' + L('Nusxa', 'Copy', 'Копировать') + '</button>' +
+        (f.user_id ? '<button type="button" class="x-btn ghost sm" data-act="profile">👤 ' + L('Profil', 'Profile', 'Профиль') + '</button>' : '') +
+        '<button type="button" class="x-btn sm fbx-danger" data-act="del">🗑 ' + L('O\'chirish', 'Delete', 'Удалить') + '</button>' +
+      '</div></div></div>';
+    return h;
+  }
+  function renderList() {
+    var el = document.getElementById('fbx-list'); if (!el) return;
+    renderSum(); renderSeg();
+    if (A.err) { el.innerHTML = errHtml(A.err); renderBulk(); return; }
+    if (!A.rows) { el.innerHTML = '<div class="ad-empty">⏳ ' + L('Yuklanmoqda...', 'Loading...', 'Загрузка...') + '</div>'; return; }
+    var rows = visibleRows();
+    renderBulk();
+    el.innerHTML = rows.length ? rows.map(itemHtml).join('') : '<div class="ad-empty">— ' + ((A.q || A.kind) ? L('Hech narsa topilmadi', 'Nothing found', 'Ничего не найдено') : L('Bu bo\'limda fikr yo\'q', 'No feedback here', 'Здесь пока пусто')) + ' —</div>';
+  }
+  function itemEl(id) {
+    var list = document.getElementById('fbx-list'); if (!list) return null;
+    var els = list.querySelectorAll('.fbx-item');
+    for (var i = 0; i < els.length; i++) if (els[i].dataset.id === String(id)) return els[i];
+    return null;
+  }
+  function rerenderItem(id) {
+    var el = itemEl(id), f = rowById(id);
+    if (!el) return;
+    if (!f || !visibleRows().some(function (x) { return String(x.id) === String(id); })) { renderList(); return; }
+    var tmp = document.createElement('div'); tmp.innerHTML = itemHtml(f); el.replaceWith(tmp.firstChild);
+    renderSum(); renderSeg(); renderBulk();
+  }
+
+  var _loadSeq = 0;
+  async function adminLoad() {
+    var seq = ++_loadSeq;
+    A.err = null;
+    if (!document.getElementById('fbx-list')) adminShell();
+    renderList();
+    var r = await rpc('admin_list_feedback', { p_status: null, p_limit: 500 });
+    if (seq !== _loadSeq) return;
+    if (r.error) { A.err = r.error; renderList(); return; }
+    A.rows = Array.isArray(r.data) ? r.data : [];
+    A.newCount = unreadCount(); paintAdminBadges();
+    renderList();
+  }
+  async function setStatus(ids, st) {
+    ids = [].concat(ids);
+    var res = await Promise.all(ids.map(function (id) { return rpc('admin_set_feedback_status', { p_id: Number(id), p_status: st }); }));
+    var fail = 0;
+    res.forEach(function (r, i) { if (r.error) { fail++; return; } var f = rowById(ids[i]); if (f) f.status = st; });
+    if (fail) toast('⚠️ ' + L('Ba\'zilari saqlanmadi', 'Some changes failed', 'Часть изменений не сохранена') + ' (' + fail + ')');
+    A.newCount = unreadCount(); paintAdminBadges();
+    return !fail;
+  }
+  async function deleteIds(ids) {
+    ids = [].concat(ids);
+    var res = await Promise.all(ids.map(function (id) { return rpc('admin_delete_feedback', { p_id: Number(id) }); }));
+    var fail = 0;
+    res.forEach(function (r, i) {
+      if (r.error) { fail++; return; }
+      A.rows = (A.rows || []).filter(function (f) { return String(f.id) !== String(ids[i]); });
+      delete A.sel[ids[i]]; delete A.open[ids[i]];
+    });
+    toast(fail ? '⚠️ ' + L('O\'chirib bo\'lmadi', 'Could not delete', 'Не удалось удалить') + ' (' + fail + ')' : '🗑 ' + L('O\'chirildi', 'Deleted', 'Удалено') + (ids.length > 1 ? ' (' + ids.length + ')' : ''));
+    A.newCount = unreadCount(); paintAdminBadges();
+    renderList();
+  }
+  var noteTimers = {};
+  function savedMark(id, txt) { var it = itemEl(id), m = it && it.querySelector('[data-saved]'); if (m) m.textContent = txt; return m; }
+  function saveMeta(id) {
+    var f = rowById(id); if (!f) return Promise.resolve(false);
+    savedMark(id, '⏳');
+    return rpc('admin_update_feedback_meta', { p_id: Number(id), p_note: f.admin_note ? String(f.admin_note) : null, p_priority: Math.max(0, Math.min(3, Number(f.priority) || 0)) }).then(function (r) {
+      if (r.error) { savedMark(id, '⚠️'); toast('⚠️ ' + L('Saqlanmadi', 'Not saved', 'Не сохранено') + ': ' + String(r.error.message || '').slice(0, 80)); return false; }
+      var m = savedMark(id, '✓ ' + L('saqlandi', 'saved', 'сохранено'));
+      if (m) setTimeout(function () { if (m.textContent.indexOf('✓') === 0) m.textContent = ''; }, 1800);
+      return true;
+    });
+  }
+  function onListInput(e) {
+    var t = e.target, it = t.closest('.fbx-item'); if (!it) return;
+    var id = it.dataset.id, f = rowById(id); if (!f) return;
+    if (t.dataset.act === 'note') {
+      f.admin_note = t.value;
+      savedMark(id, '…');
+      clearTimeout(noteTimers[id]); noteTimers[id] = setTimeout(function () { noteTimers[id] = 0; saveMeta(id); }, 900);
+    } else if (t.dataset.act === 'reply-draft') {
+      A.drafts[id] = t.value;
+      var rc = it.querySelector('[data-rc]'); if (rc) rc.textContent = t.value.length + ' / 2000';
+    }
+  }
+  function onListChange(e) {
+    var t = e.target, it = t.closest('.fbx-item'); if (!it) return;
+    var id = it.dataset.id;
+    if (t.dataset.act === 'sel') { if (t.checked) A.sel[id] = true; else delete A.sel[id]; it.classList.toggle('is-sel', t.checked); renderBulk(); }
+    if (t.dataset.act === 'note' && noteTimers[id]) { clearTimeout(noteTimers[id]); noteTimers[id] = 0; saveMeta(id); }
+  }
+  function onListClick(e) {
+    var t = e.target.closest('[data-act]'); if (!t) return;
+    var it = t.closest('.fbx-item'); if (!it) return;
+    var id = it.dataset.id, f = rowById(id); if (!f) return;
+    var act = t.dataset.act;
+    if (act === 'sel' || act === 'note' || act === 'reply-draft') return;
+    if (act === 'toggle') {
+      if (e.target.closest('.fbx-msg') && window.getSelection && String(window.getSelection())) return; // matn belgilanmoqda
+      A.open[id] = !A.open[id];
+      if (A.open[id] && f.status === 'new') {
+        f.status = 'read'; // optimistik: ochildi → o'qildi
+        rpc('admin_set_feedback_status', { p_id: Number(id), p_status: 'read' }).then(function (r) {
+          if (r.error) { f.status = 'new'; rerenderItem(id); }
+          A.newCount = unreadCount(); paintAdminBadges();
+        });
+        A.newCount = unreadCount(); paintAdminBadges();
+      }
+      rerenderItem(id);
+      return;
+    }
+    if (act === 'status') {
+      var st = t.dataset.st; if (f.status === st) return;
+      t.disabled = true;
+      setStatus(id, st).then(function (ok) { if (ok) toast(stMeta()[st][0] + ' ' + stMeta()[st][1]); rerenderItem(id); });
+      return;
+    }
+    if (act === 'pri') {
+      var old = f.priority; f.priority = Number(t.dataset.p) || 0;
+      if (Number(old) === f.priority) return;
+      rerenderItem(id);
+      saveMeta(id).then(function (ok) { if (!ok) { f.priority = old; rerenderItem(id); } });
+      return;
+    }
+    if (act === 'tpl') {
+      var tp = templates()[+t.dataset.i]; if (!tp) return;
+      var ta = it.querySelector('.fbx-reply'); if (!ta) return;
+      var txt = tp[t.dataset.l] || tp.uz;
+      ta.value = (ta.value.trim() ? (ta.value.replace(/\s+$/, '') + '\n' + txt) : txt).slice(0, 2000);
+      A.drafts[id] = ta.value;
+      var rc = it.querySelector('[data-rc]'); if (rc) rc.textContent = ta.value.length + ' / 2000';
+      ta.focus();
+      return;
+    }
+    if (act === 'reply') {
+      var ta2 = it.querySelector('.fbx-reply'); var txt2 = ((ta2 && ta2.value) || '').trim().slice(0, 2000);
+      if (txt2.length < 2) { toast(L('Javob matnini yozing', 'Write a reply first', 'Напишите ответ')); if (ta2) ta2.focus(); return; }
+      t.disabled = true; t.textContent = '⏳ ...';
+      rpc('admin_reply_feedback', { p_id: Number(id), p_reply: txt2 }).then(function (r) {
+        if (r.error) { toast('⚠️ ' + L('Javob yuborilmadi', 'Reply failed', 'Ответ не отправлен') + ': ' + String(r.error.message || '').slice(0, 80)); rerenderItem(id); return; }
+        f.admin_reply = txt2; f.replied_at = new Date().toISOString(); f.reply_seen = false;
+        if (f.status === 'new') f.status = 'read';
+        delete A.drafts[id];
+        A.newCount = unreadCount(); paintAdminBadges();
+        toast('📤 ' + L('Javob yuborildi', 'Reply sent', 'Ответ отправлен'));
+        rerenderItem(id);
+      });
+      return;
+    }
+    if (act === 'copy') { copyText(String(f.message || '')); return; }
+    if (act === 'copy-contact') { copyText(String(f.contact || '')); return; }
+    if (act === 'profile') { openProfile(f.user_id); return; }
+    if (act === 'del') {
+      holdAsk(L('Bu fikr butunlay o\'chiriladi:', 'This feedback will be permanently deleted:', 'Отзыв будет удалён навсегда:') + '<div class="fbx-del-q">' + H(String(f.message || '').slice(0, 140)) + '</div>',
+        function () { deleteIds([id]); }, { icon: '🗑', title: L('Fikrni o\'chirish', 'Delete feedback', 'Удалить отзыв') });
+    }
+  }
+  function onBulkClick(e) {
+    var t = e.target.closest('[data-bulk]'); if (!t) return;
+    var b = t.dataset.bulk;
+    if (b === 'all') {
+      if (e.type !== 'change') return;
+      var vis = visibleRows(), allOn = vis.every(function (f) { return A.sel[f.id]; });
+      A.sel = {}; if (!allOn) vis.forEach(function (f) { A.sel[f.id] = true; });
+      renderList(); return;
+    }
+    if (e.type !== 'click') return;
+    if (b === 'clear') { A.sel = {}; renderList(); return; }
+    var ids = selIds(); if (!ids.length) return;
+    if (b === 'done' || b === 'read') {
+      t.disabled = true;
+      setStatus(ids, b).then(function (ok) { A.sel = {}; if (ok) toast(stMeta()[b][0] + ' × ' + ids.length); renderList(); });
+      return;
+    }
+    if (b === 'del') {
+      holdAsk(L('Tanlangan fikrlar o\'chiriladi', 'Selected feedback will be deleted', 'Выбранные отзывы будут удалены') + ': <b>' + ids.length + '</b>',
+        function () { deleteIds(ids); }, { icon: '🗑', title: L('Ommaviy o\'chirish', 'Bulk delete', 'Массовое удаление') });
+    }
+  }
+  function openProfile(uid) {
+    if (!uid) return;
+    var before = document.getElementById('player-profile-modal');
+    try { if (typeof showPlayerProfileModal === 'function') showPlayerProfileModal(uid); } catch (e) {}
+    var m = document.getElementById('player-profile-modal');
+    if (m && m !== before) { m.style.zIndex = '480'; return; }
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(String(uid)).catch(function () {}); } catch (e) {}
+    toast('👤 ' + L('Profil reytingda topilmadi — ID nusxalandi', 'Profile not in leaderboard — ID copied', 'Профиль не найден в рейтинге — ID скопирован'));
+  }
+
+  // Global nomlar (admin paneli, eski onclick'lar) — yangi inboxga yo'naltiriladi
+  window.adminRenderFeedback = function (filter) {
+    if (filter === 'new' || filter === 'read') A.tab = 'inbox';
+    else if (filter === '') A.tab = 'all';
+    else if (TABS.indexOf(filter) >= 0) A.tab = filter;
+    if (!box()) return;
+    if (!document.getElementById('fbx-list')) adminShell();
+    return adminLoad();
+  };
+  window.adminFeedbackSet = function (id, st) { return setStatus(id, st).then(function () { renderList(); }); };
+  window.adminFeedbackDelete = function (id) {
+    holdAsk(L('Bu fikrni o\'chirasizmi?', 'Delete this feedback?', 'Удалить этот отзыв?'), function () { deleteIds([id]); }, { icon: '🗑' });
+  };
+
+  // 🔴 Admin kirish nuqtalarida "yangi" soni
+  function paintAdminBadges() {
+    if (!window._isAdmin) return;
+    var n = Number(A.newCount) || 0;
+    var t = n > 99 ? '99+' : (n ? String(n) : '');
+    [document.getElementById('ad-open-btn')].concat([].slice.call(document.querySelectorAll('[data-tool="admin"]'))).forEach(function (el) {
+      if (!el) return;
+      var b = el.querySelector('.fbx-badge');
+      if (!t) { if (b) b.remove(); return; }
+      if (!b) { b = document.createElement('span'); b.className = 'fbx-badge'; el.appendChild(b); }
+      if (b.textContent !== t) b.textContent = t;
+      b.title = n + ' ' + L('yangi fikr', 'new feedback', 'новых отзывов');
+    });
+    var tabN = document.getElementById('ad-fb-n'); if (tabN && A.newCount != null && tabN.textContent !== t) tabN.textContent = t;
+  }
+  var _adminCntAt = 0;
+  function adminCountCheck(force) {
+    if (!window._isAdmin || !cloudOk()) return;
+    if (!force && Date.now() - _adminCntAt < 5 * 60 * 1000) return;
+    _adminCntAt = Date.now();
+    rpc('admin_list_feedback', { p_status: 'new', p_limit: 500 }).then(function (r) {
+      if (r.error || !Array.isArray(r.data)) return;
+      A.newCount = r.data.length; paintAdminBadges();
+    });
+  }
+
+  // =========================================================
+  // 📬 FOYDALANUVCHI: "Mening xabarlarim" + javob belgisi
+  // =========================================================
+  var U = { rows: null, err: null, unseen: 0, at: 0, toasted: false, loading: false };
+  try { U.toasted = sessionStorage.getItem('fbReplyToast') === '1'; } catch (e) {}
+  function unseenOf(rows) { return (rows || []).filter(function (f) { return f.admin_reply && f.reply_seen === false; }).length; }
+  function paintUserBadges() {
+    var n = cloudOk() ? U.unseen : 0;
+    ['fb-card-btn', 'fbx-tab-mine'].forEach(function (id) {
+      var el = document.getElementById(id); if (!el) return;
+      var d = el.querySelector('.fbx-udot');
+      if (!n) { if (d) d.remove(); return; }
+      if (!d) { d = document.createElement('span'); d.className = 'fbx-udot'; el.appendChild(d); }
+      if (d.textContent !== String(n)) d.textContent = String(n);
+    });
+    var card = document.querySelector('#feedback-settings-card .settings-sub-icon');
+    if (card) card.classList.toggle('fbx-has-dot', !!n);
+  }
+  function userFetch() {
+    if (!cloudOk()) return Promise.resolve(null);
+    U.loading = true;
+    return rpc('get_my_feedback').then(function (r) {
+      U.loading = false; U.at = Date.now();
+      if (r.error) { U.err = r.error; return null; }
+      U.err = null;
+      U.rows = Array.isArray(r.data) ? r.data : [];
+      U.unseen = unseenOf(U.rows);
+      paintUserBadges();
+      return U.rows;
+    });
+  }
+  function userCheck(force) {
+    if (!cloudOk() || U.loading) return;
+    if (!force && Date.now() - U.at < 5 * 60 * 1000) return;
+    userFetch().then(function (rows) {
+      if (!rows || !U.unseen || U.toasted) return;
+      var pane = document.getElementById('fbx-mine-pane');
+      if (pane && pane.offsetParent) return; // ro'yxat allaqachon ochiq
+      U.toasted = true; try { sessionStorage.setItem('fbReplyToast', '1'); } catch (e) {}
+      toast('📬 ' + L('Admin javob berdi', 'The admin replied', 'Админ ответил') + (U.unseen > 1 ? ' (' + U.unseen + ')' : '') + ' — ' + L('Sozlamalar → Fikr', 'Settings → Feedback', 'Настройки → Отзывы'));
+    });
+  }
+  function mineHtml() {
+    if (!cloudOk()) {
+      return '<div class="fbx-guest">🔐 <b>' + L('Javoblarni ko\'rish uchun hisobga kiring', 'Sign in to see replies', 'Войдите, чтобы видеть ответы') + '</b><br>' +
+        L('Mehmon sifatida yuborilgan xabarlarga admin javobi ilovada ko\'rinmaydi. Profil → Sozlamalar → bulutli hisob orqali kiring.', 'Replies to messages sent as a guest can\'t be shown in the app. Sign in via Profile → Settings → cloud account.', 'Ответы на сообщения гостей в приложении не видны. Войдите: Профиль → Настройки → облачный аккаунт.') + '</div>';
+    }
+    if (U.err && !U.rows) return errHtml(U.err);
+    if (!U.rows) return '<div class="ad-empty">⏳ ' + L('Yuklanmoqda...', 'Loading...', 'Загрузка...') + '</div>';
+    if (!U.rows.length) return '<div class="ad-empty">📭 ' + L('Hali xabar yubormagansiz', 'You haven\'t sent any messages yet', 'Вы ещё не отправляли сообщений') + '</div>';
+    return U.rows.map(function (f) {
+      var fresh = f.admin_reply && f.reply_seen === false;
+      return '<div class="fbx-thread' + (fresh ? ' is-fresh' : '') + '">' +
+        '<div class="fbx-th-h">' + kindBadge(f.kind) + stChip(f.status) + '<span class="fbx-dim" title="' + H(fullDate(f.created_at)) + '">' + H(fmtDate(f.created_at)) + '</span></div>' +
+        '<div class="fbx-bubble me">' + H(f.message) + '</div>' +
+        (f.admin_reply ? '<div class="fbx-bubble-w"><div class="fbx-bubble admin"><div class="fbx-bubble-who">👑 ' + L('Admin', 'Admin', 'Админ') + (fresh ? ' <span class="fbx-new-tag">' + L('yangi', 'new', 'новое') + '</span>' : '') + '</div>' + H(f.admin_reply) + '</div><div class="fbx-reply-meta">' + H(fmtDate(f.replied_at)) + '</div></div>'
+          : '<div class="fbx-await">⏳ ' + L('Javob kutilmoqda', 'Awaiting reply', 'Ожидает ответа') + '</div>') +
+        '</div>';
+    }).join('');
+  }
+  function renderMine() {
+    var p = document.getElementById('fbx-mine-pane'); if (!p) return;
+    p.innerHTML = '<div class="fbx-mine">' + mineHtml() + '</div>';
+  }
+  function openMine() {
+    renderMine();
+    if (!cloudOk()) return;
+    userFetch().then(function () {
+      renderMine();
+      if (!U.rows || !U.unseen) return;
+      rpc('mark_feedback_replies_seen').then(function (r) {
+        if (r.error) return;
+        U.rows.forEach(function (f) { if (f.admin_reply) f.reply_seen = true; });
+        U.unseen = 0; U.toasted = true; paintUserBadges();
+      });
+    });
+  }
+  // openFeedbackModal kengaytmasi: "Yozish | Mening xabarlarim" tablari
+  var _origOpen = window.openFeedbackModal;
+  if (typeof _origOpen === 'function') {
+    window.openFeedbackModal = function (tab) {
+      _origOpen.apply(this, arguments);
+      try { enhanceModal(tab === 'mine' ? 'mine' : 'write'); } catch (e) { console.warn('[feedback tabs]', e); }
+    };
+  }
+  function enhanceModal(tab) {
+    var ov = document.getElementById('feedback-modal'); if (!ov) return;
+    var bx = ov.firstElementChild; if (!bx || bx.querySelector('#fbx-mtabs')) return;
+    bx.classList.add('fbx-modal');
+    var head = bx.firstElementChild;
+    var write = document.createElement('div'); write.id = 'fbx-write-pane';
+    while (head.nextSibling) write.appendChild(head.nextSibling);
+    if (!cloudOk()) {
+      var hint = document.createElement('div'); hint.className = 'fbx-guest-mini';
+      hint.textContent = '💡 ' + L('Admin javobini ilovada olish uchun hisobga kiring.', 'Sign in to receive the admin\'s reply in the app.', 'Войдите, чтобы получить ответ админа в приложении.');
+      write.insertBefore(hint, write.querySelector('#fb-send'));
+    }
+    var mine = document.createElement('div'); mine.id = 'fbx-mine-pane'; mine.style.display = 'none';
+    var tabs = document.createElement('div'); tabs.id = 'fbx-mtabs'; tabs.className = 'fbx-mtabs';
+    bx.appendChild(tabs); bx.appendChild(write); bx.appendChild(mine);
+    var show = function (v) {
+      write.style.display = v === 'write' ? '' : 'none';
+      mine.style.display = v === 'mine' ? '' : 'none';
+      if (v === 'mine') openMine();
+    };
+    segment(tabs, [
+      { value: 'write', html: '✍️ ' + H(L('Yozish', 'Write', 'Написать')) },
+      { value: 'mine', id: 'fbx-tab-mine', html: '📬 ' + H(L('Mening xabarlarim', 'My messages', 'Мои сообщения')) }
+    ], tab, show, L('Fikr bo\'limlari', 'Feedback sections', 'Разделы отзывов'), { equalSlots: true, size: 'md' });
+    paintUserBadges();
+    show(tab);
+  }
+  window.openMyFeedback = function () { window.openFeedbackModal('mine'); };
+
+  // ---------- ishga tushirish ----------
+  function boot() {
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      if (cloudOk()) {
+        if (!U.at) userCheck(true);
+        if (window._isAdmin) { adminCountCheck(true); clearInterval(iv); }
+        else if (tries > 8) clearInterval(iv); // admin tekshiruvi (am_i_admin) ulgurishi uchun
+      } else if (tries > 120) clearInterval(iv); // ~10 daqiqa
+    }, 5000);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible') return;
+      userCheck(false); adminCountCheck(false);
+    });
+    // Hub / Sozlamalar qayta chizilganda belgilar yo'qolmasin
+    setInterval(function () { try { paintAdminBadges(); paintUserBadges(); } catch (e) {} }, 4000);
+  }
+  if (document.readyState === 'complete') setTimeout(boot, 800); else window.addEventListener('load', function () { setTimeout(boot, 800); });
+  window._fbx = { A: A, U: U, userCheck: userCheck, adminCountCheck: adminCountCheck, paint: function () { paintAdminBadges(); paintUserBadges(); } };
+})();
