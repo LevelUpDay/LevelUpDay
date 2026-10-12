@@ -20258,6 +20258,14 @@ function renderTTCalendar() {
   if (!grid) return;
   grid.innerHTML = '';
 
+  // Hafta kunlari sarlavhasi index.html'da o'zbekcha yozilgan edi — joriy tilga moslaymiz
+  try {
+    var wdRow = grid.previousElementSibling, sdArr = getShortDaysArr(), wdOrder = [1,2,3,4,5,6,0];
+    if (wdRow && wdRow.children.length === 7) {
+      for (var wi = 0; wi < 7; wi++) wdRow.children[wi].textContent = sdArr[wdOrder[wi]];
+    }
+  } catch (e) {}
+
   var firstDay = new Date(_ttCalYear, _ttCalMonth, 1).getDay();
   var startOffset = (firstDay === 0) ? 6 : firstDay - 1;
   var daysInMonth = new Date(_ttCalYear, _ttCalMonth + 1, 0).getDate();
