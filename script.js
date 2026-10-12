@@ -21330,9 +21330,14 @@ function updateThemeToggleUI() {
   sw.style.borderColor = isDark ? 'var(--accent)' : 'var(--border)';
   knob.style.left = isDark ? '22px' : '2px';
   knob.style.background = isDark ? '#fff' : 'var(--text-dim)';
+  var forced = !!(window.LUDesign && LUDesign.forcesDark());
+  sw.style.opacity = forced ? '0.5' : '';
+  sw.style.cursor = forced ? 'not-allowed' : 'pointer';
 }
 
 function toggleTheme() {
+  // Animatsion dizaynlar faqat tungi rejimda — light'ga o'tkazmaymiz, izoh ko'rsatamiz
+  if (window.LUDesign && LUDesign.forcesDark()) { try { LUDesign.darkNote(); } catch (e) {} updateThemeToggleUI(); return; }
   var isLight = document.body.classList.toggle('light');
   S.themeMode = isLight ? 'light' : 'dark';
   save();
@@ -21340,20 +21345,8 @@ function toggleTheme() {
   try { SFX.click(); } catch (e) {}
 }
 
-// 🎨 Theme Selector (Default Dark / Cyberpunk Neon) — dark/light rejimidan mustaqil,
-// vizual "skin" almashtiradi (qarang: html[data-theme="cyberpunk"] CSS'da).
-function changeAppTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('appTheme', theme);
-}
-(function initAppTheme() {
-  var saved = localStorage.getItem('appTheme') || 'default';
-  document.documentElement.setAttribute('data-theme', saved);
-  document.addEventListener('DOMContentLoaded', function () {
-    var sel = document.getElementById('theme-select');
-    if (sel) sel.value = saved;
-  });
-})();
+// 🎨 Dizayn mavzulari (Klassik / Magic Rings / Gradient Blinds / Grid Scan / Prismatic Burst)
+// endi designs.js da: window.LUDesign va window.changeAppTheme (localStorage 'appTheme').
 
 var _dsMoved = [];
 function _dsMove(el, target) {
@@ -21703,7 +21696,7 @@ function updateLayoutSettingUI(mode) {
 function loadTheme() {
   try {
     var mode = S.themeMode;
-    if (mode === 'light') {
+    if (mode === 'light' && !(window.LUDesign && LUDesign.forcesDark())) {
       document.body.classList.add('light');
     } else {
       document.body.classList.remove('light');
@@ -32098,7 +32091,7 @@ var cloudPullAll = async function(uid) {
 // bo'lsa, kirish sessiyasi saqlanadi). Akkaunt almashganda, chiqishda va o'chirishda ishlatiladi —
 // ma'lumotlar bulutda qoladi va qayta kirilganda tiklanadi.
 var _cloudWipeLocalAndReload = function(msg, keepAuth) {
-  var KEEP = ['appTheme', 'appLayout', 'sfxVolume', 'soundEnabled', 'dsSidebarW', 'dsAsideW', 'settingsPanelOpen'];
+  var KEEP = ['appTheme', 'designAnim', 'appLayout', 'sfxVolume', 'soundEnabled', 'dsSidebarW', 'dsAsideW', 'settingsPanelOpen'];
   try {
     window._cloudPullDone = false;
     if (typeof _appStateTimer !== 'undefined' && _appStateTimer) { clearTimeout(_appStateTimer); _appStateTimer = null; }

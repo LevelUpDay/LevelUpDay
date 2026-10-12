@@ -25,6 +25,8 @@
 <script src="vendor/Sortable-1.15.0.min.js"></script>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="extras.css">
+  <link rel="stylesheet" href="designs.css">
+  <script src="designs.js"></script>
 </head>
 <body>
 
@@ -860,18 +862,8 @@
 
           <div class="settings-sub-divider"></div>
 
-          <!-- Mavzu (Theme) tanlash -->
-          <div style="padding:6px 0">
-            <div style="font-size:var(--fs-base);font-weight:600;color:var(--text);margin-bottom:8px">🎨 Mavzu (Theme)</div>
-            <select id="theme-select" onchange="changeAppTheme(this.value)" style="width:100%;padding:11px;border-radius:var(--radius-md);border:1px solid var(--border-hover);background:var(--surface2);color:var(--text);font-size:var(--fs-base);font-weight:600;cursor:pointer">
-              <option value="default">Default Dark</option>
-              <option value="cyberpunk">Cyberpunk Neon</option>
-              <option value="ocean">Ocean Breeze</option>
-              <option value="sunset">Sunset Gold</option>
-              <option value="forest">Forest Emerald</option>
-              <option value="royal">Royal Violet</option>
-            </select>
-          </div>
+          <!-- 🎨 Dizayn mavzusi: 5 ta dizayn kartasi + animatsiya toggle (designs.js chizadi) -->
+          <div id="design-picker-root" style="padding:6px 0"></div>
 
         </div>
       </div>
