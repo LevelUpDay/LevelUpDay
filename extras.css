@@ -698,3 +698,52 @@ body.light #modal-box input[type="time"],body.light #modal-box input[type="date"
 #modal-box #m-remind{max-width:200px}
 #modal-box .tk-time-check{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:normal;font-size:var(--fs-xs);color:var(--text-muted);margin:10px 0 0;cursor:pointer}
 #modal-box .tk-time-check input[type="checkbox"]{width:18px;height:18px;margin:0;flex:none;accent-color:var(--accent);cursor:pointer}
+
+/* 🗂 Vazifa bo'limlari (kategoriyalar) */
+.tc-bar{margin:-4px 0 12px}
+.tc-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0 4px;margin:0 -2px;padding-left:2px;scroll-snap-type:x proximity}
+.tc-chips::-webkit-scrollbar{display:none}
+.tc-chip{--tc:var(--accent);flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;scroll-snap-align:start;transition:background .15s,border-color .15s,color .15s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-x}
+.tc-chip:hover{border-color:color-mix(in srgb,var(--tc) 55%,var(--border))}
+.tc-chip .tc-n{font-size:11px;font-weight:700;min-width:18px;padding:0 5px;line-height:18px;border-radius:999px;background:var(--surface2);color:var(--text-dim);text-align:center}
+.tc-chip.on{background:color-mix(in srgb,var(--tc) 16%,var(--surface));border-color:var(--tc);color:var(--text)}
+.tc-chip.on .tc-n{background:var(--tc);color:#fff}
+.tc-chip.tc-gear{padding:7px 11px;font-size:14px;color:var(--text-dim)}
+.tc-empty{font-size:12px;color:var(--text-dim);padding:6px 2px 0}
+.tk-chip.tk-chip-cat{--tc:var(--accent);color:color-mix(in srgb,var(--tc) 75%,var(--text));background:color-mix(in srgb,var(--tc) 13%,transparent);max-width:140px;overflow:hidden;text-overflow:ellipsis}
+/* modal: bo'lim tanlagichi */
+.tc-opts{display:flex;flex-wrap:wrap;gap:6px}
+.tc-opt{--tc:var(--text-dim);display:inline-flex;align-items:center;gap:4px;padding:7px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s}
+.tc-opt:hover{border-color:color-mix(in srgb,var(--tc) 60%,var(--border))}
+.tc-opt.sel{border-color:var(--tc);background:color-mix(in srgb,var(--tc) 16%,var(--surface2));color:var(--text)}
+.tc-opt:first-child.sel{--tc:var(--accent)}
+.tc-opt.tc-add{padding:7px 12px;color:var(--accent);border-style:dashed}
+.tc-inline{display:inline-flex;align-items:center;gap:4px}
+#modal-box .tc-inline input[type="text"]{width:150px;padding:7px 10px;border-radius:999px;font-size:13px}
+.tc-inline button{width:32px;height:32px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;flex:none}
+/* boshqaruv oynasi */
+.tc-ov{position:fixed;inset:0;z-index:460;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .16s;backdrop-filter:blur(3px)}
+.tc-ov.open{opacity:1}
+.tc-box{width:100%;max-width:460px;max-height:86vh;overflow-y:auto;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35);transform:translateY(20px);transition:transform .18s}
+.tc-ov.open .tc-box{transform:none}
+@media (min-width:620px){.tc-ov{align-items:center;padding:16px}.tc-box{border-radius:18px;padding:20px}}
+.tc-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tc-head h3{margin:0;font-family:Syne,sans-serif;font-size:18px;color:var(--text)}
+.tc-x{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer;font-size:14px}
+.tc-sub{font-size:12.5px;color:var(--text-muted);margin:6px 0 14px;line-height:1.45}
+.tc-rows{display:flex;flex-direction:column;gap:8px}
+.tc-row{display:flex;align-items:center;gap:8px;padding:6px;border:1px solid var(--border);border-radius:14px;background:var(--surface2)}
+.tc-row input{font-family:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:10px;outline:none;font-size:15px;box-sizing:border-box}
+.tc-row input:focus,.tc-new input:focus{border-color:var(--accent)}
+.tc-emo{width:42px;height:38px;text-align:center;padding:0;flex:none;font-size:18px !important}
+.tc-name{flex:1;min-width:0;height:38px;padding:0 10px}
+.tc-color{width:26px;height:26px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--border);cursor:pointer;flex:none}
+.tc-cnt{min-width:22px;text-align:center;font-size:12px;font-weight:700;color:var(--text-dim);flex:none}
+.tc-del{width:36px;height:36px;border-radius:10px;border:1px solid transparent;background:transparent;cursor:pointer;font-size:15px;flex:none}
+.tc-del:hover{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.35)}
+.tc-none{font-size:13px;color:var(--text-dim);text-align:center;padding:10px}
+.tc-foot{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.tc-new{display:flex;gap:8px}
+.tc-new input{flex:1;min-width:0;height:42px;padding:0 12px;font-family:inherit;font-size:15px;color:var(--text);background:var(--surface2);border:1px dashed var(--border);border-radius:12px;outline:none;box-sizing:border-box}
+.tc-new-btn{flex:none;height:42px;padding:0 14px;border-radius:12px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-family:inherit;font-size:14px;cursor:pointer}
+.tc-done{height:44px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
