@@ -21,6 +21,8 @@ const PRECACHE_URLS = [
   './script.js',
   './extras.js',
   './extras.css',
+  './designs.js',
+  './designs.css',
   './manifest.json',
   './icons/logo.svg',
   './icons/favicon-32.png',
