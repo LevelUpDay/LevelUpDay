@@ -9724,7 +9724,7 @@ var _calReopenDate = null;
 
 function openModal(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
-  _editingTaskId = null;
+  _editingTaskId = null; _tbPendingDate = null;
   mDiff=1; mRepeat='daily'; mDays=[]; mInterval=4; mLabel=''; mEmoji=''; mPenaltyTouched=false;
   document.getElementById('m-name').value='';
   document.getElementById('m-note').value='';
@@ -10040,6 +10040,7 @@ function saveTask() {
     isFrozen: false, frozenAt: null,
     subtasks: [],
   };
+  try { tbApplyPendingDate(task); } catch (e) {}
   S.tasks.push(task);
   ensureFullTaskOrder();
   save(); render(); closeModal();
@@ -12550,171 +12551,439 @@ function tbCheckAutoPomo() {
 setInterval(tbCheckAutoPomo, 20000);
 setTimeout(tbCheckAutoPomo, 5000);
 
-// 📅 Kun jadvali (timeline)
-var TB_PX_DEFAULT = 0.8, TB_PX_MIN = 0.35, TB_PX_MAX = 3;
-// 🔍 Masshtab (soatlar ustida g'ildirak yoki ＋/－ tugmalari bilan o'zgaradi)
+// =====================================================================
+// 📅 KUN JADVALI (timeline) — kunlar bo'yicha ko'rish (‹ Bugun ›, 7 kunlik
+// tasma, sana tanlash, hafta ko'rinishi), bosib turib sudrash / chetlaridan
+// cho'zish, ustma-ust bloklar yonma-yon ustunlarda (orasidagi chiziqni surib
+// enini o'zgartirish — t.tbWeight / note.tbWeight), vaqtsiz vazifalar
+// "tokchasi", bo'sh vaqt / rejadagi soatlar xulosasi.
+//   Saqlanadigan maydonlar: t.startTime/t.endTime/t.tbWeight (todos.task_data),
+//   S.tbNotes, S.tbZoom, S.tbSnap, S.tbFullDay, S.tbWeek, S.tbCollapsed (app_state).
+//   Ko'rilayotgan sana faqat sessiya uchun (_tbView) — yangi kunda bugunga qaytadi.
+// =====================================================================
+var TB_PX_DEFAULT = 0.8, TB_PX_MIN = 0.35, TB_PX_MAX = 3, TB_MIN_LEN = 10;
+// 🔍 Masshtab (soatlar ustida g'ildirak, pinch yoki ⚙ menyudagi ＋/－ bilan)
 function tbPx() { var z = Number(S.tbZoom); return (z >= TB_PX_MIN && z <= TB_PX_MAX) ? z : TB_PX_DEFAULT; }
+function tbSnap() { return Number(S.tbSnap) === 15 ? 15 : 5; }
+function tbScroller() { var box = document.getElementById('tb-timeline'); return box && box.querySelector('.tbl-scroll'); }
 function tbSetZoom(z, anchorMin, anchorY) {
   z = Math.max(TB_PX_MIN, Math.min(TB_PX_MAX, Math.round(z * 100) / 100));
   if (z === tbPx()) return;
-  var box = document.getElementById('tb-timeline'), grid = box && box.querySelector('.tbl-grid');
-  var r0 = grid ? +grid.dataset.r0 : 0;
   S.tbZoom = z; save(); renderTimeline();
   // kursor ostidagi vaqt joyida qolsin
   try {
-    var g2 = box.querySelector('.tbl-grid');
-    if (g2 && anchorMin != null) box.scrollTop = Math.max(0, g2.offsetTop + (anchorMin - (+g2.dataset.r0)) * z - anchorY);
+    var sc = tbScroller(), g2 = sc && sc.querySelector('.tbl-grid');
+    if (g2 && anchorMin != null) sc.scrollTop = Math.max(0, g2.offsetTop + (anchorMin - (+g2.dataset.r0)) * z - anchorY);
   } catch (e) {}
 }
 function tbZoomStep(dir) {
-  var box = document.getElementById('tb-timeline'), grid = box && box.querySelector('.tbl-grid');
-  var midY = box ? box.clientHeight / 2 : 0, anchor = null;
-  if (grid) anchor = +grid.dataset.r0 + (box.scrollTop + midY - grid.offsetTop) / tbPx();
+  var sc = tbScroller(), grid = sc && sc.querySelector('.tbl-grid');
+  var midY = sc ? sc.clientHeight / 2 : 0, anchor = null;
+  if (grid) anchor = +grid.dataset.r0 + (sc.scrollTop + midY - grid.offsetTop) / tbPx();
   tbSetZoom(tbPx() * (dir > 0 ? 1.25 : 0.8), anchor, midY);
 }
 window.tbZoomStep = tbZoomStep;
 function _tbHM(min) { min = Math.max(0, Math.min(24 * 60 - 1, Math.round(min))); return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
-function tbTodayTimedTasks() {
+function _tbHaptic() { try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) {} }
+function _tbNowMin() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+// Qisqa davomiylik: "3s 20d" / "3h 20m" / "3ч 20м"
+function tbShortDur(m) {
+  m = Math.max(0, Math.round(m));
+  var h = Math.floor(m / 60), r = m % 60, hs = _cl('s', 'h', 'ч'), ms = _cl('d', 'm', 'м');
+  return h ? (h + hs + (r ? ' ' + r + ms : '')) : (r + ms);
+}
+
+// ---- Ko'rilayotgan sana (sessiya) ----
+var _tbView = { date: null, day: null, scrolled: false, menu: false };
+function tbViewDate() {
   var td = today();
-  return (S.tasks || []).filter(function (tk) {
-    if (!tk.startTime || tk.isFrozen) return false;
+  if (!_tbView.date || _tbView.day !== td) { _tbView.date = td; _tbView.day = td; _tbView.scrolled = false; }
+  return _tbView.date;
+}
+function tbIsWeek() { return !!S.tbWeek; }
+function tbSetDate(ds) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ds || '')) return;
+  tbViewDate(); _tbView.date = ds; _tbView.scrolled = false;
+  tbClosePop(); renderTimeline();
+}
+function tbShiftDate(n) { tbSetDate(addDays(tbViewDate(), n * (tbIsWeek() ? 7 : 1))); }
+function tbSetWeek(on) { S.tbWeek = !!on; _tbView.scrolled = false; save(); tbClosePop(); renderTimeline(); }
+window.tbSetDate = tbSetDate; window.tbShiftDate = tbShiftDate; window.tbSetWeek = tbSetWeek;
+window.tbViewDate = tbViewDate;
+function tbWeekStart(ds) { var dow = new Date(ds + 'T00:00:00').getDay(); return addDays(ds, -((dow + 6) % 7)); }
+function _tbMonShort(d) { var m = (typeof getMonthsArr === 'function' ? getMonthsArr() : [])[d.getMonth()] || ''; return String(m).slice(0, 3).toLowerCase(); }
+function tbDateLabel(ds) {
+  var td = today();
+  var rel = ds === td ? _cl('Bugun', 'Today', 'Сегодня') : ds === addDays(td, 1) ? _cl('Ertaga', 'Tomorrow', 'Завтра') : ds === addDays(td, -1) ? _cl('Kecha', 'Yesterday', 'Вчера') : '';
+  var d = new Date(ds + 'T00:00:00');
+  var base = tbShortDays()[d.getDay()] + ', ' + d.getDate() + ' ' + _tbMonShort(d) + (d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '');
+  return rel ? rel + ' · ' + base : base;
+}
+function tbWeekLabel(ds) {
+  var ws = tbWeekStart(ds), we = addDays(ws, 6), a = new Date(ws + 'T00:00:00'), b = new Date(we + 'T00:00:00');
+  return a.getDate() + (a.getMonth() !== b.getMonth() ? ' ' + _tbMonShort(a) : '') + ' – ' + b.getDate() + ' ' + _tbMonShort(b);
+}
+
+// ---- Qaysi vazifa qaysi kunda ----
+// Berilgan sanada vazifa navbatdami: bugun — vazifalar ro'yxati bilan bir xil mantiq;
+// o'tgan kun — bajarildi/o'tkazildi loglari + jadval; kelajak — takrorlanish qoidasi.
+function tbTaskOnDate(tk, ds) {
+  if (!tk) return false;
+  var td = today();
+  if (ds === td) {
+    if (tk.isFrozen) return false;
     if (tk.postponedTo && tk.postponedTo > td) return false;
     if (tk.repeat === 'once') return !tk.done || tk.doneDate === td;
     return taskDueToday(tk);
+  }
+  if (ds < td) {
+    var dl = (S.taskDoneLog && S.taskDoneLog[tk.id]) || [], sl = (S.taskSkipLog && S.taskSkipLog[tk.id]) || [];
+    if (dl.indexOf(ds) !== -1 || sl.indexOf(ds) !== -1) return true;
+    if (tk.repeat === 'once') return tk.doneDate === ds;
+    return taskWasDueOnDate(tk, ds);
+  }
+  if (tk.isFrozen) return false;
+  if (tk.repeat === 'once') return !tk.done && (tk.postponedTo || tk.overdueOn) === ds;
+  if (tk.postponedTo && tk.postponedTo > ds) return false;
+  if (tk.repeat === 'interval') {
+    var iv = Math.max(1, Number(tk.interval) || 1), base = tk.nextDate || tk.createdAt;
+    if (!base) return true;
+    if (ds < base) return false;
+    var diff = Math.round((new Date(ds + 'T00:00:00') - new Date(base + 'T00:00:00')) / 86400000);
+    return diff % iv === 0;
+  }
+  var dow = new Date(ds + 'T00:00:00').getDay();
+  if (tk.repeat === 'daily') return true;
+  if (tk.repeat === 'weekdays') return dow >= 1 && dow <= 5;
+  if (tk.repeat === 'custom-days' || tk.repeat === 'weekly') return (tk.days || []).indexOf(dow) !== -1;
+  return false;
+}
+function tbTasksOnDate(ds) { return (S.tasks || []).filter(function (tk) { return tbTaskOnDate(tk, ds); }); }
+function tbTodayTimedTasks() { return tbTasksOnDate(today()).filter(function (tk) { return !!tk.startTime; }); }
+// Sanadagi holat: 'done' | 'skipped' | 'now' | 'missed' | ''
+function tbTaskStatus(tk, ds) {
+  var td = today();
+  if (ds === td) {
+    if (tk.done) return 'done'; if (tk.skipped) return 'skipped';
+    var st = tbState(tk, false);
+    return st && st.state === 'now' ? 'now' : (st && st.state === 'past' ? 'missed' : '');
+  }
+  if (ds < td) {
+    if (taskDoneOnDate(tk.id, ds) || (tk.repeat === 'once' && tk.done && tk.doneDate === ds)) return 'done';
+    if (wasTaskSkippedOnDate(tk, ds)) return 'skipped';
+    return 'missed';
+  }
+  return '';
+}
+function tbW(v) { v = Number(v); return (v >= 0.2 && v <= 5) ? v : 1; }
+// Sanadagi vaqtli bloklar (vazifalar + 📌 eslatmalar)
+function tbItemsForDate(ds) {
+  var out = [];
+  tbTasksOnDate(ds).forEach(function (tk) {
+    if (!tk.startTime) return;
+    var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
+    if (a === null || isNaN(a)) return;
+    out.push({ kind: 'task', key: 't' + tk.id, tk: tk, a: a, b: Math.min(24 * 60, Math.max(b, a + TB_MIN_LEN)), w: tbW(tk.tbWeight) });
+  });
+  tbNotesForDate(ds).forEach(function (n) {
+    var a = _tbMin(n.start), b = _tbMin(n.end);
+    if (a === null || isNaN(a)) return;
+    out.push({ kind: 'note', key: 'n' + n.id, note: n, a: a, b: Math.min(24 * 60, Math.max(b, a + TB_MIN_LEN)), w: tbW(n.tbWeight) });
+  });
+  return out.sort(function (x, y) { return x.a - y.a || y.b - x.b; });
+}
+function tbUnscheduled(ds) {
+  var td = today();
+  if (ds < td) return [];
+  return tbTasksOnDate(ds).filter(function (tk) { return !tk.startTime && !(ds === td && (tk.done || tk.skipped)); });
+}
+// Band oraliqlarni birlashtirish → [[a,b], ...]
+function tbBusyMerge(items) {
+  var m = [];
+  items.slice().sort(function (x, y) { return x.a - y.a; }).forEach(function (it) {
+    var l = m[m.length - 1];
+    if (l && it.a <= l[1]) l[1] = Math.max(l[1], it.b); else m.push([it.a, it.b]);
+  });
+  return m;
+}
+function tbFindConflictOn(ds, selfKey, a, b) {
+  var hit = tbItemsForDate(ds).find(function (it) { return it.key !== selfKey && a < it.b && it.a < b; });
+  return hit ? (hit.tk ? hit.tk.name : hit.note.text) : null;
+}
+function tbNextFree(ds, dur) {
+  var td = today(), start = ds === td ? Math.ceil((_tbNowMin() + 1) / 15) * 15 : 9 * 60;
+  var merged = tbBusyMerge(tbItemsForDate(ds));
+  for (var i = 0; i < merged.length; i++) {
+    if (merged[i][1] <= start) continue;
+    if (merged[i][0] >= start + dur) break;
+    start = Math.ceil(merged[i][1] / 5) * 5;
+  }
+  return Math.max(0, Math.min(start, 24 * 60 - dur));
+}
+
+// ---- Ustunlarga joylash (klassik kalendar algoritmi) ----
+// Ustma-ust bloklar klasterlarga bo'linadi; har bir blok bo'sh birinchi ustunga
+// tushadi; ustun eni — undagi bloklar og'irligining (tbWeight) eng kattasi.
+// O'ng tomondagi ustun(lar) bo'sh bo'lsa, blok ularga ham cho'ziladi.
+function tbPackCluster(cl) {
+  var n = cl.cols.length;
+  cl.weights = cl.cols.map(function (col) { return Math.max.apply(null, col.map(function (it) { return it.w; })); });
+  var tot = cl.weights.reduce(function (s, w) { return s + w; }, 0) || 1, acc = 0;
+  cl.lefts = []; cl.widths = [];
+  cl.weights.forEach(function (w, i) { cl.lefts[i] = acc / tot * 100; cl.widths[i] = w / tot * 100; acc += w; });
+  cl.items.forEach(function (it) {
+    var span = 1;
+    for (var c = it.col + 1; c < n; c++) {
+      if (cl.cols[c].some(function (o) { return o.a < it.b && it.a < o.b; })) break;
+      span++;
+    }
+    it.span = span; it.ncols = n;
+    it.left = cl.lefts[it.col];
+    it.width = cl.lefts[it.col + span - 1] + cl.widths[it.col + span - 1] - it.left;
   });
 }
+function tbLayout(items) {
+  var clusters = [], cur = null;
+  items.forEach(function (it) {
+    if (!cur || it.a >= cur.end) { cur = { start: it.a, end: it.b, items: [], cols: [], colEnd: [] }; clusters.push(cur); }
+    cur.end = Math.max(cur.end, it.b); cur.items.push(it);
+    var c = 0; while (cur.colEnd[c] !== undefined && cur.colEnd[c] > it.a) c++;
+    cur.colEnd[c] = it.b; (cur.cols[c] = cur.cols[c] || []).push(it);
+    it.col = c; it.cl = cur;
+  });
+  clusters.forEach(function (cl, i) { cl.idx = i; tbPackCluster(cl); });
+  return clusters;
+}
+function tbRange(items, nowMin) {
+  if (S.tbFullDay) return { h0: 0, h1: 24 };
+  var lo = Infinity, hi = -Infinity;
+  items.forEach(function (it) { lo = Math.min(lo, it.a); hi = Math.max(hi, it.b); });
+  if (nowMin != null) { lo = Math.min(lo, nowMin); hi = Math.max(hi, nowMin + 30); }
+  if (lo === Infinity) { lo = 8 * 60; hi = 12 * 60; }
+  var h0 = Math.max(0, Math.floor(lo / 60) - 1), h1 = Math.min(24, Math.ceil(hi / 60) + 1);
+  while (h1 - h0 < 5) { if (h1 < 24) h1++; else if (h0 > 0) h0--; else break; }
+  return { h0: h0, h1: h1 };
+}
+
+var _tbLay = null; // oxirgi chizilgan kun: { ds, items, clusters, r0 }
+function tbItemByKey(key) { return _tbLay && _tbLay.items.find(function (it) { return it.key === key; }); }
+
+// ---- HTML qismlari ----
+function tbHeadHtml(ds, collapsed, week) {
+  var td = today();
+  return '<div class="tbl-head"><button type="button" class="tbl-title" data-act="collapse" aria-expanded="' + (!collapsed) + '">📅 ' + _cl('Kun jadvali', 'Day schedule', 'Расписание дня') +
+    ' <span class="tbl-caret">' + (collapsed ? '▸' : '▾') + '</span>' + (collapsed && ds !== td ? ' <small class="tbl-title-d">' + esc(tbDateLabel(ds)) + '</small>' : '') + '</button>' +
+    (collapsed ? '' : '<div class="tbl-tools">' +
+      '<div class="tbl-seg" role="tablist"><button type="button" data-act="day" class="' + (week ? '' : 'on') + '">' + _cl('Kun', 'Day', 'День') + '</button><button type="button" data-act="week" class="' + (week ? 'on' : '') + '">' + _cl('Hafta', 'Week', 'Неделя') + '</button></div>' +
+      (ds >= td && !week ? '<button type="button" class="tbl-ib" data-act="add" title="' + _cl("Qo'shish", 'Add', 'Добавить') + '" aria-label="' + _cl("Qo'shish", 'Add', 'Добавить') + '">＋</button>' : '') +
+      '<button type="button" class="tbl-ib" data-act="menu" title="' + _cl('Sozlamalar', 'Settings', 'Настройки') + '" aria-label="' + _cl('Sozlamalar', 'Settings', 'Настройки') + '">⚙</button></div>') +
+    '</div>' + (collapsed ? '' : tbMenuHtml(ds));
+}
+function tbMenuHtml(ds) {
+  var px = tbPx(), sn = tbSnap();
+  return '<div class="tbl-menu" role="menu">' +
+    '<div class="tbl-m-row"><span>🔍 ' + _cl('Masshtab', 'Zoom', 'Масштаб') + '</span><span class="tbl-zoom"><button type="button" data-act="zout" aria-label="−">－</button><b>' + Math.round(px / TB_PX_DEFAULT * 100) + '%</b><button type="button" data-act="zin" aria-label="+">＋</button></span></div>' +
+    '<div class="tbl-m-row"><span>🧲 ' + _cl('Sudrash qadami', 'Drag step', 'Шаг перетаскивания') + '</span><span class="tbl-seg"><button type="button" data-act="snap5" class="' + (sn === 5 ? 'on' : '') + '">5 ' + _cl('daq', 'min', 'мин') + '</button><button type="button" data-act="snap15" class="' + (sn === 15 ? 'on' : '') + '">15</button></span></div>' +
+    '<div class="tbl-m-row"><span>🕛 ' + _cl("Butun kun (24 soat)", 'Whole day (24h)', 'Весь день (24 ч)') + '</span><button type="button" class="tbl-sw' + (S.tbFullDay ? ' on' : '') + '" data-act="full" role="switch" aria-checked="' + (!!S.tbFullDay) + '"><i></i></button></div>' +
+    (ds >= today() ? '<button type="button" class="tbl-m-btn" data-act="addnote">📌 ' + _cl("Eslatma qo'shish (vazifa emas)", 'Add a schedule note (not a task)', 'Добавить заметку (не задача)') + '</button>' : '') +
+    '<button type="button" class="tbl-m-btn" data-act="copy">📋 ' + _cl("Shu kun eslatmalarini boshqa kunga nusxalash", "Copy this day's notes to another day", 'Скопировать заметки дня на другой день') + '</button>' +
+    '<div class="tbl-m-hint">' + _cl("Blokni bosib turing va suring — vaqti o'zgaradi. Yuqori/pastki chetidan suring — cho'ziladi. Yonma-yon bloklar orasidagi chiziqni suring — eni o'zgaradi (2× bosish — teng).",
+      'Press and hold a block, then drag to move it. Drag its top/bottom edge to resize. Drag the bar between side-by-side blocks to change widths (double-tap — equal).',
+      'Удерживайте блок и тяните — время меняется. Тяните за верхний/нижний край — длительность. Тяните полоску между блоками — ширина (двойное нажатие — поровну).') + '</div>' +
+    '</div>';
+}
+function tbNavHtml(ds, week) {
+  var td = today(), inWeek = week && tbWeekStart(ds) === tbWeekStart(td);
+  return '<div class="tbl-nav">' +
+    '<button type="button" class="tbl-nb" data-act="prev" aria-label="' + _cl('Oldingi', 'Previous', 'Назад') + '">‹</button>' +
+    '<button type="button" class="tbl-dl" data-act="pick" title="' + _cl('Sanani tanlash', 'Pick a date', 'Выбрать дату') + '">' + esc(week ? tbWeekLabel(ds) : tbDateLabel(ds)) + ' <span class="tbl-dl-i">▾</span></button>' +
+    '<input type="date" class="tbl-dinput" value="' + ds + '" tabindex="-1" aria-hidden="true">' +
+    '<button type="button" class="tbl-nb" data-act="next" aria-label="' + _cl('Keyingi', 'Next', 'Вперёд') + '">›</button>' +
+    ((week ? !inWeek : ds !== td) ? '<button type="button" class="tbl-today" data-act="today">' + _cl('Bugun', 'Today', 'Сегодня') + '</button>' : '') +
+    '</div>';
+}
+function tbStripHtml(ds) {
+  var ws = tbWeekStart(ds), td = today(), sd = tbShortDays(), h = '<div class="tbl-strip">';
+  for (var i = 0; i < 7; i++) {
+    var d = addDays(ws, i), dt = new Date(d + 'T00:00:00'), n = tbItemsForDate(d).length, dots = '';
+    for (var k = 0; k < Math.min(n, 4); k++) dots += '<em></em>';
+    h += '<button type="button" class="tbl-sd' + (d === ds ? ' sel' : '') + (d === td ? ' today' : '') + (d < td ? ' past' : '') + '" data-date="' + d + '" aria-label="' + esc(tbDateLabel(d)) + (n ? ' · ' + n : '') + '">' +
+      '<span>' + sd[dt.getDay()] + '</span><b>' + dt.getDate() + '</b><i>' + dots + '</i></button>';
+  }
+  return h + '</div>';
+}
+function tbSummaryHtml(ds, items, nm, clusters) {
+  var td = today(), merged = tbBusyMerge(items), busy = 0;
+  merged.forEach(function (m) { busy += m[1] - m[0]; });
+  var tasks = items.filter(function (it) { return it.kind === 'task'; }), planned = 0;
+  tasks.forEach(function (it) { planned += it.b - it.a; });
+  var parts = ['<span title="' + _cl('Vaqtli vazifalar', 'Timed tasks', 'Задачи со временем') + '">🗓 ' + _cl('Rejada', 'Planned', 'В плане') + ': <b>' + (planned ? tbShortDur(planned) : '0') + '</b>' + (tasks.length ? ' · ' + tasks.length + ' ' + _cl('ta', tasks.length > 1 ? 'tasks' : 'task', 'задач') : '') + '</span>'];
+  if (ds < td) {
+    var dn = tasks.filter(function (it) { return tbTaskStatus(it.tk, ds) === 'done'; }).length;
+    if (tasks.length) parts.push('<span>✅ <b>' + dn + '/' + tasks.length + '</b></span>');
+  } else {
+    // Bo'sh vaqt — 07:00–23:00 oralig'ida (bugun: hozirdan boshlab)
+    var W0 = 7 * 60, W1 = 23 * 60, from = ds === td ? Math.max(W0, nm) : W0, free = Math.max(0, W1 - from);
+    merged.forEach(function (m) { var a = Math.max(m[0], from), b = Math.min(m[1], W1); if (b > a) free -= b - a; });
+    parts.push('<span title="07:00–23:00">🟩 ' + (ds === td ? _cl("Bo'sh (qolgan)", 'Free (left)', 'Свободно (осталось)') : _cl("Bo'sh vaqt", 'Free time', 'Свободно')) + ': <b>' + tbShortDur(free) + '</b></span>');
+  }
+  if (busy && busy !== planned) parts.push('<span>🟦 ' + _cl('Band', 'Busy', 'Занято') + ': <b>' + tbShortDur(busy) + '</b></span>');
+  var ov = (clusters || []).filter(function (c) { return c.cols.length > 1; }).length;
+  if (ov) parts.push('<span class="tbl-sum-warn">⚠️ ' + ov + ' ' + _cl('ustma-ust', 'overlap' + (ov > 1 ? 's' : ''), 'пересеч.') + '</span>');
+  return '<div class="tbl-sum">' + parts.join('') + '</div>';
+}
+function tbTrayHtml(ds) {
+  var un = tbUnscheduled(ds);
+  if (!un.length) return '';
+  return '<div class="tbl-tray"><span class="tbl-tray-t" title="' + _cl("Bosing — vaqt tanlang, yoki bosib turib jadvalga sudrang", 'Tap to pick a time, or press-and-hold and drag onto the schedule', 'Нажмите — выбрать время, или удерживайте и перетащите в расписание') + '">⏱ ' + _cl('Vaqtsiz', 'No time', 'Без времени') + ' · ' + un.length + '</span>' +
+    '<div class="tbl-tray-list">' + un.map(function (tk) {
+      return '<button type="button" class="tbl-chip" data-id="' + tk.id + '"' + (tk.label ? ' style="--tbl-c:' + esc(tk.label) + '"' : '') + '>' + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</button>';
+    }).join('') + '</div></div>';
+}
+function tbBlockHtml(it, ds, r0, px, editable) {
+  var top = (it.a - r0) * px, hh = (it.b - it.a) * px;
+  var pos = 'top:' + top + 'px;height:' + Math.max(8, hh - 2) + 'px;left:calc(' + it.left + '% + 2px);width:calc(' + it.width + '% - 4px)';
+  var size = hh < 22 ? ' tiny short' : (hh < 36 ? ' short' : '');
+  var handles = editable ? '<span class="tbl-h tbl-h-top" aria-hidden="true"></span><span class="tbl-h tbl-h-bot" aria-hidden="true"></span>' : '';
+  if (it.kind === 'note') {
+    var n = it.note, nm = ds === today() ? _tbNowMin() : -1;
+    var ncls = 'tbl-note' + size + (ds < today() || (nm >= 0 && it.b <= nm) ? ' past' : (nm >= 0 && it.a <= nm ? ' now' : ''));
+    return '<div class="' + ncls + '" data-key="' + esc(it.key) + '" data-nid="' + esc(String(n.id)) + '" role="button" tabindex="0" style="' + pos + (n.color ? ';--tbl-c:' + esc(n.color) : '') + '">' + handles +
+      '<div class="tbl-b-main"><div class="tbl-b-name"><span class="tbl-n-pin">📌</span>' + (n.emoji ? n.emoji + ' ' : '') + esc(n.text) + '</div>' +
+      '<div class="tbl-b-time">' + n.start + '–' + n.end + (n.repeat !== 'once' ? ' · 🔁 ' + esc(tbNoteRepeatLabel(n)) : '') + '</div></div>' +
+      '<div class="tbl-b-mini"><span>' + (n.emoji || '📌') + '</span><small>' + n.start + '</small></div></div>';
+  }
+  var tk = it.tk, stt = tbTaskStatus(tk, ds), cls = 'tbl-block' + size + (stt ? ' ' + stt : '');
+  return '<div class="' + cls + '" data-key="' + esc(it.key) + '" data-id="' + tk.id + '" role="button" tabindex="0" style="' + pos + (tk.label ? ';--tbl-c:' + esc(tk.label) : '') + '">' + handles +
+    '<div class="tbl-b-main"><div class="tbl-b-name">' + (stt === 'done' ? '✅ ' : '') + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</div>' +
+    '<div class="tbl-b-time">' + tk.startTime + (tk.endTime ? '–' + tk.endTime : '') + (tk.endTime ? ' · ' + tbShortDur(it.b - it.a) : '') + (tk.autoPomo ? ' · 🍅' : '') + '</div></div>' +
+    '<div class="tbl-b-mini"><span>' + (stt === 'done' ? '✅' : (tk.emoji || esc(String(tk.name || '•').slice(0, 1)))) + '</span><small>' + tk.startTime + '</small></div></div>';
+}
+function tbHoursHtml(h0, h1, r0, px) {
+  var h = '';
+  for (var x = h0; x <= h1; x++) {
+    h += '<div class="tbl-hour" style="top:' + ((x * 60 - r0) * px) + 'px"><span>' + String(x).padStart(2, '0') + ':00</span></div>';
+    if (x < h1 && px >= 1.1) h += '<div class="tbl-half" style="top:' + ((x * 60 + 30 - r0) * px) + 'px"></div>';
+  }
+  return h;
+}
+function tbDayGridHtml(ds, items, clusters, nm) {
+  var td = today(), isToday = ds === td, editable = ds >= td, px = tbPx();
+  var rg = tbRange(items, isToday ? nm : null), r0 = rg.h0 * 60, r1 = rg.h1 * 60;
+  _tbLay = { ds: ds, items: items, clusters: clusters, r0: r0, r1: r1 };
+  var h = '<div class="tbl-grid' + (editable ? '' : ' ro') + '" style="height:' + ((r1 - r0) * px) + 'px" data-r0="' + r0 + '" data-r1="' + r1 + '">' + tbHoursHtml(rg.h0, rg.h1, r0, px);
+  if (editable) {
+    // bo'sh vaqtlar (bugun — faqat hozirdan keyingilari)
+    var from = isToday ? Math.max(r0, Math.ceil(nm / 5) * 5) : r0, cursor = from;
+    tbBusyMerge(items).forEach(function (m) {
+      if (m[1] <= cursor) return;
+      if (m[0] - cursor >= 30) h += tbGapHtml(cursor, m[0], r0, px);
+      cursor = Math.max(cursor, m[1]);
+    });
+    if (r1 - cursor >= 30) h += tbGapHtml(cursor, r1, r0, px);
+  }
+  items.forEach(function (it) { h += tbBlockHtml(it, ds, r0, px, editable); });
+  // ustunlar orasidagi enini o'zgartirish chizig'i
+  clusters.forEach(function (cl) {
+    for (var c = 0; c < cl.cols.length - 1; c++) {
+      var col = cl.cols[c + 1], a = Math.min.apply(null, col.map(function (o) { return o.a; })), b = Math.max.apply(null, col.map(function (o) { return o.b; }));
+      h += '<div class="tbl-split" data-cl="' + cl.idx + '" data-c="' + c + '" role="separator" aria-orientation="vertical" title="' + _cl("Suring — enini o'zgartirish", 'Drag to change widths', 'Тяните — изменить ширину') + '" style="top:' + ((a - r0) * px + 4) + 'px;height:' + Math.max(12, (b - a) * px - 8) + 'px;left:' + cl.lefts[c + 1] + '%"></div>';
+    }
+  });
+  if (isToday && nm >= r0 && nm <= r1) h += '<div class="tbl-now" style="top:' + ((nm - r0) * px) + 'px"><span>' + _tbHM(nm) + '</span></div>';
+  h += '</div>';
+  if (!items.length) h = '<div class="tbl-empty">' + (editable ? _cl("Bu kunda vaqtli reja yo'q — bo'sh joyni bosib vazifa yoki eslatma qo'shing.", 'Nothing scheduled — tap an empty slot to add a task or note.', 'Ничего не запланировано — нажмите на пустое место, чтобы добавить.') : _cl("Bu kunda vaqtli vazifa bo'lmagan.", 'No timed tasks on this day.', 'В этот день не было задач со временем.')) + '</div>' + h;
+  return h;
+}
+function tbGapHtml(a, b, r0, px) {
+  return '<div class="tbl-gap" style="top:' + ((a - r0) * px + 3) + 'px;height:' + Math.max(0, (b - a) * px - 6) + 'px"><span>＋ ' + _cl("Bo'sh", 'Free', 'Свободно') + ' · ' + tbShortDur(b - a) + '</span></div>';
+}
+function tbWeekHtml(ds, nm) {
+  var ws = tbWeekStart(ds), td = today(), sd = tbShortDays(), px = Math.max(0.45, Math.min(tbPx(), 1.2));
+  var days = [], all = [];
+  for (var i = 0; i < 7; i++) { var d = addDays(ws, i), its = tbItemsForDate(d); days.push(d); all.push(its); }
+  var flat = [].concat.apply([], all), hasToday = days.indexOf(td) !== -1;
+  var rg = tbRange(flat, hasToday ? nm : null), r0 = rg.h0 * 60, r1 = rg.h1 * 60;
+  var h = '<div class="tbl-wk-head">' + days.map(function (d) {
+    var dt = new Date(d + 'T00:00:00');
+    return '<button type="button" class="tbl-wk-d' + (d === td ? ' today' : '') + (d === ds ? ' sel' : '') + '" data-date="' + d + '"><span>' + sd[dt.getDay()] + '</span><b>' + dt.getDate() + '</b></button>';
+  }).join('') + '</div>';
+  h += '<div class="tbl-grid tbl-wk-grid ro" style="height:' + ((r1 - r0) * px) + 'px" data-r0="' + r0 + '" data-px="' + px + '">' + tbHoursHtml(rg.h0, rg.h1, r0, px);
+  days.forEach(function (d, i) {
+    var its = all[i]; tbLayout(its);
+    h += '<div class="tbl-wk-col' + (d === td ? ' today' : '') + (d < td ? ' past' : '') + '" data-date="' + d + '" style="left:' + (i * 100 / 7) + '%;width:' + (100 / 7) + '%">';
+    its.forEach(function (it) {
+      var top = (it.a - r0) * px, hh = (it.b - it.a) * px, nm2 = it.tk ? it.tk.name : it.note.text, em = it.tk ? it.tk.emoji : (it.note.emoji || '📌');
+      var c = it.tk ? it.tk.label : it.note.color, st = it.tk ? tbTaskStatus(it.tk, d) : '';
+      h += '<div class="tbl-wk-b ' + it.kind + (st ? ' ' + st : '') + '" style="top:' + top + 'px;height:' + Math.max(6, hh - 1) + 'px;left:' + it.left + '%;width:' + it.width + '%' + (c ? ';--tbl-c:' + esc(c) : '') + '" title="' + esc(nm2) + ' · ' + _tbHM(it.a) + '–' + _tbHM(it.b) + '">' + (em ? em + ' ' : '') + '<span>' + esc(nm2) + '</span></div>';
+    });
+    if (d === td && nm >= r0 && nm <= r1) h += '<div class="tbl-now tbl-wk-now" style="top:' + ((nm - r0) * px) + 'px"></div>';
+    h += '</div>';
+  });
+  return h + '</div>';
+}
+
 function renderTimeline() {
   var box = document.getElementById('tb-timeline');
   if (!box) return;
   var q = ((document.getElementById('task-search') || {}).value || '').trim();
   if (!S.timeView || q) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  if (_tbDrag && _tbDrag.moved) return; // sudrash davomida qayta chizilmaydi
-  var tasks = tbTodayTimedTasks().map(function (tk) {
-    var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
-    return { tk: tk, a: a, b: Math.max(b, a + 10) };
-  }).concat(tbNotesForDate(today()).map(function (n) {
-    // 📌 Jadval eslatmalari — vazifa emas, faqat band vaqtni ko'rsatadi
-    var a = _tbMin(n.start), b = _tbMin(n.end);
-    return { note: n, a: a, b: Math.max(b, a + 10) };
-  })).sort(function (x, y) { return x.a - y.a || x.b - y.b; });
+  if (_tbDrag) return; // sudrash / bosib turish davomida qayta chizilmaydi
+  var sc0 = box.querySelector('.tbl-scroll'), keep = sc0 ? sc0.scrollTop : null;
+  var ds = tbViewDate(), td = today(), week = tbIsWeek(), nm = _tbNowMin();
+  var sameView = box.dataset.date === ds && box.dataset.week === (week ? '1' : '0');
   box.style.display = '';
-  var now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
-  // Faqat vazifalar bor oraliq ko'rsatiladi (+ hozirgi vaqt yaqin bo'lsa) — keraksiz bo'sh soatlar yo'q
-  var h0 = 24, h1 = 0;
-  tasks.forEach(function (it) { h0 = Math.min(h0, Math.floor(it.a / 60)); h1 = Math.max(h1, Math.ceil(it.b / 60)); });
-  if (!tasks.length) { h0 = Math.floor(nm / 60); h1 = h0 + 1; }
-  var nh = Math.floor(nm / 60);
-  if (nh >= h0 - 1 && nh < h0) h0 = nh;
-  if (nh >= h1 && nh <= h1) h1 = nh + 1;
-  if (h1 - h0 < 3) h1 = Math.min(24, h0 + 3);
-  h0 = Math.max(0, h0); h1 = Math.min(24, h1);
-  var r0 = h0 * 60, r1 = h1 * 60, px = tbPx();
-  // ustma-ust bloklar uchun ustunlar (lanes)
-  var lanesEnd = [], groups = [], cur = null;
-  tasks.forEach(function (it) {
-    var lane = 0; while (lanesEnd[lane] !== undefined && lanesEnd[lane] > it.a) lane++;
-    lanesEnd[lane] = it.b; it.lane = lane;
-    if (!cur || it.a >= cur.end) { cur = { end: it.b, items: [] }; groups.push(cur); }
-    cur.end = Math.max(cur.end, it.b); cur.items.push(it);
-  });
-  groups.forEach(function (g) { var n = 1; g.items.forEach(function (it) { n = Math.max(n, it.lane + 1); }); g.items.forEach(function (it) { it.lanes = n; }); });
-  // bo'sh vaqtlar (busy oraliqlarni birlashtirib)
-  var busy = 0, gaps = [], cursor = r0;
-  groups.forEach(function (g) {
-    var gs = g.items[0].a;
-    if (gs - cursor >= 30) gaps.push({ a: cursor, b: gs });
-    busy += g.end - gs; cursor = Math.max(cursor, g.end);
-  });
-  if (r1 - cursor >= 30) gaps.push({ a: cursor, b: r1 });
-  var freeLeft = 0;
-  var dayEnd = Math.max(r1, 22 * 60);
-  // hozirdan kun oxirigacha qolgan bo'sh vaqt
-  (function () {
-    var c = nm; groups.forEach(function (g) { var gs = g.items[0].a; if (g.end <= c) return; if (gs > c) freeLeft += gs - c; c = Math.max(c, g.end); });
-    if (dayEnd > c) freeLeft += dayEnd - c;
-  })();
-  var H = (r1 - r0) * px;
   var collapsed = !!S.tbCollapsed;
   box.classList.toggle('collapsed', collapsed);
-  var html = '<div class="tbl-head" onclick="tbToggleCollapse()"><div class="tbl-title">📅 ' + _cl('Kun jadvali', 'Day schedule', 'Расписание дня') + ' <span class="tbl-caret">' + (collapsed ? '▸' : '▾') + '</span></div>' +
-    '<div class="tbl-sum"><span>🟦 ' + _cl('Band', 'Busy', 'Занято') + ': <b>' + (busy ? tbRelLabel(busy) : '0') + '</b></span>' +
-    '<span>🟩 ' + _cl("Bo'sh (bugun qolgan)", 'Free (rest of today)', 'Свободно (до конца дня)') + ': <b>' + (freeLeft ? tbRelLabel(freeLeft) : '0') + '</b></span>' +
-    (collapsed || !tasks.length ? '' : '<span class="tbl-zoom" onclick="event.stopPropagation()"><button type="button" class="tbl-addnote" onclick="tbOpenNoteEditor(null)" title="' + _cl("Jadvalga eslatma qo'shish (vazifa emas)", 'Add a schedule note (not a task)', 'Добавить заметку в расписание (не задача)') + '">＋📌</button><button type="button" onclick="tbZoomStep(-1)" title="' + _cl('Kichiklashtirish', 'Zoom out', 'Уменьшить') + '">－</button><b>' + Math.round(px / TB_PX_DEFAULT * 100) + '%</b><button type="button" onclick="tbZoomStep(1)" title="' + _cl('Kattalashtirish', 'Zoom in', 'Увеличить') + '">＋</button></span>') + '</div></div>';
-  if (collapsed || !tasks.length) {
-    if (!tasks.length) html += '<div class="tbl-empty">' + _cl("Bugun vaqtli vazifa yo'q. Vazifa qo'shganda vaqtini kiriting.", 'No timed tasks today. Add a time when creating a task.', 'Сегодня нет задач со временем.') +
-      '<div><button type="button" class="tbl-empty-add" onclick="tbOpenNoteEditor(null)">📌 ' + _cl("Jadvalga yozish (masalan: Maktab)", 'Add to schedule (e.g. School)', 'Добавить в расписание (напр. Школа)') + '</button></div></div>';
-    box.innerHTML = html; return;
+  box.classList.toggle('menu-open', !collapsed && !!_tbView.menu);
+  box.classList.toggle('tbl-past', ds < td);
+  tbBindBox(box);
+  var html = tbHeadHtml(ds, collapsed, week);
+  if (collapsed) { box.innerHTML = html; box.dataset.date = ds; box.dataset.week = week ? '1' : '0'; return; }
+  html += tbNavHtml(ds, week);
+  var items = null, clusters = null;
+  if (!week) {
+    items = tbItemsForDate(ds); clusters = tbLayout(items);
+    html += tbStripHtml(ds) + tbSummaryHtml(ds, items, nm, clusters) + tbTrayHtml(ds);
+    html += '<div class="tbl-scroll">' + tbDayGridHtml(ds, items, clusters, nm) + '</div>';
+  } else {
+    _tbLay = null;
+    html += '<div class="tbl-scroll tbl-wk">' + tbWeekHtml(ds, nm) + '</div>';
   }
-  html += '<div class="tbl-grid" style="height:' + H + 'px" data-r0="' + r0 + '">';
-  for (var h = h0; h <= h1; h++) {
-    html += '<div class="tbl-hour" style="top:' + ((h * 60 - r0) * px) + 'px"><span>' + String(h).padStart(2, '0') + ':00</span></div>';
-  }
-  gaps.forEach(function (g) {
-    var top = (g.a - r0) * px, hh = (g.b - g.a) * px;
-    html += '<div class="tbl-gap" role="button" style="top:' + (top + 3) + 'px;height:' + Math.max(0, hh - 6) + 'px" title="' + _cl("Bosing — jadvalga yozing", 'Tap to write something here', 'Нажмите, чтобы добавить запись') + '">' +
-      '<span>＋ ' + _cl("Bo'sh vaqt", 'Free time', 'Свободно') + ' · ' + tbRelLabel(g.b - g.a) + '</span></div>';
-  });
-  tasks.forEach(function (it) {
-    if (it.note) {
-      // 📌 Jadval eslatmasi (vazifa emas)
-      var n = it.note, ntop = (it.a - r0) * px, nh = (it.b - it.a) * px, nw = 100 / it.lanes, nl = nw * it.lane;
-      var ncls = 'tbl-note' + (nh < 34 ? ' short' : '') + (it.b <= nm ? ' past' : (it.a <= nm ? ' now' : ''));
-      html += '<div class="' + ncls + '" data-nid="' + esc(String(n.id)) + '" role="button" style="top:' + ntop + 'px;height:' + (nh - 2) + 'px;left:calc(' + nl + '% + 2px);width:calc(' + nw + '% - 4px)' + (n.color ? ';--tbl-c:' + n.color : '') + '">' +
-        '<div class="tbl-b-main"><div class="tbl-b-name"><span class="tbl-n-pin">📌</span>' + (n.emoji ? n.emoji + ' ' : '') + esc(n.text) + '</div>' +
-        '<div class="tbl-b-time">' + n.start + '–' + n.end + (n.repeat !== 'once' ? ' · 🔁 ' + esc(tbNoteRepeatLabel(n)) : '') + '</div></div></div>';
-      return;
-    }
-    var tk = it.tk, st = tbState(tk, false), cls = 'tbl-block';
-    if (tk.done) cls += ' done'; else if (tk.skipped) cls += ' skipped'; else if (st && st.state === 'now') cls += ' now'; else if (st && st.state === 'past') cls += ' missed';
-    var top = (it.a - r0) * px, hh = (it.b - it.a) * px;
-    var w = 100 / it.lanes, left = w * it.lane;
-    var col = tk.label || '';
-    html += '<div class="' + cls + (hh < 34 ? ' short' : '') + '" data-id="' + tk.id + '" style="top:' + top + 'px;height:' + (hh - 2) + 'px;left:calc(' + left + '% + 2px);width:calc(' + w + '% - 4px)' + (col ? ';--tbl-c:' + col : '') + '">' +
-      '<span class="tbl-grip" title="' + _cl('Sudrab vaqtini o\'zgartiring', 'Drag to reschedule', 'Перетащите, чтобы изменить время') + '">⠿</span>' +
-      '<div class="tbl-b-main"><div class="tbl-b-name">' + (tk.done ? '✅ ' : '') + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</div>' +
-      '<div class="tbl-b-time">' + tk.startTime + (tk.endTime ? '–' + tk.endTime : '') + (tk.autoPomo ? ' · 🍅' : '') + '</div></div>' +
-      '<span class="tbl-resize" title="' + _cl('Tugash vaqtini o\'zgartirish', 'Change end time', 'Изменить время окончания') + '"></span></div>';
-  });
-  if (nm >= r0 && nm <= r1) html += '<div class="tbl-now" style="top:' + ((nm - r0) * px) + 'px"><span>' + _tbHM(nm) + '</span></div>';
-  html += '</div>';
   box.innerHTML = html;
-  tbBindTimeline(box);
-  if (!box._wheelBound) {
-    box._wheelBound = true;
-    // Soatlar ustida (chap ustun) yoki Ctrl bilan g'ildirak — masshtab o'zgaradi
-    box.addEventListener('wheel', function (e) {
-      var g = box.querySelector('.tbl-grid'); if (!g) return;
-      var gr = g.getBoundingClientRect();
-      if (!(e.ctrlKey || e.clientX < gr.left)) return;
-      e.preventDefault();
-      var br = box.getBoundingClientRect(), y = e.clientY - br.top;
-      var anchor = +g.dataset.r0 + (e.clientY - gr.top) / tbPx();
-      tbSetZoom(tbPx() * (e.deltaY < 0 ? 1.15 : 1 / 1.15), anchor, y);
-    }, { passive: false });
-    // Telefonda ikki barmoq bilan (pinch) masshtab
-    var pinch = null;
-    box.addEventListener('touchstart', function (e) { if (e.touches.length === 2) pinch = { d: Math.abs(e.touches[0].clientY - e.touches[1].clientY) || 1, z: tbPx() }; }, { passive: true });
-    box.addEventListener('touchmove', function (e) {
-      if (!pinch || e.touches.length !== 2) return;
-      e.preventDefault();
-      var d = Math.abs(e.touches[0].clientY - e.touches[1].clientY) || 1;
-      var z = pinch.z * d / pinch.d;
-      if (Math.abs(z - tbPx()) / tbPx() > 0.06) tbSetZoom(z, null, 0);
-    }, { passive: false });
-    box.addEventListener('touchend', function () { pinch = null; }, { passive: true });
-  }
-  if (!box._scrolled) {
-    box._scrolled = true;
-    var grid = box.querySelector('.tbl-grid');
-    if (grid && grid.parentNode === box) { try { box.scrollTop = Math.max(0, (nm - r0) * px - 80); } catch (e) {} }
-  }
+  box.dataset.date = ds; box.dataset.week = week ? '1' : '0';
+  var sc = box.querySelector('.tbl-scroll'), grid = sc && sc.querySelector('.tbl-grid');
+  if (!sc || !grid) return;
+  if (sameView && _tbView.scrolled && keep != null) { sc.scrollTop = keep; return; }
+  // birinchi ochilishda / sana almashganda — hozirgi vaqtga (yoki birinchi blokka)
+  _tbView.scrolled = true;
+  var r0 = +grid.dataset.r0, gpx = +(grid.dataset.px || tbPx()), target, off = 16;
+  var hasToday = week ? tbWeekStart(ds) === tbWeekStart(td) : ds === td;
+  if (hasToday) { target = nm; off = 80; }
+  else if (items && items.length) target = items[0].a;
+  else target = r0 + 60;
+  try { sc.scrollTop = Math.max(0, grid.offsetTop + (target - r0) * gpx - off); } catch (e) {}
 }
-function tbToggleCollapse() { S.tbCollapsed = !S.tbCollapsed; save(); renderTimeline(); }
+function tbToggleCollapse() { S.tbCollapsed = !S.tbCollapsed; _tbView.menu = false; save(); renderTimeline(); }
 window.tbToggleCollapse = tbToggleCollapse;
+
+// Bo'sh joydan vazifa qo'shish (ko'rilayotgan kun kelajak bo'lsa — o'sha kunga bir martalik)
+var _tbPendingDate = null;
 function tbAddInGap(start, end) {
+  var ds = tbViewDate();
   try { openModal(); } catch (e) { return; }
   var a = document.getElementById('m-start'), b = document.getElementById('m-end');
   if (a) a.value = start; if (b) b.value = end;
+  if (ds > today()) {
+    try { selRepeat('once'); } catch (e) {}
+    _tbPendingDate = ds;
+    try { toast('📅 ' + tbDateLabel(ds)); } catch (e) {}
+  }
+}
+// saveTask() yangi vazifa yaratganda chaqiradi
+function tbApplyPendingDate(task) {
+  var d = _tbPendingDate; _tbPendingDate = null;
+  if (d && task && task.repeat === 'once' && d > today()) task.postponedTo = d;
 }
 
 // 📌 JADVAL ESLATMALARI (S.tbNotes) — vaqt jadvalidagi oddiy yozuvlar (masalan "Maktab 08:00–13:00").
@@ -12747,15 +13016,16 @@ function tbOpenNoteEditor(noteId, startMin) {
   var n = noteId != null ? list.find(function (x) { return String(x.id) === String(noteId); }) : null;
   if (noteId != null && !n) return;
   var old = document.getElementById('tbn-ov'); if (old) old.remove();
-  if (startMin == null) { var d0 = new Date(); startMin = Math.ceil((d0.getHours() * 60 + d0.getMinutes()) / 15) * 15; }
+  var _vd = tbViewDate(), _vIsToday = _vd === today();
+  if (startMin == null) { if (_vIsToday) { var d0 = new Date(); startMin = Math.ceil((d0.getHours() * 60 + d0.getMinutes()) / 15) * 15; } else startMin = tbNextFree(_vd, 60); }
   startMin = Math.max(0, Math.min(23 * 60, startMin));
   var st = n ? { text: n.text, start: n.start, end: n.end, emoji: n.emoji || '', color: n.color || '', repeat: n.repeat || 'once', days: (n.days || []).slice() }
     : { text: '', start: _tbHM(startMin), end: _tbHM(Math.min(startMin + 60, 24 * 60 - 1)), emoji: '', color: '', repeat: 'once', days: [] };
-  if (!st.days.length) st.days = [new Date().getDay()];
+  if (!st.days.length) st.days = [new Date(_vd + 'T00:00:00').getDay()];
   var ov = document.createElement('div');
   ov.id = 'tbn-ov'; ov.className = 'tbn-ov';
   var openedAt = Date.now();
-  var reps = [['once', _cl('Faqat bugun', 'Only today', 'Только сегодня')], ['daily', _cl('Har kuni', 'Every day', 'Каждый день')], ['weekdays', _cl('Ish kunlari', 'Weekdays', 'Будни')], ['days', _cl('Kunlarni tanlash', 'Pick days', 'Выбрать дни')]];
+  var reps = [['once', (n && n.repeat === 'once' && n.date && n.date !== today()) || (!n && !_vIsToday) ? _cl('Faqat shu kun', 'Only this day', 'Только этот день') : _cl('Faqat bugun', 'Only today', 'Только сегодня')], ['daily', _cl('Har kuni', 'Every day', 'Каждый день')], ['weekdays', _cl('Ish kunlari', 'Weekdays', 'Будни')], ['days', _cl('Kunlarni tanlash', 'Pick days', 'Выбрать дни')]];
   var sd = tbShortDays();
   ov.innerHTML = '<div class="tbn-box" role="dialog" aria-modal="true">' +
     '<div class="tbn-title">📌 ' + (n ? _cl('Jadval yozuvi', 'Schedule note', 'Запись в расписании') : _cl('Jadvalga yozish', 'Add to schedule', 'Добавить в расписание')) + '</div>' +
@@ -12802,7 +13072,7 @@ function tbOpenNoteEditor(noteId, startMin) {
     rec.text = text.slice(0, 60); rec.start = s; rec.end = en;
     rec.emoji = st.emoji || null; rec.color = st.color || null; rec.repeat = st.repeat;
     rec.days = st.repeat === 'days' ? st.days.slice().sort() : [];
-    if (st.repeat === 'once') rec.date = (n && n.repeat === 'once' && n.date) ? n.date : today(); else delete rec.date;
+    if (st.repeat === 'once') rec.date = (n && n.repeat === 'once' && n.date) ? n.date : _vd; else delete rec.date;
     if (!n) list.push(rec);
     close(); save(); renderTimeline();
     toast('📌 ' + rec.text + ' · ' + s + '–' + en);
@@ -12819,85 +13089,463 @@ function tbOpenNoteEditor(noteId, startMin) {
   if (!n) setTimeout(function () { try { $('#tbn-text').focus(); } catch (e) {} }, 60);
 }
 window.tbOpenNoteEditor = tbOpenNoteEditor;
-// Bo'sh joyga yoki eslatmaga "tap" (sudrash/aylantirish/pinch hisobga olinmaydi)
-var _tbTap = null;
-function tbBindGridTap(box) {
-  var grid = box.querySelector('.tbl-grid'); if (!grid) return;
-  grid.addEventListener('pointerdown', function (e) {
-    if (e.button !== undefined && e.button !== 0) return;
-    if (_tbTap) { _tbTap = null; return; } // ikkinchi barmoq (pinch) — tap emas
-    if (e.target.closest('.tbl-block')) return;
-    _tbTap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), st: box.scrollTop, moved: false };
+// ---- Kun jadvali: bosish / sudrash / cho'zish / eni (bir marta, delegatsiya bilan) ----
+// Sichqoncha: blok darhol (4px'dan keyin) sudraladi. Sensor: blokni ~300ms bosib turing
+// (aks holda sahifa odatdagidek aylanadi). Chetlar (cho'zish) va ustunlar orasidagi
+// chiziq sensor'da ham darhol ishlaydi (touch-action: none).
+var _tbDrag = null, _tbSplitTap = 0;
+function tbBindBox(box) {
+  if (box._tbBound) return;
+  box._tbBound = true;
+  box.addEventListener('click', tbOnClick);
+  box.addEventListener('change', function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains('tbl-dinput') && e.target.value) tbSetDate(e.target.value);
   });
-  grid.addEventListener('pointermove', function (e) {
-    var t = _tbTap; if (!t || t.id !== e.pointerId) return;
-    if (Math.abs(e.clientX - t.x) > 8 || Math.abs(e.clientY - t.y) > 8) t.moved = true;
+  box.addEventListener('pointerdown', tbOnDown);
+  box.addEventListener('contextmenu', function (e) { if (e.target.closest('.tbl-block, .tbl-note, .tbl-chip, .tbl-split')) e.preventDefault(); });
+  box.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var blk = e.target.closest && e.target.closest('.tbl-block, .tbl-note');
+    if (!blk) return;
+    e.preventDefault();
+    if (blk.dataset.nid) tbOpenNoteEditor(blk.dataset.nid); else editTask(+blk.dataset.id);
   });
-  grid.addEventListener('pointercancel', function () { _tbTap = null; });
-  grid.addEventListener('pointerup', function (e) {
-    var t = _tbTap; _tbTap = null;
-    if (!t || t.id !== e.pointerId || t.moved || Date.now() - t.t > 700 || Math.abs(box.scrollTop - t.st) > 4) return;
-    if (e.target.closest('.tbl-block')) return;
-    var noteEl = e.target.closest('.tbl-note');
-    if (noteEl) { tbOpenNoteEditor(noteEl.dataset.nid); return; }
-    var gr = grid.getBoundingClientRect();
-    var min = +grid.dataset.r0 + (e.clientY - gr.top) / tbPx();
-    tbOpenNoteEditor(null, Math.floor(min / 15) * 15);
+  window.addEventListener('pointermove', tbOnMove, { passive: false });
+  window.addEventListener('pointerup', tbOnUp);
+  window.addEventListener('pointercancel', tbOnCancel);
+  // faol sudrash paytida sahifa aylanmasin
+  document.addEventListener('touchmove', function (e) { if (_tbDrag && _tbDrag.active) e.preventDefault(); }, { passive: false });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (document.querySelector('.tbl-pop')) { tbClosePop(); return; }
+    if (_tbView.menu) { _tbView.menu = false; box.classList.remove('menu-open'); }
   });
+  document.addEventListener('pointerdown', function (e) {
+    if (_tbView.menu && !e.target.closest('.tbl-menu, [data-act="menu"]')) { _tbView.menu = false; box.classList.remove('menu-open'); }
+    var pop = document.querySelector('.tbl-pop');
+    if (pop && !e.target.closest('.tbl-pop')) tbClosePop();
+  }, true);
+  // Soatlar ustida (chap ustun) yoki Ctrl bilan g'ildirak — masshtab
+  box.addEventListener('wheel', function (e) {
+    var sc = tbScroller(), g = sc && sc.querySelector('.tbl-grid'); if (!g || tbIsWeek()) return;
+    var gr = g.getBoundingClientRect();
+    if (!(e.ctrlKey || e.clientX < gr.left)) return;
+    e.preventDefault();
+    var y = e.clientY - sc.getBoundingClientRect().top;
+    var anchor = +g.dataset.r0 + (e.clientY - gr.top) / tbPx();
+    tbSetZoom(tbPx() * (e.deltaY < 0 ? 1.15 : 1 / 1.15), anchor, y);
+  }, { passive: false });
+  // Telefonda ikki barmoq bilan (pinch) masshtab
+  var pinch = null;
+  box.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) { tbCancelGesture(); pinch = { d: Math.abs(e.touches[0].clientY - e.touches[1].clientY) || 1, z: tbPx() }; }
+  }, { passive: true });
+  box.addEventListener('touchmove', function (e) {
+    if (!pinch || e.touches.length !== 2 || tbIsWeek()) return;
+    e.preventDefault();
+    var d = Math.abs(e.touches[0].clientY - e.touches[1].clientY) || 1, z = pinch.z * d / pinch.d;
+    if (Math.abs(z - tbPx()) / tbPx() > 0.06) tbSetZoom(z, null, 0);
+  }, { passive: false });
+  box.addEventListener('touchend', function () { pinch = null; }, { passive: true });
 }
-var _tbDrag = null;
-function tbBindTimeline(box) {
-  tbBindGridTap(box);
-  box.querySelectorAll('.tbl-block').forEach(function (el) {
-    el.addEventListener('pointerdown', function (e) {
-      if (e.button !== undefined && e.button !== 0) return;
-      var onGrip = !!e.target.closest('.tbl-grip'), onResize = !!e.target.closest('.tbl-resize');
-      // sensorli ekranda faqat ⠿ yoki pastki tutqichdan sudraladi (aks holda sahifa aylanadi)
-      if (e.pointerType === 'touch' && !onGrip && !onResize) { _tbDrag = { el: el, id: +el.dataset.id, tapOnly: true, y0: e.clientY }; return; }
-      var tk = S.tasks.find(function (x) { return x.id === +el.dataset.id; });
-      if (!tk) return;
-      var a = _tbMin(tk.startTime), b = tk.endTime ? _tbMin(tk.endTime) : a + 60;
-      _tbDrag = { el: el, id: tk.id, mode: onResize ? 'resize' : 'move', y0: e.clientY, a0: a, b0: b, hadEnd: !!tk.endTime, a: a, b: b, moved: false, top0: parseFloat(el.style.top), h0: parseFloat(el.style.height) };
-      try { el.setPointerCapture(e.pointerId); } catch (er) {}
-      if (onGrip || onResize) e.preventDefault();
-    });
-    el.addEventListener('pointermove', function (e) {
-      var d = _tbDrag; if (!d || d.el !== el || d.tapOnly) return;
-      var dy = e.clientY - d.y0;
-      if (!d.moved && Math.abs(dy) < 5) return;
-      d.moved = true; el.classList.add('dragging');
-      var dm = Math.round(dy / tbPx() / 5) * 5;
-      if (d.mode === 'move') {
-        var len = d.b0 - d.a0;
-        d.a = Math.max(0, Math.min(24 * 60 - len, d.a0 + dm)); d.b = d.a + len;
-        el.style.top = (d.top0 + (d.a - d.a0) * tbPx()) + 'px';
+function tbOnClick(e) {
+  var box = e.currentTarget;
+  var b = e.target.closest('[data-act]');
+  if (b && box.contains(b)) {
+    var act = b.dataset.act;
+    if (act === 'collapse') return tbToggleCollapse();
+    if (act === 'day') return tbSetWeek(false);
+    if (act === 'week') return tbSetWeek(true);
+    if (act === 'prev') return tbShiftDate(-1);
+    if (act === 'next') return tbShiftDate(1);
+    if (act === 'today') return tbSetDate(today());
+    if (act === 'pick') {
+      var inp = box.querySelector('.tbl-dinput');
+      if (inp) { try { inp.showPicker(); } catch (er) { try { inp.focus(); inp.click(); } catch (er2) {} } }
+      return;
+    }
+    if (act === 'menu') { _tbView.menu = !_tbView.menu; box.classList.toggle('menu-open', _tbView.menu); return; }
+    if (act === 'zin' || act === 'zout') { tbZoomStep(act === 'zin' ? 1 : -1); return; }
+    if (act === 'snap5' || act === 'snap15') { S.tbSnap = act === 'snap15' ? 15 : 5; save(); renderTimeline(); return; }
+    if (act === 'full') { S.tbFullDay = !S.tbFullDay; _tbView.scrolled = false; save(); renderTimeline(); return; }
+    if (act === 'addnote') { _tbView.menu = false; box.classList.remove('menu-open'); tbOpenNoteEditor(null); return; }
+    if (act === 'copy') { _tbView.menu = false; box.classList.remove('menu-open'); tbOpenCopyNotes(); return; }
+    if (act === 'add') {
+      var ds = tbViewDate(), st = tbNextFree(ds, 30);
+      tbOpenSlotPop(st);
+      return;
+    }
+    return;
+  }
+  var sd = e.target.closest('.tbl-sd, .tbl-wk-d');
+  if (sd && sd.dataset.date) {
+    if (sd.classList.contains('tbl-wk-d')) { S.tbWeek = false; save(); }
+    tbSetDate(sd.dataset.date);
+  }
+}
+function tbCancelGesture() {
+  var g = _tbDrag; if (!g) return;
+  if (g.timer) clearTimeout(g.timer);
+  _tbDrag = null;
+  tbDragCleanup(g);
+  if (g.active) renderTimeline();
+}
+function tbOnDown(e) {
+  if (e.button !== undefined && e.button !== 0) return;
+  if (_tbDrag) { tbCancelGesture(); return; } // ikkinchi barmoq (pinch)
+  var box = e.currentTarget, t = e.target;
+  if (t.closest('.tbl-pop, .tbl-menu, button.tbl-sd, .tbl-wk-head, .tbl-head, .tbl-nav')) return;
+  var sc = box.querySelector('.tbl-scroll');
+  var grid = t.closest('.tbl-grid');
+  var g = { pid: e.pointerId, type: e.pointerType || 'mouse', x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, st0: sc ? sc.scrollTop : 0, t0: Date.now(), box: box, sc: sc, grid: grid, active: false, moved: false };
+  var split = t.closest('.tbl-split'), blk = t.closest('.tbl-block, .tbl-note'), chip = t.closest('.tbl-chip');
+  if (split && grid && !grid.classList.contains('ro')) {
+    g.kind = 'split'; g.el = split; g.immediate = true;
+    e.preventDefault();
+  } else if (blk && grid && !grid.classList.contains('tbl-wk-grid')) {
+    g.kind = 'block'; g.el = blk; g.key = blk.dataset.key;
+    g.editable = !grid.classList.contains('ro');
+    g.mode = t.closest('.tbl-h-top') ? 'top' : (t.closest('.tbl-h-bot') ? 'bot' : 'move');
+    if (g.editable && g.mode !== 'move') { g.immediate = true; e.preventDefault(); }
+    else if (g.editable && g.type === 'touch') g.timer = setTimeout(function () { if (_tbDrag === g && !g.moved) tbBeginDrag(g); }, 300);
+  } else if (chip) {
+    g.kind = 'chip'; g.el = chip; g.id = +chip.dataset.id;
+    if (g.type === 'touch') g.timer = setTimeout(function () { if (_tbDrag === g && !g.moved) tbBeginDrag(g); }, 300);
+  } else if (grid) {
+    g.kind = 'grid';
+  } else return;
+  _tbDrag = g;
+}
+function tbOnMove(e) {
+  var g = _tbDrag; if (!g || e.pointerId !== g.pid) return;
+  g.x = e.clientX; g.y = e.clientY;
+  var dist = Math.max(Math.abs(e.clientX - g.x0), Math.abs(e.clientY - g.y0));
+  if (!g.active) {
+    if (dist > 8) g.moved = true;
+    var canDrag = (g.kind === 'block' && g.editable) || g.kind === 'chip' || g.kind === 'split';
+    if (canDrag && (g.immediate ? dist > 3 : (g.type !== 'touch' && dist > 4))) tbBeginDrag(g);
+    else if (g.moved && g.timer) { clearTimeout(g.timer); g.timer = null; }
+    if (!g.active) return;
+  }
+  if (e.cancelable) e.preventDefault();
+  tbDragMove(g);
+}
+function tbOnUp(e) {
+  var g = _tbDrag; if (!g || e.pointerId !== g.pid) return;
+  if (g.timer) clearTimeout(g.timer);
+  _tbDrag = null;
+  if (g.active) { tbEndDrag(g, false); return; }
+  tbDragCleanup(g);
+  var scrolled = g.sc && Math.abs(g.sc.scrollTop - g.st0) > 4;
+  if (g.moved || scrolled || Date.now() - g.t0 > 900) return;
+  tbTap(g, e);
+}
+function tbOnCancel(e) {
+  var g = _tbDrag; if (!g || e.pointerId !== g.pid) return;
+  if (g.timer) clearTimeout(g.timer);
+  _tbDrag = null;
+  if (g.active) tbEndDrag(g, true); else tbDragCleanup(g);
+}
+function tbTap(g, e) {
+  if (g.kind === 'block') {
+    if (g.el.dataset.nid) tbOpenNoteEditor(g.el.dataset.nid); else editTask(+g.el.dataset.id);
+    return;
+  }
+  if (g.kind === 'split') {
+    var now = Date.now();
+    if (now - _tbSplitTap < 400) { _tbSplitTap = 0; tbResetSplit(g.el); } else _tbSplitTap = now;
+    return;
+  }
+  if (g.kind === 'chip') { tbOpenTimePicker(g.id); return; }
+  if (g.kind === 'grid' && g.grid) {
+    var col = e.target.closest && e.target.closest('.tbl-wk-col');
+    if (col && col.dataset.date) { S.tbWeek = false; save(); tbSetDate(col.dataset.date); return; }
+    if (g.grid.classList.contains('ro')) return;
+    var gr = g.grid.getBoundingClientRect();
+    var min = +g.grid.dataset.r0 + (e.clientY - gr.top) / tbPx();
+    tbOpenSlotPop(Math.max(0, Math.min(24 * 60 - 15, Math.floor(min / 15) * 15)));
+  }
+}
+function tbTip(g, text, topPx) {
+  if (!g.tip) { g.tip = document.createElement('div'); g.tip.className = 'tbl-tip'; g.grid.appendChild(g.tip); }
+  g.tip.textContent = text; g.tip.style.top = topPx + 'px';
+}
+function tbBeginDrag(g) {
+  if (g.timer) { clearTimeout(g.timer); g.timer = null; }
+  g.active = true;
+  _tbHaptic();
+  tbClosePop();
+  g.box.classList.add('tbl-dragging');
+  try { if (g.type !== 'touch') document.body.style.userSelect = 'none'; } catch (e) {}
+  if (g.kind === 'block') {
+    var it = tbItemByKey(g.key); if (!it) { g.active = false; return; }
+    g.it = it; g.a0 = it.a; g.b0 = it.b; g.a = it.a; g.b = it.b; g.r0 = _tbLay.r0;
+    g.hadEnd = it.tk ? !!it.tk.endTime : true;
+    g.el.classList.add('dragging');
+    if (g.mode !== 'move') g.el.classList.add('resizing');
+    tbTip(g, _tbHM(g.a) + '–' + _tbHM(g.b), (g.a - g.r0) * tbPx());
+  } else if (g.kind === 'chip') {
+    var tk = (S.tasks || []).find(function (x) { return x.id === g.id; });
+    if (!tk) { g.active = false; return; }
+    g.tk = tk; g.dur = 30;
+    g.grid = g.sc && g.sc.querySelector('.tbl-grid');
+    g.ghost = document.createElement('div'); g.ghost.className = 'tbl-ghost';
+    g.ghost.textContent = (tk.emoji ? tk.emoji + ' ' : '') + tk.name;
+    document.body.appendChild(g.ghost);
+    g.el.classList.add('lifted');
+  } else if (g.kind === 'split') {
+    var cl = _tbLay && _tbLay.clusters[+g.el.dataset.cl];
+    if (!cl) { g.active = false; return; }
+    g.cl = cl; g.c = +g.el.dataset.c;
+    g.el.classList.add('active');
+  }
+  tbDragMove(g);
+}
+function tbAutoScroll(g) {
+  if (!g.sc) return;
+  var r = g.sc.getBoundingClientRect();
+  if (g.y < r.top + 28) g.sc.scrollTop -= 10;
+  else if (g.y > r.bottom - 28) g.sc.scrollTop += 10;
+}
+function tbDragMove(g) {
+  var px = tbPx(), sn = tbSnap();
+  if (g.kind === 'block') {
+    tbAutoScroll(g);
+    var dm = (g.y - g.y0 + (g.sc ? g.sc.scrollTop - g.st0 : 0)) / px, a = g.a, b = g.b;
+    if (g.mode === 'move') {
+      var len = g.b0 - g.a0;
+      a = Math.round((g.a0 + dm) / sn) * sn;
+      a = Math.max(0, Math.min(24 * 60 - len, a)); b = a + len;
+    } else if (g.mode === 'top') {
+      a = Math.round((g.a0 + dm) / sn) * sn;
+      a = Math.max(0, Math.min(g.b0 - TB_MIN_LEN, a)); b = g.b0;
+    } else {
+      b = Math.round((g.b0 + dm) / sn) * sn;
+      b = Math.max(g.a0 + TB_MIN_LEN, Math.min(24 * 60, b)); a = g.a0;
+    }
+    if (a !== g.a || b !== g.b) { if (g.a !== undefined && Math.floor(a / 60) !== Math.floor(g.a / 60) && g.mode === 'move') _tbHaptic(); }
+    g.a = a; g.b = b;
+    g.el.style.top = ((a - g.r0) * px) + 'px';
+    g.el.style.height = Math.max(8, (b - a) * px - 2) + 'px';
+    tbTip(g, _tbHM(a) + '–' + _tbHM(b) + ' · ' + tbShortDur(b - a), (a - g.r0) * px);
+    var lbl = g.el.querySelector('.tbl-b-time'); if (lbl) lbl.textContent = _tbHM(a) + '–' + _tbHM(b);
+  } else if (g.kind === 'chip') {
+    g.ghost.style.left = g.x + 'px'; g.ghost.style.top = g.y + 'px';
+    g.drop = null;
+    var grid = g.grid;
+    if (grid) {
+      tbAutoScroll(g);
+      var gr = grid.getBoundingClientRect(), sr = g.sc.getBoundingClientRect();
+      var inside = g.x >= gr.left - 10 && g.x <= gr.right + 10 && g.y >= Math.max(gr.top, sr.top) && g.y <= Math.min(gr.bottom, sr.bottom);
+      if (inside) {
+        var r0 = +grid.dataset.r0, m = Math.round((r0 + (g.y - gr.top) / px - g.dur / 2) / sn) * sn;
+        m = Math.max(0, Math.min(24 * 60 - g.dur, m));
+        g.drop = m;
+        if (!g.prev) { g.prev = document.createElement('div'); g.prev.className = 'tbl-drop'; grid.appendChild(g.prev); }
+        g.prev.style.top = ((m - r0) * px) + 'px'; g.prev.style.height = (g.dur * px) + 'px'; g.prev.style.display = '';
+        tbTip(g, _tbHM(m) + '–' + _tbHM(m + g.dur), (m - r0) * px);
+        g.tip.style.display = '';
       } else {
-        d.b = Math.max(d.a0 + 10, Math.min(24 * 60 - 1, d.b0 + dm));
-        el.style.height = (d.h0 + (d.b - d.b0) * tbPx()) + 'px';
+        if (g.prev) g.prev.style.display = 'none';
+        if (g.tip) g.tip.style.display = 'none';
       }
-      var lbl = el.querySelector('.tbl-b-time'); if (lbl) lbl.textContent = _tbHM(d.a) + '–' + _tbHM(d.b);
-    });
-    var end = function (e) {
-      var d = _tbDrag; if (!d || d.el !== el) return;
-      _tbDrag = null;
-      if (d.tapOnly) { if (e.type === 'pointerup' && Math.abs(e.clientY - d.y0) < 8) editTask(d.id); return; }
-      if (!d.moved) { if (e.type === 'pointerup' && !e.target.closest('.tbl-resize')) editTask(d.id); return; }
-      if (e.type === 'pointercancel') { renderTaskList(); return; }
-      var tk = S.tasks.find(function (x) { return x.id === d.id; }); if (!tk) return;
-      var ns = _tbHM(d.a), ne = (d.mode === 'resize' || d.hadEnd) ? _tbHM(d.b) : null;
-      if (ns === tk.startTime && ne === (tk.endTime || null)) { renderTaskList(); return; }
+    }
+  } else if (g.kind === 'split') {
+    var cl = g.cl, c = g.c, gr2 = g.grid.getBoundingClientRect();
+    var f = (g.x - gr2.left) / gr2.width * 100;
+    var L = cl.lefts[c], R = cl.lefts[c + 1] + cl.widths[c + 1];
+    var ratio = Math.max(0.18, Math.min(0.82, (f - L) / (R - L)));
+    var W = cl.weights[c] + cl.weights[c + 1];
+    var wc = Math.round(W * ratio * 100) / 100, wc1 = Math.round((W - wc) * 100) / 100;
+    cl.cols[c].forEach(function (it) { it.w = wc; });
+    cl.cols[c + 1].forEach(function (it) { it.w = wc1; });
+    tbPackCluster(cl);
+    tbApplyClusterDom(g.grid, cl);
+  }
+}
+function tbApplyClusterDom(grid, cl) {
+  cl.items.forEach(function (it) {
+    var el = grid.querySelector('[data-key="' + it.key + '"]'); if (!el) return;
+    el.style.left = 'calc(' + it.left + '% + 2px)'; el.style.width = 'calc(' + it.width + '% - 4px)';
+  });
+  grid.querySelectorAll('.tbl-split[data-cl="' + cl.idx + '"]').forEach(function (s) { s.style.left = cl.lefts[+s.dataset.c + 1] + '%'; });
+}
+function tbDragCleanup(g) {
+  try { document.body.style.userSelect = ''; } catch (e) {}
+  if (g.box) g.box.classList.remove('tbl-dragging');
+  if (g.tip) g.tip.remove();
+  if (g.ghost) g.ghost.remove();
+  if (g.prev) g.prev.remove();
+  if (g.el) g.el.classList.remove('dragging', 'resizing', 'lifted', 'active');
+}
+function tbEndDrag(g, cancelled) {
+  tbDragCleanup(g);
+  if (cancelled) { renderTimeline(); return; }
+  var ds = tbViewDate();
+  if (g.kind === 'block' && g.it) {
+    if (g.a === g.a0 && g.b === g.b0) { renderTimeline(); return; }
+    var ns = _tbHM(g.a), ne = (g.mode !== 'move' || g.hadEnd) ? _tbHM(g.b) : null, label;
+    if (g.it.tk) {
+      var tk = g.it.tk;
       var remindWasStart = tk.remindAt && tk.remindAt === tk.startTime;
       tk.startTime = ns; tk.endTime = ne;
       if (remindWasStart) { tk.remindAt = ns; if (S.remindSent) delete S.remindSent[tk.id]; }
       if (S.pomoAutoSent) delete S.pomoAutoSent[tk.id];
-      save(); renderTaskList();
-      var clash = tbFindConflict(tk.id, ns, ne);
-      toast('🕒 ' + tk.name + ': ' + ns + (ne ? '–' + ne : '') + (clash ? ' · ⚠️ ' + _cl('ustma-ust', 'overlaps', 'пересекается') + ': «' + clash.name + '»' : ''));
-    };
-    el.addEventListener('pointerup', end);
-    el.addEventListener('pointercancel', end);
+      label = tk.name;
+    } else {
+      var n = g.it.note; n.start = ns; n.end = _tbHM(g.b); label = '📌 ' + n.text;
+    }
+    _tbHaptic();
+    save(); renderTaskList();
+    var clash = tbFindConflictOn(ds, g.key, g.a, g.b);
+    toast('🕒 ' + label + ': ' + ns + (ne ? '–' + ne : '') + (clash ? ' · ⚠️ ' + _cl('ustma-ust', 'overlaps', 'пересекается') + ': «' + clash + '»' : ''));
+    return;
+  }
+  if (g.kind === 'chip') {
+    if (g.drop == null || !g.tk) { renderTimeline(); return; }
+    tbScheduleTask(g.tk.id, g.drop, g.dur);
+    return;
+  }
+  if (g.kind === 'split' && g.cl) {
+    tbPersistWeights(g.cl);
+    save(); renderTimeline();
+  }
+}
+function tbPersistWeights(cl) {
+  cl.items.forEach(function (it) {
+    var obj = it.tk || it.note, w = Math.round(it.w * 100) / 100;
+    if (Math.abs(w - 1) < 0.02) delete obj.tbWeight; else obj.tbWeight = w;
   });
 }
+function tbResetSplit(el) {
+  var cl = _tbLay && _tbLay.clusters[+el.dataset.cl]; if (!cl) return;
+  var c = +el.dataset.c;
+  cl.cols[c].concat(cl.cols[c + 1]).forEach(function (it) { it.w = 1; });
+  tbPersistWeights(cl); save(); renderTimeline();
+  toast('↔️ ' + _cl('Enlar tenglashtirildi', 'Widths reset', 'Ширина выровнена'));
+}
+function tbScheduleTask(id, startMin, dur) {
+  var tk = (S.tasks || []).find(function (x) { return x.id === id; }); if (!tk) return;
+  dur = Math.max(TB_MIN_LEN, dur || 30);
+  startMin = Math.max(0, Math.min(24 * 60 - dur, startMin));
+  tk.startTime = _tbHM(startMin); tk.endTime = _tbHM(Math.min(startMin + dur, 24 * 60 - 1));
+  if (S.pomoAutoSent) delete S.pomoAutoSent[tk.id];
+  _tbHaptic();
+  save(); renderTaskList();
+  var clash = tbFindConflictOn(tbViewDate(), 't' + tk.id, startMin, startMin + dur);
+  toast('🕒 ' + tk.name + ': ' + tk.startTime + '–' + tk.endTime + (clash ? ' · ⚠️ ' + _cl('ustma-ust', 'overlaps', 'пересекается') + ': «' + clash + '»' : ''));
+}
+window.tbScheduleTask = tbScheduleTask;
+
+// Bo'sh joy bosilganda — kichik menyu: vazifa / eslatma / vaqtsiz vazifani shu vaqtga
+function tbClosePop() { document.querySelectorAll('.tbl-pop').forEach(function (p) { p.remove(); }); document.querySelectorAll('.tbl-slot-mark').forEach(function (p) { p.remove(); }); }
+function tbOpenSlotPop(startMin) {
+  tbClosePop();
+  var sc = tbScroller(), grid = sc && sc.querySelector('.tbl-grid');
+  if (!grid || grid.classList.contains('ro')) return;
+  var ds = tbViewDate(), r0 = +grid.dataset.r0, px = tbPx(), H = grid.offsetHeight;
+  var un = tbUnscheduled(ds).slice(0, 4);
+  var mark = document.createElement('div'); mark.className = 'tbl-slot-mark';
+  mark.style.top = ((startMin - r0) * px) + 'px'; mark.style.height = Math.max(10, 30 * px) + 'px';
+  grid.appendChild(mark);
+  var pop = document.createElement('div'); pop.className = 'tbl-pop'; pop.setAttribute('role', 'menu');
+  pop.innerHTML = '<div class="tbl-pop-t">🕒 ' + _tbHM(startMin) + ' · ' + esc(tbDateLabel(ds)) + '</div>' +
+    '<button type="button" data-pa="task">＋ ' + _cl("Vazifa qo'shish", 'Add a task', 'Добавить задачу') + '</button>' +
+    '<button type="button" data-pa="note">📌 ' + _cl('Eslatma (vazifa emas)', 'Note (not a task)', 'Заметка (не задача)') + '</button>' +
+    (un.length ? '<div class="tbl-pop-s">' + _cl('Vaqtsiz vazifani shu vaqtga', 'Schedule an untimed task here', 'Запланировать задачу сюда') + '</div>' +
+      un.map(function (tk) { return '<button type="button" data-pa="sched" data-id="' + tk.id + '">⏱ ' + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</button>'; }).join('') : '');
+  grid.appendChild(pop);
+  var top = (startMin - r0) * px + Math.max(10, 30 * px) + 4;
+  if (top + pop.offsetHeight > H) top = Math.max(0, (startMin - r0) * px - pop.offsetHeight - 4);
+  pop.style.top = top + 'px';
+  try {
+    var pr = pop.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    if (pr.bottom > sr.bottom) sc.scrollTop += pr.bottom - sr.bottom + 8;
+    else if (pr.top < sr.top) sc.scrollTop -= sr.top - pr.top + 8;
+  } catch (e) {}
+  pop.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-pa]'); if (!b) return;
+    var pa = b.dataset.pa; tbClosePop();
+    if (pa === 'task') tbAddInGap(_tbHM(startMin), _tbHM(Math.min(startMin + 60, 24 * 60 - 1)));
+    else if (pa === 'note') tbOpenNoteEditor(null, startMin);
+    else if (pa === 'sched') tbScheduleTask(+b.dataset.id, startMin, 30);
+  });
+}
+window.tbOpenSlotPop = tbOpenSlotPop;
+
+// ⏱ Vaqtsiz vazifaga vaqt tanlash oynasi
+function tbOpenTimePicker(id) {
+  var tk = (S.tasks || []).find(function (x) { return x.id === id; }); if (!tk) return;
+  var old = document.getElementById('tbn-ov'); if (old) old.remove();
+  var ds = tbViewDate(), dur = 30, st = tbNextFree(ds, dur), openedAt = Date.now();
+  var ov = document.createElement('div'); ov.id = 'tbn-ov'; ov.className = 'tbn-ov';
+  ov.innerHTML = '<div class="tbn-box" role="dialog" aria-modal="true">' +
+    '<div class="tbn-title">🕒 ' + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</div>' +
+    '<div class="tbn-sub">' + esc(tbDateLabel(ds)) + ' · ' + _cl('vaqtini belgilang', 'set a time', 'укажите время') + '</div>' +
+    '<div class="tbn-times"><label>' + _cl('Boshlanish', 'Start', 'Начало') + '<input id="tbt-start" type="time" step="300" value="' + _tbHM(st) + '"></label>' +
+    '<span class="tbn-dash">–</span><label>' + _cl('Tugash', 'End', 'Конец') + '<input id="tbt-end" type="time" step="300" value="' + _tbHM(st + dur) + '"></label></div>' +
+    '<div class="tbn-row tbn-reps" id="tbt-durs">' + [15, 30, 45, 60, 90, 120].map(function (m) { return '<button type="button" data-m="' + m + '" class="' + (m === dur ? 'on' : '') + '">' + tbShortDur(m) + '</button>'; }).join('') + '</div>' +
+    '<div class="tbn-err" id="tbt-err"></div>' +
+    '<div class="tbn-actions"><button type="button" class="tbn-cancel" id="tbt-cancel">' + _cl('Bekor', 'Cancel', 'Отмена') + '</button>' +
+    '<button type="button" class="tbn-save" id="tbt-save">' + _cl('Saqlash', 'Save', 'Сохранить') + '</button></div></div>';
+  document.body.appendChild(ov);
+  var $ = function (s) { return ov.querySelector(s); };
+  var close = function () { ov.remove(); document.removeEventListener('keydown', onKey, true); };
+  var onKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  document.addEventListener('keydown', onKey, true);
+  ov.addEventListener('click', function (e) { if (e.target === ov && Date.now() - openedAt > 400) close(); });
+  $('#tbt-durs').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-m]'); if (!b) return;
+    dur = +b.dataset.m;
+    $('#tbt-durs').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    var s = _tbMin($('#tbt-start').value); if (s !== null && !isNaN(s)) $('#tbt-end').value = _tbHM(Math.min(s + dur, 24 * 60 - 1));
+  });
+  $('#tbt-start').addEventListener('change', function () { var s = _tbMin(this.value); if (s !== null && !isNaN(s)) $('#tbt-end').value = _tbHM(Math.min(s + dur, 24 * 60 - 1)); });
+  $('#tbt-cancel').onclick = close;
+  $('#tbt-save').onclick = function () {
+    var s = $('#tbt-start').value, en = $('#tbt-end').value;
+    if (!/^\d{2}:\d{2}$/.test(s) || !/^\d{2}:\d{2}$/.test(en)) { $('#tbt-err').textContent = _cl('Vaqtni kiriting', 'Enter the time', 'Укажите время'); return; }
+    if (_tbMin(en) <= _tbMin(s)) { $('#tbt-err').textContent = _cl("Tugash vaqti boshlanishdan keyin bo'lishi kerak", 'End time must be after start', 'Конец должен быть позже начала'); return; }
+    close();
+    tbScheduleTask(id, _tbMin(s), _tbMin(en) - _tbMin(s));
+  };
+}
+window.tbOpenTimePicker = tbOpenTimePicker;
+
+// 📋 Kun eslatmalarini boshqa kunga nusxalash (bir martalik nusxa sifatida)
+function tbOpenCopyNotes() {
+  var ds = tbViewDate(), notes = tbNotesForDate(ds);
+  if (!notes.length) { toast('📌 ' + _cl("Bu kunda eslatma yo'q", 'No notes on this day', 'В этот день нет заметок')); return; }
+  var old = document.getElementById('tbn-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'tbn-ov'; ov.className = 'tbn-ov'; var openedAt = Date.now();
+  ov.innerHTML = '<div class="tbn-box" role="dialog" aria-modal="true">' +
+    '<div class="tbn-title">📋 ' + _cl('Eslatmalarni nusxalash', 'Copy notes', 'Копировать заметки') + '</div>' +
+    '<div class="tbn-sub">' + esc(tbDateLabel(ds)) + ' · ' + notes.length + ' ' + _cl('ta', '', 'шт.') + '</div>' +
+    '<div class="tbl-copy-list">' + notes.map(function (n) { return '<div>' + (n.emoji || '📌') + ' ' + esc(n.text) + ' <small>' + n.start + '–' + n.end + '</small></div>'; }).join('') + '</div>' +
+    '<div class="tbn-times"><label>' + _cl('Qaysi kunga', 'To date', 'На дату') + '<input id="tbc-date" type="date" value="' + addDays(ds, 1) + '"></label></div>' +
+    '<div class="tbn-err" id="tbc-err"></div>' +
+    '<div class="tbn-actions"><button type="button" class="tbn-cancel" id="tbc-cancel">' + _cl('Bekor', 'Cancel', 'Отмена') + '</button>' +
+    '<button type="button" class="tbn-save" id="tbc-save">' + _cl('Nusxalash', 'Copy', 'Копировать') + '</button></div></div>';
+  document.body.appendChild(ov);
+  var $ = function (s) { return ov.querySelector(s); };
+  var close = function () { ov.remove(); };
+  ov.addEventListener('click', function (e) { if (e.target === ov && Date.now() - openedAt > 400) close(); });
+  $('#tbc-cancel').onclick = close;
+  $('#tbc-save').onclick = function () {
+    var to = $('#tbc-date').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(to)) { $('#tbc-err').textContent = _cl('Sanani tanlang', 'Pick a date', 'Выберите дату'); return; }
+    if (to === ds) { $('#tbc-err').textContent = _cl('Boshqa kunni tanlang', 'Pick another day', 'Выберите другой день'); return; }
+    var list = tbNotesList(), existing = tbNotesForDate(to), n = 0;
+    notes.forEach(function (src) {
+      if (existing.some(function (x) { return x.text === src.text && x.start === src.start; })) return;
+      list.push({ id: 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text: src.text, start: src.start, end: src.end, emoji: src.emoji || null, color: src.color || null, repeat: 'once', days: [], date: to });
+      n++;
+    });
+    close(); save(); renderTimeline();
+    toast('📋 ' + n + ' ' + _cl('ta eslatma nusxalandi', 'note(s) copied', 'заметок скопировано') + ' → ' + tbDateLabel(to));
+  };
+}
+window.tbOpenCopyNotes = tbOpenCopyNotes;
 
 function tkShortDate(ds) {
   if (!ds) return '';
