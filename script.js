@@ -32383,6 +32383,7 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
   startRealtimeSync();
   if (as.ok) {
     if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
+    try { await _cloudRefreshTodos(); } catch (e) {}
     scheduleAppStateSync(true);
   }
 };
@@ -32521,6 +32522,36 @@ function _appStatePayload() {
   return JSON.parse(JSON.stringify(d));
 }
 
+// ☁️ Tasklarni bulutdan yangilash (ilova ochilganda / qayta ko'ringanda): boshqa qurilmada
+// qo'shilgan yoki o'zgartirilgan tasklar shu yerga keladi. Mahalliy tasklar o'chirilmaydi
+// (o'chirish realtime orqali keladi); hali yuborilmagan mahalliy o'zgarish bo'lsa — kutamiz.
+var _cloudTodosBusy = false;
+async function _cloudRefreshTodos() {
+  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _cloudTodosBusy) return false;
+  if (Object.keys(_pendingTodoUpserts).length || Object.keys(_pendingTodoDeletes).length || _todosCloudSyncTimer) return false;
+  _cloudTodosBusy = true;
+  try {
+    var r = await supabase.from('todos').select('task_id,task_data').eq('user_id', S.cloudUserId);
+    if (r.error || !r.data) return false;
+    var changed = false;
+    S.tasks = S.tasks || [];
+    r.data.forEach(function (row) {
+      if (!row || !row.task_data) return;
+      var json = JSON.stringify(row.task_data);
+      var idx = S.tasks.findIndex(function (tk) { return tk.id === row.task_id; });
+      if (idx === -1) { S.tasks.push(row.task_data); changed = true; }
+      else if (JSON.stringify(S.tasks[idx]) !== json) { S.tasks[idx] = row.task_data; changed = true; }
+      _lastSyncedTasks[row.task_id] = json;
+    });
+    if (changed) {
+      try { ensureFullTaskOrder(); } catch (e) {}
+      try { writeLocalTasks(S.tasks); } catch (e) {}
+      try { render(); } catch (e) {}
+    }
+    return changed;
+  } catch (e) { return false; } finally { _cloudTodosBusy = false; }
+}
+
 // ☁️ Bulutdagi umumiy holat yangiroq bo'lsa — tortib, ekranni yangilaymiz (realtime / ilova qayta ochilganda)
 var _cloudRefreshBusy = false;
 function _cloudRefreshAppState(showToast) {
@@ -32538,7 +32569,7 @@ function _cloudRefreshAppState(showToast) {
   }).catch(function () {}).then(function () { _cloudRefreshBusy = false; });
 }
 document.addEventListener('visibilitychange', function () {
-  if (document.visibilityState === 'visible') setTimeout(function () { _cloudRefreshAppState(false); }, 600);
+  if (document.visibilityState === 'visible') setTimeout(function () { _cloudRefreshAppState(false); _cloudRefreshTodos(); }, 600);
 });
 
 function scheduleAppStateSync(immediate) {

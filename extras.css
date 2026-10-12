@@ -1027,3 +1027,9 @@ html.design-fx .fbx-item, html.design-fx .fbx-thread { background: color-mix(in 
   .fbx-tpls::-webkit-scrollbar { display: none; }
   .fbx-tpl { flex: 0 0 auto; }
 }
+
+/* 🎵 SOS: tinchlantiruvchi musiqa tanlovi */
+.x-calm-music{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:18px}
+.x-calm-music span{opacity:.7;font-size:14px;margin-right:2px}
+.x-calm-music button{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:17px;cursor:pointer;line-height:1}
+.x-calm-music button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 22%,var(--surface2));box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}

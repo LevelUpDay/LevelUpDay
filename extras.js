@@ -1277,6 +1277,7 @@
   function calmLog() { S.xCalmLog = S.xCalmLog || {}; S.xCalmLog[today()] = (S.xCalmLog[today()] || 0) + 1; save(); }
   function reducedMotion() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
   var CALM = null;
+  var CALM_SOUNDS = [['bowl', '🎐', ['Ko\'zacha', 'Singing bowl', 'Чаша']], ['ocean', '🌊', ['Okean', 'Ocean', 'Океан']], ['rain', '🌧️', ['Yomg\'ir', 'Rain', 'Дождь']], ['forest', '🌲', ['O\'rmon', 'Forest', 'Лес']], ['lofi', '🎹', ['Lofi', 'Lofi', 'Lofi']]];
   function openCalm() {
     if (CALM) return;
     var ov = document.createElement('div');
@@ -1284,14 +1285,31 @@
     ov.innerHTML = '<button type="button" class="x-calm-x" aria-label="' + L('Yopish', 'Close', 'Закрыть') + '">✕</button>' +
       '<div class="x-calm-in"><div class="x-calm-tabs" role="tablist">' +
       '<button type="button" class="on" data-cm="breath">🌬 ' + L('Nafas', 'Breathing', 'Дыхание') + '</button>' +
-      '<button type="button" data-cm="ground">🖐 5-4-3-2-1</button></div><div class="x-calm-body"></div></div>';
+      '<button type="button" data-cm="ground">🖐 5-4-3-2-1</button></div><div class="x-calm-body"></div>' +
+      '<div class="x-calm-music" role="group" aria-label="' + L('Tinchlantiruvchi musiqa', 'Calming music', 'Успокаивающая музыка') + '"><span>🎵</span>' +
+      CALM_SOUNDS.map(function (m) { return '<button type="button" data-cmu="' + m[0] + '" title="' + L(m[2][0], m[2][1], m[2][2]) + '">' + m[1] + '</button>'; }).join('') +
+      '<button type="button" data-cmu="" title="' + L('Ovozsiz', 'Mute', 'Без звука') + '">🔇</button></div></div>';
     document.body.appendChild(ov);
     CALM = { ov: ov, timer: null, mode: 'breath' };
+    // 🎵 Tinchlantiruvchi fon musiqasi (FocusAudio) — yopilganda avvalgi holatga qaytadi
+    var FA = window.FocusAudio || (typeof FocusAudio !== 'undefined' ? FocusAudio : null);
+    var prevType = null, prevPlaying = false;
+    try { if (FA) { prevType = FA.getType(); prevPlaying = !!(FA.isPlaying && FA.isPlaying()); } } catch (e) {}
+    var musicSel = (function () { try { var v = localStorage.getItem('calmMusic'); return v === null ? 'bowl' : v; } catch (e) { return 'bowl'; } })();
+    var setMusic = function (type) {
+      musicSel = type; try { localStorage.setItem('calmMusic', type); } catch (e) {}
+      ov.querySelectorAll('[data-cmu]').forEach(function (b) { b.classList.toggle('on', b.dataset.cmu === type); });
+      if (!FA) return;
+      try { if (type) FA.play(type, Math.max(35, S.ambientFocusVolume || 45)); else FA.pause(); } catch (e) {}
+    };
+    ov.querySelectorAll('[data-cmu]').forEach(function (b) { b.onclick = function () { setMusic(b.dataset.cmu); }; });
+    setMusic(musicSel);
     var body = ov.querySelector('.x-calm-body');
     var stop = function () { if (CALM && CALM.timer) { clearInterval(CALM.timer); CALM.timer = null; } };
     var close = function () {
       if (!CALM) return; stop(); document.removeEventListener('keydown', CALM.onKey, true);
       CALM = null; ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 200);
+      try { if (FA) { if (prevPlaying && prevType) FA.play(prevType, S.ambientFocusVolume); else if (musicSel) FA.pause(); } } catch (e) {}
       document.documentElement.classList.remove('x-calm-on'); wbRerender();
     };
     var PH = [[4, L('Nafas oling…', 'Breathe in…', 'Вдох…'), 'in'], [4, L('Ushlab turing…', 'Hold…', 'Задержите…'), 'hold'], [6, L('Chiqaring…', 'Breathe out…', 'Выдох…'), 'out']];

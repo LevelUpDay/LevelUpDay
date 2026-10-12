@@ -102,6 +102,10 @@ html.design-fx .progress-wrap,
 html.design-fx .settings-sub-card {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.22);
 }
+/* Rang (label) chizig'i shisha soyasi ostida yo'qolmasin */
+html.design-fx .task-card.has-label {
+  box-shadow: inset 4px 0 0 var(--tk-label), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.22);
+}
 html.design-fx .header-left h1 { background: linear-gradient(135deg, #fff 0%, color-mix(in srgb, var(--accent2) 60%, #fff) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 html.design-fx .tab.active,
 html.design-fx #x-bnav button.active { text-shadow: 0 0 18px var(--accent-glow); }
