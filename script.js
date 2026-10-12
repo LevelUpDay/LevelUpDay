@@ -7963,14 +7963,14 @@ function _mqPick(pool, n, seed) {
 }
 function mqGetQuests() {
   var td = today(), ws = _mqWeekStart(td), days = _mqDaysOfWeek(ws).filter(function (d) { return d <= td; });
-  var claims = S.questClaims || {};
+  var claims = S.questClaims || {}, rv = S.questRevoked || {};
   var daily = _mqPick(mqDailyPool(), 3, 'd' + td).map(function (q) {
     var v = q.get(td), key = 'd:' + td + ':' + q.id;
-    return { key: key, kind: 'daily', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key], reward: MQ_DAILY_REWARD };
+    return { key: key, kind: 'daily', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key] && rv[key] === undefined, reward: MQ_DAILY_REWARD };
   });
   var weekly = _mqPick(mqWeeklyPool(), 2, 'w' + ws).map(function (q) {
     var v = q.get(days), key = 'w:' + ws + ':' + q.id;
-    return { key: key, kind: 'weekly', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key], reward: MQ_WEEKLY_REWARD };
+    return { key: key, kind: 'weekly', icon: q.icon, text: q.text, unit: q.unit, target: q.target, value: Math.min(v, q.target), done: v >= q.target, claimed: !!claims[key] && rv[key] === undefined, reward: MQ_WEEKLY_REWARD };
   });
   return { daily: daily, weekly: weekly, weekStart: ws };
 }
@@ -7978,10 +7978,20 @@ function mqClaim(key) {
   var all = mqGetQuests(); var q = all.daily.concat(all.weekly).find(function (x) { return x.key === key; });
   if (!q || !q.done || q.claimed) return;
   S.questClaims = S.questClaims || {};
+  S.questRevoked = S.questRevoked || {};
+  // Avval olingan, keyin sharti bekor qilinib qaytarib olingan kvest: faqat haqiqatan
+  // qaytarib olingan miqdor qaytariladi (olmos sarflangan bo'lsa — 0), qayta to'liq mukofot yo'q.
+  if (S.questRevoked[key] !== undefined) {
+    var back = Math.max(0, Math.min(q.reward, Number(S.questRevoked[key]) || 0));
+    delete S.questRevoked[key];
+    if (back > 0) gemsAdd(back, 'quest', '🎯 ' + q.text);
+    else toast('✓ ' + _cl('Kvest yana bajarildi (mukofot avval olingan)', 'Quest done again (reward already received)', 'Квест снова выполнен (награда уже получена)'));
+    save(); renderQuests(); return;
+  }
   S.questClaims[key] = Date.now();
   // eski da'volarni tozalash (60 kundan eski)
   var cut = addDays(today(), -60);
-  Object.keys(S.questClaims).forEach(function (k) { var d = k.split(':')[1]; if (d && d < cut) delete S.questClaims[k]; });
+  Object.keys(S.questClaims).forEach(function (k) { var d = k.split(':')[1]; if (d && d < cut) { delete S.questClaims[k]; delete S.questRevoked[k]; } });
   gemsAdd(q.reward, 'quest', '🎯 ' + q.text);
   try { confetti(); SFX.coin(); } catch (e) {}
   save(); renderQuests();
@@ -7989,15 +7999,17 @@ function mqClaim(key) {
 // ↩ Mukofoti olingan kvest sharti keyin bekor qilinsa (masalan vazifa "undone"),
 // mukofot qaytarib olinadi va kvest yana ochiladi — cheksiz mukofot olishning oldi olinadi.
 function mqReconcile() {
-  var Q = mqGetQuests(), claims = S.questClaims || {}, changed = false;
+  var Q = mqGetQuests(), changed = false;
+  S.questRevoked = S.questRevoked || {};
   Q.daily.concat(Q.weekly).forEach(function (q) {
     if (!q.claimed || q.done) return;
-    delete claims[q.key];
-    gemsAdd(-q.reward, 'quest', '↩ ' + q.text, true);
-    try { toast('↩ ' + _cl('Kvest sharti bekor qilindi', 'Quest condition undone', 'Условие квеста отменено') + ': −' + q.reward + ' 💎'); } catch (e) {}
+    // da'vo o'chirilmaydi — qancha qaytarib olingani yoziladi (qayta bajarilsa faqat shuncha qaytadi)
+    var taken = -gemsAdd(-q.reward, 'quest', '↩ ' + q.text, true) || 0;
+    S.questRevoked[q.key] = taken;
+    try { toast('↩ ' + _cl('Kvest sharti bekor qilindi', 'Quest condition undone', 'Условие квеста отменено') + (taken ? ': −' + taken + ' 💎' : '')); } catch (e) {}
     changed = true;
   });
-  if (changed) { S.questClaims = claims; save(); }
+  if (changed) save();
   return changed;
 }
 function renderQuests() {
@@ -9699,6 +9711,7 @@ function openModal(e) {
   document.getElementById('m-strict-schedule').checked = false;
   selDiff(1); selRepeat('daily');
   tmFillLabels();
+  ensureTaskCats(); mCat = (function () { var f = taskCatFilter(); return (f !== 'all' && f !== 'none') ? f : ''; })(); tmRenderCats();
   document.getElementById('modal-title').textContent = t('task_modal_title_new');
   document.getElementById('modal-save-btn').textContent = t('btn_save_disk');
   document.getElementById('modal-overlay').classList.add('open');
@@ -9729,6 +9742,7 @@ function editTask(id) {
   tmFillLabels();
   selRepeat(mRepeat);
   selLabel(mLabel);
+  mCat = (tk.cat && taskCatById(tk.cat)) ? tk.cat : ''; tmRenderCats();
   // custom-days tugmalarini belgilash
   document.querySelectorAll('.day-btn').forEach(function(el){
     el.classList.toggle('sel', mDays.includes(parseInt(el.dataset.d)));
@@ -9961,6 +9975,7 @@ function saveTask() {
       if (!!tk.autoPomo !== autoPomo && S.pomoAutoSent) delete S.pomoAutoSent[tk.id];
       tk.autoPomo = autoPomo;
       tk.emoji = mEmoji || null;
+      tk.cat = (mCat && taskCatById(mCat)) ? mCat : null;
       try { refreshStalePenaltyAmts(S.taskDayFlags && S.taskDayFlags[tk.id], tk); } catch (e) {}
     }
     _editingTaskId = null;
@@ -9992,6 +10007,7 @@ function saveTask() {
     label: mLabel || null,
     note: document.getElementById('m-note').value.trim() || null,
     emoji: mEmoji || null,
+    cat: (mCat && taskCatById(mCat)) ? mCat : null,
     isFrozen: false, frozenAt: null,
     subtasks: [],
   };
@@ -11264,6 +11280,7 @@ function repeatLabel(t) {
 }
 
 function diffBadge(d) {
+  if(d===4) return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#A78BFA;flex-shrink:0" title="'+taskTierName(4)+'"></span>';
   if(d===3) return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F87171;flex-shrink:0" title="'+tr('diff_hard_title')+'"></span>';
   if(d===2) return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5A623;flex-shrink:0" title="'+tr('diff_medium_title')+'"></span>';
   if(d===0) return '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F0EEF8;border:1px solid rgba(0,0,0,0.25);flex-shrink:0" title="'+tr('diff_free_title')+'"></span>';
@@ -12924,7 +12941,7 @@ function makeTaskEl(t, future) {
         <div class="task-name">${t.pinned ? '<span class="tk-pin" title="' + esc(tr('task_pinned_badge')) + '">📌</span>' : ''}${t.fromParentName ? `<span class="task-parent-badge">${esc(t.fromParentName)} ›</span> ` : ''}${t.emoji ? `<span class="tk-emoji">${t.emoji}</span>` : ''}${esc(t.name)}</div>
         ${t.note ? `<div class="task-note task-note-collapsed" id="note-${t.id}">📝 ${esc(t.note)}</div><button class="task-note-toggle" onclick="event.stopPropagation();toggleNote(${t.id},this)">${tr('note_more_btn')}</button>` : ''}
         <div class="tk-meta">
-          ${tbChip}${tbDur}${window.xTaskChips ? window.xTaskChips(t, future) : ''}${(t.done && t.startTime && !future && getTaskDayFlag(t.id, today()).onTimeGiven) ? `<span class="tk-chip tk-chip-ontime">⏱ ${_cl("O'z vaqtida", 'On time', 'Вовремя')} +${TB_ONTIME_BONUS}🪙</span>` : ''}${(t.autoPomo && t.startTime && !t.done) ? `<span class="tk-chip tk-chip-info" title="${_cl("Boshlanganda Pomodoro avtomatik yoqiladi", "Pomodoro auto-starts at the start time", "Pomodoro запустится автоматически")}">🍅 ${_cl('Avto', 'Auto', 'Авто')}</span>` : ''}
+          ${(function () { var _c = taskCatOf(t); return _c ? `<span class="tk-chip tk-chip-cat" style="--tc:${esc(_c.color || '#7C5CFC')}">${esc(taskCatLabel(_c))}</span>` : ''; })()}${tbChip}${tbDur}${window.xTaskChips ? window.xTaskChips(t, future) : ''}${(t.done && t.startTime && !future && getTaskDayFlag(t.id, today()).onTimeGiven) ? `<span class="tk-chip tk-chip-ontime">⏱ ${_cl("O'z vaqtida", 'On time', 'Вовремя')} +${TB_ONTIME_BONUS}🪙</span>` : ''}${(t.autoPomo && t.startTime && !t.done) ? `<span class="tk-chip tk-chip-info" title="${_cl("Boshlanganda Pomodoro avtomatik yoqiladi", "Pomodoro auto-starts at the start time", "Pomodoro запустится автоматически")}">🍅 ${_cl('Avto', 'Auto', 'Авто')}</span>` : ''}
           ${t.skipped && !t.done ? `<span class="tk-chip tk-chip-skip">⏭ ${_cl("O'tkazildi", 'Skipped', 'Пропущено')}</span>` : ''}
           ${subTextF ? `<span class="tk-chip ${subOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${subOverdue ? '⏰ ' : ''}${subTextF}</span>` : ''}
           ${dueLineF ? `<span class="tk-chip ${dueOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${dueOverdue ? '' : '📅 '}${dueLineF}</span>` : ''}
@@ -14208,6 +14225,240 @@ function daysBadge(days) {
   return '<span class="future-days-badge">' + t('daysbadge_in_days').replace('{n}', days) + '</span>';
 }
 
+// =========================================================
+// 🗂 VAZIFA BO'LIMLARI (kategoriyalar): 💼 Ish, 📚 O'qish, 🏠 Shaxsiy ...
+//   S.taskCats = [{id, name, emoji, color}] — app_state orqali bulutga ketadi
+//   t.cat = bo'lim id (yoki null — bo'limsiz) — todos.task_data bilan ketadi
+//   S.taskCatFilter = 'all' | 'none' | <id> — vazifalar sahifasidagi filtr
+// =========================================================
+var TASK_CAT_MAX = 12;
+var TASK_CAT_COLORS = ['#60A5FA', '#A78BFA', '#34D399', '#F59E0B', '#F87171', '#F472B6', '#22D3EE', '#A3E635'];
+var mCat = '';
+var _tcLongPressed = false;
+function ensureTaskCats() {
+  if (!Array.isArray(S.taskCats)) {
+    // Barqaror id'lar — ikki qurilmada alohida yaratilsa ham bir-biriga mos keladi
+    S.taskCats = [
+      { id: 'work', name: _cl('Ish', 'Work', 'Работа'), emoji: '💼', color: '#60A5FA' },
+      { id: 'study', name: _cl("O'qish", 'Study', 'Учёба'), emoji: '📚', color: '#A78BFA' },
+      { id: 'personal', name: _cl('Shaxsiy', 'Personal', 'Личное'), emoji: '🏠', color: '#34D399' }
+    ];
+  }
+  return S.taskCats;
+}
+function taskCatById(id) {
+  if (!id) return null;
+  var list = Array.isArray(S.taskCats) ? S.taskCats : [];
+  for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
+  return null;
+}
+function taskCatOf(t) { return t ? taskCatById(t.cat) : null; }
+function taskCatFilter() {
+  var f = S.taskCatFilter || 'all';
+  if (f !== 'all' && f !== 'none' && !taskCatById(f)) f = 'all';
+  return f;
+}
+function taskCatMatches(t, f) {
+  if (!f || f === 'all') return true;
+  var c = taskCatOf(t);
+  return f === 'none' ? !c : !!(c && c.id === f);
+}
+function _tcSplitEmoji(raw) {
+  var s = String(raw || '').trim(), emoji = '';
+  try {
+    var m = s.match(/^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*)\s*/u);
+    if (m) { emoji = m[1]; s = s.slice(m[0].length).trim(); }
+  } catch (e) {}
+  return { emoji: emoji, name: s };
+}
+function taskCatCreate(raw, emoji) {
+  ensureTaskCats();
+  if (S.taskCats.length >= TASK_CAT_MAX) { toast('🗂 ' + _cl("Ko'pi bilan " + TASK_CAT_MAX + " ta bo'lim", 'Up to ' + TASK_CAT_MAX + ' categories', 'Не больше ' + TASK_CAT_MAX + ' разделов')); return null; }
+  var p = _tcSplitEmoji(raw);
+  var name = p.name.slice(0, 24);
+  if (!name) return null;
+  var dup = S.taskCats.find(function (c) { return String(c.name).toLowerCase() === name.toLowerCase(); });
+  if (dup) return dup;
+  var used = {}; S.taskCats.forEach(function (c) { used[c.color] = 1; });
+  var color = TASK_CAT_COLORS.find(function (c) { return !used[c]; }) || TASK_CAT_COLORS[S.taskCats.length % TASK_CAT_COLORS.length];
+  var cat = { id: 'c' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36), name: name, emoji: emoji || p.emoji || '📁', color: color };
+  S.taskCats.push(cat);
+  return cat;
+}
+function taskCatLabel(c) { return (c.emoji ? c.emoji + ' ' : '') + c.name; }
+
+// ---- Vazifa modalidagi "Bo'lim" tanlagichi ----
+function tmRenderCats() {
+  var box = document.getElementById('m-cat-opts'); if (!box) return;
+  var lb = document.getElementById('m-cat-label'); if (lb) lb.textContent = _cl("Bo'lim", 'Category', 'Раздел');
+  ensureTaskCats();
+  if (mCat && !taskCatById(mCat)) mCat = '';
+  var h = '<button type="button" class="tc-opt' + (!mCat ? ' sel' : '') + '" onclick="tmSelCat(\'\')">' + _cl("Yo'q", 'None', 'Нет') + '</button>';
+  S.taskCats.forEach(function (c) {
+    h += '<button type="button" class="tc-opt' + (mCat === c.id ? ' sel' : '') + '" data-cat="' + esc(c.id) + '" style="--tc:' + esc(c.color || '#7C5CFC') + '" onclick="tmSelCat(\'' + esc(c.id) + '\')">' + esc(taskCatLabel(c)) + '</button>';
+  });
+  if (S.taskCats.length < TASK_CAT_MAX) h += '<button type="button" class="tc-opt tc-add" onclick="tmAddCatInline()" title="' + _cl("Yangi bo'lim", 'New category', 'Новый раздел') + '" aria-label="' + _cl("Yangi bo'lim", 'New category', 'Новый раздел') + '">＋</button>';
+  box.innerHTML = h;
+}
+function tmSelCat(id) { mCat = id || ''; tmRenderCats(); }
+function tmAddCatInline() {
+  var box = document.getElementById('m-cat-opts'); if (!box) return;
+  var add = box.querySelector('.tc-add'); if (!add) return;
+  var wrap = document.createElement('span');
+  wrap.className = 'tc-inline';
+  wrap.innerHTML = '<input type="text" maxlength="28" placeholder="' + _cl('Masalan: 🏋️ Sport', 'e.g. 🏋️ Sport', 'Напр.: 🏋️ Спорт') + '" /><button type="button" aria-label="OK">✓</button>';
+  add.replaceWith(wrap);
+  var inp = wrap.querySelector('input');
+  var done = function (ok) {
+    if (wrap._done) return; wrap._done = true;
+    var v = inp.value.trim();
+    if (ok && v) { var c = taskCatCreate(v); if (c) { mCat = c.id; save(); } }
+    tmRenderCats();
+  };
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); done(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
+  });
+  var okBtn = wrap.querySelector('button');
+  okBtn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+  okBtn.addEventListener('click', function () { done(true); });
+  inp.addEventListener('blur', function () { setTimeout(function () { done(true); }, 120); });
+  inp.focus();
+}
+
+// ---- Vazifalar sahifasidagi filtr chiplari ----
+function setTaskCatFilter(f) {
+  if (_tcLongPressed) { _tcLongPressed = false; return; }
+  S.taskCatFilter = f || 'all';
+  save();
+  renderTaskList();
+}
+function renderTaskCatBar(pool, shownCount) {
+  var bar = document.getElementById('task-cat-bar'); if (!bar) return;
+  ensureTaskCats();
+  if (!S.tasks || !S.tasks.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = '';
+  var f = taskCatFilter();
+  var cnt = { all: pool.length, none: 0 };
+  pool.forEach(function (t) { var c = taskCatOf(t); if (c) cnt[c.id] = (cnt[c.id] || 0) + 1; else cnt.none++; });
+  var chip = function (key, label, n, color) {
+    return '<button type="button" class="tc-chip' + (f === key ? ' on' : '') + '" data-f="' + esc(key) + '"' + (color ? ' style="--tc:' + esc(color) + '"' : '') +
+      ' onclick="setTaskCatFilter(\'' + esc(key) + '\')">' + label + ' <span class="tc-n">' + n + '</span></button>';
+  };
+  var prevScroll = (bar.querySelector('.tc-chips') || {}).scrollLeft || 0;
+  var h = '<div class="tc-chips">' + chip('all', _cl('Hammasi', 'All', 'Все'), cnt.all);
+  S.taskCats.forEach(function (c) { h += chip(c.id, esc(taskCatLabel(c)), cnt[c.id] || 0, c.color); });
+  if (cnt.none || f === 'none') h += chip('none', _cl("Bo'limsiz", 'Uncategorized', 'Без раздела'), cnt.none);
+  var mt = _cl("Bo'limlarni boshqarish", 'Manage categories', 'Управление разделами');
+  h += '<button type="button" class="tc-chip tc-gear" onclick="openTaskCatManager()" title="' + mt + '" aria-label="' + mt + '">⚙</button></div>';
+  if (f !== 'all' && !shownCount) h += '<div class="tc-empty">' + _cl("Bu bo'limda hozircha vazifa yo'q", 'No tasks in this category right now', 'В этом разделе пока нет задач') + '</div>';
+  bar.innerHTML = h;
+  var sc = bar.querySelector('.tc-chips');
+  if (sc) {
+    if (!bar._scrolled) {
+      bar._scrolled = true;
+      var on = bar.querySelector('.tc-chip.on');
+      if (on) try { sc.scrollLeft = Math.max(0, on.offsetLeft - 40); } catch (e) {}
+    } else sc.scrollLeft = prevScroll;
+  }
+  // Uzoq bosish — bo'limlarni boshqarish oynasi (bar darajasida, bir marta ulanadi:
+  // ro'yxat qayta chizilsa ham bosib turish uzilmaydi)
+  if (bar._lpBound) return;
+  bar._lpBound = true;
+  var tm = null, sx = 0, sy = 0;
+  var cancel = function () { if (tm) { clearTimeout(tm); tm = null; } };
+  bar.addEventListener('pointerdown', function (e) {
+    if (!e.target.closest || !e.target.closest('.tc-chip[data-f]')) return;
+    sx = e.clientX; sy = e.clientY; cancel();
+    tm = setTimeout(function () {
+      tm = null; _tcLongPressed = true;
+      try { if (navigator.vibrate) navigator.vibrate(15); } catch (er) {}
+      openTaskCatManager();
+      setTimeout(function () { _tcLongPressed = false; }, 700);
+    }, 550);
+  });
+  bar.addEventListener('pointermove', function (e) { if (tm && (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8)) cancel(); });
+  bar.addEventListener('pointerup', cancel);
+  bar.addEventListener('pointercancel', cancel);
+  bar.addEventListener('pointerleave', cancel);
+  bar.addEventListener('contextmenu', function (e) { if (e.target.closest && e.target.closest('.tc-chip')) e.preventDefault(); });
+}
+
+// ---- Bo'limlarni boshqarish oynasi ----
+function openTaskCatManager() {
+  ensureTaskCats();
+  var old = document.getElementById('tc-manager'); if (old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = 'tc-manager';
+  ov.className = 'tc-ov';
+  ov.innerHTML = '<div class="tc-box" role="dialog" aria-modal="true"><div class="tc-head"><h3>🗂 ' + _cl("Bo'limlar", 'Categories', 'Разделы') + '</h3><button type="button" class="tc-x" aria-label="close">✕</button></div>' +
+    '<div class="tc-sub">' + _cl("Vazifalarni turlarga ajrating: ish, o'qish, shaxsiy... Emoji, nom yoki rangni bosib o'zgartiring.", 'Group your tasks: work, study, personal... Tap the emoji, name or color to change it.', 'Разделяйте задачи: работа, учёба, личное... Нажмите на эмодзи, имя или цвет, чтобы изменить.') + '</div>' +
+    '<div class="tc-rows"></div><div class="tc-foot"></div></div>';
+  document.body.appendChild(ov);
+  var close = function () {
+    ov.classList.remove('open');
+    document.removeEventListener('keydown', onKey, true);
+    setTimeout(function () { ov.remove(); }, 160);
+    try { save(); render(); } catch (e) {}
+    try { if (document.getElementById('modal-overlay').classList.contains('open')) tmRenderCats(); } catch (e) {}
+  };
+  var onKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  document.addEventListener('keydown', onKey, true);
+  ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+  ov.querySelector('.tc-x').onclick = close;
+  var countOf = function (id) { return S.tasks.filter(function (t) { return t.cat === id; }).length; };
+  var draw = function () {
+    var rows = ov.querySelector('.tc-rows');
+    rows.innerHTML = S.taskCats.length ? S.taskCats.map(function (c, i) {
+      return '<div class="tc-row" data-i="' + i + '">' +
+        '<input class="tc-emo" type="text" maxlength="4" value="' + esc(c.emoji || '') + '" aria-label="emoji" />' +
+        '<input class="tc-name" type="text" maxlength="24" value="' + esc(c.name) + '" aria-label="' + _cl('Nomi', 'Name', 'Название') + '" />' +
+        '<button type="button" class="tc-color" style="background:' + esc(c.color || '#7C5CFC') + '" title="' + _cl('Rangni almashtirish', 'Change color', 'Сменить цвет') + '" aria-label="color"></button>' +
+        '<span class="tc-cnt" title="' + _cl('Vazifalar', 'Tasks', 'Задачи') + '">' + countOf(c.id) + '</span>' +
+        '<button type="button" class="tc-del" title="' + _cl("O'chirish", 'Delete', 'Удалить') + '" aria-label="delete">🗑</button></div>';
+    }).join('') : '<div class="tc-none">' + _cl("Hali bo'lim yo'q", 'No categories yet', 'Разделов пока нет') + '</div>';
+    rows.querySelectorAll('.tc-row').forEach(function (row) {
+      var c = S.taskCats[+row.dataset.i];
+      row.querySelector('.tc-emo').addEventListener('change', function () { c.emoji = this.value.trim() || '📁'; this.value = c.emoji; save(); });
+      row.querySelector('.tc-name').addEventListener('change', function () { var v = this.value.trim().slice(0, 24); if (v) { c.name = v; save(); } else this.value = c.name; });
+      row.querySelector('.tc-color').addEventListener('click', function () {
+        var i = TASK_CAT_COLORS.indexOf(c.color); c.color = TASK_CAT_COLORS[(i + 1) % TASK_CAT_COLORS.length];
+        this.style.background = c.color; save();
+      });
+      row.querySelector('.tc-del').addEventListener('click', function () {
+        var n = countOf(c.id);
+        var msg = _cl('«' + c.name + "» bo'limi o'chirilsinmi?", 'Delete the «' + c.name + '» category?', 'Удалить раздел «' + c.name + '»?') +
+          (n ? '\n' + _cl(n + " ta vazifa bo'limsiz qoladi (o'zi o'chmaydi).", n + ' task(s) will become uncategorized (not deleted).', 'Задач без раздела станет: ' + n + ' (сами задачи не удаляются).') : '');
+        if (!confirm(msg)) return;
+        S.tasks.forEach(function (t) { if (t.cat === c.id) t.cat = null; });
+        S.taskCats = S.taskCats.filter(function (x) { return x.id !== c.id; });
+        if (S.taskCatFilter === c.id) S.taskCatFilter = 'all';
+        if (mCat === c.id) mCat = '';
+        save(); render(); draw();
+        toast('🗑 ' + _cl("Bo'lim o'chirildi", 'Category deleted', 'Раздел удалён'));
+      });
+    });
+    var foot = ov.querySelector('.tc-foot');
+    foot.innerHTML = (S.taskCats.length < TASK_CAT_MAX
+      ? '<div class="tc-new"><input type="text" maxlength="28" placeholder="' + _cl("Yangi bo'lim: 🏋️ Sport", 'New category: 🏋️ Sport', 'Новый раздел: 🏋️ Спорт') + '" /><button type="button" class="tc-new-btn">＋ ' + _cl("Qo'shish", 'Add', 'Добавить') + '</button></div>'
+      : '<div class="tc-none">' + _cl("Ko'pi bilan " + TASK_CAT_MAX + " ta bo'lim", 'Up to ' + TASK_CAT_MAX + ' categories', 'Не больше ' + TASK_CAT_MAX + ' разделов') + '</div>') +
+      '<button type="button" class="tc-done">' + _cl('Tayyor', 'Done', 'Готово') + '</button>';
+    var ni = foot.querySelector('.tc-new input');
+    if (ni) {
+      var add = function () {
+        if (!ni.value.trim()) { ni.focus(); return; }
+        var c = taskCatCreate(ni.value);
+        if (c) { save(); draw(); var n2 = ov.querySelector('.tc-new input'); if (n2) n2.focus(); }
+      };
+      foot.querySelector('.tc-new-btn').onclick = add;
+      ni.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    }
+    foot.querySelector('.tc-done').onclick = close;
+  };
+  draw();
+  requestAnimationFrame(function () { ov.classList.add('open'); });
+}
+
 function renderTaskList() {
   var _tvb = document.getElementById('time-view-btn'); if (_tvb) _tvb.classList.toggle('active', !!S.timeView);
   try { renderTimeline(); } catch (e) { console.warn('timeline', e); }
@@ -14251,6 +14502,14 @@ function renderTaskList() {
   var filteredRecurring = applySearch(recurringTasks);
   var filteredOnce    = applySearch(onceTasks);
   var filteredFuture  = applySearch(futureTasks);
+  // 🗂 Bo'lim filtri — mos kelmaganlar shunchaki ko'rsatilmaydi (S.taskOrder / Sortable buzilmaydi)
+  var _catF = taskCatFilter();
+  var _catPool = filteredRecurring.concat(filteredOnce, filteredFuture);
+  var _byCat = function (arr) { return _catF === 'all' ? arr : arr.filter(function (t) { return taskCatMatches(t, _catF); }); };
+  filteredRecurring = _byCat(filteredRecurring);
+  filteredOnce = _byCat(filteredOnce);
+  filteredFuture = _byCat(filteredFuture);
+  try { renderTaskCatBar(_catPool, filteredRecurring.length + filteredOnce.length + filteredFuture.length); } catch (e) { console.warn('cats', e); }
 
   function sortByOrder(arr) {
     var base = arr;
@@ -19186,6 +19445,7 @@ function _csvEscape(val) {
   return s;
 }
 function _diffLabelPlain(d) {
+  if (d === 4) return taskTierName(4);
   if (d === 3) return tr('diff_hard_title');
   if (d === 2) return tr('diff_medium_title');
   if (d === 0) return tr('diff_free_title');
@@ -19504,7 +19764,7 @@ function renderStats() {
     if (!iconEl || !nameEl || !countEl) return;
 
     if (topTask && topCount > 0) {
-      var diffIcons = ['🟢','🟡','🔴'];
+      var diffIcons = ['🟢','🟡','🔴','🟣'];
       iconEl.textContent  = diffIcons[(topTask.diff||1)-1];
       nameEl.textContent  = topTask.name;
       countEl.textContent = topCount + t('stat_times_done');
@@ -19998,6 +20258,14 @@ function renderTTCalendar() {
   if (!grid) return;
   grid.innerHTML = '';
 
+  // Hafta kunlari sarlavhasi index.html'da o'zbekcha yozilgan edi — joriy tilga moslaymiz
+  try {
+    var wdRow = grid.previousElementSibling, sdArr = getShortDaysArr(), wdOrder = [1,2,3,4,5,6,0];
+    if (wdRow && wdRow.children.length === 7) {
+      for (var wi = 0; wi < 7; wi++) wdRow.children[wi].textContent = sdArr[wdOrder[wi]];
+    }
+  } catch (e) {}
+
   var firstDay = new Date(_ttCalYear, _ttCalMonth, 1).getDay();
   var startOffset = (firstDay === 0) ? 6 : firstDay - 1;
   var daysInMonth = new Date(_ttCalYear, _ttCalMonth + 1, 0).getDate();
@@ -20109,7 +20377,7 @@ function renderTopTaskList() {
     return;
   }
 
-  var diffIcons = ['🟢', '🟡', '🔴'];
+  var diffIcons = ['🟢', '🟡', '🔴', '🟣'];
   var html = '';
   rows.forEach(function(r) {
     var icon = r.task.emoji || diffIcons[(r.task.diff || 1) - 1];
@@ -21806,7 +22074,7 @@ function renderDayDetailContent(dateStr) {
     var color = done ? '#34D399' : skipped ? '#F5A623' : 'var(--text-dim)';
     var coins = done ? '+' + tsk.coins + ' 🪙' : '';
 
-    var diffRgb = tsk.diff === 3 ? '248,113,113' : tsk.diff === 2 ? '245,166,35' : tsk.diff === 0 ? '240,238,248' : '52,211,153';
+    var diffRgb = tsk.diff === 4 ? '167,139,250' : tsk.diff === 3 ? '248,113,113' : tsk.diff === 2 ? '245,166,35' : tsk.diff === 0 ? '240,238,248' : '52,211,153';
     var rowBg = 'rgba(' + diffRgb + ',0.12)';
     var rowBorder = 'rgba(' + diffRgb + ',0.3)';
 
@@ -24906,7 +25174,9 @@ var wsSubmitLogin = async function() {
     startRealtimeSync();
 
     // Bulutdan hamma narsani tiklaymiz: app_state → profil → tasklar
-    var pulled = await cloudPullAll(uid);
+    window._cloudBootBusy = true;
+    var pulled;
+    try { pulled = await cloudPullAll(uid); } finally { setTimeout(function () { window._cloudBootBusy = false; }, 300); }
     if (pulled.profile && pulled.profile.name) wsState.name = pulled.profile.name;
     if (pulled.hadProfile || pulled.hadAppState) {
       // wsFinish so'rovnoma javoblari bilan bulutdagi sozlamalarni bosib yubormasin
@@ -27581,8 +27851,10 @@ try {
     if (root.classList.contains('x-pomo-running') !== running) root.classList.toggle('x-pomo-running', running);
     if (root.classList.contains('x-pomo-break') !== brk) root.classList.toggle('x-pomo-break', brk);
     var txt = '';
+    try { pomoSyncHubBar(act); } catch (e) {}
     if (running) {
-      var ms = brk ? (act.breakRemainingMs || 0) : Math.max(0, pomoWorkMs() - (act.cycleMs || 0));
+      // Ish fazasida — qancha vaqt o'tgani (soat:daq:son), tanaffusda — qolgan vaqt
+      var ms = brk ? (act.breakRemainingMs || 0) : Math.max(0, act.elapsedMs || 0);
       var sec = Math.ceil(ms / 1000), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60;
       var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
       txt = (h ? h + ':' : '') + p2(m) + ':' + p2(s2);
@@ -27607,6 +27879,33 @@ try {
   }
   window.pomoSyncRunIndicator = pomoSyncRunIndicator;
 
+  // 🍅 Hub sahifasi tepasidagi Pomodoro paneli (suzuvchi vidjet o'rniga): nom, o'tgan vaqt, ⏸/▶, ochish
+  var _hubBarState = null;
+  function pomoSyncHubBar(act) {
+    var bar = document.getElementById('x-hub-pomo');
+    if (!bar) return;
+    if (!act) { if (_hubBarState !== '') { bar.innerHTML = ''; bar.className = ''; _hubBarState = ''; } return; }
+    var brk = act.phase === 'break';
+    var st = act.id + '|' + (act.running ? 1 : 0) + '|' + (brk ? 1 : 0) + '|' + act.name;
+    if (_hubBarState !== st || !bar.firstChild) {
+      _hubBarState = st;
+      bar.className = 'x-hub-pomo' + (act.running ? ' on' : '') + (brk ? ' brk' : '');
+      bar.innerHTML = '<span class="x-hp-ic">' + (brk ? '☕' : '🍅') + '</span>'
+        + '<span class="x-hp-t"><b></b><span class="x-hp-s"></span></span>'
+        + '<span class="x-hp-time"></span>'
+        + '<button type="button" class="x-hp-btn" data-hp="toggle" aria-label="' + (act.running ? _cl('Pauza', 'Pause', 'Пауза') : _cl('Davom ettirish', 'Resume', 'Продолжить')) + '">' + (act.running ? '⏸' : '▶') + '</button>'
+        + '<button type="button" class="x-hp-btn ghost" data-hp="open" aria-label="Pomodoro">↗</button>';
+      bar.querySelector('b').textContent = act.name || 'Pomodoro';
+      bar.querySelector('.x-hp-s').textContent = brk ? _cl('Tanaffus', 'Break', 'Перерыв') : (act.running ? _cl('Ishlayapti', 'Running', 'Идёт') : _cl("To'xtatilgan", 'Paused', 'На паузе'));
+      bar.querySelector('[data-hp="toggle"]').onclick = function () { window.pomoFloatToggle(); };
+      bar.querySelector('[data-hp="open"]').onclick = function () { window.pomoOpenModal(); };
+    }
+    var ms = brk ? (act.breakRemainingMs || 0) : (act.elapsedMs || 0);
+    var tEl = bar.querySelector('.x-hp-time'), tx = pomoFormatHMS(ms);
+    if (tEl && tEl.textContent !== tx) tEl.textContent = tx;
+  }
+  window.pomoSyncHubBar = function () { _hubBarState = null; try { pomoSyncHubBar(pomoActiveId ? pomoFindAct(pomoActiveId) : null); } catch (e) {} };
+
   function pomoUpdateFloatUI() {
     try { pomoSyncRunIndicator(); } catch (e) {}
     var fdoc = pomoFloatDoc();
@@ -27625,11 +27924,10 @@ try {
       var ov = document.getElementById('pomo-modal-overlay');
       return !!(ov && ov.classList.contains('open'));
     })();
-    if (pomoModalOpen) {
-      floatEl.classList.remove('show');
-    } else if (!pomoFloatDismissed) {
-      floatEl.classList.add('show');
-    }
+    // Suzuvchi vidjet asosiy sahifada endi ko'rsatilmaydi — o'rniga Hub tugmasi va Hub paneli.
+    // Faqat PiP (kichik oyna) rejimida ko'rinadi.
+    if (mainDoc || pomoModalOpen) floatEl.classList.remove('show');
+    else floatEl.classList.add('show');
     floatEl.classList.toggle('break-mode', act.phase === 'break');
     floatEl.classList.toggle('running', !!act.running); // 🆕 PiP oynachadagi vaqt matnining nafas oluvchi (pulse) animatsiyasi shunga bog'liq
     fdoc.getElementById('pomo-float-label').textContent = act.name + (act.phase === 'break' ? (act.lastBreakIsLong ? ' · 🌿 ' + _cl("Uzoq tanaffus", "Long break", "Длинный перерыв") : ' · ☕ ' + _cl("Qisqa tanaffus", "Short break", "Короткий перерыв")) : '') + (act.running ? '' : ' · ' + _cl("To'xtatilgan", "Paused", "На паузе"));
@@ -31744,7 +32042,12 @@ var cloudPullAppState = async function(force) {
   _appStateLastCmp = JSON.stringify(Object.assign({}, _appStatePayload(), { _savedAt: 0 }));
   if (needReload && !sessionStorage.getItem('cloudPomoReloaded')) {
     try { sessionStorage.setItem('cloudPomoReloaded', '1'); } catch (e) {}
-    setTimeout(function () { location.reload(); }, 400);
+    // Kirish jarayoni (cloudBoot/login) tugamaguncha qayta yuklamaymiz — aks holda
+    // loginMethod saqlanmay qolib, kirish qaytadan boshlanib aylanib qolardi.
+    (function waitAndReload(n) {
+      if (window._cloudBootBusy && n < 100) return setTimeout(function () { waitAndReload(n + 1); }, 200);
+      setTimeout(function () { try { save(); } catch (e) {} location.reload(); }, 400);
+    })(0);
   }
   return { ok: true, had: true, applied: true };
 };
@@ -31856,7 +32159,9 @@ var _cloudRevertNameFromServer = function() {
 var _cloudCleanLoginIfExisting = async function(uid) {
   if (!uid) return false;
   var flag = null; try { flag = sessionStorage.getItem('cloudCleanLogin'); } catch (e) {}
-  if (flag === uid) { try { sessionStorage.removeItem('cloudCleanLogin'); } catch (e) {} return false; }
+  var done = null; try { done = sessionStorage.getItem('cloudCleanDone'); } catch (e) {}
+  if (done === uid) return false; // shu tabda bu akkaunt uchun tozalash allaqachon qilingan — qayta aylanmasin
+  if (flag === uid) { try { sessionStorage.removeItem('cloudCleanLogin'); sessionStorage.setItem('cloudCleanDone', uid); } catch (e) {} return false; }
   var has = false;
   try {
     var a = await supabase.from('app_state').select('user_id').eq('user_id', uid).maybeSingle();
@@ -31873,6 +32178,10 @@ var _cloudCleanLoginIfExisting = async function(uid) {
 };
 
 var cloudBoot = async function(session, isOAuthReturn) {
+  window._cloudBootBusy = true;
+  try { return await _cloudBootInner(session, isOAuthReturn); } finally { window._cloudBootBusy = false; }
+};
+var _cloudBootInner = async function(session, isOAuthReturn) {
   await _cloudWaitBooted();
   if (_cloudAccountSwitchReset(session.user.id)) return;
   S.cloudLinked = true;
