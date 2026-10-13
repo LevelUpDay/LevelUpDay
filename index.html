@@ -26,8 +26,10 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="extras.css">
   <link rel="stylesheet" href="designs.css">
+  <link rel="stylesheet" href="effects.css">
   <script src="designs.js"></script>
   <link rel="stylesheet" href="ui-kit.css">
+  <link rel="stylesheet" href="exam-prep.css">
 </head>
 <body>
 
@@ -168,13 +170,19 @@
     <!-- 🗂 Bo'lim filtri (Hammasi / Ish / O'qish ...) -->
     <div id="task-cat-bar" class="tc-bar" style="display:none"></div>
     <!-- Ommaviy amallar paneli (faqat "Tanlash" rejimida ko'rinadi) -->
-    <div id="bulk-action-bar" style="display:none;position:sticky;top:0;z-index:12;background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-      <span id="bulk-selected-label" style="font-size:var(--fs-sm);color:var(--text);font-weight:600">0</span>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="act-btn" onclick="bulkMarkDone()" data-i18n="bulk_done_btn">✅ Bajarildi</button>
-        <button class="act-btn" onclick="bulkPostpone()" data-i18n="bulk_postpone_btn">⏭️ Ertaga</button>
-        <button class="act-btn del" onclick="bulkDeleteTasks()" data-i18n="bulk_delete_btn">🗑️ O'chirish</button>
-        <button class="act-btn" onclick="toggleBulkMode()" data-i18n="bulk_cancel_btn">Bekor qilish</button>
+    <div id="bulk-action-bar" class="bulk-bar" role="toolbar" aria-label="Bulk actions" style="display:none">
+      <div class="bulk-bar-top">
+        <span id="bulk-selected-label" class="bulk-count" aria-live="polite">0</span>
+        <button type="button" id="bulk-all-btn" class="bulk-link" onclick="bulkSelectAllToggle()">Select all</button>
+        <button type="button" id="bulk-cancel-btn" class="bulk-link bulk-cancel" onclick="toggleBulkMode()" data-i18n="bulk_cancel_btn">Bekor qilish</button>
+      </div>
+      <div class="bulk-bar-actions">
+        <button type="button" class="bulk-act ok" id="bulk-done-btn" onclick="bulkMarkDone()">✅</button>
+        <button type="button" class="bulk-act" id="bulk-postpone-btn" onclick="bulkPostpone()">⏩</button>
+        <button type="button" class="bulk-act bulk-act-wide" id="bulk-cat-btn" aria-haspopup="menu" onclick="bulkOpenPicker('cat', this)">🗂</button>
+        <button type="button" class="bulk-act bulk-act-wide" id="bulk-diff-btn" aria-haspopup="menu" onclick="bulkOpenPicker('diff', this)">⭐</button>
+        <button type="button" class="bulk-act del" id="bulk-delete-btn" onclick="bulkDeleteTasks()">🗑</button>
+        <button type="button" class="bulk-act more" id="bulk-more-btn" aria-haspopup="menu" onclick="bulkOpenMore(this)">⋯</button>
       </div>
     </div>
     <!-- Chest banner: faqat hamma vazifa tugaganda chiqadi -->
@@ -541,7 +549,7 @@
         </div>
         <!-- CEFR uchun maqsad — ball emas, DARAJA (A1-C2) tanlanadi -->
         <div id="ielts-target-cefr-row" style="display:none;margin-bottom:20px">
-          <label style="display:block;font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Maqsad daraja (ixtiyoriy)</label>
+          <label style="display:block;font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px" data-i18n="cefr_target_modal_title">Maqsad daraja (ixtiyoriy)</label>
           <div id="ielts-target-cefr-btns" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
         </div>
         <div style="display:flex;gap:10px">
@@ -3399,12 +3407,15 @@
   </div>
 
 <!-- Mobile Task Action Sheet -->
-<div id="task-action-sheet" class="task-action-sheet">
+<div id="task-action-sheet" class="task-action-sheet" aria-hidden="true">
   <div class="task-action-sheet-backdrop" onclick="closeTaskSheet()"></div>
-  <div class="task-action-sheet-inner">
-    <div class="sheet-title" id="sheet-task-name"></div>
-    <div class="sheet-badge-row" id="sheet-badge-row"></div>
-    <div id="sheet-btns"></div>
+  <div class="task-action-sheet-inner" role="menu" aria-labelledby="sheet-task-name" tabindex="-1">
+    <div class="as-grabber" aria-hidden="true"></div>
+    <div class="as-head">
+      <div class="sheet-title" id="sheet-task-name"></div>
+      <div class="sheet-badge-row" id="sheet-badge-row"></div>
+    </div>
+    <div id="sheet-btns" class="as-body"></div>
     <button class="sheet-cancel-btn" onclick="closeTaskSheet()" data-i18n="mood_close_btn">Yopish</button>
   </div>
 </div>
@@ -3452,6 +3463,8 @@
 
   <script src="ui-kit.js"></script>
   <script src="script.js"></script>
+  <script src="effects.js"></script>
   <script src="extras.js"></script>
+  <script src="exam-prep.js"></script>
 </body>
 </html>

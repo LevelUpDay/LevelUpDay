@@ -10,7 +10,7 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v36';
+const CACHE_VERSION = 'v37';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 
 // Pre-cache qilinadigan asosiy fayllar
@@ -25,6 +25,10 @@ const PRECACHE_URLS = [
   './designs.css',
   './ui-kit.js',
   './ui-kit.css',
+  './effects.js',
+  './effects.css',
+  './exam-prep.js',
+  './exam-prep.css',
   './manifest.json',
   './icons/logo.svg',
   './icons/favicon-32.png',
