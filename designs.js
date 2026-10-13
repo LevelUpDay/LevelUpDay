@@ -785,8 +785,11 @@
     if (!Array.isArray(s.shop.owned)) s.shop.owned = [];
     if (!s.shop.dzGrand) {
       s.shop.dzGrand = 1;
-      if (!isFree(current) && s.shop.owned.indexOf('d_' + current) === -1) s.shop.owned.push('d_' + current);
-      try { if (typeof save === 'function') save(); } catch (e) {}
+      // Faqat haqiqatan sovg'a berilganda saqlaymiz (yangi foydalanuvchining birinchi ishga tushishini buzmaslik uchun)
+      if (!isFree(current) && s.shop.owned.indexOf('d_' + current) === -1) {
+        s.shop.owned.push('d_' + current);
+        try { if (typeof save === 'function') save(); } catch (e) {}
+      }
     }
     if (!isOwned(current)) apply('default', { force: true, silent: true });
     else renderPicker();
@@ -889,5 +892,13 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
   // Ilova S.themeMode ni keyinroq (loadTheme) qo'llaydi — animatsion dizaynda light'ni qaytaramiz
-  window.addEventListener('load', function () { syncLightClass(); try { enforce(); } catch (e) {} });
+  // Ilova to'liq yuklanib bo'lgach (birinchi ishga tushirish tugagach) tekshiramiz
+  window.addEventListener('load', function () {
+    syncLightClass();
+    var n = 0;
+    (function wait() {
+      if (!window._appBooted && n++ < 150) return setTimeout(wait, 100);
+      setTimeout(function () { try { enforce(); } catch (e) {} }, 300);
+    })();
+  });
 })();
