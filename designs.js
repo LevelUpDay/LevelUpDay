@@ -67,6 +67,7 @@
   function isGalaxy(id) { return id === 'galaxy'; }
 
   function setRootAttrs(id) {
+    if (root.getAttribute('data-design') !== id) root.classList.remove('design-live'); // yangi dizayn chizilguncha uning statik rasmi
     root.setAttribute('data-design', id);
     root.removeAttribute('data-theme');
     root.classList.toggle('design-fx', isFx(id));
@@ -615,6 +616,7 @@
         if (!animating()) { G.reveal = 1; G.boost = 0; if (G.time < 1) { G.time = 6.5; G.gloss = 0.33; G.depth = 0.37; G.angle = 0.6; } }
       }
       drawGalaxy(gl);
+      markLive();
       return;
     }
     var M = R.mouse, u = R.u;
@@ -648,7 +650,9 @@
     }
     gl.uniform4fv(u.uBursts, arr);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    markLive();
   }
+  function markLive() { if (!root.classList.contains('design-live')) requestAnimationFrame(function () { root.classList.add('design-live'); }); }
 
   function loop(now) {
     R.raf = requestAnimationFrame(loop);
