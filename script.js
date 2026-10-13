@@ -10336,19 +10336,24 @@ function skipTask(id) {
   document.getElementById('skip-no').onclick=function(){ov.remove();};
   document.getElementById('skip-yes').onclick=function(){
     ov.remove();
-    tk.skipped=true; tk.skippedDate=today();
-    // Streak uchun skip tarixi
-    if (!S.taskSkipLog) S.taskSkipLog = {};
-    if (!S.taskSkipLog[tk.id]) S.taskSkipLog[tk.id] = [];
-    var tds = today();
-    if (S.taskSkipLog[tk.id].indexOf(tds) === -1) S.taskSkipLog[tk.id].push(tds);
-    tk._ovBak = { from: tk.overdueFrom || null, on: tk.overdueOn || null };
-    markTaskPostponed(tk); // ertaga ko'chadi va bajarilmaguncha Overdue bo'lib turadi
-    spendCoins(1); addTarixLog('out',tk.name+' '+_skipLogSuffix,-1);
+    _applyTaskSkip(tk);
     showUndoToast(_skipToast, function () { unskipTask(tk.id); });
     save(); render();
   };
   ov.addEventListener('mousedown',function(e){if(e.target===ov)ov.remove();});
+}
+
+// O'tkazib yuborishning o'zi (tasdiqsiz) — skipTask va ommaviy "⏭ O'tkazish" uchun umumiy
+function _applyTaskSkip(tk) {
+  tk.skipped=true; tk.skippedDate=today();
+  // Streak uchun skip tarixi
+  if (!S.taskSkipLog) S.taskSkipLog = {};
+  if (!S.taskSkipLog[tk.id]) S.taskSkipLog[tk.id] = [];
+  var tds = today();
+  if (S.taskSkipLog[tk.id].indexOf(tds) === -1) S.taskSkipLog[tk.id].push(tds);
+  tk._ovBak = { from: tk.overdueFrom || null, on: tk.overdueOn || null };
+  markTaskPostponed(tk); // ertaga ko'chadi va bajarilmaguncha Overdue bo'lib turadi
+  spendCoins(1); addTarixLog('out',tk.name+' '+t('skip_task_log_suffix'),-1);
 }
 
 function unskipTask(id) {
@@ -12917,6 +12922,7 @@ function makeTaskEl(t, future) {
   else if (t.skipped) cls+=' skipped';
   if (future) cls += ' future-readonly';
   if (t.pinned) cls += ' task-pinned';
+  if (_bulkMode && !future) cls += ' bulk-mode' + (_bulkSelected[t.id] ? ' bulk-sel' : '');
   d.className=cls;
   d.dataset.id = t.id;
 
@@ -12976,7 +12982,7 @@ function makeTaskEl(t, future) {
   d.innerHTML=`
     <div class="task-card-top tk-row">
       ${tbCol}
-      ${(_bulkMode && !future) ? `<input type="checkbox" class="bulk-select-checkbox" style="width:18px;height:18px;flex-shrink:0;margin-right:2px" ${_bulkSelected[t.id]?'checked':''} onclick="event.stopPropagation();toggleBulkSelect(${t.id}, this.checked)" />` : ''}
+      ${(_bulkMode && !future) ? `<input type="checkbox" class="bulk-select-checkbox" aria-label="${esc(t.name)}" ${_bulkSelected[t.id]?'checked':''} onclick="event.stopPropagation();toggleBulkSelect(${t.id}, this.checked)" />` : ''}
       <button class="check-btn ${t.done?'checked':''}" aria-label="${esc(t.name)}" ${future?'disabled title="'+_cl("Hali muddati kelmagan — kunida belgilanadi", "Not due yet — mark it on its day", "Срок ещё не наступил — отметьте в свой день")+'" style="opacity:0.4;cursor:not-allowed"':`onclick="toggleTask(${t.id})"`}>
         ${t.done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}
       </button>
@@ -12996,10 +13002,20 @@ function makeTaskEl(t, future) {
         </div>
       </div>
       ${(!future && !t.done) ? `<button type="button" class="tk-pomo-btn" onclick="taskOpenFocus(${t.id}, event)" title="${_cl("Fokus rejimida shu vazifa ustida ishlash", "Focus on this task (Focus mode)", "Работать над задачей в режиме фокуса")}" aria-label="${_cl("Fokus rejimida shu vazifa ustida ishlash", "Focus on this task (Focus mode)", "Работать над задачей в режиме фокуса")}">🎯</button>` : ''}
-      <button class="task-menu-btn tk-more" onclick="openTaskSheet(${t.id}, ${future?'true':'false'})" title="${_cl("Amallar", "Actions", "Действия")}" aria-label="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
+      <button class="task-menu-btn tk-more" aria-haspopup="menu" onclick="openTaskSheet(${t.id}, ${future?'true':'false'}, this)" title="${_cl("Amallar", "Actions", "Действия")}" aria-label="${_cl("Amallar", "Actions", "Действия")}">⋯</button>
     </div>
     ${hasSubtasks?`<div class="task-card-bottom"><div class="subtask-wrap" id="subtask-wrap-${t.id}">${future ? renderFutureSubtasksHtml(t) : renderSubtasksHtml(t)}</div></div>`:''}
   `;
+  // ☑️ Tanlash rejimida kartaning bo'sh joyiga bosish ham tanlaydi
+  if (_bulkMode && !future) {
+    d.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('button, a, input, label, .subtask-wrap')) return;
+      var cb = d.querySelector('.bulk-select-checkbox');
+      if (!cb) return;
+      cb.checked = !cb.checked;
+      toggleBulkSelect(t.id, cb.checked);
+    });
+  }
 
 
   return d;
@@ -14063,32 +14079,89 @@ function toggleBulkMode() {
   _bulkMode = !_bulkMode;
   _bulkSelected = {};
   var btn = document.getElementById('bulk-toggle-btn');
-  if (btn) btn.classList.toggle('active', _bulkMode);
+  if (btn) { btn.classList.toggle('active', _bulkMode); btn.setAttribute('aria-pressed', _bulkMode ? 'true' : 'false'); }
+  var sh = document.getElementById('task-action-sheet');
+  if (!_bulkMode && sh && sh.dataset.kind !== 'task' && sh.classList.contains('open')) closeTaskSheet();
   updateBulkBar();
   renderTaskList();
 }
 
 function toggleBulkSelect(id, checked) {
   if (checked) _bulkSelected[id] = true; else delete _bulkSelected[id];
+  var card = document.querySelector('.task-card[data-id="' + id + '"]');
+  if (card) card.classList.toggle('bulk-sel', !!checked);
   updateBulkBar();
 }
 
+// Ro'yxatda ko'rinib turgan (bugungi, filtr/qidiruvga mos) tanlanadigan vazifalar
+function _bulkVisibleIds() {
+  var out = [];
+  document.querySelectorAll('#daily-list .task-card, #once-list .task-card').forEach(function (el) {
+    if (!el.querySelector('.bulk-select-checkbox')) return;
+    var id = Number(el.dataset.id);
+    if (id && out.indexOf(id) === -1) out.push(id);
+  });
+  return out;
+}
+// O'chirilgan / ro'yxatdan yo'qolgan vazifalarni tanlovdan olib tashlaydi
+function _bulkPrune() {
+  Object.keys(_bulkSelected).forEach(function (k) {
+    if (!S.tasks.some(function (x) { return x.id === Number(k); })) delete _bulkSelected[k];
+  });
+}
+function bulkSelectAllToggle() {
+  var vis = _bulkVisibleIds();
+  var allSel = vis.length && vis.every(function (id) { return _bulkSelected[id]; });
+  if (allSel) _bulkSelected = {};
+  else vis.forEach(function (id) { _bulkSelected[id] = true; });
+  renderTaskList();
+}
+
+function _bulkLbl(key) { return String(t(key) || '').replace(/^[^\p{L}\p{N}]+/u, ''); }
 function updateBulkBar() {
   var bar = document.getElementById('bulk-action-bar');
   var label = document.getElementById('bulk-selected-label');
   if (!bar) return;
-  bar.style.display = _bulkMode ? 'flex' : 'none';
+  bar.style.display = _bulkMode ? '' : 'none';
+  bar.classList.toggle('open', _bulkMode);
+  if (!_bulkMode) return;
   var n = Object.keys(_bulkSelected).length;
+  var vis = _bulkVisibleIds();
   if (label) label.textContent = t('bulk_selected_count').replace('{n}', n);
+  var allBtn = document.getElementById('bulk-all-btn');
+  if (allBtn) {
+    var allSel = vis.length && vis.every(function (id) { return _bulkSelected[id]; });
+    allBtn.textContent = allSel ? _cl('Hech birini', 'Select none', 'Снять все') : _cl('Hammasi', 'Select all', 'Выбрать все') + ' (' + vis.length + ')';
+    allBtn.disabled = !vis.length;
+  }
+  var set = function (id, ic, txt) {
+    var b = document.getElementById(id);
+    if (!b) return;
+    b.innerHTML = '<span class="ba-ic" aria-hidden="true">' + ic + '</span><span class="ba-tx">' + esc(txt) + '</span>';
+    b.title = txt;
+  };
+  set('bulk-done-btn', '✅', _bulkLbl('bulk_done_btn'));
+  set('bulk-postpone-btn', '⏩', _bulkLbl('bulk_postpone_btn'));
+  set('bulk-cat-btn', '🗂', _cl("Bo'lim", 'Category', 'Раздел'));
+  set('bulk-diff-btn', '⭐', _cl('Qiyinlik', 'Difficulty', 'Сложность'));
+  set('bulk-delete-btn', '🗑', _bulkLbl('bulk_delete_btn'));
+  set('bulk-more-btn', '⋯', _cl('Yana', 'More', 'Ещё'));
+  bar.querySelectorAll('.bulk-act').forEach(function (b) { if (b.id !== 'bulk-more-btn') b.disabled = !n; });
+  var cancel = document.getElementById('bulk-cancel-btn');
+  if (cancel) cancel.textContent = t('bulk_cancel_btn');
 }
 
 function _bulkSelectedIds() {
   return Object.keys(_bulkSelected).map(function(k){ return parseInt(k, 10); });
 }
+function _bulkTasks() {
+  return _bulkSelectedIds().map(function (id) { return S.tasks.find(function (x) { return x.id === id; }); }).filter(Boolean);
+}
 
 function bulkMarkDone() {
   var ids = _bulkSelectedIds();
   if (!ids.length) { toast(t('bulk_none_selected_toast')); return; }
+  closeTaskSheet();
   var n = 0;
   ids.forEach(function(id){
     var tk = S.tasks.find(function(x){ return x.id === id; });
@@ -14098,9 +14171,34 @@ function bulkMarkDone() {
   toast(t('bulk_done_toast').replace('{n}', n));
 }
 
+// ↩️ Bajarilganlarni qaytarish — toggleTaskInternal orqali (tanga/XP/log to'g'ri qaytariladi)
+function bulkMarkUndone() {
+  var ts = _bulkTasks();
+  if (!ts.length) { toast(t('bulk_none_selected_toast')); return; }
+  closeTaskSheet();
+  var n = 0;
+  ts.forEach(function (tk) { if (tk.done && S.tasks.indexOf(tk) !== -1) { toggleTaskInternal(tk.id); n++; } });
+  _bulkPrune(); renderTaskList();
+  toast('↩️ ' + _cl('Bajarilmagan deb belgilandi', 'Marked not done', 'Отмечено невыполненными') + ': ' + n);
+}
+
+// ⏭ Bugun o'tkazib yuborish — skipTask bilan bir xil (har biri −1 🪙), bitta tasdiq bilan
+function bulkSkipToday() {
+  var ts = _bulkTasks().filter(function (tk) { return !tk.done && !tk.skipped; });
+  if (!_bulkSelectedIds().length) { toast(t('bulk_none_selected_toast')); return; }
+  if (!ts.length) { toast('⏭ ' + _cl("O'tkazib yuboriladigan vazifa yo'q", 'Nothing to skip', 'Нечего пропускать')); return; }
+  closeTaskSheet();
+  showConfirmModal('<b>' + esc(t('skip_task_title')) + '</b><br>' + ts.length + ' × ' + esc(_cl('vazifa', 'task(s)', 'задач')) + '<br><span style="color:var(--red)">−' + ts.length + ' 🪙</span>', function () {
+    var ids = ts.map(function (tk) { _applyTaskSkip(tk); return tk.id; });
+    save(); render();
+    showUndoToast(t('skip_task_toast') + ' · ' + ids.length, function () { ids.forEach(function (id) { unskipTask(id); }); });
+  }, { icon: '⏭️', confirmLabel: t('skip_task_confirm_btn') });
+}
+
 function bulkPostpone() {
   var ids = _bulkSelectedIds();
   if (!ids.length) { toast(t('bulk_none_selected_toast')); return; }
+  closeTaskSheet();
   var n = 0;
   ids.forEach(function(id){
     var tk = S.tasks.find(function(x){ return x.id === id; });
@@ -14110,35 +14208,96 @@ function bulkPostpone() {
   });
   save(); render();
   toggleBulkMode();
-  toast(t('bulk_postpone_toast').replace('{n}', n));
+  var rest = ids.length - n;
+  toast(t('bulk_postpone_toast').replace('{n}', n) + (rest ? ' (' + rest + ' ' + _cl("ko'chirilmadi", 'not movable', 'не перенесено') + ')' : ''));
+}
+
+// 📌 / 🧊 — hammasi belgilangan bo'lsa olib tashlaydi, aks holda hammasiga qo'yadi
+function bulkTogglePin() {
+  var ts = _bulkTasks();
+  if (!ts.length) { toast(t('bulk_none_selected_toast')); return; }
+  var pin = !ts.every(function (tk) { return tk.pinned; });
+  ts.forEach(function (tk) { tk.pinned = pin; });
+  _tmFinish('bulk', (pin ? '📌 ' + t('task_pinned_badge') : t('task_unpin_btn')) + ' · ' + ts.length);
+}
+function bulkToggleFreeze() {
+  var ts = _bulkTasks();
+  if (!ts.length) { toast(t('bulk_none_selected_toast')); return; }
+  var freeze = !ts.every(function (tk) { return tk.isFrozen; });
+  ts.forEach(function (tk) {
+    if (freeze && !tk.isFrozen) { tk.isFrozen = true; tk.frozenAt = today(); }
+    else if (!freeze && tk.isFrozen) { tk.isFrozen = false; tk.frozenAt = null; }
+  });
+  _tmFinish('bulk', (freeze ? '🧊 ' + t('freeze_task_toast') : '🔥 ' + t('unfreeze_task_toast')) + ' · ' + ts.length);
+  try { renderProfile(); renderFrozenTasksPanel(); } catch (e) {}
+  try { SFX.click(); } catch (e) {}
+}
+
+function bulkOpenPicker(kind, anchor) {
+  if (!_bulkSelectedIds().length) { toast(t('bulk_none_selected_toast')); return; }
+  if (anchor) _asAnchor = anchor;
+  var sh = document.getElementById('task-action-sheet');
+  if (anchor && sh && !sh.classList.contains('open')) _asReturnFocus = anchor;
+  tmPick(kind, 'bulk');
+}
+
+function bulkOpenMore(anchor) {
+  if (anchor === undefined) anchor = _asAnchor && _asAnchor.isConnected ? _asAnchor : document.getElementById('bulk-more-btn');
+  var ts = _bulkTasks();
+  var n = ts.length;
+  var vis = _bulkVisibleIds();
+  var allSel = vis.length && vis.every(function (id) { return _bulkSelected[id]; });
+  var allPinned = n && ts.every(function (tk) { return tk.pinned; });
+  var allFrozen = n && ts.every(function (tk) { return tk.isFrozen; });
+  var hasDone = ts.some(function (tk) { return tk.done; });
+  var hasOpen = ts.some(function (tk) { return !tk.done; });
+  var dis = !n;
+  var tiles = [
+    _asTile({ ic: '✅', label: _cl('Bajarildi', 'Done', 'Готово'), cls: 'ok' + (hasOpen ? '' : ' dim'), on: 'bulkMarkDone()' }),
+    _asTile({ ic: '↩️', label: _cl('Bajarilmadi', 'Undone', 'Не готово'), cls: hasDone ? '' : 'dim', on: 'bulkMarkUndone()' }),
+    _asTile({ ic: '⏭', label: _cl("O'tkazish", 'Skip', 'Пропуск'), on: 'bulkSkipToday()' }),
+    _asTile({ ic: '⏩', label: _cl('Ertaga', 'Tomorrow', 'Завтра'), on: 'bulkPostpone()' })
+  ];
+  var html =
+    (dis ? '<div class="as-note">☑️ ' + esc(t('bulk_none_selected_toast')) + '</div>' : '<div class="as-tiles" role="group">' + tiles.join('') + '</div>') +
+    _asGroup(_cl('Tanlov', 'Selection', 'Выбор'), [
+      _asItem({ ic: allSel ? '◻️' : '☑️', label: allSel ? _cl('Hech birini tanlamaslik', 'Select none', 'Снять выделение') : _cl('Hammasini tanlash', 'Select all', 'Выбрать все'), hint: vis.length ? String(vis.length) : '', on: 'closeTaskSheet();bulkSelectAllToggle()', disabled: !vis.length })
+    ]) +
+    (dis ? '' :
+      _asGroup(_cl('Reja', 'Schedule', 'План'), [
+        _asItem({ ic: '📅', label: _cl("Sanaga ko'chirish…", 'Move to date…', 'Перенести на дату…'), chev: true, on: "tmPick('date','bulk')" }),
+        _asItem({ ic: '🕒', label: _cl('Vaqt bloki', 'Time block', 'Время'), chev: true, on: "tmPick('time','bulk')" })
+      ]) +
+      _asGroup(_cl('Tartib', 'Organize', 'Организация'), [
+        _asItem({ ic: '🗂', label: _cl("Bo'limga ko'chirish", 'Move to category', 'В раздел'), chev: true, on: "tmPick('cat','bulk')" }),
+        _asItem({ ic: '⭐', label: _cl('Qiyinlikni o\'zgartirish', 'Change difficulty', 'Сложность'), chev: true, on: "tmPick('diff','bulk')" }),
+        _asItem({ ic: '🎨', label: _cl('Rang belgisi', 'Colour label', 'Цветная метка'), chev: true, on: "tmPick('label','bulk')" }),
+        _asItem({ ic: '📌', label: allPinned ? _cl('Qadashni yechish', 'Unpin', 'Открепить') : _cl('Qadash', 'Pin', 'Закрепить'), on: 'bulkTogglePin()' }),
+        _asItem({ ic: allFrozen ? '🔥' : '🧊', label: allFrozen ? tr('unfreeze_btn') : tr('freeze_task_sheet_btn'), on: 'bulkToggleFreeze()' }),
+        _asItem({ ic: '⧉', label: _cl('Nusxa olish', 'Duplicate', 'Дублировать'), on: "tmDuplicate('bulk')" })
+      ]) +
+      _asGroup('', [_asItem({ ic: '🗑', label: _cl("O'chirish", 'Delete', 'Удалить'), cls: 'danger', on: 'bulkDeleteTasks()' })]));
+  asOpen({ anchor: anchor, titleHtml: '☑️ ' + esc(t('bulk_selected_count').replace('{n}', n)), html: html, kind: 'bulk' });
 }
 
 function bulkDeleteTasks() {
   var ids = _bulkSelectedIds();
   if (!ids.length) { toast(t('bulk_none_selected_toast')); return; }
-  var _title = t('trash_clear_all_confirm_title');
-  var ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px';
-  var box = document.createElement('div');
-  box.style.cssText = 'background:#1C1C25;border:1px solid rgba(248,113,113,0.3);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:320px;text-align:center';
-  box.innerHTML =
-    '<div style="font-size:var(--fs-4xl);margin-bottom:10px">🗑️</div>' +
-    '<div style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">' + esc(t('bulk_delete_btn')) + '</div>' +
-    '<div style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:20px;line-height:1.5">' + ids.length + ' — ' + esc(t('delete_task_warning')) + '</div>' +
-    '<div style="display:flex;gap:10px">' +
-      '<button id="bulk-del-no" style="flex:1;padding:12px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer">' + esc(t('btn_cancel')) + '</button>' +
-      '<button id="bulk-del-yes" style="flex:2;padding:12px;border-radius:var(--radius-md);border:none;background:#F87171;color:#fff;font-size:var(--fs-base);font-weight:600;cursor:pointer">' + esc(t('delete_task_confirm_btn')) + '</button>' +
-    '</div>';
-  ov.appendChild(box);
-  document.body.appendChild(ov);
-  document.getElementById('bulk-del-no').onclick = function(){ ov.remove(); };
-  document.getElementById('bulk-del-yes').onclick = function(){
-    ov.remove();
+  closeTaskSheet();
+  var names = ids.map(function (id) { var tk = S.tasks.find(function (x) { return x.id === id; }); return tk ? tk.name : null; }).filter(Boolean);
+  var preview = names.slice(0, 3).map(function (nm) { return '«' + esc(nm) + '»'; }).join('<br>') + (names.length > 3 ? '<br>+' + (names.length - 3) : '');
+  var doDelete = function () {
+    try { SFX.delete(); } catch (e) {}
     ids.forEach(function(id){ moveTaskToTrash(id); });
     toggleBulkMode();
-    toast(t('bulk_delete_toast').replace('{n}', ids.length));
+    showUndoToast(t('bulk_delete_toast').replace('{n}', ids.length), function () { ids.forEach(function (id) { restoreTask(id); }); });
   };
-  ov.addEventListener('mousedown', function(e){ if(e.target===ov) ov.remove(); });
+  showHoldConfirmModal(
+    '<b>' + ids.length + '</b> × ' + esc(_cl('vazifa', 'task(s)', 'задач')) + '<br><span style="font-size:var(--fs-xs);color:var(--text-muted)">' + preview + '</span><br><span style="color:var(--red);font-size:var(--fs-xs)">' + esc(t('delete_task_warning')) + '</span>',
+    doDelete,
+    { icon: '🗑️', title: _bulkLbl('bulk_delete_btn') + ' · ' + ids.length, holdTime: 1500,
+      holdLabel: '🗑 ' + _cl("O'chirish uchun bosib turing", 'Hold to delete', 'Удерживайте для удаления') }
+  );
 }
 
 function toggleAllTasks() {
@@ -23314,41 +23473,410 @@ setTimeout(function(){ updateMoodBtn(); }, 100);
 // ---------- Blok 4/10 ----------
 try {
 
-function openTaskSheet(id, future) {
-  const t = S.tasks.find(x=>x.id===id);
-  if (!t) return;
-  const rl = repeatLabel(t);
-  document.getElementById('sheet-task-name').textContent = (t.emoji ? t.emoji+' ' : '') + t.name;
-  document.getElementById('sheet-badge-row').innerHTML =
-    `<span class="badge ${rl.cls}">${rl.text}</span>${diffBadge(taskDiffOrDefault(t))}<span class="badge badge-coins">+${taskCoinValue(t)}🪙</span>`;
-  let btns = '';
-  if (future) {
-    btns += `<div class="sheet-btn" style="opacity:0.55;pointer-events:none">⏳ ${_cl("Hali muddati kelmagan — o'sha kunida belgilanadi", "Not due yet — mark it on its day", "Срок ещё не наступил — отметьте в свой день")}</div>`;
-  } else {
-    if (!t.done && !t.skipped) {
-      btns += `<button class="sheet-btn done-btn" onclick="closeTaskSheet();toggleTask(${id})">✅ ${_cl("Bajarildi deb belgilash", "Mark as done", "Отметить выполненной")}</button>`;
-      btns += `<button class="sheet-btn" onclick="closeTaskSheet();skipTask(${id})">⏭ ${_cl("O'tkazib yuborish", "Skip", "Пропустить")}</button>`;
-    }
-    if (t.done) {
-      btns += `<button class="sheet-btn" onclick="closeTaskSheet();toggleTask(${id})">↩️ ${_cl("Bajarilmadi deb belgilash", "Mark as not done", "Отметить невыполненной")}</button>`;
-    }
-    if (t.skipped && !t.done) {
-      btns += `<button class="sheet-btn" onclick="closeTaskSheet();unskipTask(${id})">🔄 ${_cl("Qaytarish", "Restore", "Вернуть")}</button>`;
-    }
-  }
-  if (!future && !t.done) btns += `<button class="sheet-btn" onclick="closeTaskSheet();taskOpenFocus(${id})">🎯 ${_cl("Fokus rejimida ishlash", "Focus mode", "Режим фокуса")}</button>`;
-  btns += `<button class="sheet-btn" onclick="closeTaskSheet();openSubtaskModal(${id})">➕ ${_cl("Sub-task qo'shish", "Add subtask", "Добавить подзадачу")}</button>`;
-  btns += `<button class="sheet-btn" onclick="closeTaskSheet();freezeTask(${id})">🧊 ${tr('freeze_task_sheet_btn')}</button>`;
-  btns += `<button class="sheet-btn" onclick="closeTaskSheet();editTask(${id})">✏️ ${_cl('Tahrirlash', 'Edit', 'Изменить')}</button>`;
-  btns += `<button class="sheet-btn" onclick="closeTaskSheet();togglePinTask(${id})">📌 ${t.pinned ? tr('task_unpin_btn') : tr('task_pin_btn')}</button>`;
-  btns += `<button class="sheet-btn danger" onclick="closeTaskSheet();deleteTask(${id})">🗑 ${_cl("O'chirish", "Delete", "Удалить")}</button>`;
-  document.getElementById('sheet-btns').innerHTML = btns;
-  document.getElementById('task-action-sheet').classList.add('open');
-  document.body.style.overflow = 'hidden';
+// =========================================================
+// ⋯ VAZIFA AMALLARI MENYUSI (Action Sheet / Popover)
+//   Kompyuterda — tugma yonida suzuvchi popover (ekran chegarasida ag'dariladi),
+//   telefonda — pastdan chiqadigan sheet (grabber, katta tugmalar).
+//   Bitta #task-action-sheet konteyneri: vazifa menyusi, ommaviy (bulk) "Yana ⋯"
+//   menyusi va ularning ichki tanlagichlari (bo'lim, qiyinlik, rang, vaqt, sana).
+// =========================================================
+var _asAnchor = null, _asReturnFocus = null, _asCloseTimer = null, _asBack = null;
+var _tsCtx = null; // { id, future } — oxirgi ochilgan vazifa menyusi
+
+function _asIsPopover(anchor) {
+  if (!anchor || !anchor.isConnected || !anchor.getBoundingClientRect) return false;
+  var r = anchor.getBoundingClientRect();
+  if (!r.width && !r.height) return false;
+  if (document.documentElement.classList.contains('layout-desktop')) return true;
+  try { return window.matchMedia('(min-width: 700px) and (hover: hover) and (pointer: fine)').matches; } catch (e) { return false; }
+}
+function _asJs(v) { return typeof v === 'number' ? String(v) : "'" + String(v).replace(/[^a-z0-9_-]/gi, '') + "'"; }
+function _asItem(o) {
+  return '<button type="button" class="as-item' + (o.cls ? ' ' + o.cls : '') + '" role="menuitem" data-as-item onclick="' + o.on + '"' + (o.disabled ? ' disabled' : '') + '>' +
+    '<span class="as-ic" aria-hidden="true">' + o.ic + '</span>' +
+    '<span class="as-lb">' + o.label + '</span>' +
+    (o.hint ? '<span class="as-hint">' + o.hint + '</span>' : '') +
+    (o.chev ? '<span class="as-chev" aria-hidden="true">›</span>' : '') +
+    '</button>';
+}
+function _asTile(o) {
+  return '<button type="button" class="as-tile' + (o.cls ? ' ' + o.cls : '') + '" role="menuitem" data-as-item onclick="' + o.on + '"' + (o.pressed != null ? ' aria-pressed="' + (o.pressed ? 'true' : 'false') + '"' : '') + '>' +
+    '<span class="as-tile-ic" aria-hidden="true">' + o.ic + '</span><span class="as-tile-lb">' + o.label + '</span></button>';
+}
+function _asGroup(title, items) {
+  items = items.filter(Boolean);
+  if (!items.length) return '';
+  return '<div class="as-group" role="group"' + (title ? ' aria-label="' + esc(title) + '"' : '') + '>' + (title ? '<div class="as-gt">' + esc(title) + '</div>' : '') + items.join('') + '</div>';
+}
+function _asSubHead(title, backJs) {
+  return '<div class="as-subhead"><button type="button" class="as-back" data-as-item onclick="' + backJs + '" aria-label="' + esc(_cl('Orqaga', 'Back', 'Назад')) + '">‹</button><div class="as-subtitle">' + title + '</div></div>';
+}
+
+// o: { anchor, titleHtml, badgesHtml, html, kind, back }
+function asOpen(o) {
+  var sh = document.getElementById('task-action-sheet');
+  if (!sh) return;
+  var inner = sh.querySelector('.task-action-sheet-inner');
+  var wasOpen = sh.classList.contains('open');
+  clearTimeout(_asCloseTimer);
+  sh.classList.remove('closing');
+  if (!wasOpen) { _asReturnFocus = o.anchor || document.activeElement; }
+  _asAnchor = o.anchor && o.anchor.isConnected ? o.anchor : (wasOpen ? _asAnchor : null);
+  _asBack = o.back || null;
+  document.getElementById('sheet-task-name').innerHTML = o.titleHtml || '';
+  var br = document.getElementById('sheet-badge-row');
+  br.innerHTML = o.badgesHtml || '';
+  br.style.display = o.badgesHtml ? '' : 'none';
+  var head = sh.querySelector('.as-head');
+  if (head) head.style.display = (o.titleHtml || o.badgesHtml) ? '' : 'none';
+  document.getElementById('sheet-btns').innerHTML = o.html || '';
+  sh.dataset.kind = o.kind || 'task';
+  var pop = _asIsPopover(_asAnchor);
+  sh.classList.toggle('as-pop', pop);
+  sh.classList.toggle('as-swap', wasOpen);
+  sh.setAttribute('aria-hidden', 'false');
+  inner.style.left = inner.style.top = inner.style.maxHeight = '';
+  sh.classList.add('open');
+  if (!pop) document.body.style.overflow = 'hidden';
+  else { document.body.style.overflow = ''; asPosition(); }
+  inner.scrollTop = 0;
+  requestAnimationFrame(function () {
+    var first = inner.querySelector('[data-as-item]:not([disabled]), input');
+    try { (first || inner).focus({ preventScroll: true }); } catch (e) {}
+  });
+}
+function asPosition() {
+  var sh = document.getElementById('task-action-sheet');
+  if (!sh || !sh.classList.contains('as-pop')) return;
+  var inner = sh.querySelector('.task-action-sheet-inner');
+  var a = _asAnchor;
+  if (!a || !a.isConnected) return;
+  inner.style.maxHeight = '';
+  var r = a.getBoundingClientRect();
+  var vw = document.documentElement.clientWidth || window.innerWidth, vh = window.innerHeight, m = 8, gap = 6;
+  var w = inner.offsetWidth, h = inner.offsetHeight;
+  var left = Math.max(m, Math.min(r.right - w, vw - w - m));
+  var below = vh - r.bottom - gap - m, above = r.top - gap - m;
+  var top, up = false;
+  if (h <= below) top = r.bottom + gap;
+  else if (h <= above) { top = r.top - gap - h; up = true; }
+  else if (below >= above) { top = r.bottom + gap; inner.style.maxHeight = Math.max(160, below) + 'px'; }
+  else { up = true; var mh = Math.max(160, above); inner.style.maxHeight = mh + 'px'; top = Math.max(m, r.top - gap - mh); }
+  inner.style.left = Math.round(left) + 'px';
+  inner.style.top = Math.round(top) + 'px';
+  inner.style.transformOrigin = (up ? 'bottom ' : 'top ') + Math.round(Math.min(w, Math.max(0, r.left + r.width / 2 - left))) + 'px';
+  sh.classList.toggle('as-up', up);
 }
 function closeTaskSheet() {
-  document.getElementById('task-action-sheet').classList.remove('open');
+  var sh = document.getElementById('task-action-sheet');
+  if (!sh) return;
+  var wasOpen = sh.classList.contains('open');
+  sh.classList.remove('open', 'as-swap');
+  sh.setAttribute('aria-hidden', 'true');
   document.body.style.overflow = '';
+  _asBack = null;
+  if (!wasOpen) return;
+  var reduce = false;
+  try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+  clearTimeout(_asCloseTimer);
+  if (!reduce) {
+    sh.classList.add('closing');
+    _asCloseTimer = setTimeout(function () { sh.classList.remove('closing'); }, 170);
+  }
+  var rf = _asReturnFocus;
+  _asReturnFocus = null;
+  // Fokus faqat yangi oyna ochilmagan bo'lsa (masalan Esc / tashqariga bosish) tugmaga qaytadi
+  setTimeout(function () {
+    var ae = document.activeElement;
+    if (rf && rf.isConnected && (!ae || ae === document.body || sh.contains(ae))) { try { rf.focus({ preventScroll: true }); } catch (e) {} }
+  }, 0);
+}
+(function asWire() {
+  function wire() {
+    var sh = document.getElementById('task-action-sheet');
+    if (!sh || sh._asWired) return;
+    sh._asWired = true;
+    var inner = sh.querySelector('.task-action-sheet-inner');
+    inner.addEventListener('keydown', function (e) {
+      var items = Array.prototype.filter.call(inner.querySelectorAll('[data-as-item], input, .sheet-cancel-btn'), function (el) { return !el.disabled && el.offsetParent !== null; });
+      var i = items.indexOf(document.activeElement);
+      var isInput = document.activeElement && document.activeElement.tagName === 'INPUT';
+      if (e.key === 'Escape') {
+        e.preventDefault(); e.stopPropagation();
+        if (_asBack) { var b = _asBack; b(); } else closeTaskSheet();
+        return;
+      }
+      if (e.key === 'Tab') {
+        if (!items.length) return;
+        if (e.shiftKey && (i <= 0)) { e.preventDefault(); items[items.length - 1].focus(); }
+        else if (!e.shiftKey && i === items.length - 1) { e.preventDefault(); items[0].focus(); }
+        return;
+      }
+      if (isInput) return;
+      var nav = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+      if (nav[e.key]) { e.preventDefault(); if (items.length) items[(i + nav[e.key] + items.length) % items.length].focus(); return; }
+      if (e.key === 'Home' && items.length) { e.preventDefault(); items[0].focus(); return; }
+      if (e.key === 'End' && items.length) { e.preventDefault(); items[items.length - 1].focus(); return; }
+    });
+    // Popover: sahifa aylantirilsa yoki oyna o'lchami o'zgarsa yopiladi
+    window.addEventListener('scroll', function (e) {
+      if (!sh.classList.contains('open') || !sh.classList.contains('as-pop')) return;
+      if (e.target && e.target.nodeType === 1 && inner.contains(e.target)) return;
+      closeTaskSheet();
+    }, true);
+    window.addEventListener('resize', function () { if (sh.classList.contains('open') && sh.classList.contains('as-pop')) closeTaskSheet(); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
+})();
+
+function openTaskSheet(id, future, anchor) {
+  const t = S.tasks.find(x => x.id === id);
+  if (!t) return;
+  if (anchor === undefined && _tsCtx && _tsCtx.id === id) anchor = _asAnchor;
+  _tsCtx = { id: id, future: !!future };
+  const rl = repeatLabel(t);
+  const cat = taskCatOf(t);
+  const titleHtml = (t.label ? '<span class="as-title-dot" style="background:' + esc(t.label) + '"></span>' : '') + (t.emoji ? esc(t.emoji) + ' ' : '') + esc(t.name);
+  const badgesHtml = `<span class="badge ${rl.cls}">${rl.text}</span>${diffBadge(taskDiffOrDefault(t))}<span class="badge badge-coins">+${taskCoinValue(t)}🪙</span>` +
+    (cat ? `<span class="tk-chip tk-chip-cat" style="--tc:${esc(cat.color || '#7C5CFC')}">${esc(taskCatLabel(cat))}</span>` : '');
+  const C = function (js) { return 'closeTaskSheet();' + js; };
+  const tiles = [];
+  let note = '';
+  if (future) {
+    note = `<div class="as-note">⏳ ${_cl("Hali muddati kelmagan — o'sha kunida belgilanadi", "Not due yet — mark it on its day", "Срок ещё не наступил — отметьте в свой день")}</div>`;
+  } else if (!t.done && !t.skipped) {
+    tiles.push(_asTile({ ic: '✅', label: _cl('Bajarildi', 'Done', 'Готово'), cls: 'ok', on: C(`toggleTask(${id})`) }));
+  } else if (t.done) {
+    tiles.push(_asTile({ ic: '↩️', label: _cl('Qaytarish', 'Undo', 'Отменить'), on: C(`toggleTask(${id})`) }));
+  } else if (t.skipped) {
+    tiles.push(_asTile({ ic: '🔄', label: _cl('Qaytarish', 'Restore', 'Вернуть'), on: C(`unskipTask(${id})`) }));
+  }
+  if (!future && !t.done) tiles.push(_asTile({ ic: '🎯', label: _cl('Fokus', 'Focus', 'Фокус'), on: C(`taskOpenFocus(${id})`) }));
+  tiles.push(_asTile({ ic: '✏️', label: _cl('Tahrirlash', 'Edit', 'Изменить'), on: C(`editTask(${id})`) }));
+  tiles.push(_asTile({ ic: '📌', label: t.pinned ? _cl('Yechish', 'Unpin', 'Открепить') : _cl('Qadash', 'Pin', 'Закрепить'), cls: t.pinned ? 'on' : '', pressed: !!t.pinned, on: C(`togglePinTask(${id})`) }));
+  const subInTiles = tiles.length < 4;
+  if (subInTiles) tiles.push(_asTile({ ic: '➕', label: _cl('Sub-task', 'Subtask', 'Подзадача'), on: C(`openSubtaskModal(${id})`) }));
+
+  const canMove = !t.done && (t.repeat === 'once' || t.repeat === 'interval');
+  const sched = [
+    (!future && !t.done && !t.skipped) ? _asItem({ ic: '⏭', label: _cl("Bugun o'tkazib yuborish", 'Skip today', 'Пропустить сегодня'), hint: '−1🪙', on: C(`skipTask(${id})`) }) : '',
+    (!future && canMove) ? _asItem({ ic: '⏩', label: _cl('Ertaga qoldirish', 'Postpone to tomorrow', 'Перенести на завтра'), on: C(`postponeTask(${id})`) }) : '',
+    canMove ? _asItem({ ic: '📅', label: _cl('Sanaga ko\'chirish…', 'Move to date…', 'Перенести на дату…'), chev: true, on: `tmPick('date',${id})` }) : '',
+    _asItem({ ic: '🕒', label: _cl('Vaqt bloki', 'Time block', 'Время'), hint: t.startTime ? esc(t.startTime + (t.endTime ? '–' + t.endTime : '')) : '', chev: true, on: `tmPick('time',${id})` })
+  ];
+  const org = [
+    subInTiles ? '' : _asItem({ ic: '➕', label: _cl("Sub-task qo'shish", 'Add subtask', 'Добавить подзадачу'), on: C(`openSubtaskModal(${id})`) }),
+    _asItem({ ic: '🗂', label: _cl("Bo'lim", 'Category', 'Раздел'), hint: cat ? esc(taskCatLabel(cat)) : '', chev: true, on: `tmPick('cat',${id})` }),
+    _asItem({ ic: '⭐', label: _cl('Qiyinlik', 'Difficulty', 'Сложность'), hint: esc(taskTierName(taskDiffOrDefault(t))), chev: true, on: `tmPick('diff',${id})` }),
+    _asItem({ ic: '🎨', label: _cl('Rang belgisi', 'Colour label', 'Цветная метка'), hint: t.label ? '<span class="as-dot" style="background:' + esc(t.label) + '"></span>' : '', chev: true, on: `tmPick('label',${id})` }),
+    _asItem({ ic: '⧉', label: _cl('Nusxa olish', 'Duplicate', 'Дублировать'), on: `tmDuplicate(${id})` }),
+    t.isFrozen
+      ? _asItem({ ic: '🔥', label: tr('unfreeze_btn'), on: C(`unfreezeTask(${id})`) })
+      : _asItem({ ic: '🧊', label: tr('freeze_task_sheet_btn'), on: C(`freezeTask(${id})`) })
+  ];
+  const html = note +
+    '<div class="as-tiles" role="group">' + tiles.join('') + '</div>' +
+    _asGroup(_cl('Reja', 'Schedule', 'План'), sched) +
+    _asGroup(_cl('Tartib', 'Organize', 'Организация'), org) +
+    _asGroup('', [_asItem({ ic: '🗑', label: _cl("O'chirish", 'Delete', 'Удалить'), cls: 'danger', on: C(`deleteTask(${id})`) })]);
+  asOpen({ anchor: anchor, titleHtml: titleHtml, badgesHtml: badgesHtml, html: html, kind: 'task' });
+}
+
+// ---------- Ichki tanlagichlar (vazifa yoki ommaviy tanlov uchun) ----------
+// target: vazifa id (raqam) yoki 'bulk'
+function _tmTasks(target) {
+  var ids = target === 'bulk' ? _bulkSelectedIds() : [Number(target)];
+  return ids.map(function (id) { return S.tasks.find(function (x) { return x.id === id; }); }).filter(Boolean);
+}
+function _tmBack(target) {
+  if (target === 'bulk') bulkOpenMore();
+  else if (_tsCtx && _tsCtx.id === Number(target)) openTaskSheet(_tsCtx.id, _tsCtx.future);
+  else closeTaskSheet();
+}
+function _tmCommon(target, field) {
+  var ts = _tmTasks(target);
+  if (!ts.length) return undefined;
+  var v = ts[0][field] == null ? null : ts[0][field];
+  for (var i = 1; i < ts.length; i++) if ((ts[i][field] == null ? null : ts[i][field]) !== v) return undefined;
+  return v;
+}
+function _tmFinish(target, msg) {
+  closeTaskSheet();
+  save(); render();
+  if (target === 'bulk') { _bulkPrune(); updateBulkBar(); }
+  if (msg) toast(msg);
+}
+function _tmNone(target) {
+  if (!_tmTasks(target).length) { toast(t('bulk_none_selected_toast')); return true; }
+  return false;
+}
+function _tmCountSuffix(target, n) { return target === 'bulk' ? ' · ' + n : ''; }
+
+function tmPick(kind, target) {
+  if (_tmNone(target)) return;
+  var T = _asJs(target), back = '_tmBack(' + T + ')';
+  var ts = _tmTasks(target);
+  var title = '', body = '';
+  if (kind === 'cat') {
+    ensureTaskCats();
+    var cur = _tmCommon(target, 'cat');
+    title = '🗂 ' + _cl("Bo'limga ko'chirish", 'Move to category', 'Переместить в раздел');
+    body = '<div class="as-chips" role="group">' +
+      '<button type="button" class="as-chip' + (cur === null ? ' sel' : '') + '" data-as-item onclick="tmSetCat(' + T + ',\'\')">' + esc(_cl("Bo'limsiz", 'No category', 'Без раздела')) + '</button>' +
+      S.taskCats.map(function (c) {
+        return '<button type="button" class="as-chip' + (cur === c.id ? ' sel' : '') + '" data-as-item style="--tc:' + esc(c.color || '#7C5CFC') + '" onclick="tmSetCat(' + T + ',\'' + esc(String(c.id).replace(/[^a-z0-9_-]/gi, '')) + '\')"><span class="as-dot" style="background:' + esc(c.color || '#7C5CFC') + '"></span>' + esc(taskCatLabel(c)) + '</button>';
+      }).join('') +
+      (S.taskCats.length < TASK_CAT_MAX ? '<button type="button" class="as-chip as-chip-add" data-as-item onclick="tmNewCat(' + T + ')">＋ ' + esc(_cl("Yangi bo'lim", 'New category', 'Новый раздел')) + '</button>' : '') +
+      '</div>';
+  } else if (kind === 'diff') {
+    var curD = _tmCommon(target, 'diff');
+    title = '⭐ ' + _cl('Qiyinlik', 'Difficulty', 'Сложность');
+    body = '<div class="as-group">' + [0, 1, 2, 3, 4].map(function (d) {
+      var tr0 = taskTier(d);
+      return _asItem({ ic: tr0.icon, label: esc(taskTierName(d)) + (taskTierTime(d) ? ' <small class="as-sub">' + esc(taskTierTime(d)) + '</small>' : ''),
+        hint: (tr0.c ? '+' + tr0.c + '🪙' : '0🪙') + (tr0.p ? ' · −' + tr0.p : ''), cls: curD === d ? 'sel' : '', on: 'tmSetDiff(' + T + ',' + d + ')' });
+    }).join('') + '</div>';
+  } else if (kind === 'label') {
+    var curL = _tmCommon(target, 'label');
+    var cols = [['', t('task_label_none')], ['#F87171', t('task_label_red')], ['#FACC15', t('task_label_yellow')], ['#34D399', t('task_label_green')], ['#60A5FA', t('task_label_blue')]];
+    title = '🎨 ' + _cl('Rang belgisi', 'Colour label', 'Цветная метка');
+    body = '<div class="as-swatches" role="group">' + cols.map(function (c) {
+      var sel = (curL || '') === c[0] && curL !== undefined;
+      return '<button type="button" class="as-swatch' + (sel ? ' sel' : '') + '" data-as-item aria-label="' + esc(c[1]) + '" title="' + esc(c[1]) + '" onclick="tmSetLabel(' + T + ',\'' + c[0] + '\')">' +
+        '<span class="as-swatch-dot' + (c[0] ? '' : ' none') + '"' + (c[0] ? ' style="background:' + c[0] + '"' : '') + '>' + (c[0] ? '' : '✕') + '</span><span class="as-swatch-lb">' + esc(c[1]) + '</span></button>';
+    }).join('') + '</div>';
+  } else if (kind === 'time') {
+    var s0 = _tmCommon(target, 'startTime') || '', e0 = _tmCommon(target, 'endTime') || '';
+    title = '🕒 ' + _cl('Vaqt bloki', 'Time block', 'Время');
+    body = '<div class="as-form">' +
+      '<label class="as-field"><span>' + _cl('Boshlanish', 'Start', 'Начало') + '</span><input type="time" id="tm-start" value="' + esc(s0) + '"></label>' +
+      '<label class="as-field"><span>' + _cl('Tugash', 'End', 'Конец') + '</span><input type="time" id="tm-end" value="' + esc(e0) + '"></label>' +
+      '</div><div class="as-form-btns">' +
+      '<button type="button" class="as-btn ghost" data-as-item onclick="tmClearTime(' + T + ')">' + _cl('Tozalash', 'Clear', 'Очистить') + '</button>' +
+      '<button type="button" class="as-btn primary" data-as-item onclick="tmSetTime(' + T + ')">' + _cl('Saqlash', 'Save', 'Сохранить') + '</button></div>';
+  } else if (kind === 'date') {
+    var td = today(), tm = addDays(td, 1);
+    var dow = new Date(td + 'T00:00:00').getDay();
+    var nextMon = addDays(td, ((8 - dow) % 7) || 7);
+    title = '📅 ' + _cl("Sanaga ko'chirish", 'Move to date', 'Перенести на дату');
+    var q = function (ds, lb) { return '<button type="button" class="as-chip" data-as-item onclick="tmPostponeTo(' + T + ',\'' + ds + '\')">' + esc(lb) + ' <small>' + esc(tkShortDate(ds)) + '</small></button>'; };
+    body = '<div class="as-chips">' +
+      q(tm, _cl('Ertaga', 'Tomorrow', 'Завтра')) + q(addDays(td, 2), _cl('2 kundan keyin', 'In 2 days', 'Через 2 дня')) + q(nextMon, _cl('Keyingi hafta', 'Next week', 'След. неделя')) +
+      '</div><div class="as-form"><label class="as-field"><span>' + _cl('Boshqa sana', 'Pick a date', 'Другая дата') + '</span><input type="date" id="tm-date" min="' + tm + '" value="' + tm + '"></label></div>' +
+      '<div class="as-form-btns"><button type="button" class="as-btn primary" data-as-item onclick="tmPostponeTo(' + T + ')">' + _cl("Ko'chirish", 'Move', 'Перенести') + '</button></div>' +
+      '<div class="as-note small">' + _cl("Faqat bir martalik va «har N kunda» vazifalar ko'chiriladi", 'Only one-time and every-N-days tasks can be moved', 'Переносятся только разовые задачи и «каждые N дней»') + '</div>';
+  }
+  var head = target === 'bulk'
+    ? esc(t('bulk_selected_count').replace('{n}', ts.length))
+    : (ts[0].emoji ? esc(ts[0].emoji) + ' ' : '') + esc(ts[0].name);
+  asOpen({ anchor: _asAnchor, titleHtml: head, html: _asSubHead(title, back) + '<div class="as-subbody">' + body + '</div>', kind: 'pick', back: function () { _tmBack(target); } });
+}
+
+function tmSetCat(target, catId) {
+  var ts = _tmTasks(target);
+  var c = catId ? taskCatById(catId) : null;
+  ts.forEach(function (tk) { tk.cat = c ? c.id : null; });
+  _tmFinish(target, '🗂 ' + (c ? taskCatLabel(c) : _cl("Bo'limsiz", 'No category', 'Без раздела')) + _tmCountSuffix(target, ts.length));
+}
+function tmNewCat(target) {
+  showPromptModal('🗂 ' + _cl("Yangi bo'lim nomi", 'New category name', 'Название раздела'), '', function (val) {
+    var c = taskCatCreate(String(val || ''));
+    if (c) tmSetCat(target, c.id);
+  }, { inputType: 'text' });
+}
+function tmSetDiff(target, d) {
+  d = Math.max(0, Math.min(4, parseInt(d, 10) || 0));
+  var ts = _tmTasks(target), tier = taskTier(d);
+  ts.forEach(function (tk) {
+    // 💰 Tahrirlash oqimidagidek: qiyinlik → tanga / jarima (TASK_TIERS)
+    tk.diff = d; tk.coins = tier.c; tk.penalty = tier.p;
+    try { refreshStalePenaltyAmts(S.taskDayFlags && S.taskDayFlags[tk.id], tk); } catch (e) {}
+  });
+  _tmFinish(target, tier.icon + ' ' + taskTierName(d) + _tmCountSuffix(target, ts.length));
+}
+function tmSetLabel(target, color) {
+  var ok = ['', '#F87171', '#FACC15', '#34D399', '#60A5FA'];
+  if (ok.indexOf(color) === -1) return;
+  var ts = _tmTasks(target);
+  ts.forEach(function (tk) { tk.label = color || null; });
+  _tmFinish(target, '🎨 ' + _cl('Rang yangilandi', 'Label updated', 'Метка обновлена') + _tmCountSuffix(target, ts.length));
+}
+function _tmApplyTime(ts, st, en) {
+  ts.forEach(function (tk) {
+    if (S.pomoAutoSent && (tk.startTime !== st)) delete S.pomoAutoSent[tk.id];
+    tk.startTime = st; tk.endTime = st ? en : null;
+    if (!st) tk.autoPomo = false;
+  });
+}
+function tmSetTime(target) {
+  var st = ((document.getElementById('tm-start') || {}).value || '').trim() || null;
+  var en = ((document.getElementById('tm-end') || {}).value || '').trim() || null;
+  if (!st && !en) { tmClearTime(target); return; }
+  if (en && !st) { toast('🕒 ' + _cl("Avval boshlanish vaqtini kiriting", "Set a start time first", "Сначала укажите время начала")); return; }
+  if (st && en && en <= st) { toast('🕒 ' + _cl("Tugash vaqti boshlanishdan keyin bo'lishi kerak", "End time must be after the start", "Время окончания должно быть позже начала")); return; }
+  var ts = _tmTasks(target);
+  _tmApplyTime(ts, st, en);
+  _tmFinish(target, '🕒 ' + st + (en ? '–' + en : '') + _tmCountSuffix(target, ts.length));
+}
+function tmClearTime(target) {
+  var ts = _tmTasks(target);
+  _tmApplyTime(ts, null, null);
+  _tmFinish(target, '🕒 ' + _cl('Vaqt olib tashlandi', 'Time cleared', 'Время удалено') + _tmCountSuffix(target, ts.length));
+}
+// ⏩ Tanlangan sanaga qoldirish — markTaskPostponed bilan bir xil mantiq (ertaga o'rniga istalgan sana)
+function _tmPostponeOne(tk, ds) {
+  var td = today();
+  if (!tk || tk.done || !ds || ds <= td) return false;
+  if (tk.repeat === 'once') tk.postponedTo = ds;
+  else if (tk.repeat === 'interval') tk.nextDate = ds;
+  else return false;
+  if (!tk.overdueFrom) tk.overdueFrom = td;
+  tk.overdueOn = ds;
+  return true;
+}
+function tmPostponeTo(target, ds) {
+  if (!ds) ds = ((document.getElementById('tm-date') || {}).value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ds || '') || ds <= today()) { toast('📅 ' + _cl('Kelajakdagi sanani tanlang', 'Pick a future date', 'Выберите будущую дату')); return; }
+  var ts = _tmTasks(target), n = 0;
+  ts.forEach(function (tk) { if (_tmPostponeOne(tk, ds)) n++; });
+  var skipped = ts.length - n;
+  if (target === 'bulk' && n) { _tmFinish(target, ''); toggleBulkMode(); }
+  else _tmFinish(target, '');
+  toast(n ? ('📅 ' + tkShortDate(ds) + (target === 'bulk' ? ' · ' + n : '') + (skipped ? ' (' + skipped + ' ' + _cl("ko'chirilmadi", 'not movable', 'не перенесено') + ')' : ''))
+    : t('postpone_repeat_blocked_toast'));
+}
+// ⧉ Nusxa: holat (bajarilgan/o'tkazilgan/muzlatilgan/overdue) tozalanadi, sub-tasklar yangi id bilan
+function _tmCloneTask(src) {
+  var c = JSON.parse(JSON.stringify(src));
+  c.id = S.nextId++;
+  c.done = false; c.doneDate = null; c.skipped = false; c.skippedDate = null; c.lastDoneDate = null;
+  c.overdueFrom = null; c.overdueOn = null; c._ovBak = null; c.isFrozen = false; c.frozenAt = null;
+  delete c.fromParentId; delete c.fromParentName;
+  if (c.repeat === 'interval' && src.done) c.nextDate = today();
+  c.createdAt = c.repeat === 'interval' ? (c.nextDate || today()) : today();
+  c.subtasks = (Array.isArray(c.subtasks) ? c.subtasks : []).map(function (s) {
+    s.id = genSubtaskId(); s.done = false; s.skipped = false; s.doneDate = null;
+    s.lastPenalizedDate = null; s.overduePenaltyTotal = 0; s.penalizedDaysCount = 0;
+    return s;
+  });
+  S.tasks.push(c);
+  ensureFullTaskOrder();
+  var oi = S.taskOrder.indexOf(src.id), ci = S.taskOrder.indexOf(c.id);
+  if (oi !== -1 && ci !== -1) { S.taskOrder.splice(ci, 1); S.taskOrder.splice(oi + 1, 0, c.id); }
+  return c;
+}
+function tmDuplicate(target) {
+  var ts = _tmTasks(target);
+  if (!ts.length) { toast(t('bulk_none_selected_toast')); return; }
+  var made = ts.map(_tmCloneTask);
+  var ids = made.map(function (c) { return c.id; });
+  closeTaskSheet();
+  save(); render();
+  if (target === 'bulk') { _bulkPrune(); updateBulkBar(); }
+  showUndoToast('⧉ ' + _cl('Nusxa olindi', 'Duplicated', 'Скопировано') + (ids.length > 1 ? ' · ' + ids.length : ''), function () {
+    S.tasks = S.tasks.filter(function (x) { return ids.indexOf(x.id) === -1; });
+    ensureFullTaskOrder();
+  });
 }
 
 // ============ IELTS RESULT FUNCTIONS ============
