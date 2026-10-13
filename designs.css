@@ -5,7 +5,10 @@
 
 /* ---------- Fon canvas: UI ortida, bosishlarni to'smaydi ---------- */
 #design-bg { position: fixed; inset: 0; width: 100%; height: 100%; display: none; z-index: -1; pointer-events: none; user-select: none; }
-html.design-fx:not(.design-nogl) #design-bg { display: block; }
+html.design-fx:not(.design-nogl) #design-bg { display: block; opacity: 0; transition: opacity .5s ease; }
+/* Birinchi WebGL kadri chizilgach — animatsiya statik rasm ustidan sekin paydo bo'ladi (eski/oddiy fon "miltillamaydi") */
+html.design-fx.design-live:not(.design-nogl) #design-bg { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { html.design-fx:not(.design-nogl) #design-bg { transition: none; } }
 
 /* ---------- Har bir dizayn palitrasi ---------- */
 html[data-design="galaxy"] {
@@ -144,7 +147,8 @@ html.design-fx .modal-overlay .modal select { background-color: rgba(255, 255, 2
 }
 
 /* WebGL yo'q — statik gradient fon */
-html.design-nogl[data-design="galaxy"] {
+html.design-nogl[data-design="galaxy"],
+html.design-fx:not(.design-live)[data-design="galaxy"] {
   background:
     radial-gradient(1.2px 1.2px at 20% 30%, #fff 50%, transparent 100%) 0 0 / 137px 151px,
     radial-gradient(1px 1px at 70% 60%, rgba(200,210,255,.9) 50%, transparent 100%) 0 0 / 89px 97px,
@@ -153,10 +157,10 @@ html.design-nogl[data-design="galaxy"] {
     radial-gradient(ellipse 90% 70% at 50% 50%, #0a0d26 0%, #04050f 75%) fixed;
   background-color: #04050f;
 }
-html.design-nogl[data-design="rings"]  { background: radial-gradient(circle at 50% 46%, rgba(168,85,247,.28), transparent 38%), repeating-radial-gradient(circle at 50% 46%, transparent 0 46px, rgba(150,90,245,.35) 47px 48px, transparent 49px 92px), #07050f fixed; }
-html.design-nogl[data-design="blinds"] { background: repeating-linear-gradient(110deg, rgba(0,0,0,.5) 0 2px, transparent 2px 60px), linear-gradient(110deg, #6b3a80, #2a1580) fixed; }
-html.design-nogl[data-design="grid"]   { background: radial-gradient(ellipse at 50% 50%, rgba(125,211,252,.12), transparent 50%), linear-gradient(rgba(77,71,87,.5) 1px, transparent 1px) 0 0 / 48px 48px, linear-gradient(90deg, rgba(77,71,87,.5) 1px, transparent 1px) 0 0 / 48px 48px, #07080c fixed; }
-html.design-nogl[data-design="prism"]  { background: radial-gradient(circle at 50% 45%, rgba(168,85,247,.45), transparent 40%), repeating-conic-gradient(from 0deg at 50% 45%, rgba(124,58,237,.22) 0 6deg, transparent 6deg 20deg), #06040d fixed; }
+html.design-nogl[data-design="rings"], html.design-fx:not(.design-live)[data-design="rings"] { background: radial-gradient(circle at 50% 46%, rgba(168,85,247,.28), transparent 38%), repeating-radial-gradient(circle at 50% 46%, transparent 0 46px, rgba(150,90,245,.35) 47px 48px, transparent 49px 92px), #07050f fixed; }
+html.design-nogl[data-design="blinds"], html.design-fx:not(.design-live)[data-design="blinds"] { background: repeating-linear-gradient(110deg, rgba(0,0,0,.5) 0 2px, transparent 2px 60px), linear-gradient(110deg, #6b3a80, #2a1580) fixed; }
+html.design-nogl[data-design="grid"], html.design-fx:not(.design-live)[data-design="grid"] { background: radial-gradient(ellipse at 50% 50%, rgba(125,211,252,.12), transparent 50%), linear-gradient(rgba(77,71,87,.5) 1px, transparent 1px) 0 0 / 48px 48px, linear-gradient(90deg, rgba(77,71,87,.5) 1px, transparent 1px) 0 0 / 48px 48px, #07080c fixed; }
+html.design-nogl[data-design="prism"], html.design-fx:not(.design-live)[data-design="prism"] { background: radial-gradient(circle at 50% 45%, rgba(168,85,247,.45), transparent 40%), repeating-conic-gradient(from 0deg at 50% 45%, rgba(124,58,237,.22) 0 6deg, transparent 6deg 20deg), #06040d fixed; }
 
 /* ---------- Sozlamalar: dizayn tanlash kartalari ---------- */
 .dz-title { font-size: var(--fs-base); font-weight: 600; color: var(--text); margin-bottom: 10px; }

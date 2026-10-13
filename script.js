@@ -33351,6 +33351,9 @@ var cloudPullAppState = async function(force) {
     if (ls.pomoSettings != null && localStorage.getItem('pomoSettings') !== ls.pomoSettings) {
       localStorage.setItem('pomoSettings', ls.pomoSettings); needReload = true;
     }
+    if (ls.appTheme != null && localStorage.getItem('appTheme') !== ls.appTheme && window.LUDesign && typeof window.LUDesign.apply === 'function') {
+      try { window.LUDesign.apply(ls.appTheme, { silent: true }); } catch (e) {}
+    }
     if (ls.pomoActivities != null && !localStorage.getItem('pomoActivities')) {
       localStorage.setItem('pomoActivities', ls.pomoActivities); needReload = true;
     }
@@ -33698,6 +33701,40 @@ function _appStatePayload() {
   return JSON.parse(JSON.stringify(d));
 }
 
+// 🔀 3 tomonlama birlashtirish: base = oxirgi sinxron holat, local = shu qurilma, remote = bulut.
+// Faqat bir tomon o'zgargan bo'lsa — o'sha; ikkalasi ham o'zgargan obyektlarda kalitma-kalit;
+// oddiy qiymatlar massivida (masalan bajarilgan sanalar) — qo'shilganlar birlashtiriladi, o'chirilganlari olib tashlanadi.
+function _cloudMerge3(base, local, remote) {
+  var J = function (x) { return JSON.stringify(x === undefined ? null : x); };
+  var jl = J(local), jr = J(remote), jb = J(base);
+  if (jl === jr) return local;
+  if (jl === jb) return remote;
+  if (jr === jb) return local;
+  var isObj = function (x) { return x && typeof x === 'object' && !Array.isArray(x); };
+  var isPrimArr = function (x) { return Array.isArray(x) && x.every(function (v) { return v === null || typeof v !== 'object'; }); };
+  if (isObj(local) && isObj(remote)) {
+    var out = {}, b = isObj(base) ? base : {};
+    var keys = {}; [local, remote, b].forEach(function (o) { Object.keys(o).forEach(function (k) { keys[k] = 1; }); });
+    Object.keys(keys).forEach(function (k) {
+      var inL = k in local, inR = k in remote, inB = k in b;
+      if (!inL && inB && J(remote[k]) === J(b[k])) return;   // shu qurilmada o'chirilgan
+      if (!inR && inB && J(local[k]) === J(b[k])) return;    // boshqa qurilmada o'chirilgan
+      if (!inL) { out[k] = remote[k]; return; }
+      if (!inR) { out[k] = local[k]; return; }
+      out[k] = _cloudMerge3(b[k], local[k], remote[k]);
+    });
+    return out;
+  }
+  if (isPrimArr(local) && isPrimArr(remote)) {
+    var bArr = isPrimArr(base) ? base : [];
+    var removed = bArr.filter(function (v) { return local.indexOf(v) === -1; });
+    var res = remote.filter(function (v) { return removed.indexOf(v) === -1; });
+    local.forEach(function (v) { if (res.indexOf(v) === -1) res.push(v); });
+    return res;
+  }
+  return local; // boshqa holatlarda — shu qurilmadagi oxirgi o'zgarish
+}
+
 // ☁️ Tasklarni bulutdan yangilash (ilova ochilganda / qayta ko'ringanda): boshqa qurilmada
 // qo'shilgan yoki o'zgartirilgan tasklar shu yerga keladi. Mahalliy tasklar o'chirilmaydi
 // (o'chirish realtime orqali keladi); hali yuborilmagan mahalliy o'zgarish bo'lsa — kutamiz.
@@ -33767,10 +33804,11 @@ function scheduleAppStateSync(immediate) {
           var mine = _appStatePayload();
           var base = _appStateLastCmp ? JSON.parse(_appStateLastCmp) : {};
           await cloudPullAppState(true);
-          // faqat shu qurilmada o'zgargan kalitlarni qaytadan qo'yamiz
+          // Shu qurilmada o'zgargan kalitlar bulutdagi bilan BIRLASHTIRILADI (3 tomonlama):
+          // masalan ikkala qurilmada bajarilgan vazifalar (taskDoneLog) ham saqlanib qoladi.
           Object.keys(mine).forEach(function (k) {
             if (k === '_ls' || k === '_savedAt' || _CLOUD_LOCAL_ONLY.indexOf(k) !== -1) return;
-            if (JSON.stringify(mine[k]) !== JSON.stringify(base[k])) S[k] = mine[k];
+            if (JSON.stringify(mine[k]) !== JSON.stringify(base[k])) S[k] = _cloudMerge3(base[k], mine[k], S[k]);
           });
           try { saveToLocalStorage(S); render(); } catch (e) {}
           payload = _appStatePayload();
@@ -33778,12 +33816,13 @@ function scheduleAppStateSync(immediate) {
         }
       } catch (e) {}
       var nowMs = Date.now();
+      // updated_at'ni server o'zi qo'yadi (trigger) — qurilmalar soati farq qilsa ham taqqoslash to'g'ri bo'ladi
       var r = await supabase.from('app_state').upsert({
         user_id: S.cloudUserId, data: payload, updated_at: new Date(nowMs).toISOString()
-      }, { onConflict: 'user_id' });
+      }, { onConflict: 'user_id' }).select('updated_at').maybeSingle();
       if (r.error) { console.warn('[app_state] yozishda xatolik:', r.error.message); return; }
       _appStateLastCmp = cmp;
-      S._cloudSyncedAt = nowMs;
+      S._cloudSyncedAt = (r.data && Date.parse(r.data.updated_at)) || nowMs;
     } catch (e) { console.warn('[app_state] tarmoq xatoligi:', e); }
   };
   if (immediate) run(); else _appStateTimer = setTimeout(run, 3000);
