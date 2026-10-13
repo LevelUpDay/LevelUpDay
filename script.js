@@ -8577,6 +8577,7 @@ function scheduleTodosCloudSync(immediate) {
   if (!S.cloudLinked || !S.cloudUserId) return;
   if (_todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
   var run = async function () {
+    _todosCloudSyncTimer = null; // ishlab bo'ldi — "band" deb qolmasin (aks holda bulutdan yangilash to'xtab qolardi)
     var uid = S.cloudUserId;
     var upserts = Object.keys(_pendingTodoUpserts).map(function (idStr) {
       var e = _pendingTodoUpserts[idStr];
@@ -8589,18 +8590,29 @@ function scheduleTodosCloudSync(immediate) {
       };
     });
     var deleteIds = Object.keys(_pendingTodoDeletes).map(Number);
+    upserts.forEach(function (u) { _todoEchoRecord(u.task_id, JSON.stringify(u.task_data)); });
+    var sentUp = _pendingTodoUpserts, sentDel = _pendingTodoDeletes;
     _pendingTodoUpserts = {};
     _pendingTodoDeletes = {};
+    // Yuborilmay qolsa (internet yo'q) — navbatga qaytaramiz, aks holda o'zgarish yo'qolardi
+    var requeue = function (ups, dels) {
+      Object.keys(ups).forEach(function (k) { if (!_pendingTodoUpserts[k] && !_pendingTodoDeletes[k]) _pendingTodoUpserts[k] = ups[k]; });
+      Object.keys(dels).forEach(function (k) { if (!_pendingTodoUpserts[k]) _pendingTodoDeletes[k] = true; });
+      if (_todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
+      _todosCloudSyncTimer = setTimeout(function () { _todosCloudSyncTimer = null; scheduleTodosCloudSync(true); }, 15000);
+    };
     try {
       if (upserts.length) {
         var r1 = await supabase.from('todos').upsert(upserts, { onConflict: 'user_id,task_id' });
-        if (r1.error) console.warn('[Todos sync] yozishda xatolik:', r1.error.message);
+        if (r1.error) { console.warn('[Todos sync] yozishda xatolik:', r1.error.message); requeue(sentUp, {}); }
+        else upserts.forEach(function (u) { _cloudTaskIdsSet(u.task_id, true); });
       }
       if (deleteIds.length) {
         var r2 = await supabase.from('todos').delete().eq('user_id', uid).in('task_id', deleteIds);
-        if (r2.error) console.warn('[Todos sync] o\'chirishda xatolik:', r2.error.message);
+        if (r2.error) { console.warn('[Todos sync] o\'chirishda xatolik:', r2.error.message); requeue({}, sentDel); }
+        else deleteIds.forEach(function (id) { _cloudTaskIdsSet(id, false); });
       }
-    } catch (e) { console.warn('[Todos sync] tarmoq xatoligi:', e); }
+    } catch (e) { console.warn('[Todos sync] tarmoq xatoligi:', e); requeue(sentUp, sentDel); }
   };
   if (immediate) run(); else _todosCloudSyncTimer = setTimeout(run, 1500);
 }
@@ -27347,6 +27359,8 @@ function scheduleCloudSync(immediate) {
     try { if (typeof cloudResolveAvatarUrl === 'function') photoUrl = await cloudResolveAvatarUrl(); } catch (e) {}
     var stamp = new Date().toISOString();
     window._lastProfilePushAt = stamp;
+    _profileSent.push({ c: S.coins || 0, x: S.xp || 0, s: S.streak || 0, t: S.totalCoins || 0, at: Date.now() });
+    if (_profileSent.length > 30) _profileSent.shift();
     var row = {
       id: S.cloudUserId,
       name: (S.profile && S.profile.name) || null,
@@ -27496,7 +27510,7 @@ function startRealtimeSync() {
       var row = payload.new;
       if (!row || !row.updated_at) return;
       if ((Date.parse(row.updated_at) || 0) <= (S._cloudSyncedAt || 0) + 5) return; // o'zimiz yozganmiz
-      _cloudRefreshAppState(true);
+      _cloudRefreshAppState(false);
     })
     // --- Tasklar: shu akkaunt boshqa qurilmada o'zgartirsa ---
     .on('postgres_changes', {
@@ -27506,20 +27520,24 @@ function startRealtimeSync() {
       if (payload.eventType === 'DELETE') {
         var delId = payload.old && payload.old.task_id;
         if (delId == null || !(delId in _lastSyncedTasks)) return; // o'zimiz o'chirgan edik
+        if (_pendingTodoUpserts[delId]) return; // shu qurilmada hozirgina o'zgartirilgan
         delete _lastSyncedTasks[delId];
+        _cloudTaskIdsSet(delId, false);
         S.tasks = (S.tasks || []).filter(function (tk) { return tk.id !== delId; });
       } else {
         var row = payload.new;
         if (!row) return;
         var json = JSON.stringify(row.task_data);
         if (_lastSyncedTasks[row.task_id] === json) return; // o'zimiz yuborgan yozuv, qayta ishlamaymiz
+        // O'zimiz avvalroq yuborgan (kechikib qaytgan "aks-sado") yoki hali yuborilmagan mahalliy o'zgarish bor — e'tiborsiz
+        if (_todoEchoSeen(row.task_id, json) || _pendingTodoUpserts[row.task_id] || _pendingTodoDeletes[row.task_id]) return;
         _lastSyncedTasks[row.task_id] = json;
+        _cloudTaskIdsSet(row.task_id, true);
         var idx = (S.tasks || []).findIndex(function (tk) { return tk.id === row.task_id; });
         if (idx >= 0) S.tasks[idx] = row.task_data; else (S.tasks = S.tasks || []).push(row.task_data);
       }
-      try { renderTaskList(); } catch (e) {}
       try { writeLocalTasks(S.tasks || []); } catch (e) {}
-      toast(t('realtime_updated_toast'));
+      _rtRenderSoon();
     })
     // --- Profil: shu akkaunt boshqa qurilmada/sessiyada o'zgartirsa (tanga, xp, streak...) ---
     .on('postgres_changes', {
@@ -27528,52 +27546,54 @@ function startRealtimeSync() {
     }, function (payload) {
       var p = payload.new;
       if (!p) return;
-      if (p.updated_at && p.updated_at === window._lastProfilePushAt) return; // o'zimiz yuborgan yozuv
+      if (p.updated_at && window._lastProfilePushAt && Date.parse(p.updated_at) === Date.parse(window._lastProfilePushAt)) return; // o'zimiz yuborgan yozuv
       if ((p.coins || 0) === (S.coins || 0) && (p.xp || 0) === (S.xp || 0) && (p.streak || 0) === (S.streak || 0) && (p.total_coins || 0) === (S.totalCoins || 0)) return;
+      // Kechikib qaytgan o'z yozuvimiz yoki hali yuborilmagan mahalliy o'zgarish bo'lsa — tangani ustidan yozmaymiz
+      if (_cloudSyncTimer || _profileEchoSeen(p)) return;
       S.coins = p.coins || 0;
       S.totalCoins = p.total_coins || 0;
       S.xp = p.xp || 0;
       S.streak = p.streak || 0;
       S.bestStreak = p.best_streak || S.streak || 0;
-      try { render(); } catch (e) {}
-      toast(t('realtime_updated_toast'));
+      try { saveToLocalStorage(S); } catch (e) {}
+      _rtRenderSoon();
     })
     // --- Do'stlik so'rovlari: menga kelgan yoki men yuborgan so'rov holati o'zgarsa ---
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'friend_requests',
       filter: 'to_id=eq.' + S.cloudUserId
-    }, function () { friendsSyncFromCloud(); toast(t('realtime_updated_toast')); })
+    }, function () { friendsSyncFromCloud(); })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'friend_requests',
       filter: 'from_id=eq.' + S.cloudUserId
-    }, function () { friendsSyncFromCloud(); toast(t('realtime_updated_toast')); })
+    }, function () { friendsSyncFromCloud(); })
     // --- Do'stlik: yangi do'st qo'shilsa yoki o'chirilsa (ikkala tomondan ham) ---
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'friendships',
       filter: 'user_id=eq.' + S.cloudUserId
-    }, function () { friendsSyncFromCloud(); toast(t('realtime_updated_toast')); })
+    }, function () { friendsSyncFromCloud(); })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'friendships',
       filter: 'friend_id=eq.' + S.cloudUserId
-    }, function () { friendsSyncFromCloud(); toast(t('realtime_updated_toast')); })
+    }, function () { friendsSyncFromCloud(); })
     // --- Party takliflari: menga kelgan yoki men (lider sifatida) yuborgan ---
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'party_invites',
       filter: 'to_id=eq.' + S.cloudUserId
-    }, function () { partySyncFromCloud(); toast(t('realtime_updated_toast')); })
+    }, function () { partySyncFromCloud(); })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'party_invites',
       filter: 'from_id=eq.' + S.cloudUserId
-    }, function () { partySyncFromCloud(); toast(t('realtime_updated_toast')); })
+    }, function () { partySyncFromCloud(); })
     // --- 1v1 Musobaqa (duels): menga tegishli yangi/o'zgargan yozuvlar ---
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'duels',
       filter: 'from_id=eq.' + S.cloudUserId
-    }, function () { duelsSyncFromCloud(); toast(t('realtime_updated_toast')); })
+    }, function () { duelsSyncFromCloud(); })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'duels',
       filter: 'to_id=eq.' + S.cloudUserId
-    }, function () { duelsSyncFromCloud(); toast(t('realtime_updated_toast')); })
+    }, function () { duelsSyncFromCloud(); })
     // --- World Party: ro'yxat (browse) barcha foydalanuvchilarga tegishli
     // bo'lgani uchun filtrsiz tinglaymiz (yangi partiya, a'zo o'zgarishi va h.k.) ---
     .on('postgres_changes', { event: '*', schema: 'public', table: 'world_parties' },
@@ -31283,9 +31303,9 @@ function _subscribePartyChannel(partyId) {
   if (!partyId) return;
   _partyChannel = supabase.channel('party-' + partyId)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'party_members', filter: 'party_id=eq.' + partyId },
-      function () { partySyncFromCloud(); toast(t('realtime_updated_toast')); })
+      function () { partySyncFromCloud(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'parties', filter: 'id=eq.' + partyId },
-      function () { partySyncFromCloud(); toast(t('realtime_updated_toast')); })
+      function () { partySyncFromCloud(); })
     .subscribe();
 }
 
@@ -33815,6 +33835,32 @@ function _cloudMerge3(base, local, remote) {
 // ☁️ Tasklarni bulutdan yangilash (ilova ochilganda / qayta ko'ringanda): boshqa qurilmada
 // qo'shilgan yoki o'zgartirilgan tasklar shu yerga keladi. Mahalliy tasklar o'chirilmaydi
 // (o'chirish realtime orqali keladi); hali yuborilmagan mahalliy o'zgarish bo'lsa — kutamiz.
+// 🔁 Realtime "aks-sado" himoyasi: o'zimiz yuborgan yozuvlar kechikib qaytsa, ularni boshqa qurilmaniki deb olmaymiz
+var _todoSent = {}; // task_id -> [{j, at}]
+function _todoEchoRecord(id, json) {
+  var a = _todoSent[id] || (_todoSent[id] = []); a.push({ j: json, at: Date.now() });
+  var cut = Date.now() - 120000; _todoSent[id] = a.filter(function (x) { return x.at > cut; }).slice(-8);
+}
+function _todoEchoSeen(id, json) { return (_todoSent[id] || []).some(function (x) { return x.j === json && Date.now() - x.at < 120000; }); }
+var _profileSent = [];
+function _profileEchoSeen(p) {
+  return _profileSent.some(function (x) { return Date.now() - x.at < 120000 && x.c === (p.coins || 0) && x.x === (p.xp || 0) && x.s === (p.streak || 0) && x.t === (p.total_coins || 0); });
+}
+var _rtRenderTimer = null;
+function _rtRenderSoon() {
+  if (_rtRenderTimer) clearTimeout(_rtRenderTimer);
+  _rtRenderTimer = setTimeout(function () { _rtRenderTimer = null; try { render(); } catch (e) {} }, 250);
+}
+// Bulutda bor deb bilingan task id'lari (qurilmada saqlanadi) — boshqa qurilmada o'chirilgan
+// vazifa bu yerda qolib, qaytadan yuklanib "tirilib" ketmasligi uchun.
+function _cloudTaskIdsKey() { return 'cloudTaskIds_' + (S.cloudUserId || ''); }
+function _cloudTaskIdsGet() { try { var v = JSON.parse(localStorage.getItem(_cloudTaskIdsKey()) || 'null'); return Array.isArray(v) ? v : null; } catch (e) { return null; } }
+function _cloudTaskIdsSave(arr) { try { localStorage.setItem(_cloudTaskIdsKey(), JSON.stringify(arr)); } catch (e) {} }
+function _cloudTaskIdsSet(id, on) {
+  var a = _cloudTaskIdsGet() || []; var i = a.indexOf(id);
+  if (on && i === -1) a.push(id); else if (!on && i !== -1) a.splice(i, 1); else return;
+  _cloudTaskIdsSave(a);
+}
 var _cloudTodosBusy = false;
 async function _cloudRefreshTodos() {
   if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _cloudTodosBusy) return false;
@@ -33825,6 +33871,19 @@ async function _cloudRefreshTodos() {
     if (r.error || !r.data) return false;
     var changed = false;
     S.tasks = S.tasks || [];
+    var cloudIds = r.data.map(function (row) { return row.task_id; });
+    var known = _cloudTaskIdsGet();
+    if (known) {
+      // Avval bulutda bo'lgan, endi yo'q — boshqa qurilmada o'chirilgan: bu yerda ham olib tashlaymiz
+      var before = S.tasks.length;
+      S.tasks = S.tasks.filter(function (tk) {
+        var gone = known.indexOf(tk.id) !== -1 && cloudIds.indexOf(tk.id) === -1;
+        if (gone) delete _lastSyncedTasks[tk.id];
+        return !gone;
+      });
+      if (S.tasks.length !== before) changed = true;
+    }
+    _cloudTaskIdsSave(cloudIds);
     r.data.forEach(function (row) {
       if (!row || !row.task_data) return;
       var json = JSON.stringify(row.task_data);
