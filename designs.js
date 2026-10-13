@@ -31,7 +31,7 @@
   // ---------- Dizaynlar ta'rifi ----------
   // n/d: [uz, en, ru]. price: { coins } yoki { gems } — yo'q bo'lsa bepul.
   var D = {
-    galaxy: { n: ['Galaxy', 'Galaxy', 'Galaxy'], d: ['Yulduzlar orasida parvoz', 'Fly through the stars', 'Полёт среди звёзд'], base: '#04050f', meta: '#070a1c', scale: 0.7 },
+    galaxy: { n: ['Galaxy', 'Galaxy', 'Galaxy'], d: ['Yulduzlar orasida parvoz', 'Fly through the stars', 'Полёт среди звёзд'], base: '#04050f', meta: '#070a1c', scale: 0.7, price: { coins: 200 } },
     default: { n: ['Klassik', 'Classic', 'Классика'], d: ['Avvalgi oddiy ko\'rinish', 'The original clean look', 'Исходный простой вид'], base: '#0E0E12', meta: '#7C5CFC' },
     rings: { n: ['Magic Rings', 'Magic Rings', 'Magic Rings'], d: ['Porlovchi sehrli halqalar', 'Glowing magic rings', 'Светящиеся кольца'], base: '#07050f', meta: '#130b24', scale: 0.6, idleHover: 0, price: { coins: 250 } },
     blinds: { n: ['Gradient Blinds', 'Gradient Blinds', 'Gradient Blinds'], d: ['Yumshoq gradient pardalar', 'Soft gradient blinds', 'Мягкие градиентные жалюзи'], base: '#0b0618', meta: '#160b30', scale: 0.5, idleHover: 0.75, price: { coins: 300 } },
@@ -792,6 +792,14 @@
       // Faqat haqiqatan sovg'a berilganda saqlaymiz (yangi foydalanuvchining birinchi ishga tushishini buzmaslik uchun)
       if (!isFree(current) && s.shop.owned.indexOf('d_' + current) === -1) {
         s.shop.owned.push('d_' + current);
+        try { if (typeof save === 'function') save(); } catch (e) {}
+      }
+    }
+    // Galaxy keyinroq pullik bo'ldi — uni allaqachon ishlatayotganlarga bir marta sovg'a
+    if (!s.shop.dzGrandG) {
+      s.shop.dzGrandG = 1;
+      if (current === 'galaxy' && s.shop.owned.indexOf('d_galaxy') === -1) {
+        s.shop.owned.push('d_galaxy');
         try { if (typeof save === 'function') save(); } catch (e) {}
       }
     }

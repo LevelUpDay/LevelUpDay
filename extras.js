@@ -2422,6 +2422,7 @@
       h += '<div class="x-sec-t">👥 ' + L('A\'zolar — shu hafta', 'Members — this week', 'Участники — эта неделя') + '</div>';
       h += (c.members || []).map(function (m, i) {
         var nm = H(m.name || '?'); try { if (window.xCosNameHtml) nm = window.xCosNameHtml(nm, m.cosmetics); } catch (e) {}
+        try { var _st = window.staffNameHtml && window.staffNameHtml(H(m.name || '?'), m.id || m.user_id); if (_st) nm = _st; } catch (e) {}
         return '<div class="x-clan-row"><span class="x-clan-pos">' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</span><span class="x-clan-nm">' + nm + (m.role === 'leader' ? ' 👑' : '') + (m.id === S.cloudUserId ? ' <em>(' + L('siz', 'you', 'вы') + ')</em>' : '') + '</span>' +
           '<b>' + Math.round(m.weekXp || 0) + ' XP</b>' + (isLeader && m.id !== S.cloudUserId ? '<button class="x-link" data-clan-kick="' + H(m.id) + '">✕</button>' : '') + '</div>';
       }).join('');

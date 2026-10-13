@@ -1033,3 +1033,19 @@ html.design-fx .fbx-item, html.design-fx .fbx-thread { background: color-mix(in 
 .x-calm-music span{opacity:.7;font-size:14px;margin-right:2px}
 .x-calm-music button{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:17px;cursor:pointer;line-height:1}
 .x-calm-music button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 22%,var(--surface2));box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+
+/* 👑 Jamoa (staff) niklari — faqat serverdan berilgan rol bilan, boshqalar bu ko'rinishni ololmaydi */
+.x-staff-name{font-weight:800;background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:xs-shine 3.5s linear infinite}
+.x-staff-name.xs-owner{background-image:linear-gradient(90deg,#FDE68A,#F59E0B,#FFF7D6,#F59E0B,#FDE68A);filter:drop-shadow(0 0 6px rgba(245,158,11,.55))}
+.x-staff-name.xs-admin{background-image:linear-gradient(90deg,#F87171,#C084FC,#FCA5A5,#C084FC,#F87171);filter:drop-shadow(0 0 6px rgba(239,68,68,.45))}
+.x-staff-name.xs-helper{background-image:linear-gradient(90deg,#6EE7B7,#10B981,#D1FAE5,#10B981,#6EE7B7);filter:drop-shadow(0 0 5px rgba(16,185,129,.45))}
+.x-staff-badge{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.06em;line-height:1.6;vertical-align:middle;white-space:nowrap;-webkit-text-fill-color:initial}
+.x-staff-badge.xs-owner{color:#1a1200;background:linear-gradient(135deg,#FDE68A,#F59E0B);box-shadow:0 0 10px rgba(245,158,11,.6)}
+.x-staff-badge.xs-admin{color:#fff;background:linear-gradient(135deg,#EF4444,#9333EA);box-shadow:0 0 10px rgba(239,68,68,.5)}
+.x-staff-badge.xs-helper{color:#022c22;background:linear-gradient(135deg,#6EE7B7,#10B981);box-shadow:0 0 8px rgba(16,185,129,.5)}
+@keyframes xs-shine{to{background-position:200% center}}
+@media (prefers-reduced-motion: reduce){.x-staff-name{animation:none}}
+/* Podium: nik qisqarsa ham staff belgisi alohida qatorda ko'rinsin */
+.rk-pod-name:has(.x-staff-badge){overflow:visible;text-overflow:clip;white-space:normal;display:flex;flex-direction:column;align-items:center;gap:4px}
+.rk-pod-name .x-staff-name{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk-pod-name .x-staff-badge{margin-left:0}
