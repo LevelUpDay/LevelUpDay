@@ -7533,6 +7533,9 @@ var S = {
   },
 };
 
+// ♻️ "Hammasi" reset uchun — ilova birinchi ochilgandagi toza holat nusxasi
+var _S_DEFAULTS = JSON.parse(JSON.stringify(S));
+
 // Modal state
 var mDiff = 1, mRepeat = 'daily', mDays = [], mInterval = 4, mLabel = '', mEmoji = '';
 var stDiff = 1, stRepeat = 'daily', stDays = [], stLabel = '';
@@ -18099,9 +18102,12 @@ function _rstResetStatsExtra() {
   S.gemStreak = null; S.gemPomoDaily = {};
   S.questClaims = {};
   S.weeklyReportShown = null; S.xWrapShown = null;
+  S.achShowcase = []; S.levelRewardsClaimed = null;
+  S.questRevoked = {};
 }
 function _rstResetDiary() {
   S.moods = {}; S.reviews = {}; S.health = {};
+  S.xHabits = []; S.xCalmLog = {}; S.xAffirm = null; S.xWkSeen = null;
   S.xReviewDismiss = null;
   try { if (typeof updateMoodBtn === 'function') updateMoodBtn(); } catch (e) {}
 }
@@ -18111,6 +18117,28 @@ function _rstExamsWithData() {
   if ((S.ieltsResults || []).length > 0) list.push('ielts');
   if ((S.satResults || []).length > 0) list.push('sat');
   return list;
+}
+
+// 💥 "Hammasi": S'ni ilovaning toza holatiga qaytaradi (yangi qo'shilgan bo'limlar ham qolib ketmaydi).
+// Faqat akkaunt/qurilma sozlamalari saqlanadi.
+function _rstFullReset() {
+  var KEEP = ['profile', 'cloudLinked', 'cloudUserId', 'cloudEmail', 'lastCloudUserId', '_cloudSyncedAt', '_localUpdatedAt', '_serverSavedAt',
+    'themeMode', 'kbMap', 'welcomeSurveyDone', 'language', 'lang', 'difficulty', 'ambientFocusEnabled', 'ambientFocusSound', 'ambientFocusVolume', 'friends'];
+  var kept = {};
+  KEEP.forEach(function (k) { if (k in S) kept[k] = S[k]; });
+  try { if (typeof window.pomoResetAllStats === 'function') window.pomoResetAllStats(); } catch (e) {}
+  try { if (typeof saveUsageHistory === 'function') saveUsageHistory([]); if (typeof savePurchaseHistory === 'function') savePurchaseHistory([]); } catch (e) {}
+  Object.keys(S).forEach(function (k) { delete S[k]; });
+  Object.assign(S, JSON.parse(JSON.stringify(_S_DEFAULTS)), kept);
+  S.lastDate = today(); S.econV = 2; S.showWelcomeSurveyPending = false;
+  if (S.profile) S.profile.joinedDate = S.profile.joinedDate || today();
+  try { _rstResetCoinsExtra(); } catch (e) {}
+  save();
+  try { scheduleCloudSync(true); scheduleTodosCloudSync(true); scheduleAppStateSync(true); } catch (e) {}
+  try { if (typeof recalcStreakFromLog === 'function') recalcStreakFromLog(); } catch (e) {}
+  try { render(); renderProfile(); } catch (e) {}
+  toast(t('reset_done_toast'));
+  showTab('tasks');
 }
 
 // -------- Tanlangan bo'limlarga qarab reset'ni bajarish --------
@@ -18188,8 +18216,7 @@ function openResetOptionsModal() {
     '<h3 style="text-align:center;font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:#F87171;margin-bottom:8px">' + t('reset_opts_title') + '</h3>' +
     '<p style="text-align:center;font-size:var(--fs-xs);color:var(--text-muted);margin-bottom:18px;line-height:1.6">' + t('reset_opts_desc') + '</p>' +
     '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">' +
-      _rstOptRow('ro-coins-cb', '🪙', t('reset_opt_coins')) +
-      _rstOptRow('ro-stats-cb', '📊', t('reset_opt_stats')) +
+      _rstOptRow('ro-stats-cb', '📊', _cl('Statistika va tangalar (XP, streak, 🪙, 💎, tarix)', 'Stats & coins (XP, streak, 🪙, 💎, history)', 'Статистика и монеты (XP, серия, 🪙, 💎, история)')) +
       _rstOptRow('ro-tasks-cb', '📋', t('reset_opt_tasks')) +
       _rstOptRow('ro-diary-cb', '📔', _cl('Kundalik (kayfiyat, uyqu)', 'Journal (mood, sleep)', 'Дневник (настроение, сон)')) +
       examsRowHtml +
@@ -18202,14 +18229,14 @@ function openResetOptionsModal() {
   ov.appendChild(box);
   document.body.appendChild(ov);
 
-  var cbCoins = document.getElementById('ro-coins-cb');
+  var cbCoins = null; // "faqat tangalar" alohida varianti olib tashlandi — statistika bilan birga tozalanadi
   var cbStats = document.getElementById('ro-stats-cb');
   var cbTasks = document.getElementById('ro-tasks-cb');
   var cbDiary = document.getElementById('ro-diary-cb');
   var cbExams = document.getElementById('ro-exams-cb'); // mavjud bo'lmasa null
   var cbAll = document.getElementById('ro-all-cb');
   var confirmBtn = document.getElementById('reset-opts-confirm');
-  var toggleables = cbExams ? [cbCoins, cbStats, cbTasks, cbDiary, cbExams] : [cbCoins, cbStats, cbTasks, cbDiary];
+  var toggleables = cbExams ? [cbStats, cbTasks, cbDiary, cbExams] : [cbStats, cbTasks, cbDiary];
 
   function syncUI() {
     var allOn = cbAll.checked;
@@ -18232,13 +18259,14 @@ function openResetOptionsModal() {
 
   confirmBtn.onclick = function () {
     if (confirmBtn.disabled) return;
-    var doCoins = cbAll.checked || cbCoins.checked;
     var doStats = cbAll.checked || cbStats.checked;
+    var doCoins = doStats; // statistika tozalansa — tanga/olmos ham 0
     var doTasks = cbAll.checked || cbTasks.checked;
     var doExams = cbAll.checked || (cbExams ? cbExams.checked : false);
     var doDiary = cbAll.checked || cbDiary.checked;
     var examTypes = doExams ? examsWithData : [];
 
+    if (cbAll.checked) { close(); _rstFullReset(); return; }
     if (doCoins && !doStats && S.coins < 0) {
       var coinsVal = S.coins;
       close();
