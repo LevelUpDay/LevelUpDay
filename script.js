@@ -14355,7 +14355,9 @@ function renderLevel() {
 function updateHeaderUserTitle() {
   var el = document.getElementById('user-title');
   if (!el) return;
-  el.textContent = getDisplayUsername();
+  var nm = getDisplayUsername();
+  var st = (S.cloudLinked && S.cloudUserId && typeof staffNameHtml === 'function') ? staffNameHtml(esc(nm), S.cloudUserId) : '';
+  if (st) el.innerHTML = st; else el.textContent = nm;
 }
 
 function dedupeTaskIds() {
@@ -16845,7 +16847,51 @@ function reytingMetricBlock(p, metric) {
 
 // 🛍 Do'kon bezaklari (extras.js) — o'zim uchun har doim hozirgi kiyilganlarini ko'rsatamiz
 function _cosOf(p) { try { return (p && p.isMe && typeof window.xCosMine === 'function') ? window.xCosMine() : (p && p.cosmetics) || null; } catch (e) { return null; } }
-function _cosName(nameHtml, p) { try { return typeof window.xCosNameHtml === 'function' ? window.xCosNameHtml(nameHtml, _cosOf(p)) : nameHtml; } catch (e) { return nameHtml; } }
+function _cosName(nameHtml, p) {
+  var h = nameHtml;
+  try { h = typeof window.xCosNameHtml === 'function' ? window.xCosNameHtml(nameHtml, _cosOf(p)) : nameHtml; } catch (e) {}
+  try { var id = p && (p.isMe ? (S.cloudUserId || p.id) : p.id); var st = staffNameHtml(nameHtml, id); if (st) return st; } catch (e) {}
+  return h;
+}
+
+// 👑 Jamoa (staff) belgilari — rol faqat serverdan (admin_emails jadvali, get_staff_roles RPC) keladi.
+// Foydalanuvchi o'zi qo'ya olmaydi; "admin/owner/helper" so'zli niklar server tomonida taqiqlangan.
+var STAFF_ROLES = {};
+try { STAFF_ROLES = JSON.parse(localStorage.getItem('staffRoles') || '{}') || {}; } catch (e) { STAFF_ROLES = {}; }
+var STAFF_META = {
+  owner:  { icon: '👑', label: 'OWNER' },
+  admin:  { icon: '🛡️', label: 'ADMIN' },
+  helper: { icon: '🤝', label: 'HELPER' }
+};
+function staffRoleOf(id) { var r = id && STAFF_ROLES[id]; return STAFF_META[r] ? r : null; }
+function staffBadgeHtml(id) {
+  var r = staffRoleOf(id); if (!r) return '';
+  var m = STAFF_META[r];
+  return '<span class="x-staff-badge xs-' + r + '" title="LevelUpDay ' + m.label + '">' + m.icon + ' ' + m.label + '</span>';
+}
+// nameHtml allaqachon escape qilingan bo'lishi kerak
+function staffNameHtml(nameHtml, id) {
+  var r = staffRoleOf(id); if (!r) return '';
+  return '<span class="x-staff-name xs-' + r + '">' + nameHtml + '</span>' + staffBadgeHtml(id);
+}
+window.staffNameHtml = staffNameHtml; window.staffBadgeHtml = staffBadgeHtml; window.staffRoleOf = staffRoleOf;
+var _staffLoadedAt = 0;
+function loadStaffRoles(force) {
+  if (!force && Date.now() - _staffLoadedAt < 10 * 60 * 1000) return;
+  if (typeof supabase === 'undefined' || !supabase || !supabase.rpc) return;
+  _staffLoadedAt = Date.now();
+  supabase.rpc('get_staff_roles').then(function (r) {
+    if (r.error || !Array.isArray(r.data)) return;
+    var m = {}; r.data.forEach(function (x) { if (x && x.user_id && STAFF_META[x.role]) m[x.user_id] = x.role; });
+    var changed = JSON.stringify(m) !== JSON.stringify(STAFF_ROLES);
+    STAFF_ROLES = m;
+    try { localStorage.setItem('staffRoles', JSON.stringify(m)); } catch (e) {}
+    if (changed) { try { updateHeaderUserTitle(); renderProfile(); } catch (e) {} }
+  }, function () {});
+}
+window.loadStaffRoles = loadStaffRoles;
+setTimeout(function () { loadStaffRoles(true); }, 1500);
+document.addEventListener('visibilitychange', function () { if (!document.hidden) loadStaffRoles(false); });
 function _cosFrame(p) { try { return typeof window.xCosFrameCls === 'function' ? window.xCosFrameCls(_cosOf(p)).trim() : ''; } catch (e) { return ''; } }
 
 function renderReytingCard(p, metric) {
@@ -27312,12 +27358,15 @@ function scheduleCloudSync(immediate) {
     supabase.from('profiles').upsert(row).then(function (r) {
       // 🛡 Server nikni rad etdi (7 kunlik cheklov / band / noto'g'ri) — nomsiz qayta yuboramiz va
       // mahalliy nikni serverdagisiga qaytaramiz
-      if (r.error && row.name !== undefined && /name_change_cooldown|name_invalid|profiles_name_lower_uniq|duplicate key/i.test((r.error.message || '') + ' ' + (r.error.details || ''))) {
+      if (r.error && row.name !== undefined && /name_change_cooldown|name_invalid|name_reserved|profiles_name_lower_uniq|duplicate key/i.test((r.error.message || '') + ' ' + (r.error.details || ''))) {
         var cool = /cooldown/i.test(r.error.message || '');
+        var reserved = /name_reserved/i.test(r.error.message || '');
         var until = cool && r.error.details ? new Date(r.error.details) : null;
         delete row.name;
         _cloudRevertNameFromServer();
-        _cloudToast(cool
+        _cloudToast(reserved
+          ? '🚫 ' + _cl('Bu nik band: "admin", "owner", "helper" kabi so\'zlar faqat LevelUpDay jamoasi uchun', 'This nickname is reserved: words like "admin", "owner", "helper" are for the LevelUpDay team only', 'Этот ник зарезервирован: слова «admin», «owner», «helper» только для команды LevelUpDay')
+          : cool
           ? '⏳ ' + _cl('Nikni 7 kunda faqat bir marta o\'zgartirish mumkin', 'You can change your nickname once every 7 days', 'Ник можно менять раз в 7 дней') + (until && !isNaN(until) ? ' (' + until.toLocaleDateString() + ')' : '')
           : '❌ ' + t('pe_username_taken'));
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
