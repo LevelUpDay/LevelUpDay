@@ -1797,6 +1797,8 @@
   ];
   function renderHub() {
     var v = document.getElementById('view-hub'); if (!v) return;
+    // 📥 Inbox — Hub ichidagi alohida ko'rinish (pastdagi IIFE: window.xInbox)
+    if (window.xInbox && window.xInbox.isOpen()) { window.xInbox.render(v); return; }
     var sec = S.xHubSec || 'boss';
     if (!HUB_SECS.some(function (x) { return x[0] === sec; })) sec = 'boss'; // eski "Tahlil" bo'limi Statistikaga ko'chdi
     var tools = [['matrix', '▦', L('Matritsa', 'Matrix', 'Матрица')],
@@ -2151,6 +2153,7 @@
   }
   function sectionsGrid() {
     var items = [
+      ['inbox', '📥', 'Inbox', function () { if (window.xInbox) window.xInbox.open(); }],
       ['pomo', '🍅', L('Pomodoro', 'Pomodoro', 'Pomodoro'), function () { pomoOpenModal(); }],
       ['reyting', '🏆', L('Reyting', 'Leaderboard', 'Рейтинг'), function () { showTab('reyting'); }],
       ['friends', '👥', L('Do\'stlar', 'Friends', 'Друзья'), function () { openFriendsModal(); }],
@@ -2163,6 +2166,7 @@
       ['cefr', '📘', 'CEFR', function () { showTab('cefr'); }],
       ['secret', '🕵️', L('Shaxsiy nazorat', 'Personal check', 'Личный контроль'), function () { showTab('secret'); }]
     ].filter(function (x) {
+      if (x[0] === 'inbox') return !!window.xInbox;
       if (x[0] === 'friends' || x[0] === 'spin' || x[0] === 'invite' || x[0] === 'clans') return true;
       if (x[0] === 'secret') return !!S.personalCheckEnabled;
       return tabAvailable(x[0]);
@@ -2170,7 +2174,8 @@
     window._xSecActions = {}; items.forEach(function (x) { window._xSecActions[x[0]] = x[3]; });
     return '<div class="x-secs-t">🧩 ' + L('Bo\'limlar', 'Sections', 'Разделы') + '</div><div class="x-secs">' + items.map(function (x) {
       return '<button type="button" class="x-sec" data-sec-go="' + x[0] + '"><span>' + x[1] + '</span>' + x[2] +
-        (x[0] === 'pomo' ? '<em class="x-pomo-live" aria-hidden="true"></em>' : '') + '</button>';
+        (x[0] === 'pomo' ? '<em class="x-pomo-live" aria-hidden="true"></em>' : '') +
+        (x[0] === 'inbox' ? (function () { var n = 0; try { n = window.xInbox.openCount(); } catch (e) {} return n ? '<em class="x-sec-badge" aria-label="' + n + '">' + (n > 99 ? '99+' : n) + '</em>' : ''; })() : '') + '</button>';
     }).join('') + '</div>';
   }
   function bindSections(root) {
@@ -2197,7 +2202,7 @@
     }).join('');
     try { if (window.pomoSyncRunIndicator) window.pomoSyncRunIndicator(); } catch (e) {}
     nav.querySelectorAll('[data-bn]').forEach(function (b) {
-      b.onclick = function () { showTab(b.dataset.bn); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } };
+      b.onclick = function () { if (b.dataset.bn === 'hub' && window.xInbox) window.xInbox.close(true); showTab(b.dataset.bn); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } };
     });
   }
 
@@ -3171,4 +3176,440 @@
   }
   if (document.readyState === 'complete') setTimeout(boot, 800); else window.addEventListener('load', function () { setTimeout(boot, 800); });
   window._fbx = { A: A, U: U, userCheck: userCheck, adminCountCheck: adminCountCheck, paint: function () { paintAdminBadges(); paintUserBadges(); } };
+})();
+
+// ============================================================
+// 📥 INBOX — Hub → "Inbox": BARCHA vazifalar (kunidan qat'i nazar),
+// 🎲 Chest vazifalari va 🎯 Maqsadlar bir joyda. Faqat o'qiydi/yig'adi —
+// ma'lumot modeli o'zgarmaydi; amallar mavjud funksiyalar orqali
+// (toggleTask, editTask, openTaskSheet, openAddChestTask, openGoalModal ...).
+// UI sozlamalari: S.inboxPrefs = { type, cat, sort, showDone, col:{} }
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  var H = function (s) { return esc(s == null ? '' : String(s)); };
+  var isOpen = false, query = '', refreshT = null, rootEl = null;
+  function has(fn) { return typeof window[fn] === 'function'; }
+  function td0() { return today(); }
+
+  function prefs() {
+    var p = S.inboxPrefs;
+    if (!p || typeof p !== 'object') p = S.inboxPrefs = {};
+    if (['all', 'tasks', 'chest', 'goals'].indexOf(p.type) === -1) p.type = 'all';
+    if (['date', 'diff', 'name', 'coins'].indexOf(p.sort) === -1) p.sort = 'date';
+    if (typeof p.showDone !== 'boolean') p.showDone = false;
+    if (!p.col || typeof p.col !== 'object') p.col = {};
+    if (!p.cat || (p.cat !== 'all' && p.cat !== 'none' && !(has('taskCatById') && taskCatById(p.cat)))) p.cat = 'all';
+    return p;
+  }
+  function setPref(k, v) { prefs()[k] = v; try { save(); } catch (e) {} }
+
+  // ---------- 🗂 Vazifalar tahlili ----------
+  function onDate(t, ds) { try { return has('tbTaskOnDate') ? tbTaskOnDate(t, ds) : (ds === td0() && taskDueToday(t)); } catch (e) { return false; } }
+  function isOverdue(t, td) {
+    if (t.done || t.isFrozen) return false;
+    var po = false; try { po = isTaskPostponedOverdue(t, td); } catch (e) {}
+    return po || !!(t.dueDate && t.dueDate < td);
+  }
+  function nextDue(t, td) {
+    if (t.isFrozen) return null;
+    var rep = t.repeat || 'once';
+    if (rep === 'once') {
+      if (t.done) return t.doneDate || null;
+      if (t.postponedTo && t.postponedTo > td) return t.postponedTo;
+      return t.dueDate || t.postponedTo || null;
+    }
+    for (var i = 0; i < 62; i++) {
+      var ds = addDays(td, i);
+      if (i === 0 && (t.done || t.skipped)) continue;
+      if (onDate(t, ds)) return ds;
+    }
+    return null;
+  }
+  function taskInfo(t, td) {
+    var rep = t.repeat || 'once', once = rep === 'once';
+    var dueToday = !t.isFrozen && onDate(t, td) && !(t.postponedTo && t.postponedTo > td);
+    var ov = isOverdue(t, td);
+    var next = nextDue(t, td);
+    var g;
+    if (t.isFrozen) g = 'frozen';
+    else if (t.done) g = 'done';
+    else if (ov) g = 'overdue';
+    else if (once) {
+      if (t.postponedTo && t.postponedTo > td) g = 'upcoming';
+      else if (t.dueDate && t.dueDate > td) g = 'upcoming';
+      else if (t.postponedTo || t.dueDate === td || t.startTime || t.overdueOn) g = 'today';
+      else g = 'nodate';
+    } else g = (dueToday || t.skipped) ? 'today' : 'repeating';
+    // ✓ faqat bugun navbatdagi (yoki bugun bajarilgan) vazifalar uchun
+    var canCheck = !t.isFrozen && !t.skipped && (t.done ? (!once || t.doneDate === td) : (dueToday || ov));
+    // ⤵ "Bugun qilish": kelajakka qo'yilgan bir martalik / har N kunlik vazifa
+    var canToday = !t.done && !t.isFrozen && !canCheck && ((once && t.postponedTo && t.postponedTo > td) || (rep === 'interval' && t.nextDate && t.nextDate > td));
+    return { k: 't', o: t, g: g, next: next, canCheck: canCheck, canToday: !!canToday, future: !canCheck && !t.done && !t.isFrozen };
+  }
+  function subProgress(t, td) {
+    var subs = []; try { subs = ensureSubtasks(t) || []; } catch (e) {}
+    if (!subs.length) return null;
+    var d = 0;
+    subs.forEach(function (s) { var dn = !!s.done; try { dn = dn || subtaskDoneOnDate(t.id, s.id, td); } catch (e) {} if (dn) d++; });
+    return [d, subs.length];
+  }
+
+  // ---------- 🎯 Maqsadlar ----------
+  function goalInfo(g, td) {
+    var tk = has('trackDate') ? trackDate() : td;
+    var days = g.daysChecked ? Object.keys(g.daysChecked).length : 0;
+    var ongoing = !g.duration && g.repeat !== 'once';
+    var total = g.duration || 1;
+    var completed = !ongoing && (!!g.done || days >= total);
+    var paused = false; try { paused = goalIsPaused(g); } catch (e) {}
+    var expired = !!(g.endDate && g.endDate < td && !completed);
+    var due = false; try { due = isGoalDueOnDate(g, tk); } catch (e) {}
+    var checked = !!(g.daysChecked && g.daysChecked[tk]);
+    var future = !!(g.startDate && g.startDate > tk);
+    var pct = 0; try { pct = ongoing ? goalRate30(g) : Math.min(100, Math.round(days / total * 100)); } catch (e) {}
+    var rank = completed ? 5 : paused ? 4 : expired ? 3 : future ? 2.5 : (due && !checked) ? 0 : checked ? 1 : 2;
+    return { k: 'g', o: g, g: 'goals', days: days, total: total, ongoing: ongoing, completed: completed, paused: paused, expired: expired,
+      due: due && !completed && !paused && !expired && !future, checked: checked, future: future, pct: pct, rank: rank };
+  }
+  function goalCoins(g) { return (typeof g.coins === 'number') ? g.coins : 1; }
+
+  // ---------- 🎲 Chest ----------
+  function chestInfo(c, doneNames, activeName) {
+    var coins = 0; try { coins = ctCoinsOf(c); } catch (e) { coins = c.coins || 0; }
+    var done = doneNames.indexOf(c.name) !== -1;
+    return { k: 'c', o: c, g: 'chest', coins: coins, done: done, active: !done && activeName === c.name };
+  }
+
+  // ---------- Hisoblagich (Hub plitkasi uchun): ochiq vazifalar + faol maqsadlar ----------
+  function openCount() {
+    var n = 0, td = td0();
+    (S.tasks || []).forEach(function (t) { if (t && !t.done && !t.isFrozen) n++; });
+    (S.goals || []).forEach(function (g) { if (!g) return; var x = goalInfo(g, td); if (!x.completed && !x.paused && !x.expired) n++; });
+    return n;
+  }
+
+  // ---------- Yig'ish + filtr + saralash ----------
+  function matches(x, q) {
+    if (!q) return true;
+    var o = x.o, hay = [o.name, o.emoji, o.note, o.desc];
+    if (x.k === 't') {
+      var c = null; try { c = taskCatOf(o); } catch (e) {}
+      if (c) hay.push(c.name);
+      (Array.isArray(o.subtasks) ? o.subtasks : []).forEach(function (s) { hay.push(s && s.name); });
+    }
+    return hay.filter(Boolean).join(' \u0001 ').toLowerCase().indexOf(q) !== -1;
+  }
+  function sortKey(x, sort) {
+    var o = x.o;
+    if (x.k === 't') {
+      if (sort === 'diff') return -(o.diff == null ? 1 : o.diff);
+      if (sort === 'coins') { try { return -taskCoinValue(o); } catch (e) { return 0; } }
+      return (x.next || '9999-99-99') + ' ' + (o.startTime || '99:99');
+    }
+    if (x.k === 'g') {
+      if (sort === 'diff' || sort === 'coins') return -goalCoins(o);
+      return x.rank;
+    }
+    if (sort === 'diff' || sort === 'coins') return -x.coins;
+    return (x.active ? 0 : x.done ? 2 : 1);
+  }
+  function cmp(sort) {
+    return function (a, b) {
+      if (sort !== 'name') {
+        var ka = sortKey(a, sort), kb = sortKey(b, sort);
+        if (ka < kb) return -1; if (ka > kb) return 1;
+        if (a.k === 't' && !!a.o.pinned !== !!b.o.pinned) return a.o.pinned ? -1 : 1;
+      }
+      return String(a.o.name || '').localeCompare(String(b.o.name || ''), undefined, { sensitivity: 'base', numeric: true });
+    };
+  }
+  var GROUPS = [
+    ['overdue', '⚠️', function () { return L("Muddati o'tgan", 'Overdue', 'Просрочено'); }],
+    ['today', '📅', function () { return L('Bugun', 'Today', 'Сегодня'); }],
+    ['nodate', '📌', function () { return L('Sanasiz / Qachondir', 'No date / Someday', 'Без даты / Когда-нибудь'); }],
+    ['upcoming', '🗓', function () { return L('Kelgusi', 'Upcoming', 'Предстоящие'); }],
+    ['repeating', '🔁', function () { return L('Takrorlanuvchi', 'Repeating', 'Повторяющиеся'); }],
+    ['chest', '🎲', function () { return 'Chest'; }],
+    ['goals', '🎯', function () { return L('Maqsadlar', 'Goals', 'Цели'); }],
+    ['frozen', '❄️', function () { return L('Muzlatilgan', 'Frozen', 'Заморожено'); }],
+    ['done', '✅', function () { return L('Bajarilgan', 'Completed', 'Выполнено'); }]
+  ];
+  function collect() {
+    var p = prefs(), td = td0(), q = query.trim().toLowerCase();
+    var wantT = p.type === 'all' || p.type === 'tasks';
+    var catOn = p.cat !== 'all';
+    var wantC = (p.type === 'all' && !catOn) || p.type === 'chest';
+    var wantG = (p.type === 'all' && !catOn) || p.type === 'goals';
+    var out = {};
+    GROUPS.forEach(function (g) { out[g[0]] = []; });
+    if (wantT) (S.tasks || []).forEach(function (t) {
+      if (!t || t.id == null) return;
+      if (catOn) { try { if (!taskCatMatches(t, p.cat)) return; } catch (e) {} }
+      var x = taskInfo(t, td);
+      if (!p.showDone && x.g === 'done') return;
+      if (!matches(x, q)) return;
+      out[x.g].push(x);
+    });
+    if (wantC) {
+      var dn = []; try { dn = _chestDoneTodayNames(); } catch (e) {}
+      var an = (S.isChestQuestActive && S.chestQuest) ? S.chestQuest.name : null;
+      (S.chestTasks || []).forEach(function (c) {
+        if (!c) return;
+        var x = chestInfo(c, dn, an);
+        if (!p.showDone && x.done) return;
+        if (!matches(x, q)) return;
+        out.chest.push(x);
+      });
+    }
+    if (wantG) (S.goals || []).forEach(function (g) {
+      if (!g) return;
+      var x = goalInfo(g, td);
+      if (!p.showDone && x.completed) return;
+      if (!matches(x, q)) return;
+      out.goals.push(x);
+    });
+    var c = cmp(p.sort);
+    Object.keys(out).forEach(function (k) { out[k].sort(c); });
+    return out;
+  }
+
+  // ---------- HTML ----------
+  var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>';
+  function chip(cls, txt) { return '<span class="tk-chip ' + cls + '">' + txt + '</span>'; }
+  function dateTxt(ds) { try { return H(tkShortDate(ds)); } catch (e) { return H(ds); } }
+  function taskHtml(x, td) {
+    var t = x.o, d = t.diff == null ? 1 : t.diff, ch = [];
+    var cat = null; try { cat = taskCatOf(t); } catch (e) {}
+    if (x.g === 'overdue') ch.push(chip('tk-chip-over', '⚠️ ' + (t.dueDate && t.dueDate < td ? L('Muddat', 'Due', 'Срок') + ' ' + dateTxt(t.dueDate) : L('Qoldirilgan', 'Postponed', 'Отложено') + ' ' + dateTxt(t.overdueFrom))));
+    if (t.skipped && !t.done) ch.push(chip('tk-chip-skip', '⏭ ' + L("O'tkazildi", 'Skipped', 'Пропущено')));
+    if (cat) ch.push('<span class="tk-chip tk-chip-cat" style="--tc:' + H(cat.color || '#7C5CFC') + '">' + H(taskCatLabel(cat)) + '</span>');
+    try { ch.push(chip('tk-chip-diff d' + d, taskTier(d).icon + ' ' + H(taskTierName(d)))); } catch (e) {}
+    var cv = 0; try { cv = taskCoinValue(t); } catch (e) {}
+    if (cv > 0) ch.push(chip('tk-chip-coin', '+' + cv + ' 🪙'));
+    if ((t.repeat || 'once') !== 'once') { try { ch.push(chip('tk-chip-rep', '🔁 ' + H(repeatLabel(t).text))); } catch (e) {} }
+    if (t.done) ch.push(chip('ib-chip-ok', '✓ ' + (t.doneDate ? dateTxt(t.doneDate) : L('Bajarildi', 'Done', 'Готово'))));
+    else if (x.next && x.g !== 'overdue' && !t.isFrozen && !(x.g === 'today' && x.next === td)) ch.push(chip('tk-chip-info' + (x.next > td ? ' ib-chip-fut' : ''), '📅 ' + dateTxt(x.next)));
+    if (t.dueDate && !t.done && t.dueDate >= td && x.next !== t.dueDate) ch.push(chip('tk-chip-info', '⏳ ' + L('Muddat', 'Due', 'Срок') + ' ' + dateTxt(t.dueDate)));
+    if (t.startTime) ch.push(chip('tk-chip-info', '🕒 ' + H(t.startTime + (t.endTime ? '–' + t.endTime : ''))));
+    var sp = subProgress(t, td);
+    if (sp) ch.push(chip('tk-chip-subs' + (sp[0] === sp[1] ? ' all' : ''), '☑ ' + sp[0] + '/' + sp[1]));
+    if (t.isFrozen) ch.push(chip('ib-chip-ice', '❄️ ' + L('Muzlatilgan', 'Frozen', 'Заморожено')));
+
+    var lead, nd = L('Hali muddati kelmagan', 'Not due yet', 'Срок ещё не наступил');
+    if (x.canCheck) lead = '<button type="button" class="check-btn ib-chk' + (t.done ? ' checked' : '') + '" data-act="chk" aria-pressed="' + (t.done ? 'true' : 'false') + '" aria-label="' + H(t.done ? L('Qaytarish', 'Undo', 'Отменить') : L('Bajarildi', 'Done', 'Готово')) + '">' + CHECK_SVG + '</button>';
+    else if (t.isFrozen) lead = '<span class="ib-lead" aria-hidden="true">❄️</span>';
+    else if (t.done) lead = '<span class="check-btn checked ib-chk ib-chk-static" aria-hidden="true">' + CHECK_SVG + '</span>';
+    else lead = '<button type="button" class="ib-chk-fut" data-act="fut" aria-label="' + H(nd) + '" title="' + H(nd) + '">⏳</button>';
+
+    return '<div class="ib-item' + (t.done ? ' is-done' : '') + (t.isFrozen ? ' is-frozen' : '') + (t.label ? ' has-label' : '') + '" data-k="t" data-id="' + H(t.id) + '"' + (t.label ? ' style="--ib-lb:' + H(t.label) + '"' : '') + '>' +
+      lead +
+      '<button type="button" class="ib-main" data-act="open"><span class="ib-name">' + (t.pinned ? '<span class="ib-pin">📌</span>' : '') + (t.emoji ? '<span class="ib-emo">' + H(t.emoji) + '</span>' : '') + H(t.name) + '</span>' +
+        '<span class="ib-meta">' + ch.join('') + '</span></button>' +
+      (x.canToday ? '<button type="button" class="ib-today" data-act="today" title="' + H(L('Bugunga olish', 'Do it today', 'Сделать сегодня')) + '">⤵ ' + H(L('Bugun', 'Today', 'Сегодня')) + '</button>' : '') +
+      '<button type="button" class="ib-more" data-act="more" aria-label="' + H(L('Menyu', 'Menu', 'Меню')) + '">⋯</button>' +
+    '</div>';
+  }
+  function goalHtml(x) {
+    var g = x.o, ch = [], c = goalCoins(g);
+    ch.push(chip('tk-chip-coin', '+' + c + ' 🪙'));
+    if (!g.endDate) { try { ch.push(chip('tk-chip-rep', '🔁 ' + H(repeatLabel(g).text))); } catch (e) {} }
+    try { var st = goalStreak(g); if (st && st.cur > 0) ch.push(chip('ib-chip-fire', '🔥 ' + st.cur)); } catch (e) {}
+    var status = x.completed ? chip('ib-chip-ok', '🏆 ' + L('Tugagan', 'Completed', 'Завершена'))
+      : x.paused ? chip('tk-chip-info', '⏸ ' + L('Pauzada', 'Paused', 'На паузе'))
+      : x.expired ? chip('tk-chip-over', '⌛ ' + L("Muddati o'tgan", 'Expired', 'Истекла'))
+      : x.future ? chip('tk-chip-info ib-chip-fut', '📅 ' + dateTxt(g.startDate))
+      : x.due ? (x.checked ? chip('ib-chip-ok', '✓ ' + L('Bugun belgilandi', 'Checked today', 'Отмечено сегодня')) : chip('tk-chip-subs', '• ' + L('Bugun navbatda', 'Due today', 'Сегодня')))
+      : chip('tk-chip-info', L('Bugun emas', 'Not today', 'Не сегодня'));
+    ch.push(status);
+    var prog = x.ongoing ? x.days + ' ' + L('kun', 'days', 'дн.') + ' · 30d ' + x.pct + '%' : x.days + '/' + x.total + ' ' + L('kun', 'days', 'дн.');
+    var lead = x.due
+      ? '<button type="button" class="check-btn ib-chk' + (x.checked ? ' checked' : '') + '" data-act="gchk" aria-pressed="' + (x.checked ? 'true' : 'false') + '" aria-label="' + H(L('Belgilash', 'Check in', 'Отметить')) + '">' + CHECK_SVG + '</button>'
+      : '<span class="ib-lead" aria-hidden="true">' + H(g.emoji || '🎯') + '</span>';
+    return '<div class="ib-item ib-goal' + (x.completed ? ' is-done' : '') + (x.paused ? ' is-frozen' : '') + '" data-k="g" data-id="' + H(g.id) + '">' + lead +
+      '<button type="button" class="ib-main" data-act="open"><span class="ib-name">' + (x.due ? '<span class="ib-emo">' + H(g.emoji || '🎯') + '</span>' : '') + H(g.name) + '</span>' +
+      '<span class="ib-meta">' + ch.join('') + '</span>' +
+      '<span class="ib-prog"><span class="ib-bar"><i style="width:' + Math.max(0, Math.min(100, x.pct)) + '%"></i></span><small>' + H(prog) + '</small></span></button>' +
+      '<button type="button" class="ib-more" data-act="gcal" aria-label="' + H(L('Kalendar', 'Calendar', 'Календарь')) + '" title="' + H(L('Kalendar', 'Calendar', 'Календарь')) + '">📅</button></div>';
+  }
+  function chestHtml(x) {
+    var c = x.o, ch = [chip('tk-chip-coin', '+' + x.coins + ' 🪙')];
+    if (x.done) ch.push(chip('ib-chip-ok', '✓ ' + L('Bugun bajarildi', 'Done today', 'Выполнено сегодня')));
+    if (x.active) ch.push(chip('tk-chip-subs', '⏳ ' + L('Faol vazifa', 'Active task', 'Активная задача')));
+    return '<div class="ib-item ib-chest' + (x.done ? ' is-done' : '') + '" data-k="c" data-id="' + H(c.id) + '"><span class="ib-lead" aria-hidden="true"><i class="ib-dot d' + H(Math.max(1, Math.min(3, Number(c.diff) || 1))) + '"></i></span>' +
+      '<button type="button" class="ib-main" data-act="open"><span class="ib-name">' + H(c.name) + '</span><span class="ib-meta">' + ch.join('') + '</span></button>' +
+      '<button type="button" class="ib-more" data-act="chest" aria-label="' + H(L("Chest bo'limi", 'Open Chest', 'Открыть Chest')) + '" title="' + H(L("Chest bo'limi", 'Open Chest', 'Открыть Chest')) + '">🎲</button></div>';
+  }
+  function emptyHtml(totalAll) {
+    if (query.trim()) return '<div class="ib-empty"><span>🔍</span>' + H(L('Hech narsa topilmadi', 'Nothing found', 'Ничего не найдено')) + '<small>«' + H(query.trim()) + '»</small></div>';
+    if (!totalAll) return '<div class="ib-empty"><span>📭</span>' + H(L("Inbox bo'sh — birinchi vazifani qo'shing", 'Inbox is empty — add your first task', 'Входящие пусты — добавьте первую задачу')) +
+      '<button type="button" class="x-btn sm" data-act="add">＋ ' + H(L("Vazifa qo'shish", 'Add task', 'Добавить задачу')) + '</button></div>';
+    return '<div class="ib-empty"><span>🎉</span>' + H(L("Bu filtrda hech narsa yo'q", 'Nothing here for this filter', 'В этом фильтре пусто')) + '</div>';
+  }
+  function listHtml() {
+    var r = collect(), p = prefs(), td = td0(), h = '', n = 0;
+    GROUPS.forEach(function (gr) {
+      var items = r[gr[0]]; if (!items.length) return;
+      n += items.length;
+      var col = !!p.col[gr[0]];
+      var act = gr[0] === 'chest' ? '<button type="button" class="ib-sec-a" data-act="chest-add" aria-label="' + H(L("Chest vazifa qo'shish", 'Add chest task', 'Добавить задачу Chest')) + '">＋</button>'
+        : gr[0] === 'goals' ? '<button type="button" class="ib-sec-a" data-act="goal-add" aria-label="' + H(L("Maqsad qo'shish", 'Add goal', 'Добавить цель')) + '">＋</button>' : '';
+      h += '<section class="ib-sec ib-g-' + gr[0] + (col ? ' is-col' : '') + '" data-g="' + gr[0] + '">' +
+        '<div class="ib-sec-hd"><button type="button" class="ib-sec-h" data-act="col" aria-expanded="' + (col ? 'false' : 'true') + '"><span class="ib-chev" aria-hidden="true">▾</span><span class="ib-sec-i" aria-hidden="true">' + gr[1] + '</span><span class="ib-sec-t">' + H(gr[2]()) + '</span><span class="ib-cnt">' + items.length + '</span></button>' + act + '</div>' +
+        (col ? '' : '<div class="ib-sec-b">' + items.map(function (x) { return x.k === 't' ? taskHtml(x, td) : x.k === 'g' ? goalHtml(x) : chestHtml(x); }).join('') + '</div>') +
+        '</section>';
+    });
+    var all = (S.tasks || []).length + (S.chestTasks || []).length + (S.goals || []).length;
+    return n ? h : emptyHtml(all);
+  }
+  function toolsHtml() {
+    var p = prefs();
+    var types = [['all', L('Hammasi', 'All', 'Все')], ['tasks', '📋 ' + L('Vazifalar', 'Tasks', 'Задачи')], ['chest', '🎲 Chest'], ['goals', '🎯 ' + L('Maqsadlar', 'Goals', 'Цели')]];
+    var cats = Array.isArray(S.taskCats) ? S.taskCats.filter(Boolean) : [];
+    var showCats = cats.length && (p.type === 'all' || p.type === 'tasks');
+    var sorts = [['date', L('Sana', 'Date', 'Дата')], ['diff', L('Qiyinlik', 'Difficulty', 'Сложность')], ['name', L('Nomi', 'Name', 'Название')], ['coins', L('Tanga', 'Coins', 'Монеты')]];
+    return '<div class="ib-search"><span aria-hidden="true">🔍</span><input type="search" id="ib-q" autocomplete="off" placeholder="' + H(L('Qidirish…', 'Search…', 'Поиск…')) + '" value="' + H(query) + '" aria-label="' + H(L('Qidirish', 'Search', 'Поиск')) + '"></div>' +
+      '<div class="ib-chips" role="group" aria-label="' + H(L('Turi', 'Type', 'Тип')) + '">' + types.map(function (x) {
+        return '<button type="button" class="ib-chip' + (p.type === x[0] ? ' on' : '') + '" data-type="' + x[0] + '" aria-pressed="' + (p.type === x[0]) + '">' + H(x[1]) + '</button>';
+      }).join('') + '</div>' +
+      (showCats ? '<div class="ib-chips ib-cats" role="group" aria-label="' + H(L("Bo'lim", 'Category', 'Раздел')) + '">' +
+        '<button type="button" class="ib-chip sm' + (p.cat === 'all' ? ' on' : '') + '" data-cat="all" aria-pressed="' + (p.cat === 'all') + '">🗂 ' + H(L("Barcha bo'limlar", 'All categories', 'Все разделы')) + '</button>' +
+        cats.map(function (c) { return '<button type="button" class="ib-chip sm' + (p.cat === c.id ? ' on' : '') + '" data-cat="' + H(c.id) + '" aria-pressed="' + (p.cat === c.id) + '" style="--tc:' + H(c.color || '#7C5CFC') + '"><i class="ib-cdot" aria-hidden="true"></i>' + H(taskCatLabel(c)) + '</button>'; }).join('') +
+        '<button type="button" class="ib-chip sm' + (p.cat === 'none' ? ' on' : '') + '" data-cat="none" aria-pressed="' + (p.cat === 'none') + '">' + H(L("Bo'limsiz", 'No category', 'Без раздела')) + '</button></div>' : '') +
+      '<div class="ib-row2"><label class="ib-sort"><span>↕ ' + H(L('Saralash', 'Sort', 'Сортировка')) + '</span><select id="ib-sort">' +
+        sorts.map(function (s) { return '<option value="' + s[0] + '"' + (p.sort === s[0] ? ' selected' : '') + '>' + H(s[1]) + '</option>'; }).join('') + '</select></label>' +
+        '<button type="button" class="ib-toggle' + (p.showDone ? ' on' : '') + '" id="ib-done" role="switch" aria-checked="' + p.showDone + '"><i aria-hidden="true"></i>' + H(L('Bajarilganlar', 'Show completed', 'Выполненные')) + '</button></div>';
+  }
+
+  // ---------- Chizish ----------
+  function render(v) {
+    v = v || document.getElementById('view-hub'); if (!v) return;
+    v.innerHTML = '<div class="ib" id="ib-root">' +
+      '<div class="ib-head"><button type="button" class="ib-back" data-act="back" aria-label="' + H(L('Orqaga', 'Back', 'Назад')) + '">←</button>' +
+      '<h2 class="ib-title">📥 Inbox <span class="ib-total" id="ib-total"></span></h2>' +
+      '<button type="button" class="x-btn sm ib-add" data-act="add">＋ ' + H(L("Qo'shish", 'Add', 'Добавить')) + '</button></div>' +
+      '<p class="ib-sub">' + H(L("Barcha vazifalar — qaysi kunga tegishli bo'lishidan qat'i nazar — hamda Chest va Maqsadlar", 'All your tasks — whatever day they belong to — plus Chest and Goals', 'Все задачи — независимо от дня — а также Chest и Цели')) + '</p>' +
+      '<div class="ib-tools" id="ib-tools">' + toolsHtml() + '</div>' +
+      '<div class="ib-list" id="ib-list"></div></div>';
+    rootEl = v.querySelector('#ib-root');
+    bindTools();
+    rootEl.addEventListener('click', onClick);
+    renderList();
+  }
+  function renderList() {
+    if (!rootEl || !rootEl.isConnected) return;
+    var list = rootEl.querySelector('#ib-list'); if (!list) return;
+    list.innerHTML = listHtml();
+    var tot = rootEl.querySelector('#ib-total'); if (tot) { var n = openCount(); tot.textContent = n ? String(n) : ''; }
+  }
+  function renderTools() {
+    var tl = rootEl && rootEl.querySelector('#ib-tools'); if (!tl) return;
+    tl.innerHTML = toolsHtml(); bindTools();
+  }
+  function bindTools() {
+    var q = rootEl.querySelector('#ib-q');
+    if (q) q.addEventListener('input', function () { query = q.value || ''; renderList(); });
+    var so = rootEl.querySelector('#ib-sort');
+    if (so) so.addEventListener('change', function () { setPref('sort', so.value); renderList(); });
+  }
+  function find(k, id) {
+    var arr = k === 't' ? S.tasks : k === 'g' ? S.goals : S.chestTasks;
+    return (arr || []).find(function (o) { return o && String(o.id) === String(id); });
+  }
+  function onClick(e) {
+    var b = e.target.closest('button'); if (!b || !rootEl || !rootEl.contains(b)) return;
+    if (b.dataset.type) { setPref('type', b.dataset.type); renderTools(); renderList(); return; }
+    if (b.dataset.cat) { setPref('cat', b.dataset.cat); renderTools(); renderList(); return; }
+    if (b.id === 'ib-done') { setPref('showDone', !prefs().showDone); renderTools(); renderList(); return; }
+    var act = b.dataset.act; if (!act) return;
+    if (act === 'back') { close(); return; }
+    if (act === 'add') { try { openModal(); } catch (er) {} return; }
+    if (act === 'chest-add') { try { openAddChestTask(); } catch (er) {} return; }
+    if (act === 'goal-add') { try { openGoalModal(); } catch (er) {} return; }
+    if (act === 'col') {
+      var sec = b.closest('[data-g]'); if (!sec) return;
+      var p = prefs(); p.col[sec.dataset.g] = !p.col[sec.dataset.g]; try { save(); } catch (er) {}
+      renderList(); return;
+    }
+    var it = b.closest('.ib-item'); if (!it) return;
+    var k = it.dataset.k, o = find(k, it.dataset.id);
+    if (!o) { renderList(); return; }
+    var id = o.id;
+    if (k === 't') {
+      var x = taskInfo(o, td0());
+      if (act === 'chk') { if (x.canCheck) toggleTask(id); else renderList(); }
+      else if (act === 'fut') { toast('⏳ ' + L("Hali muddati kelmagan — o'sha kunida belgilanadi", 'Not due yet — mark it on its day', 'Срок ещё не наступил — отметьте в свой день')); try { openTaskSheet(id, true, b); } catch (er) {} }
+      else if (act === 'today') doToday(o);
+      else if (act === 'more') { try { openTaskSheet(id, x.future, b); } catch (er) {} }
+      else if (act === 'open') { try { editTask(id); } catch (er) {} }
+    } else if (k === 'g') {
+      if (act === 'gchk') { try { goalCheckToday(id); } catch (er) {} }
+      else if (act === 'gcal') { try { openGoalCalendar(id); } catch (er) {} }
+      else if (act === 'open') { try { openGoalModal(id); } catch (er) {} }
+    } else if (k === 'c') {
+      if (act === 'chest') { close(true); showTab('chest'); }
+      else if (act === 'open') { try { openAddChestTask(id); } catch (er) {} }
+    }
+  }
+  // ⤵ Kelajakka qo'yilgan vazifani bugunga olish (⏩ qoldirish mantig'ining teskarisi)
+  function doToday(t) {
+    var td = td0(), rep = t.repeat || 'once';
+    if (t.done || t.isFrozen) return;
+    if (rep !== 'once' && rep !== 'interval') { try { openTaskSheet(t.id, true); } catch (e) {} return; }
+    if (t.overdueFrom && t.overdueFrom >= td) { t.overdueFrom = null; t.overdueOn = null; }
+    else if (t.overdueOn && t.overdueOn > td) t.overdueOn = td;
+    if (rep === 'once') t.postponedTo = td; else t.nextDate = td;
+    save();
+    try { if (typeof window.render === 'function') window.render(); } catch (e) {}
+    toast('📅 ' + L("Bugungi ro'yxatga qo'shildi", 'Moved to today', 'Перенесено на сегодня'));
+  }
+
+  function open() {
+    isOpen = true; query = '';
+    if ((document.documentElement.getAttribute('data-tab') || '') !== 'hub') showTab('hub'); else render();
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+  function close(silent) {
+    if (!isOpen) return;
+    isOpen = false; rootEl = null;
+    if (!silent && typeof window.xRenderHub === 'function') { window.xRenderHub(); try { window.scrollTo(0, 0); } catch (e) {} }
+  }
+  function scheduleRefresh() {
+    if (!isOpen || !rootEl || !rootEl.isConnected) return;
+    if (refreshT) return; // throttle: ketma-ket save()'lar yangilanishni cheksiz kechiktirmasin
+    refreshT = setTimeout(function () { refreshT = null; try { renderList(); } catch (e) { console.warn('[inbox]', e); } }, 40);
+  }
+
+  // Ma'lumot o'zgarsa ro'yxat yangilanadi: save() har safar S._savedAt ni yangilaydi
+  // (script.js ichidagi save() chaqiruvlari window.save orqali o'tmaydi, shuning
+  // uchun yengil kuzatuv), render() esa xRenderTasksExtras orqali darhol xabar beradi.
+  var lastSaved = null;
+  setInterval(function () {
+    if (!isOpen || !rootEl || !rootEl.isConnected || document.hidden) return;
+    var s = S && S._savedAt;
+    if (s !== lastSaved) { lastSaved = s; scheduleRefresh(); }
+  }, 350);
+  (function hookRender() {
+    var orig = window.xRenderTasksExtras;
+    window.xRenderTasksExtras = function () {
+      var r; if (typeof orig === 'function') r = orig.apply(this, arguments);
+      try { lastSaved = S && S._savedAt; scheduleRefresh(); } catch (e) {}
+      return r;
+    };
+  })();
+  // Hubdan boshqa bo'limga o'tilsa — Inbox yopiladi (keyingi safar Hub odatdagidek ochiladi)
+  try {
+    new MutationObserver(function () {
+      if (isOpen && document.documentElement.getAttribute('data-tab') !== 'hub') { isOpen = false; rootEl = null; }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tab'] });
+  } catch (e) {}
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !isOpen || !rootEl || !rootEl.isConnected) return;
+    if (document.querySelector('.modal-overlay.open, .x-ov, .ct-modal-overlay, .tc-ov, #task-action-sheet.open')) return;
+    if (e.target && e.target.id === 'ib-q' && e.target.value) return;
+    close();
+  });
+
+  window.xInbox = { open: open, close: close, isOpen: function () { return isOpen; }, render: render, openCount: openCount, _collect: collect };
 })();
