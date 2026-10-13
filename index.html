@@ -741,6 +741,16 @@
     
     <!-- 6. Kalendar -->
 
+    <!-- 7. Qayta boshlash (reset) — Statistika ichida -->
+    <div style="margin-top:14px">
+        <div style="background:var(--surface);border:1px solid rgba(248,113,113,0.2);border-radius:var(--radius-lg);padding:16px">
+          <span class="settings-sub-icon icon-red">⚠️</span>
+          <div class="settings-info-card-title" data-i18n="danger_zone_title">Xavfli zona</div>
+          <div class="settings-info-card-desc"><span data-i18n="danger_zone_desc_pre">Akkauntni </span><b style="color:var(--text)" data-i18n="danger_zone_desc_bold">qayta boshlash</b><span data-i18n="danger_zone_desc_post"> barcha vazifalar, tangalar, streak va statistikani o'chirib tashlaydi. Bu amalni qaytarib bo'lmaydi!</span></div>
+          <button onclick="openResetOptionsModal()" style="width:100%;padding:12px;border-radius:var(--radius-md);border:1px solid rgba(248,113,113,0.4);background:rgba(248,113,113,0.08);color:#F87171;font-size:var(--fs-base);font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif" data-i18n="danger_zone_btn">🔄 Akkauntni qayta boshlash</button>
+        </div>
+    </div>
+
     <!-- ============ /TAB 2 STATISTIKA ============ -->
     </div>
 
@@ -1260,13 +1270,6 @@
           <input type="file" id="data-import-input" accept="application/json,.json" style="display:none" onchange="importAppData(event)" />
         </div>
 
-        <!-- 8. Xavfli zona -->
-        <div style="background:var(--surface);border:1px solid rgba(248,113,113,0.2);border-radius:var(--radius-lg);padding:16px">
-          <span class="settings-sub-icon icon-red">⚠️</span>
-          <div class="settings-info-card-title" data-i18n="danger_zone_title">Xavfli zona</div>
-          <div class="settings-info-card-desc"><span data-i18n="danger_zone_desc_pre">Akkauntni </span><b style="color:var(--text)" data-i18n="danger_zone_desc_bold">qayta boshlash</b><span data-i18n="danger_zone_desc_post"> barcha vazifalar, tangalar, streak va statistikani o'chirib tashlaydi. Bu amalni qaytarib bo'lmaydi!</span></div>
-          <button onclick="openResetOptionsModal()" style="width:100%;padding:12px;border-radius:var(--radius-md);border:1px solid rgba(248,113,113,0.4);background:rgba(248,113,113,0.08);color:#F87171;font-size:var(--fs-base);font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif" data-i18n="danger_zone_btn">🔄 Akkauntni qayta boshlash</button>
-        </div>
       </div>
 
     </div>
