@@ -61,3 +61,9 @@ Admin qo'shish: `insert into public.admins (user_id) values ('<user uuid>');`
 | `functions/send-reminders` | har 5 daqiqada: vazifa eslatmasi, boshlanish vaqti, 08:00 reja, 20:00 streak, 21:30 kun yakuni (Telegram) + web push; webhook va buyruqlar menyusini o'zi o'rnatadi |
 
 Sir: **Edge Functions → Secrets → `TELEGRAM_BOT_TOKEN`**. Token almashtirilsa, webhook keyingi 5 daqiqada o'zi qayta o'rnatiladi.
+
+## 🛡 Focusgate (Windows agenti)
+
+- Jadvallar: `fg_devices` (ulangan kompyuterlar, token sha256), `fg_pair` (15 daqiqalik ulash kodlari), `fg_usage` (kun × ilova soniyalari, 24 soatlik taqsimot), `fg_config` (limitlar, fokus — sayt yozadi, agent o'qiydi). SQL: `supabase/focusgate.sql`.
+- Funksiya: `focusgate` (`verify_jwt = false`): `pair_start` / `pair_poll` (agent), `pair_approve` (sayt, foydalanuvchi JWT), `sync` (agent, qurilma tokeni).
+- Agent manbasi: `focusgate-agent/` (Go). Yuklab olish: GitHub Releases → `Focusgate.exe`.
