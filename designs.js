@@ -38,6 +38,12 @@
     grid: { n: ['Grid Scan', 'Grid Scan', 'Grid Scan'], d: ['Skanerlovchi 3D to\'r', 'Scanning 3D grid', 'Сканирующая 3D-сетка'], base: '#07080c', meta: '#0b0d14', scale: 0.75, idleHover: 0.5, price: { gems: 25 } },
     prism: { n: ['Prismatic Burst', 'Prismatic Burst', 'Prismatic Burst'], d: ['Prizmatik nur portlashi', 'Prismatic light burst', 'Призматическая вспышка'], base: '#06040d', meta: '#120a26', scale: 0.5, idleHover: 0.35, price: { gems: 35 } }
   };
+  // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6): tanga 5 ga yaxlitlanadi, olmos kamida 1
+  Object.keys(D).forEach(function (k) {
+    var p = D[k].price; if (!p) return;
+    if (p.coins) p.coins = Math.max(5, Math.round(p.coins * 0.6 / 5) * 5);
+    if (p.gems) p.gems = Math.max(1, Math.round(p.gems * 0.6));
+  });
   Object.keys(D).forEach(function (k) {
     var o = D[k];
     o.name = function () { return L(o.n[0], o.n[1], o.n[2]); };

@@ -28,6 +28,11 @@
     { id: 'u_target', key: 'target', icon: '⌖', gems: 25, desktop: true, n: ['Nishon kursor (TargetCursor)', 'Target Cursor', 'Курсор-мишень (TargetCursor)'],
       d: ['Aylanuvchi burchaklar tugmalarni qamrab oladi', 'Spinning corners snap around buttons', 'Вращающиеся уголки обхватывают кнопки'] }
   ];
+  // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6)
+  CAT.forEach(function (it) {
+    if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.6 / 5) * 5);
+    if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.6));
+  });
   function byId(id) { for (var i = 0; i < CAT.length; i++) if (CAT[i].id === id) return CAT[i]; return null; }
   function byKey(k) { for (var i = 0; i < CAT.length; i++) if (CAT[i].key === k) return CAT[i]; return null; }
   function priceTxt(it) { return it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'; }

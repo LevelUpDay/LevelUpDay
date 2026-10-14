@@ -590,6 +590,11 @@
     { id: 'ui_classic', kind: 'uistyle', v: 'classic', icon: '🗂', n: ['Klassik interfeys', 'Classic UI', 'Классический интерфейс'], coins: 150,
       d: ['Eski toast, slayder va tasdiqlash oynalari', 'The old toasts, sliders and confirm dialogs', 'Старые уведомления, слайдеры и окна'] }
   ];
+  // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6). Dizayn va effekt narxlari o'z fayllarida xuddi shunday kamaytirilgan
+  SHOP.forEach(function (it) {
+    if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.6 / 5) * 5);
+    if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.6));
+  });
   // 🎨 Pullik fon dizaynlari (narxlar designs.js da — yagona manba). Egalik id: 'd_<dizayn>'
   try {
     if (window.LUDesign && window.LUDesign.catalog) window.LUDesign.catalog().forEach(function (d) {
@@ -754,10 +759,11 @@
   // Narx har bir o'zgartirilgan qism bo'yicha jonli hisoblanadi; oxirida to'lanadi.
   // Avval sotib olingan rang qayta tanlansa — bepul.
   // =========================================================
+  // (40% chegirmadan keyingi narxlar)
   var STUDIO_PRICE = {
-    accent: { coins: 150 },
-    nick: { coins: 100 }, nick2: { gems: 10 },
-    frame: { coins: 120 }, frame2: { gems: 12 }
+    accent: { coins: 90 },
+    nick: { coins: 60 }, nick2: { gems: 6 },
+    frame: { coins: 70 }, frame2: { gems: 7 }
   };
   function hsl2hex(h, s, l) {
     s /= 100; l /= 100;
@@ -772,23 +778,24 @@
     });
     return out.concat(['#ffffff', '#e4e4e7', '#a1a1aa', '#71717a', '#3f3f46', '#18181b', '#f5c542', '#c0c0c0', '#cd7f32']);
   })();
-  window.xOpenStudio = function () {
+  window.xOpenStudio = function (startTab) {
     var st = shopState();
     var cu = st.custom || {};
-    // Qoralama: joriy (sotib olingan) qiymatlardan boshlanadi
+    var hasD = !!window.LUDesign, hasFx = !!window.LUFx;
+    // Ranglar qoralamasi (sotib olingan qiymatlardan boshlanadi)
     var D = {
       accent: cu.accent || null,
       nick: cu.nick ? { a: cu.nick.a, b: cu.nick.b || null } : null,
       frame: cu.frame ? { a: cu.frame.a, b: cu.frame.b || null } : null
     };
-    var tab = 'accent', slot = 'a';
+    // Tanlovlar: hozir kiyilganlardan boshlanadi
+    var sel = { theme: st.theme || null, nick: st.nick || null, frame: st.frame || null, badge: st.badge || null, title: st.title || null, effect: st.effect || null,
+      uistyle: st.uistyle || null, design: hasD ? window.LUDesign.current() : null, ufx: (Array.isArray(st.ufx) ? st.ufx : []).slice() };
+    var tab = startTab || 'colors', ctab = 'accent', slot = 'a';
     var ov = document.createElement('div'); ov.className = 'xs-ov';
     ov.innerHTML = '<div class="xs-box" role="dialog" aria-modal="true">' +
-      '<div class="xs-head"><b>🎨 ' + H(L('Dizayn studiyasi', 'Design studio', 'Студия дизайна')) + '</b><button type="button" class="xs-x" aria-label="close">✕</button></div>' +
-      '<div class="xs-prev"></div>' +
-      '<div class="xs-tabs" role="tablist"></div>' +
-      '<div class="xs-body"></div>' +
-      '<div class="xs-foot"></div></div>';
+      '<div class="xs-head"><b>🛍 ' + H(L('Do\'kon studiyasi', 'Shop studio', 'Студия магазина')) + ' <span class="xs-sale">−40%</span></b><button type="button" class="xs-x" aria-label="close">✕</button></div>' +
+      '<div class="xs-prev"></div><div class="xs-tabs" role="tablist"></div><div class="xs-body"></div><div class="xs-foot"></div></div>';
     document.body.appendChild(ov);
     requestAnimationFrame(function () { ov.classList.add('open'); });
     var $ = function (q) { return ov.querySelector(q); };
@@ -799,85 +806,185 @@
     ov.addEventListener('pointerdown', function (e) { if (e.target === ov) close(); });
 
     function same(a, b) { return String(a || '').toLowerCase() === String(b || '').toLowerCase(); }
-    // Qaysi qismlar uchun to'lash kerak
+    function own(id) { return st.owned.indexOf(id) !== -1; }
+    function item(id) { return SHOP.find(function (x) { return x.id === id; }) || null; }
+    function nm(it) { return L(it.n[0], it.n[1], it.n[2]).replace(/^[^:]+:\s*/, ''); }
+    function pr(it) { return it.gems ? { gems: it.gems } : { coins: it.coins || 0 }; }
+    function prTxt(p) { return p.gems ? p.gems + ' 💎' : (p.coins || 0) + ' 🪙'; }
+    function gemsHave() { return typeof gemsAvailable === 'function' ? gemsAvailable() : S.gems || 0; }
+    function dCat() { return hasD ? window.LUDesign.catalog() : []; }
+
+    // Savat: [nom, narx, id?]
     function lines() {
       var out = [], owned = st.custom || {};
-      if (D.accent && !same(D.accent, owned.accent)) out.push([L('Ilova rangi', 'App color', 'Цвет приложения'), STUDIO_PRICE.accent]);
-      if (D.nick && D.nick.a) {
+      if (sel.theme === 'c_custom' && D.accent && !same(D.accent, owned.accent)) out.push(['🎨 ' + L('Ilova rangi', 'App color', 'Цвет приложения'), STUDIO_PRICE.accent]);
+      if (sel.nick === 'n_custom' && D.nick && D.nick.a) {
         var on = owned.nick || {};
-        if (!same(D.nick.a, on.a)) out.push([L('Nik rangi', 'Nickname color', 'Цвет ника'), STUDIO_PRICE.nick]);
-        if (D.nick.b && !same(D.nick.b, on.b)) out.push([L('Nik gradienti', 'Nickname gradient', 'Градиент ника'), STUDIO_PRICE.nick2]);
+        if (!same(D.nick.a, on.a)) out.push(['✏️ ' + L('Nik rangi', 'Nickname color', 'Цвет ника'), STUDIO_PRICE.nick]);
+        if (D.nick.b && !same(D.nick.b, on.b)) out.push(['✏️ ' + L('Nik gradienti', 'Nickname gradient', 'Градиент ника'), STUDIO_PRICE.nick2]);
       }
-      if (D.frame && D.frame.a) {
+      if (sel.frame === 'f_custom' && D.frame && D.frame.a) {
         var of = owned.frame || {};
-        if (!same(D.frame.a, of.a)) out.push([L('Ramka rangi', 'Frame color', 'Цвет рамки'), STUDIO_PRICE.frame]);
-        if (D.frame.b && !same(D.frame.b, of.b)) out.push([L('Ikkinchi halqa', 'Second ring', 'Второе кольцо'), STUDIO_PRICE.frame2]);
+        if (!same(D.frame.a, of.a)) out.push(['🖼 ' + L('Ramka rangi', 'Frame color', 'Цвет рамки'), STUDIO_PRICE.frame]);
+        if (D.frame.b && !same(D.frame.b, of.b)) out.push(['🖼 ' + L('Ikkinchi halqa', 'Second ring', 'Второе кольцо'), STUDIO_PRICE.frame2]);
       }
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) {
+        var id = sel[k], it = id && item(id);
+        if (it && !it.hidden && !own(id)) out.push([(it.icon || '') + ' ' + nm(it), pr(it), id]);
+      });
+      if (hasD && sel.design) {
+        var d = dCat().find(function (x) { return x.id === sel.design; });
+        if (d && d.price && !window.LUDesign.isOwned(d.id)) out.push(['🌌 ' + L(d.n[0], d.n[1], d.n[2]), d.price, 'd_' + d.id]);
+      }
+      sel.ufx.forEach(function (id) { var it = item(id); if (it && !own(id)) out.push([(it.icon || '✨') + ' ' + nm(it), pr(it), id]); });
       return out;
     }
     function total() { var c = 0, g = 0; lines().forEach(function (x) { c += x[1].coins || 0; g += x[1].gems || 0; }); return { coins: c, gems: g }; }
-    function gemsHave() { return typeof gemsAvailable === 'function' ? gemsAvailable() : S.gems || 0; }
+    // Hech narsa sotib olinmasa ham — kiyilgan narsalar o'zgardimi?
+    function changed() {
+      var cur = { theme: st.theme || null, nick: st.nick || null, frame: st.frame || null, badge: st.badge || null, title: st.title || null, effect: st.effect || null, uistyle: st.uistyle || null };
+      for (var k in cur) if ((sel[k] || null) !== cur[k]) return true;
+      if (hasD && sel.design !== window.LUDesign.current()) return true;
+      var a = (st.ufx || []).slice().sort().join(), b = sel.ufx.slice().sort().join();
+      return a !== b;
+    }
 
+    // ---------- Jonli ko'rinish ----------
+    function accentNow() {
+      if (sel.theme === 'c_custom' && D.accent) return D.accent;
+      var it = sel.theme && item(sel.theme);
+      if (it && it.id !== 'c_custom') return it.v;
+      return '#7C5CFC';
+    }
     function drawPrev() {
-      var acc = D.accent || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7C5CFC';
-      var n1 = D.nick && D.nick.a, n2 = D.nick && (D.nick.b || D.nick.a);
-      var f1 = D.frame && D.frame.a, f2 = D.frame && (D.frame.b || D.frame.a);
-      var name = H(getDisplayUsername() || 'Nick');
+      var acc = accentNow(), name = H(getDisplayUsername() || 'Nick');
+      var fr = sel.frame && item(sel.frame), nk = sel.nick && item(sel.nick), bd = sel.badge && item(sel.badge), tt = sel.title && item(sel.title);
+      var fCls = '', fSty = '', nCls = '', nSty = '';
+      if (fr) { if (fr.v === 'custom') { if (D.frame && D.frame.a) { fCls = ' xf-custom'; fSty = '--xcf1:' + D.frame.a + ';--xcf2:' + (D.frame.b || D.frame.a) + ';'; } } else fCls = ' xf-' + fr.v; }
+      if (nk) { if (nk.v === 'custom') { if (D.nick && D.nick.a) { nCls = ' xn-custom'; nSty = '--xcn1:' + D.nick.a + ';--xcn2:' + (D.nick.b || D.nick.a); } } else nCls = ' xn-' + nk.v; }
       $('.xs-prev').innerHTML =
-        '<div class="xs-pv-av' + (f1 ? ' xf-custom' : '') + '" style="' + (f1 ? '--xcf1:' + f1 + ';--xcf2:' + f2 + ';' : '') + 'background:' + acc + '">' + H((getDisplayUsername() || '?').charAt(0).toUpperCase()) + '</div>' +
-        '<div class="xs-pv-r"><div class="xs-pv-n' + (n1 ? ' xn-custom' : '') + '" style="' + (n1 ? '--xcn1:' + n1 + ';--xcn2:' + n2 : '') + '">' + name + '</div>' +
+        (hasD && sel.design ? '<span class="xs-pv-bg dz-prev dz-prev-' + H(sel.design) + '" aria-hidden="true"><span class="dz-prev-in"></span></span>' : '') +
+        '<div class="xs-pv-av' + fCls + '" style="' + fSty + 'background:' + acc + '">' + H((getDisplayUsername() || '?').charAt(0).toUpperCase()) + '</div>' +
+        '<div class="xs-pv-r"><div class="xs-pv-n"><span class="' + nCls.trim() + '" style="' + nSty + '">' + name + '</span>' + (bd ? ' <span class="x-nbadge">' + bd.v + '</span>' : '') + '</div>' +
+        (tt ? '<div class="xs-pv-t">' + H(L(tt.tv[0], tt.tv[1], tt.tv[2])) + '</div>' : '') +
         '<div class="xs-pv-bar"><i style="background:' + acc + '"></i></div>' +
         '<span class="xs-pv-btn" style="background:' + acc + '">+ ' + H(L('Vazifa', 'Task', 'Задача')) + '</span></div>';
     }
+
+    // ---------- Bo'limlar ----------
+    var TABS = [['colors', '🎨', L('Ranglar', 'Colors', 'Цвета')], ['designs', '🌌', L('Fonlar', 'Backgrounds', 'Фоны')], ['ufx', '✨', L('Effektlar', 'Effects', 'Эффекты')],
+      ['theme', '🎯', L('Mavzu', 'Theme', 'Тема')], ['frame', '🖼', L('Ramka', 'Frame', 'Рамка')], ['nick', '✏️', L('Nik', 'Nickname', 'Ник')], ['badge', '🏅', L('Nishon', 'Badge', 'Значок')],
+      ['title', '🏷', L('Unvon', 'Title', 'Титул')], ['effect', '🎉', L('Bajarilganda', 'On done', 'При выполнении')], ['uistyle', '🧩', L('Interfeys', 'UI', 'Интерфейс')]];
     function drawTabs() {
-      var T = [['accent', '🎨 ' + L('Ilova', 'App', 'Приложение')], ['nick', '✏️ ' + L('Nik', 'Nickname', 'Ник')], ['frame', '🖼 ' + L('Ramka', 'Frame', 'Рамка')]];
-      $('.xs-tabs').innerHTML = T.map(function (x) { return '<button type="button" role="tab" aria-selected="' + (tab === x[0]) + '" class="' + (tab === x[0] ? 'on' : '') + '" data-xs-tab="' + x[0] + '">' + H(x[1]) + '</button>'; }).join('');
+      $('.xs-tabs').innerHTML = TABS.filter(function (x) { return x[0] !== 'designs' || hasD; }).filter(function (x) { return x[0] !== 'ufx' || hasFx; }).map(function (x) {
+        return '<button type="button" role="tab" aria-selected="' + (tab === x[0]) + '" class="' + (tab === x[0] ? 'on' : '') + '" data-xs-tab="' + x[0] + '"><span>' + x[1] + '</span>' + H(x[2]) + '</button>';
+      }).join('');
       ov.querySelectorAll('[data-xs-tab]').forEach(function (b) { b.onclick = function () { tab = b.dataset.xsTab; slot = 'a'; drawTabs(); drawBody(); }; });
+      var on = $('.xs-tabs .on'); if (on) try { on.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) {}
     }
-    function cur() { return tab === 'accent' ? D.accent : (D[tab] ? D[tab][slot] : null); }
-    function setColor(hex) {
-      if (!isHex(hex)) return;
-      if (tab === 'accent') D.accent = hex;
-      else { D[tab] = D[tab] || { a: null, b: null }; if (slot === 'b' && !D[tab].a) D[tab].a = hex; D[tab][slot] = hex; }
-      try { SFX.click(); } catch (e) {}
-      drawPrev(); drawBody(); drawFoot();
+    function cardHtml(id, inner, nameTxt, price, selected, note) {
+      var owned = price == null || own(id) || (id.indexOf('d_') === 0 && hasD && window.LUDesign.isOwned(id.slice(2)));
+      return '<button type="button" class="xs-it' + (selected ? ' on' : '') + '" data-xs-pick="' + H(id) + '" aria-pressed="' + selected + '">' + inner +
+        '<span class="xs-it-n">' + H(nameTxt) + '</span>' + (note ? '<span class="xs-it-note">' + H(note) + '</span>' : '') +
+        '<span class="xs-it-p">' + (selected ? '✓ ' : '') + (owned ? H(price == null ? L('Bepul', 'Free', 'Бесплатно') : L('Sizda bor', 'Owned', 'Есть')) : prTxt(price)) + '</span></button>';
+    }
+    function noneCard(kind) {
+      return '<button type="button" class="xs-it xs-none' + (!sel[kind] ? ' on' : '') + '" data-xs-pick="none:' + kind + '" aria-pressed="' + !sel[kind] + '"><span class="xs-it-pv">∅</span><span class="xs-it-n">' + H(L('Yo\'q', 'None', 'Нет')) + '</span><span class="xs-it-p">' + (!sel[kind] ? '✓' : '') + '</span></button>';
+    }
+    function prevOf(it) {
+      var u = H((getDisplayUsername() || '?').charAt(0).toUpperCase()), n = H(getDisplayUsername() || 'Nick');
+      if (it.kind === 'frame') return '<span class="xs-it-pv"><span class="x-shop-av xf-' + it.v + '">' + u + '</span></span>';
+      if (it.kind === 'nick') return '<span class="xs-it-pv"><span class="x-shop-nk xn-' + it.v + '">' + n + '</span></span>';
+      if (it.kind === 'theme') return '<span class="xs-it-pv"><span class="x-shop-th" style="--tc:' + it.v + '"><i></i><i></i><i></i></span></span>';
+      if (it.kind === 'effect') return '<span class="xs-it-pv xs-it-fx">' + it.v + '</span>';
+      if (it.kind === 'badge') return '<span class="xs-it-pv"><span class="x-shop-nk">' + n + ' ' + it.v + '</span></span>';
+      if (it.kind === 'title') return '<span class="xs-it-pv"><span class="x-shop-tt">' + H(L(it.tv[0], it.tv[1], it.tv[2])) + '</span></span>';
+      if (it.kind === 'uistyle') return '<span class="xs-it-pv"><span class="x-shop-ui"><i></i><i></i><i></i></span></span>';
+      if (it.kind === 'ufx') return '<span class="xs-it-pv">' + (hasFx ? window.LUFx.previewHtml(it.v) : it.icon) + '</span>';
+      return '<span class="xs-it-pv">' + (it.icon || '') + '</span>';
     }
     function drawBody() {
       var h = '';
-      if (tab !== 'accent') {
-        var two = !!(D[tab] && D[tab].b);
-        h += '<div class="xs-slots"><button type="button" class="' + (slot === 'a' ? 'on' : '') + '" data-xs-slot="a"><i style="background:' + ((D[tab] && D[tab].a) || 'transparent') + '"></i>' + H(L('1-rang', 'Color 1', 'Цвет 1')) + '</button>' +
-          '<button type="button" class="' + (slot === 'b' ? 'on' : '') + '" data-xs-slot="b"><i style="background:' + ((D[tab] && D[tab].b) || 'transparent') + '"></i>' + H(tab === 'nick' ? L('Gradient', 'Gradient', 'Градиент') : L('2-halqa', 'Ring 2', 'Кольцо 2')) + ' <small>💎</small></button>' +
+      if (tab === 'colors') h = colorsHtml();
+      else if (tab === 'designs') {
+        h = '<div class="xs-grid">' + dCat().map(function (d) {
+          var inner = '<span class="xs-it-pv dz-prev dz-prev-' + d.id + '"><span class="dz-prev-in"></span></span>';
+          return cardHtml('d_' + d.id, inner, L(d.n[0], d.n[1], d.n[2]), d.price || null, sel.design === d.id);
+        }).join('') + '</div>';
+      } else if (tab === 'ufx') {
+        h = '<div class="xs-hint">' + H(L('Bir nechtasini tanlash mumkin', 'You can pick several', 'Можно выбрать несколько')) + '</div><div class="xs-grid">' +
+          SHOP.filter(function (x) { return x.kind === 'ufx'; }).map(function (it) {
+            return cardHtml(it.id, prevOf(it), nm(it), pr(it), sel.ufx.indexOf(it.id) !== -1, it.desktop ? '🖱 ' + L('Faqat kompyuterda', 'Desktop only', 'Только ПК') : '');
+          }).join('') + '</div>';
+      } else {
+        var list = SHOP.filter(function (x) { return x.kind === tab && !x.hidden; });
+        h = '<div class="xs-grid">' + (tab === 'uistyle' ? '' : noneCard(tab)) + list.map(function (it) {
+          return cardHtml(it.id, prevOf(it), nm(it), pr(it), sel[tab] === it.id, tab === 'uistyle' ? L(it.d[0], it.d[1], it.d[2]) : '');
+        }).join('') + '</div>';
+        if (tab === 'uistyle') h = '<div class="xs-hint">' + H(L('Standart — yangi interfeys (bepul). Klassik — eski ko\'rinish.', 'Default — the new UI (free). Classic — the old look.', 'По умолчанию — новый интерфейс. Классика — старый вид.')) + '</div>' + h;
+      }
+      $('.xs-body').innerHTML = h;
+      if (tab === 'colors') bindColors();
+      ov.querySelectorAll('[data-xs-pick]').forEach(function (b) { b.onclick = function () { pick(b.dataset.xsPick, b); }; });
+    }
+    function pick(id, el) {
+      try { SFX.click(); } catch (e) {}
+      if (id.indexOf('none:') === 0) { sel[id.slice(5)] = null; }
+      else if (id.indexOf('d_') === 0) { sel.design = id.slice(2); }
+      else {
+        var it = item(id); if (!it) return;
+        if (it.kind === 'ufx') { var i = sel.ufx.indexOf(id); if (i === -1) sel.ufx.push(id); else sel.ufx.splice(i, 1); }
+        else if (it.kind === 'uistyle') sel.uistyle = sel.uistyle === id ? null : id;
+        else {
+          sel[it.kind] = sel[it.kind] === id ? null : id;
+          if (it.kind === 'effect' && sel.effect && el) { var r = el.getBoundingClientRect(); try { fxBurst(it.v, r.left + r.width / 2, r.top + r.height / 2); } catch (e) {} }
+        }
+      }
+      drawPrev(); drawBody(); drawFoot();
+    }
+
+    // ---------- Ranglar (o'zingiz yaratasiz) ----------
+    function colorsHtml() {
+      var CT = [['accent', '🎨 ' + L('Ilova', 'App', 'Приложение')], ['nick', '✏️ ' + L('Nik', 'Nickname', 'Ник')], ['frame', '🖼 ' + L('Ramka', 'Frame', 'Рамка')]];
+      var h = '<div class="xs-seg">' + CT.map(function (x) { return '<button type="button" class="' + (ctab === x[0] ? 'on' : '') + '" data-xs-ctab="' + x[0] + '">' + H(x[1]) + '</button>'; }).join('') + '</div>';
+      if (ctab !== 'accent') {
+        var two = !!(D[ctab] && D[ctab].b);
+        h += '<div class="xs-slots"><button type="button" class="' + (slot === 'a' ? 'on' : '') + '" data-xs-slot="a"><i style="background:' + ((D[ctab] && D[ctab].a) || 'transparent') + '"></i>' + H(L('1-rang', 'Color 1', 'Цвет 1')) + '</button>' +
+          '<button type="button" class="' + (slot === 'b' ? 'on' : '') + '" data-xs-slot="b"><i style="background:' + ((D[ctab] && D[ctab].b) || 'transparent') + '"></i>' + H(ctab === 'nick' ? L('Gradient', 'Gradient', 'Градиент') : L('2-halqa', 'Ring 2', 'Кольцо 2')) + ' <small>💎</small></button>' +
           (two ? '<button type="button" class="xs-mini" data-xs-clear2="1">✕ ' + H(L('2-rangni olib tashlash', 'Remove color 2', 'Убрать цвет 2')) + '</button>' : '') + '</div>';
       }
-      var c = cur();
+      var c = curColor();
       h += '<div class="xs-sw" role="listbox" aria-label="' + H(L('Ranglar', 'Colors', 'Цвета')) + '">' + STUDIO_SWATCHES.map(function (x) {
         return '<button type="button" role="option" aria-selected="' + same(c, x) + '" class="' + (same(c, x) ? 'on' : '') + '" style="background:' + x + '" data-xs-c="' + x + '" title="' + x + '"></button>';
       }).join('') + '</div>' +
         '<label class="xs-custom"><input type="color" value="' + (isHex(c) ? c : '#7c5cfc') + '" /><span>🌈 ' + H(L('Boshqa istalgan rang', 'Any other color', 'Любой другой цвет')) + '</span><code>' + H(c || '—') + '</code></label>' +
-        '<button type="button" class="xs-reset">↺ ' + H(L('Bu qismni standartga qaytarish', 'Reset this part to default', 'Сбросить эту часть')) + '</button>';
-      $('.xs-body').innerHTML = h;
-      ov.querySelectorAll('[data-xs-c]').forEach(function (b) { b.onclick = function () { setColor(b.dataset.xsC); }; });
+        '<button type="button" class="xs-reset">↺ ' + H(L('Bu rangni olib tashlash', 'Remove this color', 'Убрать этот цвет')) + '</button>';
+      return h;
+    }
+    function ckey() { return ctab === 'accent' ? 'theme' : ctab; }
+    function cid() { return ctab === 'accent' ? 'c_custom' : ctab === 'nick' ? 'n_custom' : 'f_custom'; }
+    function curColor() { return ctab === 'accent' ? D.accent : (D[ctab] ? D[ctab][slot] : null); }
+    function putColor(hex) {
+      if (ctab === 'accent') D.accent = hex;
+      else { D[ctab] = D[ctab] || { a: null, b: null }; if (slot === 'b' && !D[ctab].a) D[ctab].a = hex; D[ctab][slot] = hex; }
+      sel[ckey()] = cid(); // o'z rangi tanlansa — shu qism kiyiladi
+    }
+    function bindColors() {
+      ov.querySelectorAll('[data-xs-ctab]').forEach(function (b) { b.onclick = function () { ctab = b.dataset.xsCtab; slot = 'a'; drawBody(); }; });
+      ov.querySelectorAll('[data-xs-c]').forEach(function (b) { b.onclick = function () { if (!isHex(b.dataset.xsC)) return; putColor(b.dataset.xsC); try { SFX.click(); } catch (e) {} drawPrev(); drawBody(); drawFoot(); }; });
       ov.querySelectorAll('[data-xs-slot]').forEach(function (b) { b.onclick = function () { slot = b.dataset.xsSlot; drawBody(); }; });
-      var c2 = ov.querySelector('[data-xs-clear2]'); if (c2) c2.onclick = function () { if (D[tab]) D[tab].b = null; slot = 'a'; drawPrev(); drawBody(); drawFoot(); };
+      var c2 = ov.querySelector('[data-xs-clear2]'); if (c2) c2.onclick = function () { if (D[ctab]) D[ctab].b = null; slot = 'a'; drawPrev(); drawBody(); drawFoot(); };
       var inp = ov.querySelector('.xs-custom input');
-      inp.oninput = function () { setColorLive(inp.value); };
-      inp.onchange = function () { setColor(inp.value); };
+      inp.oninput = function () { if (!isHex(inp.value)) return; putColor(inp.value); drawPrev(); drawFoot(); var code = ov.querySelector('.xs-custom code'); if (code) code.textContent = inp.value; };
+      inp.onchange = function () { drawBody(); };
       ov.querySelector('.xs-reset').onclick = function () {
-        if (tab === 'accent') D.accent = null; else D[tab] = null;
-        // Qism standartga qaytariladi (bepul) — kiyilgan bo'lsa yechiladi
-        var key = tab === 'accent' ? 'theme' : tab, id = tab === 'accent' ? 'c_custom' : tab === 'nick' ? 'n_custom' : 'f_custom';
-        if (st[key] === id) { st[key] = null; save(); try { shopApply(); render(); } catch (e) {} }
+        if (ctab === 'accent') D.accent = null; else D[ctab] = null;
+        if (sel[ckey()] === cid()) sel[ckey()] = null;
         drawPrev(); drawBody(); drawFoot();
       };
     }
-    // Native rang tanlagichni sudrayotganda — faqat ko'rinish yangilanadi
-    function setColorLive(hex) {
-      if (!isHex(hex)) return;
-      if (tab === 'accent') D.accent = hex; else { D[tab] = D[tab] || { a: null, b: null }; if (slot === 'b' && !D[tab].a) D[tab].a = hex; D[tab][slot] = hex; }
-      drawPrev(); drawFoot();
-      var code = ov.querySelector('.xs-custom code'); if (code) code.textContent = hex;
-    }
+
+    // ---------- Pastki qism: jamlanma narx ----------
     var shown = { coins: 0, gems: 0 };
     function animNum(node, from, to) {
       if (from === to || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) { node.textContent = to; return; }
@@ -886,57 +993,54 @@
     }
     function drawFoot() {
       var ls = lines(), t = total();
-      var okC = (S.coins || 0) >= t.coins, okG = gemsHave() >= t.gems, empty = !ls.length;
-      var anyApply = !empty || hasUnappliedOwned();
+      var okC = (S.coins || 0) >= t.coins, okG = gemsHave() >= t.gems, ch = changed() || ls.length;
       $('.xs-foot').innerHTML =
-        (ls.length ? '<div class="xs-lines">' + ls.map(function (x) { return '<div><span>' + H(x[0]) + '</span><b>' + (x[1].gems ? x[1].gems + ' 💎' : x[1].coins + ' 🪙') + '</b></div>'; }).join('') + '</div>' : '') +
-        '<div class="xs-total"><span>' + H(L('Jami', 'Total', 'Итого')) + '</span><span class="xs-sum"><b class="xs-tc' + (okC ? '' : ' bad') + '">0</b> 🪙' +
+        (ls.length ? '<div class="xs-lines">' + ls.map(function (x) { return '<div><span>' + H(x[0]) + '</span><b>' + prTxt(x[1]) + '</b></div>'; }).join('') + '</div>' : '') +
+        '<div class="xs-total"><span>' + H(L('Jami', 'Total', 'Итого')) + ' <small class="xs-n">' + (ls.length ? ls.length + ' ' + H(L('ta narsa', 'item(s)', 'шт.')) : '') + '</small></span><span class="xs-sum"><b class="xs-tc' + (okC ? '' : ' bad') + '">0</b> 🪙' +
           (t.gems ? ' + <b class="xs-tg' + (okG ? '' : ' bad') + '">0</b> 💎' : '') + '</span></div>' +
         '<div class="xs-bal">' + H(L('Balans', 'Balance', 'Баланс')) + ': ' + (S.coins || 0) + ' 🪙 · ' + gemsHave() + ' 💎</div>' +
-        '<button type="button" class="xs-pay"' + ((!anyApply || !okC || !okG) ? ' disabled' : '') + '>' +
-          (empty ? (hasUnappliedOwned() ? '✅ ' + H(L('Qo\'llash (bepul)', 'Apply (free)', 'Применить (бесплатно)'))
-              : (D.accent || D.nick || D.frame) ? '✅ ' + H(L('Qo\'llangan — yangi rang tanlang', 'Applied — pick a new color', 'Применено — выберите новый цвет'))
-              : H(L('Rang tanlang', 'Pick a color', 'Выберите цвет')))
-            : (!okC || !okG) ? H(L('Mablag\' yetarli emas', 'Not enough funds', 'Недостаточно средств'))
-            : '💳 ' + H(L('To\'lash va qo\'llash', 'Pay & apply', 'Оплатить и применить'))) + '</button>';
+        '<button type="button" class="xs-pay"' + ((!ch || !okC || !okG) ? ' disabled' : '') + '>' +
+          (!ch ? H(L('Biror narsa tanlang', 'Pick something', 'Выберите что-нибудь'))
+            : (!okC || !okG) ? H(L('Mablag\'', 'Funds', 'Средств')) + ' ' + H(L('yetarli emas', 'not enough', 'недостаточно'))
+            : ls.length ? '💳 ' + H(L('To\'lash va qo\'llash', 'Pay & apply', 'Оплатить и применить')) : '✅ ' + H(L('Qo\'llash (bepul)', 'Apply (free)', 'Применить (бесплатно)'))) + '</button>';
       var tc = $('.xs-tc'), tg = $('.xs-tg');
       if (tc) animNum(tc, shown.coins, t.coins);
       if (tg) animNum(tg, shown.gems, t.gems);
       shown = t;
       $('.xs-pay').onclick = pay;
     }
-    // Sotib olingan, lekin hozir kiyilmagan qismlar bormi?
-    function hasUnappliedOwned() {
-      var o = st.custom || {};
-      return (D.accent && same(D.accent, o.accent) && st.theme !== 'c_custom') ||
-        (D.nick && D.nick.a && same(D.nick.a, (o.nick || {}).a) && st.nick !== 'n_custom') ||
-        (D.frame && D.frame.a && same(D.frame.a, (o.frame || {}).a) && st.frame !== 'f_custom');
-    }
     function commit() {
-      var t = total();
+      var ls = lines(), t = total();
       if ((S.coins || 0) < t.coins || gemsHave() < t.gems) return false;
-      var nm = '🎨 ' + L('Dizayn studiyasi', 'Design studio', 'Студия дизайна');
-      if (t.coins) addCoins(-t.coins, nm);
-      if (t.gems) gemsAdd(-t.gems, 'shop', nm, true);
+      var title = '🛍 ' + L('Do\'kon studiyasi', 'Shop studio', 'Студия магазина');
+      if (t.coins) addCoins(-t.coins, title);
+      if (t.gems) gemsAdd(-t.gems, 'shop', title, true);
+      ls.forEach(function (x) { if (x[2] && st.owned.indexOf(x[2]) === -1) st.owned.push(x[2]); });
+      // O'z ranglari
       st.custom = st.custom || {};
-      if (D.accent) { st.custom.accent = D.accent; if (st.owned.indexOf('c_custom') === -1) st.owned.push('c_custom'); st.theme = 'c_custom'; }
-      if (D.nick && D.nick.a) { st.custom.nick = { a: D.nick.a, b: D.nick.b || null }; if (st.owned.indexOf('n_custom') === -1) st.owned.push('n_custom'); st.nick = 'n_custom'; }
-      if (D.frame && D.frame.a) { st.custom.frame = { a: D.frame.a, b: D.frame.b || null }; if (st.owned.indexOf('f_custom') === -1) st.owned.push('f_custom'); st.frame = 'f_custom'; }
+      if (sel.theme === 'c_custom' && D.accent) { st.custom.accent = D.accent; if (!own('c_custom')) st.owned.push('c_custom'); }
+      if (sel.nick === 'n_custom' && D.nick && D.nick.a) { st.custom.nick = { a: D.nick.a, b: D.nick.b || null }; if (!own('n_custom')) st.owned.push('n_custom'); }
+      if (sel.frame === 'f_custom' && D.frame && D.frame.a) { st.custom.frame = { a: D.frame.a, b: D.frame.b || null }; if (!own('f_custom')) st.owned.push('f_custom'); }
+      // Kiyish
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { var id = sel[k]; st[k] = id && own(id) ? id : null; });
+      st.ufx = sel.ufx.filter(own);
       save();
+      if (hasD && sel.design && sel.design !== window.LUDesign.current()) { try { window.LUDesign.apply(sel.design); } catch (e) {} }
       try { shopApply(); render(); } catch (e) {}
-      try { SFX.coin(); confetti(); } catch (e) {}
+      try { if (hasFx) window.LUFx.sync(); } catch (e) {}
+      try { if (window.LUWidgets) window.LUWidgets.sync(); } catch (e) {}
+      if (t.coins || t.gems) { try { SFX.coin(); confetti(); } catch (e) {} }
       renderHubSection('shop');
-      toast('🎨 ' + (t.coins || t.gems ? L('Dizayn sotib olindi va qo\'llandi!', 'Design purchased & applied!', 'Дизайн куплен и применён!') : L('Dizayn qo\'llandi', 'Design applied', 'Дизайн применён')));
-      drawFoot();
+      toast(t.coins || t.gems ? '🛍 ' + L('Sotib olindi va qo\'llandi!', 'Purchased & applied!', 'Куплено и применено!') : '✅ ' + L('Qo\'llandi', 'Applied', 'Применено'));
       return true;
     }
     function pay() {
       var t = total();
-      if (!t.coins && !t.gems) { commit(); close(); return; }
+      if (!t.coins && !t.gems) { if (commit()) close(); return; }
       var price = (t.coins ? t.coins + ' 🪙' : '') + (t.coins && t.gems ? ' + ' : '') + (t.gems ? t.gems + ' 💎' : '');
-      var title = '🎨 ' + L('Dizayn studiyasi', 'Design studio', 'Студия дизайна');
+      var title = '🛍 ' + L('Do\'kon studiyasi', 'Shop studio', 'Студия магазина');
       if (window.LUWidgets && window.LUWidgets.active()) {
-        window.LUWidgets.slideConfirm({ icon: '🎨', title: title, message: price,
+        window.LUWidgets.slideConfirm({ icon: '🛍', title: title, message: lines().length + ' ' + L('ta narsa', 'item(s)', 'шт.') + ' · ' + price,
           label: L('Surib to\'lang', 'Slide to pay', 'Сдвиньте для оплаты'), doneLabel: L('To\'landi', 'Paid', 'Оплачено'),
           errorLabel: L('Mablag\' yetarli emas', 'Not enough funds', 'Недостаточно средств'),
           onConfirm: function () { var ok = commit(); if (ok) setTimeout(close, 1150); return ok; } });
@@ -1130,8 +1234,8 @@
       ['theme', '🎨 ' + L('Ilova rangi', 'App color', 'Цвет приложения')], ['effect', '🎉 ' + L('Bajarilganda effekt', 'Task-done effect', 'Эффект выполнения')],
       ['uistyle', '🧩 ' + L('Interfeys uslubi', 'UI style', 'Стиль интерфейса')]];
     var h = '<div class="x-shop-bal"><span>🪙 <b>' + (S.coins || 0) + '</b></span><span>💎 <b>' + (S.gems || 0) + '</b></span></div>';
-    h += '<button type="button" class="xs-open" data-studio-open="1"><span class="xs-open-sw" aria-hidden="true"></span><span class="xs-open-t"><b>🎨 ' + H(L('Dizayn studiyasi', 'Design studio', 'Студия дизайна')) + '</b>' +
-      '<span>' + H(L('Istalgan rangni tanlang: ilova, nik, ramka. Narx pastda hisoblanadi', 'Pick any color for app, nickname and frame. Price adds up below', 'Любой цвет для приложения, ника и рамки. Цена считается внизу')) + '</span></span><span class="xs-open-go">›</span></button>';
+    h += '<button type="button" class="xs-open" data-studio-open="1"><span class="xs-open-sw" aria-hidden="true"></span><span class="xs-open-t"><b>🛍 ' + H(L('Do\'kon studiyasi', 'Shop studio', 'Студия магазина')) + ' <span class="xs-sale">−40%</span></b>' +
+      '<span>' + H(L('Hammasi bitta oynada: ranglar, fonlar, effektlar, ramka, nik, nishon, unvon. Narx pastda jamlanadi, oxirida to\'laysiz', 'Everything in one window: colors, backgrounds, effects, frames, nicknames, badges, titles. Total adds up below, pay at the end', 'Всё в одном окне: цвета, фоны, эффекты, рамки, ники, значки, титулы. Итог внизу, оплата в конце')) + '</span></span><span class="xs-open-go">›</span></button>';
     // Bo'limlarga tez o'tish
     h += '<div class="x-shop-cats">' + [['design', '🎨 ' + L('Dizaynlar', 'Designs', 'Дизайны')], ['ufx', '✨ ' + L('Effektlar', 'Effects', 'Эффекты')]].concat(groups.map(function (g) { return [g[0], g[1]]; }))
       .map(function (g) { return '<button type="button" data-shop-cat="' + g[0] + '">' + H(g[1]) + '</button>'; }).join('') + '</div>';
