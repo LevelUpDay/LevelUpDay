@@ -275,3 +275,13 @@ func TestCategories(t *testing.T) {
 		t.Fatal("cats override / fokus kategoriyasi")
 	}
 }
+
+func TestSiteOfByLabel(t *testing.T) {
+	rules := []Rule{{App: "site:kun.uz", Label: "Kun.uz"}, {App: "site:github.com", Label: "GitHub"}}
+	if s, ok := SiteOf("Kun.uz — so'nggi yangiliklar - Google Chrome", rules); !ok || s.Key != "site:kun.uz" {
+		t.Fatalf("kun.uz: %v %v", s, ok)
+	}
+	if s, ok := SiteOf("LevelUpDay/LevelUpDay · GitHub - Google Chrome", rules); !ok || s.Key != "site:github.com" {
+		t.Fatalf("github: %v %v", s, ok)
+	}
+}

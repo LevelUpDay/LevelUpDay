@@ -1859,20 +1859,27 @@ var I18N = {
     focus_player_desc: "Diqqatni jamlash uchun tinch fon tovushini tanlang va balandligini sozlang. Boshqa sahifaga o'tsangiz ham pleyer burchakda kichik pufakcha bo'lib chalinishda davom etadi.",
     focus_volume_label: '🔈 Balandlik',
     focus_sound_rain: "Yengil yomg'ir",
-    focus_sound_storm: "Momaqaldiroqli bo'ron",
-    focus_sound_forest: "O'rmon va qushlar",
+    focus_sound_storm: "Momaqaldiroq",
+    focus_sound_forest: "O'rmon qushlari",
     focus_sound_ocean: "Dengiz to'lqinlari",
     focus_sound_white: 'Oq shovqin',
     focus_sound_brown: 'Jigarrang shovqin',
-    focus_sound_fire: 'Kamin gulduri',
+    focus_sound_fire: 'Gulxan',
     focus_sound_lofi: 'Lo-Fi tinch ohang',
     focus_sound_pink: 'Pushti shovqin',
     focus_sound_crickets: "Tungi chirildoqlar",
     focus_sound_bowl: "Meditatsiya qo'ng'irog'i",
-    focus_sound_space: 'Kosmik tinchlik',
+    focus_sound_space: 'Kosmos',
     focus_sound_guitar: 'Akustik gitara',
     focus_sound_marimba: 'Marimba orzulari',
-    focus_generated_note: '🎛️ Barchasi shu yerda generatsiya qilinadi — hech qanday fayl yuklanmaydi',
+    focus_sound_window: "Derazadagi yomg'ir",
+    focus_sound_river: "Tog' daryosi",
+    focus_sound_wind: "Daraxtlardagi shamol",
+    focus_sound_night: "Yozgi tun",
+    focus_sound_cafe: "Shinam kafe",
+    focus_sound_library: "Kutubxona",
+    focus_sound_train: "Poyezdda",
+    focus_generated_note: "🎧 Haqiqiy yozuvlar — bir marta yuklanadi, keyin internetsiz ham ishlaydi",
     gamification_rules_card_title: "🎮 O'yin qoidalari",
     difficulty_title: "⚔️ O'yin qiyinligi",
     difficulty_desc: "Tanlangan daraja Coin/XP mukofotiga ta'sir qiladi: Easy — ko'proq mukofot, Normal — standart, Hardcore — kamroq mukofot, lekin qiyinroq.",
@@ -3472,15 +3479,22 @@ var I18N = {
     focus_sound_ocean: 'Ocean Waves',
     focus_sound_white: 'White Noise',
     focus_sound_brown: 'Brown Noise',
-    focus_sound_fire: 'Crackling Fireplace',
+    focus_sound_fire: 'Campfire',
     focus_sound_lofi: 'Lo-Fi Chill Ambience',
     focus_sound_pink: 'Pink Noise',
     focus_sound_crickets: 'Night Crickets',
     focus_sound_bowl: 'Meditation Singing Bowl',
-    focus_sound_space: 'Deep Space Calm',
+    focus_sound_space: 'Deep Space',
     focus_sound_guitar: 'Acoustic Guitar Chill',
     focus_sound_marimba: 'Soft Marimba Dreams',
-    focus_generated_note: '🎛️ Generated live in your browser — nothing is downloaded or stored',
+    focus_sound_window: 'Rain on the Window',
+    focus_sound_river: 'Mountain River',
+    focus_sound_wind: 'Wind in the Trees',
+    focus_sound_night: 'Summer Night',
+    focus_sound_cafe: 'Cozy Café',
+    focus_sound_library: 'Library',
+    focus_sound_train: 'On a Train',
+    focus_generated_note: '🎧 Real recordings — downloaded once, then work offline',
     focus_stream_error: '⚠️ Stream failed to load, trying another source…',
     focus_installing_status: '⬇️ Downloading for the first time… please wait',
     focus_install_fail_status: '⚠️ Download failed, check your connection and try again',
@@ -5079,15 +5093,22 @@ var I18N = {
     focus_sound_ocean: 'Морские волны',
     focus_sound_white: 'Белый шум',
     focus_sound_brown: 'Коричневый шум',
-    focus_sound_fire: 'Потрескивание камина',
+    focus_sound_fire: 'Костёр',
     focus_sound_lofi: 'Спокойный Lo-Fi',
     focus_sound_pink: 'Розовый шум',
     focus_sound_crickets: 'Ночные сверчки',
     focus_sound_bowl: 'Поющая чаша',
-    focus_sound_space: 'Космическое спокойствие',
+    focus_sound_space: 'Глубокий космос',
     focus_sound_guitar: 'Акустическая гитара',
     focus_sound_marimba: 'Мягкая маримба',
-    focus_generated_note: '🎛️ Генерируется прямо в браузере — ничего не скачивается и не хранится',
+    focus_sound_window: 'Дождь за окном',
+    focus_sound_river: 'Горная река',
+    focus_sound_wind: 'Ветер в деревьях',
+    focus_sound_night: 'Летняя ночь',
+    focus_sound_cafe: 'Уютное кафе',
+    focus_sound_library: 'Библиотека',
+    focus_sound_train: 'В поезде',
+    focus_generated_note: '🎧 Настоящие записи — загружаются один раз, потом работают офлайн',
     focus_stream_error: '⚠️ Поток не загрузился, пробуем другой источник…',
     focus_installing_status: '⬇️ Загружается в первый раз… подождите немного',
     focus_install_fail_status: '⚠️ Не удалось загрузить, проверьте соединение и попробуйте снова',
@@ -6865,21 +6886,58 @@ var FocusAudio = (function () {
     return { bus: bus, sources: [padOsc], stops: stops };
   }
 
+  // ---- Haqiqiy yozuvlar (sounds/*.mp3): choksiz halqa bo'lib aylanadi. Yuklanmasa (oflayn) — sintez zaxirasi ----
+  var fileBufs = {};
+  function loadSound(id) {
+    if (fileBufs[id]) return fileBufs[id];
+    var c = ac();
+    var p = fetch('sounds/' + id + '.mp3').then(function (r) {
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.arrayBuffer();
+    }).then(function (ab) {
+      return new Promise(function (res, rej) { c.decodeAudioData(ab, res, rej); });
+    });
+    fileBufs[id] = p;
+    p.catch(function () { delete fileBufs[id]; });
+    return p;
+  }
+  function buildFile(id, gain, fallback) {
+    var c = ac(), bus = makeBus();
+    var g = c.createGain(); g.gain.value = gain || 1; g.connect(bus);
+    var node = { bus: bus, sources: [], stops: [] }, dead = false;
+    node.stops.push(function () { dead = true; });
+    loadSound(id).then(function (buf) {
+      if (dead) return;
+      var src = c.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      src.connect(g);
+      src.start();
+      node.sources.push(src);
+    }).catch(function () {
+      if (dead || !fallback) return;
+      var fb = fallback();
+      node.stops.push(function () { teardown(fb); });
+    });
+    return node;
+  }
+  function file(id, gain, fallback) { return function () { return buildFile(id, gain, fallback); }; }
+
   var BUILDERS = {
-    rain: function () { return buildRain(false); },
-    storm: function () { return buildRain(true); },
-    forest: buildForest,
-    ocean: buildOcean,
-    white: buildWhite,
-    brown: buildBrown,
-    fire: buildFire,
-    lofi: buildLofi,
-    pink: buildPink,
-    crickets: buildCrickets,
-    bowl: buildBowl,
-    space: buildSpace,
-    guitar: buildGuitar,
-    marimba: buildMarimba
+    rain: file('rain', 1, function () { return buildRain(false); }),
+    storm: file('storm', 1.1, function () { return buildRain(true); }),
+    window: file('window', 1, function () { return buildRain(false); }),
+    ocean: file('ocean', 1, buildOcean),
+    river: file('river', 1, buildOcean),
+    fire: file('fire', 1.1, buildFire),
+    forest: file('forest', 1.1, buildForest),
+    wind: file('wind', 0.85, buildOcean),
+    night: file('night', 1, buildCrickets),
+    cafe: file('cafe', 0.9, buildPink),
+    library: file('library', 0.8, buildBrown),
+    train: file('train', 0.8, buildBrown),
+    space: file('space', 0.9, buildSpace),
+    bowl: file('bowl', 1.5, buildBowl),
+    brown: buildBrown
   };
 
   function teardown(node) {
@@ -6969,25 +7027,30 @@ var FocusAudio = (function () {
 })();
 
 // ---- Ambient Focus Sound: sozlamalar, UI va boshqaruv funksiyalari ----
+// 15 ta fon tovushi — haqiqiy yozuvlar (sounds/, CREDITS.md) + brauzerda yaratiladigan jigarrang shovqin
 var FOCUS_SOUNDS = {
-  rain:   { icon: '🌧️', labelKey: 'focus_sound_rain' },
-  storm:  { icon: '⛈️', labelKey: 'focus_sound_storm' },
-  forest: { icon: '🌲', labelKey: 'focus_sound_forest' },
-  ocean:  { icon: '🌊', labelKey: 'focus_sound_ocean' },
-  white:  { icon: '🤍', labelKey: 'focus_sound_white' },
-  brown:  { icon: '🟤', labelKey: 'focus_sound_brown' },
-  fire:   { icon: '🔥', labelKey: 'focus_sound_fire' },
-  lofi:   { icon: '🎹', labelKey: 'focus_sound_lofi' },
-  pink:   { icon: '🌸', labelKey: 'focus_sound_pink' },
-  crickets: { icon: '🦗', labelKey: 'focus_sound_crickets' },
-  bowl:   { icon: '🎐', labelKey: 'focus_sound_bowl' },
-  space:  { icon: '🌌', labelKey: 'focus_sound_space' },
-  guitar: { icon: '🎸', labelKey: 'focus_sound_guitar' },
-  marimba: { icon: '🎼', labelKey: 'focus_sound_marimba' }
+  rain:    { icon: '🌧️', labelKey: 'focus_sound_rain' },
+  storm:   { icon: '⛈️', labelKey: 'focus_sound_storm' },
+  window:  { icon: '🪟', labelKey: 'focus_sound_window' },
+  ocean:   { icon: '🌊', labelKey: 'focus_sound_ocean' },
+  river:   { icon: '🏞️', labelKey: 'focus_sound_river' },
+  fire:    { icon: '🔥', labelKey: 'focus_sound_fire' },
+  forest:  { icon: '🐦', labelKey: 'focus_sound_forest' },
+  wind:    { icon: '🍃', labelKey: 'focus_sound_wind' },
+  night:   { icon: '🌙', labelKey: 'focus_sound_night' },
+  cafe:    { icon: '☕', labelKey: 'focus_sound_cafe' },
+  library: { icon: '📚', labelKey: 'focus_sound_library' },
+  train:   { icon: '🚆', labelKey: 'focus_sound_train' },
+  space:   { icon: '🌌', labelKey: 'focus_sound_space' },
+  bowl:    { icon: '🎐', labelKey: 'focus_sound_bowl' },
+  brown:   { icon: '🟤', labelKey: 'focus_sound_brown' }
 };
+// Eski tovushlar o'rniga eng yaqini
+var FOCUS_SOUND_MIGRATE = { white: 'brown', pink: 'brown', lofi: 'cafe', crickets: 'night', guitar: 'cafe', marimba: 'bowl' };
 
 function ensureAmbientFocusDefaults() {
   if (typeof S.ambientFocusEnabled === 'undefined' || S.ambientFocusEnabled === null) S.ambientFocusEnabled = false;
+  if (S.ambientFocusSound && FOCUS_SOUND_MIGRATE[S.ambientFocusSound]) S.ambientFocusSound = FOCUS_SOUND_MIGRATE[S.ambientFocusSound];
   if (!S.ambientFocusSound || !FOCUS_SOUNDS[S.ambientFocusSound]) S.ambientFocusSound = 'rain';
   if (typeof S.ambientFocusVolume !== 'number' || isNaN(S.ambientFocusVolume)) S.ambientFocusVolume = 45;
 }
@@ -8214,6 +8277,12 @@ function renderSyncPill() {
   else { state = 'ok'; txt = '✓ ' + _cl('Bulutda saqlandi', 'Synced', 'Синхронизировано'); }
   el.className = 'sync-pill sync-' + state;
   el.textContent = txt;
+  // Bosilganda: hisob/sinxronlash sozlamalari (kirish, bulutga saqlash)
+  if (!el._fgClick) {
+    el._fgClick = true; el.setAttribute('role', 'button'); el.tabIndex = 0;
+    el.title = _cl('Hisob va saqlash sozlamalari', 'Account & sync settings', 'Аккаунт и синхронизация');
+    el.onclick = function () { try { showTab('profile'); } catch (e) {} try { if (typeof showProfileSubtab === 'function') showProfileSubtab('settings'); } catch (e) {} };
+  }
 }
 setInterval(renderSyncPill, 2000);
 window.addEventListener('online', renderSyncPill);
@@ -22600,7 +22669,13 @@ function buildDesktopShell() {
 
   var brand = document.createElement('div');
   brand.id = 'ds-brand';
-  brand.innerHTML = '<span>🚀</span><span>LevelUpDay</span>';
+  brand.innerHTML = '<img src="icons/icon-192.png" alt="" class="ds-brand-ic"><span>LevelUpDay</span>';
+  // Logotip — bosh sahifaga (Vazifalar) olib boradi
+  brand.setAttribute('role', 'button'); brand.tabIndex = 0;
+  brand.title = _cl('Bosh sahifa', 'Home', 'Главная');
+  var goHome = function () { try { showTab('tasks'); } catch (e) {} try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } };
+  brand.onclick = goHome;
+  brand.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } };
   sidebar.appendChild(brand);
 
   _dsMove(document.querySelector('.header-left'), sidebar);

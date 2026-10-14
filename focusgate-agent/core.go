@@ -229,11 +229,13 @@ func SiteOf(title string, extra []Rule) (Site, bool) {
 	for _, r := range extra {
 		if strings.HasPrefix(r.App, "site:") {
 			kw := strings.TrimPrefix(r.App, "site:")
-			if kw != "" && strings.Contains(t, kw) {
-				lbl := r.Label
-				if lbl == "" {
-					lbl = kw
-				}
+			lbl := r.Label
+			if lbl == "" {
+				lbl = kw
+			}
+			// Sarlavhada odatda domen emas, sayt nomi bo'ladi ("Kun.uz — …", "… · GitHub") — nom bo'yicha ham qidiriladi
+			name := strings.ToLower(strings.TrimSpace(r.Label))
+			if kw != "" && (strings.Contains(t, kw) || (strings.Contains(kw, ".") && len([]rune(name)) >= 4 && strings.Contains(t, name))) {
 				return Site{r.App, lbl, kw}, true
 			}
 		}

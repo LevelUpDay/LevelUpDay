@@ -1723,7 +1723,7 @@
   function calmLog() { S.xCalmLog = S.xCalmLog || {}; S.xCalmLog[today()] = (S.xCalmLog[today()] || 0) + 1; save(); }
   function reducedMotion() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
   var CALM = null;
-  var CALM_SOUNDS = [['bowl', '🎐', ['Ko\'zacha', 'Singing bowl', 'Чаша']], ['ocean', '🌊', ['Okean', 'Ocean', 'Океан']], ['rain', '🌧️', ['Yomg\'ir', 'Rain', 'Дождь']], ['forest', '🌲', ['O\'rmon', 'Forest', 'Лес']], ['lofi', '🎹', ['Lofi', 'Lofi', 'Lofi']]];
+  var CALM_SOUNDS = [['bowl', '🎐', ['Ko\'zacha', 'Singing bowl', 'Чаша']], ['ocean', '🌊', ['Okean', 'Ocean', 'Океан']], ['rain', '🌧️', ['Yomg\'ir', 'Rain', 'Дождь']], ['river', '🏞️', ['Daryo', 'River', 'Река']], ['space', '🌌', ['Kosmos', 'Space', 'Космос']]];
   function openCalm() {
     if (CALM) return;
     var ov = document.createElement('div');
@@ -1741,7 +1741,7 @@
     var FA = window.FocusAudio || (typeof FocusAudio !== 'undefined' ? FocusAudio : null);
     var prevType = null, prevPlaying = false;
     try { if (FA) { prevType = FA.getType(); prevPlaying = !!(FA.isPlaying && FA.isPlaying()); } } catch (e) {}
-    var musicSel = (function () { try { var v = localStorage.getItem('calmMusic'); return v === null ? 'bowl' : v; } catch (e) { return 'bowl'; } })();
+    var musicSel = (function () { try { var v = localStorage.getItem('calmMusic'); return v === null ? 'bowl' : (v === 'lofi' ? 'space' : v === 'forest' ? 'river' : v); } catch (e) { return 'bowl'; } })();
     var setMusic = function (type) {
       musicSel = type; try { localStorage.setItem('calmMusic', type); } catch (e) {}
       ov.querySelectorAll('[data-cmu]').forEach(function (b) { b.classList.toggle('on', b.dataset.cmu === type); });

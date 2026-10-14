@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.5.0'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.5.1'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
   var ANDROID_VERSION = '0.1.0', APK_URL = 'downloads/LevelUpDay.apk?v=' + ANDROID_VERSION; // telefon/planshet (android/)
   var IS_ANDROID = /Android/i.test(navigator.userAgent || ''); // ?v= — brauzer/CDN eski faylni bermasligi uchun
@@ -63,6 +63,22 @@
     'notion.exe': 'notion.so', 'figma.exe': 'figma.com', 'robloxplayerbeta.exe': 'roblox.com', 'tlauncher.exe': 'tlauncher.org', 'vlc.exe': 'videolan.org', 'obs64.exe': 'obsproject.com',
     'winword.exe': 'office.com', 'excel.exe': 'office.com', 'powerpnt.exe': 'office.com', 'viber.exe': 'viber.com', 'skype.exe': 'skype.com', 'termius.exe': 'termius.com', 'blender.exe': 'blender.org' };
 
+  // 🌐 Saytlar katalogi: guruh → [kalit, nom, domen]. Mashhurlari agent/kengaytma bilan bir xil kalitda (site:youtube),
+  // qolganlari to'liq domen (site:kun.uz). Guruhning kategoriyasi cfg.cats orqali barcha qurilmalarga yetkaziladi.
+  var SITE_GROUPS = [
+    ['social', '💬', ['Ijtimoiy tarmoqlar', 'Social', 'Соцсети'], 'social', [['site:instagram', 'Instagram', 'instagram.com'], ['site:tiktok', 'TikTok', 'tiktok.com'], ['site:facebook', 'Facebook', 'facebook.com'], ['site:x', 'X (Twitter)', 'x.com'], ['site:reddit', 'Reddit', 'reddit.com'], ['site:pinterest', 'Pinterest', 'pinterest.com'], ['site:telegram', 'Telegram Web', 'web.telegram.org'], ['site:discord', 'Discord', 'discord.com'], ['site:vk', 'VK', 'vk.com'], ['site:threads.net', 'Threads', 'threads.net'], ['site:snapchat.com', 'Snapchat', 'snapchat.com'], ['site:linkedin.com', 'LinkedIn', 'linkedin.com'], ['site:tumblr.com', 'Tumblr', 'tumblr.com'], ['site:ok.ru', 'Одноклассники', 'ok.ru'], ['site:quora.com', 'Quora', 'quora.com']]],
+    ['video', '🎬', ['Video va musiqa', 'Video & music', 'Видео и музыка'], 'fun', [['site:youtube', 'YouTube', 'youtube.com'], ['site:netflix', 'Netflix', 'netflix.com'], ['site:twitch', 'Twitch', 'twitch.tv'], ['site:kick.com', 'Kick', 'kick.com'], ['site:kinopoisk', 'Кинопоиск', 'kinopoisk.ru'], ['site:primevideo.com', 'Prime Video', 'primevideo.com'], ['site:disneyplus.com', 'Disney+', 'disneyplus.com'], ['site:rutube.ru', 'Rutube', 'rutube.ru'], ['site:ivi.ru', 'Иви', 'ivi.ru'], ['site:mover.uz', 'Mover.uz', 'mover.uz'], ['site:spotify.com', 'Spotify', 'spotify.com'], ['site:soundcloud.com', 'SoundCloud', 'soundcloud.com'], ['site:music.yandex.ru', 'Яндекс Музыка', 'music.yandex.ru'], ['site:9gag.com', '9GAG', '9gag.com']]],
+    ['games', '🎮', ['O\'yinlar', 'Games', 'Игры'], 'games', [['site:roblox', 'Roblox', 'roblox.com'], ['site:store.steampowered.com', 'Steam', 'store.steampowered.com'], ['site:epicgames.com', 'Epic Games', 'epicgames.com'], ['site:chess.com', 'Chess.com', 'chess.com'], ['site:lichess.org', 'Lichess', 'lichess.org'], ['site:poki.com', 'Poki', 'poki.com'], ['site:crazygames.com', 'CrazyGames', 'crazygames.com'], ['site:miniclip.com', 'Miniclip', 'miniclip.com'], ['site:itch.io', 'itch.io', 'itch.io'], ['site:y8.com', 'Y8', 'y8.com'], ['site:friv.com', 'Friv', 'friv.com'], ['site:minecraft.net', 'Minecraft', 'minecraft.net']]],
+    ['news', '📰', ['Yangiliklar', 'News', 'Новости'], 'web', [['site:kun.uz', 'Kun.uz', 'kun.uz'], ['site:daryo.uz', 'Daryo', 'daryo.uz'], ['site:gazeta.uz', 'Gazeta.uz', 'gazeta.uz'], ['site:qalampir.uz', 'Qalampir', 'qalampir.uz'], ['site:podrobno.uz', 'Podrobno', 'podrobno.uz'], ['site:uza.uz', 'UzA', 'uza.uz'], ['site:bbc.com', 'BBC', 'bbc.com'], ['site:cnn.com', 'CNN', 'cnn.com'], ['site:lenta.ru', 'Лента.ру', 'lenta.ru'], ['site:ria.ru', 'РИА', 'ria.ru'], ['site:news.google.com', 'Google News', 'news.google.com']]],
+    ['shop', '🛍', ['Xaridlar', 'Shopping', 'Покупки'], 'other', [['site:uzum.uz', 'Uzum Market', 'uzum.uz'], ['site:olx.uz', 'OLX', 'olx.uz'], ['site:wildberries.ru', 'Wildberries', 'wildberries.ru'], ['site:ozon.ru', 'Ozon', 'ozon.ru'], ['site:market.yandex.ru', 'Яндекс Маркет', 'market.yandex.ru'], ['site:amazon.com', 'Amazon', 'amazon.com'], ['site:aliexpress.com', 'AliExpress', 'aliexpress.com'], ['site:temu.com', 'Temu', 'temu.com'], ['site:ebay.com', 'eBay', 'ebay.com']]],
+    ['ai', '🤖', ['Sun\'iy intellekt', 'AI', 'ИИ'], 'work', [['site:chatgpt.com', 'ChatGPT', 'chatgpt.com'], ['site:claude.ai', 'Claude', 'claude.ai'], ['site:gemini.google.com', 'Gemini', 'gemini.google.com'], ['site:perplexity.ai', 'Perplexity', 'perplexity.ai'], ['site:character.ai', 'Character.AI', 'character.ai']]],
+    ['study', '📚', ['O\'qish', 'Study', 'Учёба'], 'study', [['site:duolingo', 'Duolingo', 'duolingo.com'], ['site:coursera', 'Coursera', 'coursera.org'], ['site:udemy', 'Udemy', 'udemy.com'], ['site:khanacademy', 'Khan Academy', 'khanacademy.org'], ['site:quizlet.com', 'Quizlet', 'quizlet.com'], ['site:wikipedia.org', 'Wikipedia', 'wikipedia.org']]],
+    ['work', '💼', ['Ish', 'Work', 'Работа'], 'work', [['site:github.com', 'GitHub', 'github.com'], ['site:docs.google.com', 'Google Docs', 'docs.google.com'], ['site:notion.so', 'Notion', 'notion.so'], ['site:figma.com', 'Figma', 'figma.com'], ['site:trello.com', 'Trello', 'trello.com'], ['site:mail.google.com', 'Gmail', 'mail.google.com']]]
+  ];
+  var SITE_CAT_OF = {};
+  SITE_GROUPS.forEach(function (g) { g[4].forEach(function (x) { SITE_CAT_OF[x[0]] = g[3]; if (!DOMAIN[x[0]]) DOMAIN[x[0]] = x[2]; if (!SITES.some(function (y) { return y[0] === x[0]; })) SITES.push([x[0], x[1], '']); }); });
+  Object.keys(SITE_CAT_OF).forEach(function (k) { if (!CAT_OF[k]) CAT_OF[k] = SITE_CAT_OF[k]; });
+
   // ---------- Holat ----------
   var FG = { loaded: false, loading: false, devices: [], cfg: null, rows: [], err: '', at: 0 };
   var UI = { tab: 'today', day: 0, cat: 'all', kind: 'all', chart: 'bar', setupOpen: false, focusMin: 25 };
@@ -78,7 +94,7 @@
   // ---------- Ma'lumot modeli (real yoki namuna) ----------
   function color(id) {
     if (BRAND[id]) return BRAND[id];
-    for (var i = 0; i < SITES.length; i++) if (SITES[i][0] === id) return SITES[i][2];
+    for (var i = 0; i < SITES.length; i++) if (SITES[i][0] === id && SITES[i][2]) return SITES[i][2];
     var h = 0; for (var j = 0; j < id.length; j++) h = (h * 31 + id.charCodeAt(j)) >>> 0;
     return 'hsl(' + (h % 360) + ',62%,52%)';
   }
@@ -189,6 +205,13 @@
   function saveCfg() {
     if (!real()) return;
     try { FG.cfg.lang = getLang(); } catch (e) {} // Windows agenti va kengaytma shu tilda yozadi
+    // Katalogdagi saytlar kategoriyasi: qoidada ishlatilgan saytlar uchun cfg.cats ga (foydalanuvchi tanlovi ustidan yozilmaydi)
+    try {
+      var cc = FG.cfg.cats || (FG.cfg.cats = {});
+      (FG.cfg.rules || []).concat(FG.cfg.focusApps || []).forEach(function (r) { if (r && r.app && SITE_CAT_OF[r.app] && !cc[r.app]) cc[r.app] = SITE_CAT_OF[r.app]; });
+      if ((FG.cfg.rules || []).concat(FG.cfg.focusApps || []).some(function (r) { return r && /^cat:/.test(r.app || ''); }))
+        Object.keys(SITE_CAT_OF).forEach(function (k) { if (!cc[k]) cc[k] = SITE_CAT_OF[k]; });
+    } catch (e) {}
     FG.dirtyAt = Date.now();
     clearTimeout(_saveT);
     _saveT = setTimeout(async function () {
@@ -414,12 +437,15 @@
     h += '</div><button type="button" class="fg-add" data-fg-addfocus>＋ ' + E(L('Dastur qo\'shish', 'Add app', 'Добавить приложение')) + '</button>';
     // Saytlar
     h += '<div class="fg-group-t">' + E(L('Saytlarni bloklash', 'Block websites', 'Блокировка сайтов')) + ' <small>· ' + E(L('brauzer tabi avtomatik yopiladi', 'the browser tab closes automatically', 'вкладка закрывается автоматически')) + '</small></div><div class="fg-card fg-sites">';
-    SITES.forEach(function (s) {
-      var r = (c.rules || []).filter(function (x) { return x.app === s[0] && x.kind === 'always'; })[0];
+    // Mashhur 8 ta + foydalanuvchi qo'shgan boshqa saytlar (doimiy blok)
+    var shown = SITES.slice(0, 8).map(function (x) { return x[0]; });
+    (c.rules || []).forEach(function (x) { if (x.kind === 'always' && /^site:/.test(x.app) && shown.indexOf(x.app) === -1) shown.push(x.app); });
+    shown.forEach(function (key) {
+      var r = (c.rules || []).filter(function (x) { return x.app === key && x.kind === 'always'; })[0];
       var on = !!(r && r.on);
-      h += '<div class="fg-opt"><span class="fg-site-l"><span class="fg-tile sm" style="--tc:' + s[2] + '">' + E(s[1].charAt(0)) + '</span>' + E(s[1]) + '</span>' + sw(on, 'data-fg-site="' + s[0] + '"', c.strict && on && real()) + '</div>';
+      h += '<div class="fg-opt"><span class="fg-site-l">' + tileFor(key, 'sm') + '<span class="fg-site-n"><b>' + E(labelOf(key)) + '</b><small>' + E(DOMAIN[key] || key.slice(5)) + '</small></span></span>' + sw(on, 'data-fg-site="' + E(key) + '"', c.strict && on && real()) + '</div>';
     });
-    h += '</div>' + inSiteHtml();
+    h += '</div><button type="button" class="fg-add" data-fg-addsite>＋ ' + E(L('Sayt qo\'shish — katalog, kategoriya yoki istalgan manzil', 'Add a website — catalog, category or any address', 'Добавить сайт — каталог, категория или любой адрес')) + '</button>' + inSiteHtml();
     return h;
   }
 
@@ -783,36 +809,95 @@
   function needConnect() {
     openSheet('<h3>' + (IS_ANDROID ? '📱 ' + E(L('Avval telefonni ulang', 'Connect your phone first', 'Сначала подключите телефон')) : '💻 ' + E(L('Avval kompyuterni ulang', 'Connect your computer first', 'Сначала подключите компьютер'))) + '</h3>' + connectCard().replace('fg-card fg-connect', 'fg-connect in'));
   }
+  // 🌐 Sayt qo'shish: katalog (guruhlar) yoki istalgan manzil → bloklash yoki kunlik limit
+  function openSitePicker() {
+    if (!real()) { needConnect(); return; }
+    var o = openSheet('<h3>🌐 ' + E(L('Sayt qo\'shish', 'Add a website', 'Добавить сайт')) + '</h3>' +
+      '<p class="fg-p">' + E(L('Katalogdan tanlang yoki istalgan sayt manzilini yozing (masalan kun.uz). Butun guruhni bloklash uchun pastdagi kategoriyani tanlang.', 'Pick from the catalog or type any website (e.g. kun.uz). To block a whole group, choose a category below.', 'Выберите из каталога или введите любой сайт (например kun.uz). Чтобы заблокировать целую группу, выберите категорию ниже.')) + '</p>' +
+      pickerHtml(null, true) +
+      '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-sitelimit>⏳ ' + E(L('Kunlik limit', 'Daily limit', 'Дневной лимит')) + '</button>' +
+      '<button type="button" class="fg-btn" data-fg-siteblock>🚫 ' + E(L('Bloklash', 'Block', 'Заблокировать')) + '</button></div>');
+    bindPicker(o);
+    function pick(kind) {
+      var t = readTarget(o);
+      if (!t) { toast('👆 ' + L('Saytni tanlang yoki manzilini yozing', 'Pick a site or type its address', 'Выберите сайт или введите адрес')); return; }
+      var c = cfg(); c.rules = c.rules || [];
+      var ex = c.rules.filter(function (x) { return x.app === t.app && x.kind === kind; })[0];
+      if (ex) ex.on = true;
+      else c.rules.push(kind === 'daily' ? { id: 'r' + Date.now().toString(36), app: t.app, label: t.label, kind: 'daily', minutes: 30, on: true } : { id: 'r' + Date.now().toString(36), app: t.app, label: t.label, kind: 'always', on: true });
+      saveCfg(); closeSheet(); window.xRenderBlocker();
+      if (kind === 'daily') { var idx = c.rules.indexOf(ex || c.rules[c.rules.length - 1]); setTimeout(function () { openRuleSheet(idx); }, 120); }
+      else toast('🚫 ' + t.label + ' — ' + L('bloklandi', 'blocked', 'заблокирован'));
+    }
+    o.querySelector('[data-fg-siteblock]').onclick = function () { pick('always'); };
+    o.querySelector('[data-fg-sitelimit]').onclick = function () { pick('daily'); };
+  }
   // Nishon tanlash: so'nggi 7 kunda ishlatilganlar + mashhur saytlar + qo'lda kiritish
-  function pickerHtml(sel) {
+  function pickerHtml(sel, onlySites) {
     var used = knownApps().filter(function (a) { return !a.site && !JUNK_EXE.test(a.id) && a.id !== 'explorer.exe'; }).slice(0, 10).map(function (a) { return [a.id, a.n]; });
     var usedIds = {}; used.forEach(function (x) { usedIds[x[0]] = 1; });
     var all = installed().filter(function (a) { return !usedIds[a.id]; }).map(function (a) { return [a.id, a.n]; });
-    var sites = SITES.map(function (x) { return [x[0], x[1]]; });
+    var sites = [];
+    SITE_GROUPS.forEach(function (g) { g[4].forEach(function (x) { sites.push([x[0], x[1], g[0]]); }); });
     var nIn = {}; installed().concat(knownApps()).forEach(function (a) { var k = catOf(a.id); nIn[k] = nIn[k] || {}; nIn[k][a.id] = 1; });
     var cats = CAT_LIST.filter(function (c) { return c[0] !== 'other'; }).map(function (c) { var n = Object.keys(nIn[c[0]] || {}).length; return ['cat:' + c[0], c[1] + ' ' + T(c[2]) + (n ? ' · ' + n : '')]; });
+    if (onlySites) { used = []; all = []; cats = CAT_LIST.filter(function (c) { return c[0] === 'social' || c[0] === 'fun' || c[0] === 'games'; }).map(function (c) { return ['cat:' + c[0], c[1] + ' ' + T(c[2])]; }); }
     if (sel && !used.concat(all, sites, cats).some(function (x) { return x[0] === sel; })) used.unshift([sel, labelOf(sel)]);
-    var first = sel || (used[0] || all[0] || sites[0])[0];
-    function chips(items) { return items.map(function (x) { return '<button type="button" class="' + (x[0] === first ? 'on' : '') + '" data-fg-pick="' + E(x[0]) + '" data-label="' + E(x[1]) + '" data-q="' + E((x[1] + ' ' + x[0]).toLowerCase()) + '">' + tileFor(x[0], 'sm') + '<span>' + E(x[1]) + '</span></button>'; }).join(''); }
+    var first = onlySites ? '' : sel || (used[0] || all[0] || sites[0])[0];
+    function chips(items) { return items.map(function (x) { return '<button type="button" class="' + (x[0] === first ? 'on' : '') + '" data-fg-pick="' + E(x[0]) + '" data-label="' + E(x[1]) + '"' + (x[2] ? ' data-sg="' + x[2] + '"' : '') + ' data-q="' + E((x[1] + ' ' + x[0] + ' ' + (DOMAIN[x[0]] || '')).toLowerCase()) + '">' + tileFor(x[0], 'sm') + '<span>' + E(x[1]) + '</span></button>'; }).join(''); }
+    function siteBlock() {
+      return '<div class="fg-pick-g fg-sites"><div class="fg-pick-t">' + E(L('Saytlar', 'Websites', 'Сайты')) + ' <em>' + sites.length + '</em></div>' +
+        '<div class="fg-sgtabs"><button type="button" class="on" data-fg-sg="">' + E(L('Hammasi', 'All', 'Все')) + '</button>' + SITE_GROUPS.map(function (g) { return '<button type="button" data-fg-sg="' + g[0] + '">' + g[1] + ' ' + E(T(g[2])) + '</button>'; }).join('') + '</div>' +
+        '<div class="fg-pick wrap">' + chips(sites) + '</div></div>';
+    }
     function grp(title, items) { return items.length ? '<div class="fg-pick-g"><div class="fg-pick-t">' + E(title) + ' <em>' + items.length + '</em></div><div class="fg-pick wrap">' + chips(items) + '</div></div>' : ''; }
-    return '<input class="fg-in fg-custom" maxlength="80" autocomplete="off" placeholder="🔍 ' + E(L('Qidirish yoki yozing: game.exe, kun.uz', 'Search or type: game.exe, kun.uz', 'Поиск или ввод: game.exe, kun.uz')) + '">' +
-      '<div class="fg-pickbox">' + grp(L('Kategoriyalar — butun guruhga limit', 'Categories — limit a whole group', 'Категории — лимит на всю группу'), cats) + grp(L('Ko\'p ishlatilgan', 'Most used', 'Часто используемые'), used) +
+    return '<input class="fg-in fg-custom" maxlength="80" autocomplete="off" inputmode="url" placeholder="🔍 ' + E(L('Qidiring yoki istalgan sayt manzilini yozing: kun.uz', 'Search, or type any website: kun.uz', 'Поиск или любой сайт: kun.uz')) + '">' +
+      '<div class="fg-pickbox">' + (onlySites ? '' : grp(L('Kategoriyalar — butun guruhga limit', 'Categories — limit a whole group', 'Категории — лимит на всю группу'), cats)) + grp(L('Ko\'p ishlatilgan', 'Most used', 'Часто используемые'), used) +
       grp(L('Kompyuterdagi dasturlar', 'Apps on your computer', 'Программы на компьютере'), all) +
-      grp(L('Saytlar', 'Websites', 'Сайты'), sites) +
-      (real() && !all.length ? '<div class="fg-pick-note">' + E(L('Dasturlar ro\'yxati Focusgate yangilangach (v0.2+) shu yerda chiqadi.', 'The full app list appears here once Focusgate updates (v0.2+).', 'Полный список появится после обновления Focusgate (v0.2+).')) + '</div>' : '') +
+      '<div class="fg-pick-new" hidden></div>' +
+      siteBlock() +
+      (onlySites ? grp(L('Butun kategoriya (dastur + saytlar)', 'Whole category (apps + sites)', 'Вся категория (приложения + сайты)'), cats) : '') +
+      (real() && !all.length && !onlySites ? '<div class="fg-pick-note">' + E(L('Dasturlar ro\'yxati Focusgate yangilangach (v0.2+) shu yerda chiqadi.', 'The full app list appears here once Focusgate updates (v0.2+).', 'Полный список появится после обновления Focusgate (v0.2+).')) + '</div>' : '') +
       '<div class="fg-pick-none" hidden>' + E(L('Topilmadi — "Saqlash" ni bossangiz, yozganingiz qo\'shiladi.', 'Not found — press "Save" to add what you typed.', 'Не найдено — нажмите «Сохранить», чтобы добавить введённое.')) + '</div></div>';
+  }
+  // Yozilgan matn sayt manziliga o'xshasa: "site:kun.uz" (mashhur bo'lsa — uning kaliti)
+  function siteFromInput(v) {
+    var kw = String(v || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[\/?#\s]/)[0];
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(kw) || /\.exe$/.test(kw)) return null;
+    for (var i = 0; i < SITES.length; i++) if (SITES[i][0] === 'site:' + kw || DOMAIN[SITES[i][0]] === kw) return { app: SITES[i][0], label: SITES[i][1] };
+    var base = kw.split('.')[0];
+    for (var j = 0; j < SITES.length; j++) if (SITES[j][0] === 'site:' + base) return { app: SITES[j][0], label: SITES[j][1] };
+    return { app: 'site:' + kw, label: kw };
   }
   // Tanlagich: qidiruv + bitta tanlov
   function bindPicker(o) {
-    var inp = o.querySelector('.fg-custom'), none = o.querySelector('.fg-pick-none');
+    var inp = o.querySelector('.fg-custom'), none = o.querySelector('.fg-pick-none'), nw = o.querySelector('.fg-pick-new'), sg = '';
     one(o, '[data-fg-pick]');
-    inp.oninput = function () {
+    function filter() {
       var q = inp.value.trim().toLowerCase(), any = false;
-      o.querySelectorAll('[data-fg-pick]').forEach(function (b) { var hit = !q || b.getAttribute('data-q').indexOf(q) !== -1; b.hidden = !hit; if (hit) any = true; if (q) b.classList.remove('on'); });
-      o.querySelectorAll('.fg-pick-g').forEach(function (g) { g.hidden = !g.querySelector('[data-fg-pick]:not([hidden])'); });
+      o.querySelectorAll('[data-fg-pick]').forEach(function (b) {
+        if (b.closest('.fg-pick-new')) return;
+        var inTab = q || !sg || !b.hasAttribute('data-sg') || b.getAttribute('data-sg') === sg;
+        var hit = (!q || b.getAttribute('data-q').indexOf(q) !== -1) && inTab;
+        if (sg && !q && !b.hasAttribute('data-sg')) hit = true;
+        b.hidden = !hit; if (hit && q) any = true; if (q) b.classList.remove('on');
+      });
+      o.querySelectorAll('.fg-pick-g').forEach(function (g) { g.hidden = !g.querySelector('[data-fg-pick]:not([hidden])') && !g.classList.contains('fg-sites'); });
+      // Istalgan sayt: yozilgan manzil uchun rasmli tayyor variant
+      var site = q ? siteFromInput(q) : null, exists = site && o.querySelector('.fg-sites [data-fg-pick="' + site.app.replace(/"/g, '') + '"]');
+      if (nw) {
+        if (site && !exists) {
+          nw.innerHTML = '<div class="fg-pick-t">＋ ' + E(L('Yangi sayt', 'New website', 'Новый сайт')) + '</div><div class="fg-pick wrap"><button type="button" class="on" data-fg-pick="' + E(site.app) + '" data-label="' + E(site.label) + '" data-q="">' + tile({ id: site.app, n: site.label, c: color(site.app) }, 'sm') + '<span>' + E(site.label) + '</span></button></div>';
+          nw.hidden = false; any = true;
+          o.querySelectorAll('[data-fg-pick]').forEach(function (b) { if (!b.closest('.fg-pick-new')) b.classList.remove('on'); });
+          one(o, '[data-fg-pick]');
+        } else { nw.hidden = true; nw.innerHTML = ''; }
+      }
       if (none) none.hidden = any || !q;
-      if (q) { var vis = o.querySelectorAll('[data-fg-pick]:not([hidden])'); if (vis.length === 1) vis[0].classList.add('on'); }
-    };
+      if (q && (!nw || nw.hidden)) { var vis = o.querySelectorAll('[data-fg-pick]:not([hidden])'); if (vis.length === 1) vis[0].classList.add('on'); }
+    }
+    inp.oninput = filter;
+    o.querySelectorAll('[data-fg-sg]').forEach(function (t) { t.onclick = function () { sg = t.getAttribute('data-fg-sg'); o.querySelectorAll('[data-fg-sg]').forEach(function (x) { x.classList.toggle('on', x === t); }); filter(); }; });
   }
   function readTarget(o) {
     var sb = o.querySelector('[data-fg-pick].on:not([hidden])');
@@ -820,6 +905,7 @@
     var cu = (o.querySelector('.fg-custom').value || '').trim().toLowerCase();
     if (cu) {
       if (/\.exe$/.test(cu)) { var ex = cu.replace(/^.*[\\/]/, ''), kn = knownApps().filter(function (x) { return x.id === ex; })[0]; return { app: ex, label: kn ? kn.n : ex.replace(/\.exe$/, '') }; }
+      var sf = siteFromInput(cu); if (sf) return sf;
       var kw = cu.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
       var base = kw.split('.')[0];
       // mashhur sayt bo'lsa — agent bilan bir xil kalit (youtube.com → site:youtube), aks holda to'liq domen (kun.uz)
@@ -1025,6 +1111,7 @@
     if ((b = t.closest('[data-fg-allapps]'))) { openAllApps(); return; }
     if ((b = t.closest('[data-fg-extinstall]'))) { openExtInstall(); return; }
     if ((b = t.closest('[data-fg-android]'))) { openAndroidInstall(); return; }
+    if ((b = t.closest('[data-fg-addsite]'))) { openSitePicker(); return; }
     if ((b = t.closest('[data-fg-join]'))) { joinFocus(b.dataset.fgJoin, +b.dataset.min); return; }
     if ((b = t.closest('[data-fg-invite]'))) { try { if (typeof openFriendsModal === 'function') openFriendsModal(); } catch (e2) {} return; }
     if ((b = t.closest('[data-fg-board]'))) { UI.board = b.dataset.fgBoard; rerender(); return; }
