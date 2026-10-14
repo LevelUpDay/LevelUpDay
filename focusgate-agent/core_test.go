@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -157,7 +158,63 @@ func TestLnkSquirrel(t *testing.T) {
 	for _, c := range args {
 		b = append(b, byte(c), 0)
 	}
-	if got := LnkApp(b); got != `C:\Users\a\AppData\Local\Discord\Discord.exe` {
+	if got := LnkApp(b, `C:\x`, nil); got != `C:\Users\a\AppData\Local\Discord\Discord.exe` {
 		t.Fatalf("LnkApp = %q", got)
+	}
+}
+
+// IDList + RELATIVE_PATH (LinkInfo yo'q) va EnvironmentVariableDataBlock
+func TestLnkRelativeAndEnv(t *testing.T) {
+	str := func(s string) []byte { b := []byte{byte(len(s)), 0}; for _, c := range s { b = append(b, byte(c), 0) }; return b }
+	b := make([]byte, 0x4C)
+	b[0] = 0x4C
+	b[0x14] = 0x01 | 0x08 | 0x80 // IDList + RelativePath + Unicode
+	b = append(b, 2, 0, 0, 0)    // IDList: 2 bayt + terminator
+	b = append(b, str(`..\..\..\..\..\..\Program Files\VideoLAN\VLC\vlc.exe`)...)
+	got := LnkApp(b, `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\VideoLAN`, nil)
+	if got != `C:\Program Files\VideoLAN\VLC\vlc.exe` {
+		t.Fatalf("relative = %q", got)
+	}
+	// Env blok
+	e := make([]byte, 0x4C)
+	e[0] = 0x4C
+	e[0x14] = 0x01 | 0x80
+	e = append(e, 2, 0, 0, 0)
+	blk := make([]byte, 0x314)
+	blk[0], blk[1] = 0x14, 0x03
+	blk[4], blk[5], blk[6], blk[7] = 0x01, 0x00, 0x00, 0xA0
+	for i, c := range `%ProgramFiles%\Steam\steam.exe` {
+		blk[8+260+i*2] = byte(c)
+	}
+	e = append(e, blk...)
+	e = append(e, 0, 0, 0, 0)
+	got = LnkApp(e, `C:\x`, func(s string) string { return strings.Replace(s, "%ProgramFiles%", `C:\Program Files`, 1) })
+	if got != `C:\Program Files\Steam\steam.exe` {
+		t.Fatalf("env = %q", got)
+	}
+}
+
+func TestJunkFromRealList(t *testing.T) {
+	bad := [][2]string{{`C:\a\accuserps.exe`, "A Care Center User Process"}, {`C:\a\javacpl.exe`, "About Java"}, {`C:\a\autoupdate-windows.exe`, "Check for Updates"},
+		{`C:\Windows\rundll32.exe`, "Decoder Config"}, {`C:\a\jucheck.exe`, "Java Update Checker"}, {`C:\a\chrome_proxy.exe`, "LevelUpDay"},
+		{`C:\a\crossdeviceservice.exe`, "Microsoft Cross Device Service"}, {`C:\a\msedgewebview2.exe`, "Microsoft Edge WebView2"}, {`C:\a\onedrivesetup.exe`, "Microsoft OneDrive"},
+		{`C:\a\notezillatroubleshooter.exe`, "Notezilla Troubleshooter"}, {`C:\a\vlc.exe`, "VLC media player - reset preferences and cache files"},
+		{`C:\a\widgetservice.exe`, "WidgetService.exe"}, {`C:\Windows\powershell.exe`, "Windows PowerShell (x86)"}, {`C:\a\wpscloudsvr.exe`, "WPS Office service program"}, {`C:\Windows\cmd.exe`, "xvid_encraw"}}
+	for _, x := range bad {
+		if UsefulApp(x[0], x[1]) {
+			t.Errorf("keraksiz qo'shildi: %s (%s)", x[1], x[0])
+		}
+	}
+	good := [][2]string{{`C:\a\chrome.exe`, "Google Chrome"}, {`C:\a\telegram.exe`, "Telegram"}, {`C:\a\tlauncher.exe`, "TLauncher"}, {`C:\a\cs.exe`, "CS 1.6"},
+		{`C:\a\vlc.exe`, "VLC media player"}, {`C:\a\termius.exe`, "Termius"}, {`C:\a\left4dead2-launcher.exe`, "Запустить Left 4 Dead 2"}, {`C:\a\notezilla.exe`, "Notezilla Notes Browser"}}
+	for _, x := range good {
+		if !UsefulApp(x[0], x[1]) {
+			t.Errorf("kerakli dastur tushib qoldi: %s", x[1])
+		}
+	}
+	l := NewAppList()
+	l.Add(`C:\a\left4dead2-launcher.exe`, "Запустить Left 4 Dead 2")
+	if l.List()[0].Name != "Left 4 Dead 2" {
+		t.Fatal("'Запустить' olib tashlanmadi")
 	}
 }

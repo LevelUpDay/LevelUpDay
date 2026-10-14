@@ -336,7 +336,7 @@ func trackLoop() {
 		cfg := st.Config
 		st.mu.Unlock()
 		if cfg.TrackOn() && IdleSeconds() < 120 {
-			if fg, ok := GetForeground(); ok && fg.Exe != "lockapp.exe" {
+			if fg, ok := GetForeground(); ok && !noTrack[fg.Exe] && !strings.HasPrefix(fg.Exe, "focusgate") {
 				app, label := fg.Exe, FileDescription(fg.Path)
 				if Browsers[fg.Exe] {
 					if s, ok := SiteOf(fg.Title, cfg.Rules); ok {
@@ -366,6 +366,12 @@ func trackLoop() {
 			}
 		}
 	}
+}
+
+// noTrack — vaqti hisoblanmaydigan tizim oynalari (Start menyusi, qidiruv, qulflangan ekran...)
+var noTrack = map[string]bool{
+	"lockapp.exe": true, "shellexperiencehost.exe": true, "startmenuexperiencehost.exe": true, "searchhost.exe": true,
+	"searchapp.exe": true, "textinputhost.exe": true, "applicationframehost.exe": true, "logonui.exe": true,
 }
 
 func pad2(n int) string {
@@ -514,7 +520,7 @@ func updateLoop() {
 			systray.Quit()
 			return
 		}
-		time.Sleep(6 * time.Hour)
+		time.Sleep(time.Hour)
 	}
 }
 
