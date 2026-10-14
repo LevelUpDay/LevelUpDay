@@ -1145,3 +1145,69 @@ html.design-fx .fbx-item, html.design-fx .fbx-thread { background: color-mix(in 
   .ib-item { padding: 10px 14px; }
   .ib-sub { font-size: 13px; }
 }
+
+/* ===== 🎨 Dizayn studiyasi ===== */
+.xn-custom, html[data-x-nick="custom"] #user-title, html[data-x-nick="custom"] #profile-name-big {
+  background: linear-gradient(90deg, var(--xcn1, #a78bfa), var(--xcn2, var(--xcn1, #a78bfa))) !important;
+  -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important; -webkit-text-fill-color: transparent;
+}
+.xf-custom, html[data-x-frame="custom"] #profile-avatar {
+  box-shadow: 0 0 0 3px var(--xcf1, #a78bfa), 0 0 0 6px var(--xcf2, var(--xcf1, #a78bfa)), 0 0 22px var(--xcf1, #a78bfa) !important;
+  border-color: var(--xcf1, #a78bfa) !important;
+}
+.xs-open {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; margin: 4px 0 14px; cursor: pointer; text-align: left;
+  border-radius: 16px; border: 1px solid var(--border-hover); background: var(--surface2); color: var(--text); font-family: 'DM Sans', sans-serif;
+}
+.xs-open:hover { border-color: var(--accent); }
+.xs-open-sw { width: 46px; height: 46px; flex-shrink: 0; border-radius: 14px; background: conic-gradient(#f43f5e, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ec4899, #f43f5e); box-shadow: inset 0 0 0 3px rgba(0,0,0,.15); }
+.xs-open-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.xs-open-t b { font-size: 15px; }
+.xs-open-t span { font-size: 12px; color: var(--text-muted); line-height: 1.35; }
+.xs-open-go { font-size: 22px; color: var(--text-dim); }
+.xs-ov { position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity .2s; }
+.xs-ov.open { opacity: 1; }
+@media (min-width: 640px) { .xs-ov { align-items: center; padding: 20px; } }
+.xs-box {
+  width: 100%; max-width: 460px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border-hover); border-radius: 20px 20px 0 0;
+  transform: translateY(24px); transition: transform .25s cubic-bezier(.3,1.2,.5,1);
+}
+@media (min-width: 640px) { .xs-box { border-radius: 20px; } }
+.xs-ov.open .xs-box { transform: none; }
+.xs-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 8px; font-size: 16px; }
+.xs-x { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; }
+.xs-prev { display: flex; align-items: center; gap: 14px; margin: 4px 16px 10px; padding: 14px; border-radius: 16px; background: var(--surface2); }
+.xs-pv-av { width: 56px; height: 56px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font: 800 22px Syne, sans-serif; border: 2px solid transparent; }
+.xs-pv-r { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.xs-pv-n { font: 800 18px Syne, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xs-pv-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.xs-pv-bar i { display: block; height: 100%; width: 64%; border-radius: 3px; }
+.xs-pv-btn { align-self: flex-start; padding: 5px 12px; border-radius: 999px; color: #fff; font-size: 12px; font-weight: 700; }
+.xs-tabs { display: flex; gap: 6px; padding: 0 16px 10px; }
+.xs-tabs button { flex: 1; padding: 9px 6px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font: 600 13px 'DM Sans', sans-serif; cursor: pointer; }
+.xs-tabs button.on { background: var(--surface2); color: var(--text); border-color: var(--border-hover); }
+.xs-body { flex: 1; overflow-y: auto; padding: 0 16px 12px; overscroll-behavior: contain; }
+.xs-slots { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.xs-slots button { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font: 600 12px 'DM Sans', sans-serif; cursor: pointer; }
+.xs-slots button.on { border-color: var(--accent); color: var(--text); }
+.xs-slots button i { width: 20px; height: 20px; border-radius: 50%; border: 1px dashed var(--border-hover); }
+.xs-slots .xs-mini { padding: 6px 10px; }
+.xs-sw { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
+.xs-sw button { aspect-ratio: 1; border-radius: 10px; border: 2px solid transparent; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); transition: transform .12s; }
+.xs-sw button:hover { transform: scale(1.08); }
+.xs-sw button.on { border-color: var(--text); transform: scale(1.1); box-shadow: 0 0 0 2px var(--surface) inset; }
+.xs-custom { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 8px 10px; border-radius: 12px; border: 1px dashed var(--border-hover); cursor: pointer; font-size: 13px; }
+.xs-custom input { width: 36px; height: 30px; padding: 0; border: none; background: none; cursor: pointer; }
+.xs-custom span { flex: 1; }
+.xs-custom code { font-size: 12px; color: var(--text-dim); }
+.xs-reset { margin-top: 10px; background: none; border: none; padding: 4px 0; color: var(--text-dim); font: 600 12px 'DM Sans', sans-serif; cursor: pointer; text-decoration: underline; }
+.xs-foot { border-top: 1px solid var(--border); padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--surface); }
+.xs-lines { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; font-size: 12px; color: var(--text-muted); }
+.xs-lines div { display: flex; justify-content: space-between; }
+.xs-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 700; }
+.xs-sum b { font: 800 22px Syne, sans-serif; font-variant-numeric: tabular-nums; }
+.xs-sum b.bad { color: #F87171; }
+.xs-bal { font-size: 11px; color: var(--text-dim); margin: 2px 0 10px; text-align: right; }
+.xs-pay { width: 100%; padding: 13px; border-radius: 14px; border: none; background: var(--accent); color: #fff; font: 700 15px 'DM Sans', sans-serif; cursor: pointer; }
+.xs-pay:disabled { opacity: .5; cursor: not-allowed; }
