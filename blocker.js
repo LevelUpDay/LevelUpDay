@@ -93,7 +93,10 @@
   }
   // Ikonka: agent yuborgan exe ikonkasi → sayt favikonkasi
   function iconOf(id) {
+    var own = typeof window.FG_ICON === 'function' ? window.FG_ICON(id) : '';
+    if (own && id.indexOf('site:') === 0) return own; // saytlar — ichki logotip (favikon xizmati ba'zan boshqa rasm qaytaradi)
     var d = real() ? devApp(id) : null; if (d && d.icon) return d.icon;
+    if (own) return own;
     var dom = DOMAIN[id] || (id.indexOf('site:') === 0 && id.indexOf('.') !== -1 ? id.slice(5) : '');
     return dom ? 'https://www.google.com/s2/favicons?sz=64&domain_url=' + encodeURIComponent('https://' + dom) : '';
   }
