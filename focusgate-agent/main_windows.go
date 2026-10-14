@@ -54,7 +54,13 @@ func main() {
 		ok = SingleInstance()
 	}
 	if !ok {
-		if MessageBox("LevelUpDay Focusgate", "Focusgate allaqachon ishlayapti (soat yonidagi 🛡 belgi).\n\nLevelUpDay'da Focusgate bo'limini ochaymi?", 0x04|0x40) == 6 {
+		// Ishlab turgan nusxa bor: "Ha" — uni to'xtatib qayta ishga tushirish, "Yo'q" — saytni ochish
+		r := MessageBox("LevelUpDay Focusgate v"+Version, "Focusgate allaqachon ishlayapti (soat yonidagi ^ ichida 🛡 belgi).\n\n"+
+			"Ha — qayta ishga tushirish (eski nusxa to'xtatiladi)\nYo'q — LevelUpDay'da Focusgate bo'limini ochish", 0x03|0x40)
+		switch r {
+		case 6: // Ha
+			restartFresh()
+		case 7: // Yo'q
 			openURL(AppURL + "#focusgate")
 			time.Sleep(2 * time.Second)
 		}
@@ -82,22 +88,7 @@ func installIfNeeded() bool {
 	}
 	_ = os.MkdirAll(filepath.Dir(dst), 0o755)
 	// Ishlab turgan eski nusxa (har qanday versiya) yopiladi — yangi fayl uning o'rniga yoziladi
-	self := uint32(os.Getpid())
-	killed := false
-	for exe, pids := range Processes() {
-		if exe != "focusgate.exe" {
-			continue
-		}
-		for _, pid := range pids {
-			if pid != self {
-				_ = Kill(pid)
-				killed = true
-			}
-		}
-	}
-	if killed {
-		time.Sleep(1200 * time.Millisecond)
-	}
+	killOthers()
 	var err error
 	for i := 0; i < 6; i++ {
 		if err = copyFile(exePath, dst); err == nil {
@@ -196,7 +187,9 @@ var (
 func onReady() {
 	systray.SetIcon(iconICO)
 	systray.SetTitle("Focusgate")
-	systray.SetTooltip("LevelUpDay Focusgate")
+	systray.SetTooltip("LevelUpDay Focusgate v" + Version)
+	vItem := systray.AddMenuItem("LevelUpDay Focusgate v"+Version, "")
+	vItem.Disable()
 	mStatus = systray.AddMenuItem(status, "")
 	mStatus.Disable()
 	mToday = systray.AddMenuItem("Bugun: —", "")
@@ -523,4 +516,43 @@ func updateLoop() {
 		}
 		time.Sleep(6 * time.Hour)
 	}
+}
+
+// killOthers — boshqa barcha Focusgate jarayonlarini to'xtatadi (o'zidan tashqari) va ular yopilishini kutadi.
+func killOthers() {
+	self := uint32(os.Getpid())
+	mine := strings.ToLower(filepath.Base(exePath))
+	killed := false
+	for exe, pids := range Processes() {
+		if exe != "focusgate.exe" && exe != mine && !strings.HasPrefix(exe, "focusgate") {
+			continue
+		}
+		for _, pid := range pids {
+			if pid != self {
+				_ = Kill(pid)
+				killed = true
+			}
+		}
+	}
+	if killed {
+		time.Sleep(1500 * time.Millisecond)
+	}
+}
+
+// restartFresh — eski nusxalarni to'xtatib, o'rnatilgan (yoki shu) nusxani qayta ishga tushiradi.
+func restartFresh() {
+	killOthers()
+	target := exePath
+	if dst := installedPath(); dst != "" && !strings.EqualFold(filepath.Clean(exePath), filepath.Clean(dst)) {
+		_ = os.MkdirAll(filepath.Dir(dst), 0o755)
+		for i := 0; i < 6; i++ {
+			if copyFile(exePath, dst) == nil {
+				_ = SetAutostart(true, dst)
+				target = dst
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+	_ = exec.Command(target, "--first-run").Start()
 }
