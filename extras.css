@@ -877,11 +877,11 @@ body.light .x-hb-dl .x-in { color-scheme: light; }
 
   /* Asosiy kalendar katagi: emoji/tanga/chiziq bir-birini bosmasin */
   #cal-grid, #cal-day-headers, #gcal-grid, #gcal-day-headers { gap: 4px !important; }
-  .calx-day { border-radius: 10px; gap: 2px; padding-bottom: 2px; }
+  .calx-day, #cal-grid > .calx-pad { height: 44px !important; }
+  .calx-day { border-radius: 10px; gap: 2px; }
   .calx-num { font-size: 12px; }
   .calx-coin { font-size: 9px; }
   .calx-mood { top: 2px; right: 2px; font-size: 9px; }
-  .calx-day:has(.calx-mood) { padding-top: 6px; }
   .calx-day > div { display: none; } /* streak nuqtasi — pastki chiziq bilan ustma-ust tushardi */
   #cal-detail-title, #gcal-detail-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #cal-detail-header, #gcal-detail-header { gap: 8px; min-height: 40px; }

@@ -5,6 +5,9 @@
 //   u_cross  — Crosshair  : butun ekran nishon chiziqlari + tugmalarga "lock" (faqat sichqoncha)
 //   u_star   — StarBorder : asosiy tugma/kartalar chegarasi bo'ylab yuguruvchi yulduz (CSS)
 //   u_target — TargetCursor: aylanuvchi burchakli kursor, tugmalarni "qamrab oladi" (faqat sichqoncha)
+//   u_wave   — Shockwave  : har bosishda kengayuvchi ikki halqa to'lqini (canvas, telefonda ham)
+//   u_trail  — Glow Trail : kursor/barmoq ortidan porlab so'nuvchi iz (canvas)
+//   u_spot   — Spotlight  : kartalar ustida kursor ortidan yurgan yorug'lik + chegara nuri (faqat sichqoncha)
 // Egalik: S.shop.owned (id), yoqilganlar: S.shop.ufx = [id...] — app_state orqali sinxronlanadi.
 // Hech bir effekt bosishlarni to'smaydi (pointer-events: none), "harakatni kamaytirish" va
 // dizayn animatsiyasi toggle'iga (LUDesign.anim) bo'ysunadi. script.js dan KEYIN, extras.js dan OLDIN yuklanadi.
@@ -26,7 +29,13 @@
     { id: 'u_star', key: 'star', icon: '🌠', gems: 20, n: ['Yulduz chegara', 'Star Border', 'Звёздная рамка'],
       d: ['Tugmalar chegarasida yuguruvchi yulduz', 'A comet runs around key buttons', 'Комета бежит по краю кнопок'] },
     { id: 'u_target', key: 'target', icon: '⌖', gems: 25, desktop: true, n: ['Nishon kursor (TargetCursor)', 'Target Cursor', 'Курсор-мишень (TargetCursor)'],
-      d: ['Aylanuvchi burchaklar tugmalarni qamrab oladi', 'Spinning corners snap around buttons', 'Вращающиеся уголки обхватывают кнопки'] }
+      d: ['Aylanuvchi burchaklar tugmalarni qamrab oladi', 'Spinning corners snap around buttons', 'Вращающиеся уголки обхватывают кнопки'] },
+    { id: 'u_wave', key: 'wave', icon: '💫', coins: 130, n: ['To\'lqin (Shockwave)', 'Shockwave', 'Волна (Shockwave)'],
+      d: ['Har bosishda halqa to\'lqini tarqaladi', 'A ring wave ripples out on every tap', 'Кольцевая волна при каждом нажатии'] },
+    { id: 'u_trail', key: 'trail', icon: '☄️', gems: 15, n: ['Nurli iz (Glow Trail)', 'Glow Trail', 'Светящийся след (Glow Trail)'],
+      d: ['Kursor yoki barmoq ortidan porlovchi iz', 'A glowing trail follows your cursor or finger', 'Светящийся след за курсором или пальцем'] },
+    { id: 'u_spot', key: 'spot', icon: '🔦', coins: 180, desktop: true, n: ['Projektor kartalar (Spotlight)', 'Spotlight Cards', 'Прожектор (Spotlight)'],
+      d: ['Kartalar ustida kursor ortidan yorug\'lik yuradi', 'Light follows the cursor across cards', 'Свет следует за курсором по карточкам'] }
   ];
   // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6)
   CAT.forEach(function (it) {
@@ -295,6 +304,144 @@
   }, { passive: true });
 
   // =========================================================
+  // 6) Shockwave — ikki halqa (asosiy + kechikkan ingichka), ease-out, 650ms
+  // =========================================================
+  var WV = { on: false, cv: null, ctx: null, rings: [], raf: 0, dpr: 1, dur: 650, R: 46 };
+  function wvCanvas() {
+    if (WV.cv) return WV.cv;
+    var c = document.createElement('canvas');
+    c.id = 'lu-fx-wave'; c.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(c);
+    WV.cv = c; WV.ctx = c.getContext('2d'); wvResize();
+    return c;
+  }
+  function wvResize() {
+    if (!WV.cv) return;
+    WV.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    WV.cv.width = Math.round(window.innerWidth * WV.dpr); WV.cv.height = Math.round(window.innerHeight * WV.dpr);
+  }
+  function wvFrame(now) {
+    var ctx = WV.ctx;
+    ctx.setTransform(WV.dpr, 0, 0, WV.dpr, 0, 0);
+    ctx.clearRect(0, 0, WV.cv.width, WV.cv.height);
+    WV.rings = WV.rings.filter(function (r) {
+      var el = now - r.t - r.delay; if (el < 0) return true;
+      if (el >= WV.dur) return false;
+      var p = el / WV.dur, e = 1 - Math.pow(1 - p, 3);
+      ctx.globalAlpha = (1 - p) * r.a;
+      ctx.strokeStyle = r.col; ctx.lineWidth = r.w * (1 - p * 0.6);
+      ctx.beginPath(); ctx.arc(r.x, r.y, 4 + e * WV.R * r.s, 0, Math.PI * 2); ctx.stroke();
+      if (r.fill) { ctx.globalAlpha = (1 - p) * 0.12; ctx.fillStyle = r.col; ctx.fill(); }
+      return true;
+    });
+    ctx.globalAlpha = 1;
+    if (WV.rings.length) WV.raf = requestAnimationFrame(wvFrame);
+    else { WV.raf = 0; ctx.clearRect(0, 0, WV.cv.width, WV.cv.height); }
+  }
+  function wvBurst(x, y) {
+    wvCanvas();
+    var now = performance.now(), col = accent();
+    WV.rings.push({ x: x, y: y, t: now, delay: 0, s: 1, w: 2.5, a: 0.9, col: col, fill: true });
+    WV.rings.push({ x: x, y: y, t: now, delay: 110, s: 1.35, w: 1.2, a: 0.6, col: col });
+    if (WV.rings.length > 60) WV.rings.splice(0, WV.rings.length - 60);
+    if (!WV.raf) WV.raf = requestAnimationFrame(wvFrame);
+  }
+  document.addEventListener('pointerdown', function (e) {
+    if (!WV.on || !motionOK() || e.button > 0) return;
+    wvBurst(e.clientX, e.clientY);
+  }, { capture: true, passive: true });
+
+  // =========================================================
+  // 7) Glow Trail — so'nggi nuqtalar bo'yicha ingichkalashib so'nuvchi porloq chiziq (450ms umr)
+  // =========================================================
+  var TR = { on: false, cv: null, ctx: null, pts: [], raf: 0, dpr: 1, life: 450, down: false };
+  function trCanvas() {
+    if (TR.cv) return TR.cv;
+    var c = document.createElement('canvas');
+    c.id = 'lu-fx-trail'; c.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(c);
+    TR.cv = c; TR.ctx = c.getContext('2d'); trResize();
+    return c;
+  }
+  function trResize() {
+    if (!TR.cv) return;
+    TR.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    TR.cv.width = Math.round(window.innerWidth * TR.dpr); TR.cv.height = Math.round(window.innerHeight * TR.dpr);
+  }
+  function trFrame(now) {
+    var ctx = TR.ctx;
+    ctx.setTransform(TR.dpr, 0, 0, TR.dpr, 0, 0);
+    ctx.clearRect(0, 0, TR.cv.width, TR.cv.height);
+    TR.pts = TR.pts.filter(function (p) { return now - p.t < TR.life; });
+    var n = TR.pts.length;
+    if (n > 1) {
+      var col = TR.col || accent();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.strokeStyle = col;
+      for (var i = 1; i < n; i++) {
+        var a = TR.pts[i - 1], b = TR.pts[i], k = 1 - (now - b.t) / TR.life;
+        ctx.globalAlpha = Math.max(0, k) * 0.85;
+        ctx.lineWidth = 1 + 5 * k * (i / n);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    if (n) TR.raf = requestAnimationFrame(trFrame);
+    else { TR.raf = 0; TR.col = null; ctx.clearRect(0, 0, TR.cv.width, TR.cv.height); }
+  }
+  document.addEventListener('pointermove', function (e) {
+    if (!TR.on || !motionOK()) return;
+    if (e.pointerType === 'touch' && !TR.down) return;
+    trCanvas();
+    var last = TR.pts[TR.pts.length - 1];
+    if (last && Math.abs(last.x - e.clientX) + Math.abs(last.y - e.clientY) < 2) return;
+    if (!TR.col) TR.col = accent();
+    TR.pts.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+    if (TR.pts.length > 48) TR.pts.shift();
+    if (!TR.raf) TR.raf = requestAnimationFrame(trFrame);
+  }, { passive: true });
+  document.addEventListener('pointerdown', function () { TR.down = true; }, { passive: true, capture: true });
+  document.addEventListener('pointerup', function () { TR.down = false; }, { passive: true, capture: true });
+  document.addEventListener('pointercancel', function () { TR.down = false; }, { passive: true, capture: true });
+
+  // =========================================================
+  // 8) Spotlight — hover qilingan karta ustiga bitta fixed qatlam: radial yorug'lik + chegara nuri
+  // =========================================================
+  var SPOT_SEL = '.task-card, .settings-sub-card, .settings-info-card, .pc-card, .xst-card, .x-card, .quests-card, #calendar-section, #goals-calendar-section, [data-spot]';
+  var SL = { on: false, el: null, card: null, x: 0, y: 0, raf: 0 };
+  function slBuild() {
+    if (SL.el) return SL.el;
+    var d = document.createElement('div');
+    d.id = 'lu-fx-spot'; d.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(d); SL.el = d; return d;
+  }
+  function slHide() { SL.card = null; if (SL.el) SL.el.classList.remove('on'); }
+  function slTick() {
+    SL.raf = 0;
+    var c = SL.card; if (!c || !SL.el) return;
+    var r = c.getBoundingClientRect();
+    if (!r.width || SL.x < r.left || SL.x > r.right || SL.y < r.top || SL.y > r.bottom) { slHide(); return; }
+    var st = SL.el.style;
+    st.transform = 'translate(' + r.left + 'px,' + r.top + 'px)';
+    st.width = r.width + 'px'; st.height = r.height + 'px';
+    st.borderRadius = getComputedStyle(c).borderRadius || '14px';
+    st.setProperty('--sx', (SL.x - r.left) + 'px'); st.setProperty('--sy', (SL.y - r.top) + 'px');
+    SL.el.classList.add('on');
+  }
+  document.addEventListener('pointermove', function (e) {
+    if (!SL.on || e.pointerType !== 'mouse' || !finePointer()) return;
+    SL.x = e.clientX; SL.y = e.clientY;
+    var t = e.target && e.target.closest ? e.target.closest(SPOT_SEL) : null;
+    // ichma-ich kartalarda eng ichkisi tanlanadi; modal ichidagi yoki juda katta bloklar emas
+    if (!t || t.closest('.modal-overlay, .x-studio, [role="dialog"]')) { if (SL.card) slHide(); return; }
+    slBuild(); SL.card = t;
+    if (!SL.raf) SL.raf = requestAnimationFrame(slTick);
+  }, { passive: true });
+  document.addEventListener('scroll', function () { if (SL.card && !SL.raf) SL.raf = requestAnimationFrame(slTick); }, { passive: true, capture: true });
+  document.addEventListener('mouseout', function (e) { if (!e.relatedTarget) slHide(); }, { passive: true });
+  window.addEventListener('blur', slHide);
+
+  // =========================================================
   // Holatni qo'llash
   // =========================================================
   function sync() {
@@ -308,6 +455,11 @@
     TC.on = enabled('u_target');
     if (!TC.on) tcShow(false);
     root.classList.toggle('lu-fx-tc', TC.on && finePointer());
+    WV.on = enabled('u_wave');
+    TR.on = enabled('u_trail');
+    if (!TR.on) TR.pts = [];
+    SL.on = enabled('u_spot');
+    if (!SL.on) slHide();
   }
 
   function toggle(id) {
@@ -330,9 +482,16 @@
     if (key === 'cross') return '<div class="fxp fxp-ch"><i class="h"></i><i class="v"></i><span class="fxp-btn">OK</span><b></b></div>';
     if (key === 'star') return '<div class="fxp fxp-star"><span class="fxp-btn lu-sb-demo">+ Add</span></div>';
     if (key === 'target') return '<div class="fxp fxp-tc"><span class="fxp-btn">OK</span><i></i><i></i><i></i><i></i></div>';
+    if (key === 'wave') return '<div class="fxp fxp-wave" data-fxdemo="wave"><i></i><i></i><b></b></div>';
+    if (key === 'trail') return '<div class="fxp fxp-trail" data-fxdemo="trail"><svg viewBox="0 0 120 56" preserveAspectRatio="none"><path d="M8 40 C 30 6, 52 6, 62 28 S 96 50, 112 14"/></svg><i></i></div>';
+    if (key === 'spot') return '<div class="fxp fxp-spot"><span class="fxp-card"><b></b><b></b></span><i></i></div>';
     return '';
   }
-  function demo(key, x, y) { if (key === 'spark' && motionOK()) spBurst(x, y); }
+  function demo(key, x, y) {
+    if (!motionOK()) return;
+    if (key === 'spark') spBurst(x, y);
+    else if (key === 'wave') wvBurst(x, y);
+  }
   document.addEventListener('mouseover', function (e) {
     var d = e.target && e.target.closest ? e.target.closest('[data-fxdemo]') : null;
     if (!d || d._dm) return;
@@ -368,7 +527,7 @@
     if ((e.key === 'Enter' || e.key === ' ') && t && t.hasAttribute && t.hasAttribute('data-fx-toggle')) { e.preventDefault(); toggle(t.getAttribute('data-fx-toggle')); }
   });
 
-  window.addEventListener('resize', function () { spResize(); MG.listT = 0; }, { passive: true });
+  window.addEventListener('resize', function () { spResize(); wvResize(); trResize(); MG.listT = 0; }, { passive: true });
   window.addEventListener('lu:design', function () { sync(); });
   function onMQ() { sync(); try { if (window.LUDesign) window.LUDesign.renderPicker(); } catch (e) {} }
   [reduceMQ, fineMQ].forEach(function (mq) { if (!mq) return; if (mq.addEventListener) mq.addEventListener('change', onMQ); else if (mq.addListener) mq.addListener(onMQ); });
