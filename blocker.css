@@ -215,6 +215,57 @@ body.light .fg-sheet { background: #fff; }
 .fg-week span { font-size: 11px; color: var(--text-muted); }
 .fg-note { margin-top: 12px; font-size: 13px; color: var(--text); padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--surface2)); }
 
+
+/* ---------- 🧩 Ilova ichida: Profil → Statistika / Sozlamalar ---------- */
+.fg-hint { font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 2px 8px; }
+.fg-scope .fg-sw, .fg-scope button { font-family: inherit; }
+.fg-emb-h { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.fg-emb-ic { flex: none; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #FF4F9A)); box-shadow: 0 6px 16px var(--accent-glow); }
+.fg-emb-h > div { flex: 1; min-width: 0; }
+.fg-emb-h b { display: block; font-size: 15px; color: var(--text); }
+.fg-emb-h small { font-size: 11.5px; color: var(--text-muted); }
+.fg-emb-more { border: 1px solid var(--border); background: var(--surface2); color: var(--accent); font-weight: 700; font-size: 12.5px; padding: 7px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.fg-emb-more:hover { border-color: var(--accent); }
+.fg-emb-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.fg-emb-kpis > div { background: var(--surface2); border-radius: 12px; padding: 9px 8px; text-align: center; min-width: 0; }
+.fg-emb-kpis b { display: block; font-family: Syne, sans-serif; font-size: 16px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fg-emb-kpis .up b { color: var(--red); }
+.fg-emb-kpis .down b { color: var(--green); }
+.fg-emb-kpis span { font-size: 10.5px; color: var(--text-muted); }
+.fg-emb-spark { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; height: 64px; align-items: end; }
+.fg-emb-spark i { display: block; border-radius: 3px 3px 1px 1px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 75%, #fff), var(--accent)); }
+.fg-emb-spark i.z { background: var(--surface2); }
+.fg-emb-x { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin: 4px 0 12px; }
+.fg-emb-top { display: flex; flex-direction: column; gap: 4px; }
+.fg-emb-app { display: grid; grid-template-columns: 28px minmax(0, 9em) 1fr auto; align-items: center; gap: 10px; padding: 6px; margin: 0 -6px; border: 0; background: none; color: var(--text); border-radius: 10px; cursor: pointer; text-align: left; }
+.fg-emb-app:hover { background: var(--surface2); }
+.fg-emb-n { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fg-emb-app b { font-size: 12.5px; white-space: nowrap; }
+.fg-emb-warn { width: 100%; margin-top: 10px; border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); font-weight: 600; font-size: 12.5px; padding: 9px 12px; border-radius: 12px; cursor: pointer; text-align: left; }
+.fg-emb-set .fg-opt:first-child { border-top: 0; padding-top: 4px; }
+.fg-emb-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+.fg-emb-links button { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 11px 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; text-align: left; transition: border-color .15s; }
+.fg-emb-links button:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+.fg-emb-links span { font-size: 18px; margin-bottom: 2px; }
+.fg-emb-links b { font-size: 13px; }
+.fg-emb-links small { font-size: 11.5px; color: var(--text-muted); }
+.fg-emb-links i { position: absolute; top: 10px; right: 12px; font-style: normal; color: var(--text-muted); }
+/* Sozlamalar ustuni tor — yuklab olish kartalari ixcham qator ko'rinishida */
+#fg-settings-root .fg-get { grid-template-columns: 1fr; gap: 8px; }
+#fg-settings-root .fg-get-c { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 1px; align-items: center; background: var(--surface2); border-color: transparent; padding: 12px; border-radius: 14px; }
+#fg-settings-root .fg-get-ic { grid-row: 1 / 3; font-size: 22px; }
+#fg-settings-root .fg-get-c b { font-size: 13.5px; }
+#fg-settings-root .fg-get-c > span:not(.fg-get-ic) { grid-column: 2; font-size: 11.5px; margin: 0; }
+#fg-settings-root .fg-get-c .fg-btn { grid-column: 3; grid-row: 1 / 3; font-size: 12px; padding: 8px 12px; }
+@media (max-width: 600px) {
+  .fg-emb-links { grid-template-columns: 1fr; }
+  .fg-emb-links button { flex-direction: row; align-items: center; gap: 10px; }
+  .fg-emb-links span { margin: 0; }
+  .fg-emb-links small { margin-left: auto; margin-right: 18px; }
+  .fg-emb-links i { top: 50%; transform: translateY(-50%); }
+  .fg-emb-app { grid-template-columns: 28px minmax(0, 7.5em) 1fr auto; }
+}
+
 /* ---------- Telefon ---------- */
 @media (max-width: 600px) {
   .fg-hero { padding: 14px; border-radius: 18px; }
