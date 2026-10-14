@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.4.1'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.5.0'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION; // ?v= — brauzer/CDN eski faylni bermasligi uchun
 
   // ---------- Namuna (DEMO) ma'lumotlar — kompyuter ulanmaganda ko'rsatiladi ----------
@@ -1058,7 +1058,7 @@
 
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, _state: FG, _soc: SOC };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, version: AGENT_VERSION, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();
