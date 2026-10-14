@@ -263,9 +263,12 @@
     b.id = 'lub-cp-btn'; b.type = 'button';
     b.title = L('Qidirish', 'Search', 'Поиск') + ' (' + (isMac() ? '⌘' : 'Ctrl') + '+K)';
     b.setAttribute('aria-label', L('Ilova bo\'yicha qidirish', 'Search the app', 'Поиск по приложению'));
-    b.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>' +
+      '<span class="lub-cp-btn-t">' + H(L('Qidirish', 'Search', 'Поиск')) + '</span><kbd class="lub-cp-btn-k">' + (isMac() ? '⌘' : 'Ctrl') + ' K</kbd>';
     b.addEventListener('click', function () { openPalette(); });
-    host.insertBefore(b, host.firstChild);
+    // Spin tugmasidan keyin (kompyuterda o'ng panelda — Spin ostida to'rtburchak quti)
+    var spin = $('header-spin-btn');
+    if (spin && spin.parentNode === host) host.insertBefore(b, spin.nextSibling); else host.appendChild(b);
   }
 
   /* ============================================================
