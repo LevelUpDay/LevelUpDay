@@ -1,5 +1,6 @@
 const q = new URLSearchParams(location.search);
-const lang = (navigator.language || 'uz').slice(0, 2);
+chrome.storage.local.get('cfg', (o) => { const l = o && o.cfg && o.cfg.lang; render(['uz', 'en', 'ru'].includes(l) ? l : (navigator.language || 'en').slice(0, 2)); });
+function render(lang) {
 const T = {
   uz: { t: 'Bu sayt hozir bloklangan', always: 'Bu sayt doimiy bloklangan.', daily: (m) => `Bugungi limit tugadi${m ? ' (' + m + ' daqiqa)' : ''}. Ertaga yana ochiladi.`, schedule: 'Jadval bo\'yicha hozir bloklangan.', focus: 'Fokus sessiyasi davom etmoqda — tugagach ochiladi.', close: 'Tabni yopish',
     quotes: ['Kichik qadamlar katta natija beradi.', 'Diqqatingiz — eng qimmatli boyligingiz.', 'Hozir fokus qilsangiz, keyin xotirjam dam olasiz.', 'Bugungi tanlov ertangi sizni yaratadi.'] },
@@ -17,3 +18,4 @@ document.getElementById('why').textContent = r === 'daily' ? t.daily(q.get('m'))
 document.getElementById('q').textContent = '“' + t.quotes[Math.floor(Math.random() * t.quotes.length)] + '”';
 document.getElementById('close').textContent = t.close;
 document.getElementById('close').onclick = () => chrome.runtime.sendMessage({ type: 'fg:closeTab' });
+}

@@ -7378,6 +7378,23 @@ var defaultRewards = [
   {id:8,name:"Choy/kofe dam olish",icon:'☕',cost:5,rtype:'count',amount:1},
 ];
 
+// 🌐 Standart mukofotlar nomi joriy tilda ko'rsatiladi (foydalanuvchi o'zgartirmagan bo'lsa)
+var DEFAULT_REWARD_I18N = {
+  1: ['Instagram 10 daqiqa', 'Instagram 10 min', 'Instagram 10 мин'],
+  2: ["O'yin 15 daqiqa", 'Games 15 min', 'Игры 15 мин'],
+  3: ['YouTube 15 daqiqa', 'YouTube 15 min', 'YouTube 15 мин'],
+  4: ['TikTok 10 daqiqa', 'TikTok 10 min', 'TikTok 10 мин'],
+  5: ['Muzqaymoq yoki shirinlik', 'Ice cream or a treat', 'Мороженое или сладкое'],
+  6: ["Film ko'rish 1 soat", 'Watch a movie (1 h)', 'Посмотреть фильм (1 ч)'],
+  7: ['Uxlash vaqtini 30 daqiqa kechiktirish', 'Stay up 30 min later', 'Лечь спать на 30 мин позже'],
+  8: ['Choy/kofe dam olish', 'Tea/coffee break', 'Перерыв на чай/кофе']
+};
+function rwName(r) {
+  if (!r) return '';
+  var d = DEFAULT_REWARD_I18N[r.id];
+  if (d && d.indexOf(r.name) !== -1) { var l = getLang(); return l === 'en' ? d[1] : l === 'ru' ? d[2] : d[0]; }
+  return r.name || '';
+}
 
 // Level tizimi (XP asosida, tangadan alohida)
 // Kuniga ~15 vazifa (~175 XP/kun), Lv2 uchun ~4 kun (darajalar ~1.33x qiyinlashtirildi)
@@ -11121,7 +11138,7 @@ function claimReward(id) {
     S.totalPurchases=(S.totalPurchases||0)+1;
     recordPurchase(r, safeCost);
     addTarixLog('out',r.icon+' '+r.name+' '+t('reward_purchased_log_suffix'),-safeCost);
-    toast(t('reward_claimed_toast').replace('{icon}', r.icon).replace('{name}', r.name).replace('{cost}', safeCost)); confetti(); SFX.click(); save(); render();
+    toast(t('reward_claimed_toast').replace('{icon}', r.icon).replace('{name}', rwName(r)).replace('{cost}', safeCost)); confetti(); SFX.click(); save(); render();
   } finally {
     _claimingRewardIds[id] = false;
   }
@@ -13915,7 +13932,7 @@ function renderRewards() {
       '<div class="rw-card-top">'+
         '<div class="rw-icon">'+esc(r.icon)+'</div>'+
         '<div class="rw-body">'+
-          '<div class="rw-name">'+esc(r.name)+'</div>'+
+          '<div class="rw-name">'+esc(rwName(r))+'</div>'+
           '<div class="rw-chips">'+chips+'</div>'+
         '</div>'+
         '<div class="rw-tools">'+
@@ -13996,7 +14013,7 @@ function renderClaimSummary() {
       if(remMins <= 0) return; // listdan o'chir
       ownedRows++;
       html += `<div class="rw-owned-row">
-        <span class="rw-owned-name">${esc(r.icon)} ${esc(r.name)}</span>
+        <span class="rw-owned-name">${esc(r.icon)} ${esc(rwName(r))}</span>
         <span class="rw-owned-left">${formatMinutes(remMins)}</span>
         <button type="button" class="rw-owned-use" onclick="logUsage(${r.id})">${t('reward_use_btn')}</button>
       </div>`;
@@ -14007,7 +14024,7 @@ function renderClaimSummary() {
       if(rem <= 0) return; // listdan o'chir
       ownedRows++;
       html += `<div class="rw-owned-row">
-        <span class="rw-owned-name">${esc(r.icon)} ${esc(r.name)}</span>
+        <span class="rw-owned-name">${esc(r.icon)} ${esc(rwName(r))}</span>
         <span class="rw-owned-left">${rem} ${t('reward_unit_count')}</span>
         <button type="button" class="rw-owned-use" onclick="logUsage(${r.id})">${t('reward_use_btn')}</button>
       </div>`;
@@ -15833,7 +15850,7 @@ function logUsage(id) {
       : '';
 
     box.innerHTML=
-      '<p style="font-size:var(--fs-md);font-weight:600;color:var(--text);margin-bottom:16px">'+esc(r.icon)+' '+esc(r.name)+'</p>'+
+      '<p style="font-size:var(--fs-md);font-weight:600;color:var(--text);margin-bottom:16px">'+esc(r.icon)+' '+esc(rwName(r))+'</p>'+
       infoHtml+warningHtml+
       '<div style="display:flex;gap:10px">'+
         '<button id="usage-cancel" style="flex:1;padding:11px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer">'+t('btn_cancel')+'</button>'+
@@ -15857,7 +15874,7 @@ function logUsage(id) {
         // Jarima tolandi — qarz yopildi, hisob tozalanadi (keyingi xaridga otmaydi)
         S.rewardClaims[id]=0; S.usageLog[id]=[];
       } else {
-        toast(t('usage_used_toast').replace('{icon}', r.icon).replace('{name}', r.name));
+        toast(t('usage_used_toast').replace('{icon}', r.icon).replace('{name}', rwName(r)));
         recordUsage(r, 1, 0);
         if(remaining-1<=0){ S.rewardClaims[id]=0; S.usageLog[id]=[]; }
       }
@@ -15900,7 +15917,7 @@ function logUsage(id) {
   }
 
   box.innerHTML=
-    '<p style="font-size:var(--fs-base);font-weight:600;color:var(--text);text-align:center;margin-bottom:4px">'+esc(r.icon)+' '+esc(r.name)+'</p>'+
+    '<p style="font-size:var(--fs-base);font-weight:600;color:var(--text);text-align:center;margin-bottom:4px">'+esc(r.icon)+' '+esc(rwName(r))+'</p>'+
     '<p style="font-size:var(--fs-sm);color:var(--text-muted);text-align:center;margin-bottom:14px">'+t('usage_minutes_question')+'</p>'+
     infoHtml+pHTML+
     '<div style="display:flex;gap:8px;margin-bottom:12px">'+
@@ -23508,153 +23525,171 @@ function getBadgeTargets() {
   return BADGE_TARGETS.fixed;
 }
 
-function buildAllBadges() {
+// 🏅 YUTUQLAR — 16 guruh × 5 bosqich (bronza → olmos) + maxsus yutuqlar.
+// Eski 6 guruhning id'lari (streak_1, tasks_1 ...) o'zgarmagan — oldin olingan yutuqlar saqlanadi.
+var BADGE_TIERS = [
+  { k: 1, c: '#cd7f32', n: ['Bronza', 'Bronze', 'Бронза'] },
+  { k: 2, c: '#b8c4d6', n: ['Kumush', 'Silver', 'Серебро'] },
+  { k: 3, c: '#f5c542', n: ['Oltin', 'Gold', 'Золото'] },
+  { k: 4, c: '#5eead4', n: ['Platina', 'Platinum', 'Платина'] },
+  { k: 5, c: '#c084fc', n: ['Olmos', 'Diamond', 'Алмаз'] }
+];
+function badgePomoMin() {
+  try { var a = JSON.parse(localStorage.getItem('pomoLogs') || '[]'); return Math.round((Array.isArray(a) ? a : []).reduce(function (s, x) { return s + (x.durationMs || 0); }, 0) / 60000); } catch (e) { return 0; }
+}
+function badgeDeepMin(s) {
+  var m = 0; Object.keys(s.focusLog || {}).forEach(function (k) { m += +s.focusLog[k] || 0; });
+  return m + ((s.focusgate && s.focusgate.focusMin) || 0);
+}
+function badgeHabitBest(s) {
+  var best = 0;
+  (s.xHabits || []).forEach(function (h) {
+    var cur = 0; try { if (h.start) cur = Math.max(0, Math.floor((Date.now() - new Date(h.start).getTime()) / 86400000)); } catch (e) {}
+    best = Math.max(best, +h.best || 0, cur);
+  });
+  return best;
+}
+function getBadgeGroups() {
   var T = getBadgeTargets();
-  var icons = {
-    streak: ['🔥','🔥','🏅','🏆','👑'],
-    tasks:  ['✅','⭐','💫','🏆','👑'],
-    coins:  ['🪙','💰','💎','🏅','👑'],
-    hard:   ['⚡','🔥','🔱','💥','👑'],
-    shop:   ['🎁','🛍️','💸','💎','👑'],
-    focus:  ['🥉','🥈','🥇','🏅','👑'],
-  };
+  var u = function (uz, en, ru) { return function () { return _cl(uz, en, ru); }; };
+  return [
+    { key: 'streak', ico: '🔥', label: function () { return t('badge_group_streak'); }, unit: function () { return t('badge_unit_days'); }, targets: T.streak, icons: ['🔥', '🔥', '🏅', '🏆', '👑'], value: function (s) { return s.bestStreak || s.streak || 0; }, desc: function (n) { return t('badge_desc_streak').replace('{n}', n); } },
+    { key: 'tasks', ico: '✅', label: function () { return t('badge_group_tasks'); }, unit: function () { return t('badge_unit_tasks'); }, targets: T.tasks, icons: ['✅', '⭐', '💫', '🏆', '👑'], value: function (s) { return s.totalTasksDone || 0; }, desc: function (n) { return t('badge_desc_tasks').replace('{n}', n); } },
+    { key: 'coins', ico: '🪙', label: function () { return t('badge_group_coins'); }, unit: function () { return '🪙'; }, targets: T.coins, icons: ['🪙', '💰', '💎', '🏅', '👑'], value: function (s) { return s.totalCoins || 0; }, desc: function (n) { return t('badge_desc_coins').replace('{n}', n); } },
+    { key: 'hard', ico: '⚡', label: function () { return t('badge_group_hard'); }, unit: function () { return t('badge_unit_hard'); }, targets: T.hard, icons: ['⚡', '🔥', '🔱', '💥', '👑'], value: function (s) { return s.hardTasksDone || 0; }, desc: function (n) { return t('badge_desc_hard').replace('{n}', n); } },
+    { key: 'shop', ico: '🛒', label: function () { return t('badge_group_shop'); }, unit: function () { return t('badge_unit_shop'); }, targets: T.shop, icons: ['🎁', '🛍️', '💸', '💎', '👑'], value: function (s) { return s.totalPurchases || 0; }, desc: function (n) { return t('badge_desc_shop').replace('{n}', n); } },
+    { key: 'focus', ico: '🧘', label: function () { return t('badge_group_focus'); }, unit: function () { return t('badge_unit_days'); }, targets: T.focus, icons: ['🥉', '🥈', '🥇', '🏅', '👑'], value: function () { return getSecretBestStreak(); }, desc: function (n) { return t('badge_desc_focus').replace('{n}', n); } },
+    { key: 'level', ico: '⭐', label: u('Daraja', 'Level', 'Уровень'), unit: u('daraja', 'level', 'ур.'), targets: [2, 3, 4, 5, 7], icons: ['🌱', '🌿', '🌳', '⭐', '👑'], value: function (s) { try { return getLevel(s.xp || 0).level; } catch (e) { return 1; } }, desc: function (n) { return _cl(n + '-darajaga chiqing', 'Reach level ' + n, 'Достигните ' + n + '-го уровня'); } },
+    { key: 'pomo', ico: '🍅', label: u('Pomodoro', 'Pomodoro', 'Pomodoro'), unit: u('daq', 'min', 'мин'), targets: [60, 300, 1000, 3000, 10000], icons: ['🍅', '⏱️', '🕰️', '🏃', '👑'], value: function () { return badgePomoMin(); }, desc: function (n) { return _cl('Pomodoro bilan jami ' + n + ' daqiqa ishlang', 'Work ' + n + ' minutes in total with Pomodoro', 'Наработайте ' + n + ' минут с Pomodoro'); } },
+    { key: 'deep', ico: '🎯', label: u('Chuqur fokus', 'Deep focus', 'Глубокий фокус'), unit: u('daq', 'min', 'мин'), targets: [60, 300, 1000, 3000, 6000], icons: ['🎯', '🧠', '🔭', '🚀', '👑'], value: badgeDeepMin, desc: function (n) { return _cl('Fokus rejimi va Focusgate fokusida jami ' + n + ' daqiqa', n + ' minutes in Focus mode and Focusgate focus', n + ' минут в режиме фокуса и Focusgate'); } },
+    { key: 'fg', ico: '🛡', label: u('Limitda qolish', 'Within limits', 'В пределах лимитов'), unit: u('kun', 'days', 'дн.'), targets: [1, 3, 7, 14, 30], icons: ['🛡', '🧱', '🏰', '🗿', '👑'], value: function (s) { return (s.focusgate && s.focusgate.goodDays) || 0; }, desc: function (n) { return _cl('Focusgate limitlarida ' + n + ' kun qoling', 'Stay within your Focusgate limits for ' + n + ' days', 'Оставайтесь в лимитах Focusgate ' + n + ' дн.'); } },
+    { key: 'spin', ico: '🎰', label: u('Spin', 'Spin', 'Спин'), unit: u('marta', 'spins', 'раз'), targets: [5, 25, 50, 100, 250], icons: ['🎰', '🍀', '🎲', '💫', '👑'], value: function (s) { return s.spinTotal || 0; }, desc: function (n) { return _cl(n + ' marta spin aylantiring', 'Spin ' + n + ' times', 'Крутите спин ' + n + ' раз'); } },
+    { key: 'boss', ico: '🐉', label: u('Boss', 'Boss', 'Босс'), unit: u('g\'alaba', 'wins', 'побед'), targets: [1, 3, 5, 10, 20], icons: ['⚔️', '🛡️', '🐉', '🔥', '👑'], value: function (s) { return s.bossWins || 0; }, desc: function (n) { return _cl(n + ' ta bossni yenging', 'Defeat ' + n + ' bosses', 'Победите ' + n + ' боссов'); } },
+    { key: 'mood', ico: '😊', label: u('Kayfiyat kundaligi', 'Mood journal', 'Дневник настроения'), unit: u('kun', 'days', 'дн.'), targets: [3, 7, 30, 60, 100], icons: ['🙂', '😊', '😄', '🤩', '👑'], value: function (s) { return Object.keys(s.moods || {}).length; }, desc: function (n) { return _cl('Kayfiyatni ' + n + ' kun belgilang', 'Log your mood on ' + n + ' days', 'Отмечайте настроение ' + n + ' дн.'); } },
+    { key: 'habit', ico: '🌿', label: u('Yomon odatsiz', 'Habit-free', 'Без вредной привычки'), unit: u('kun', 'days', 'дн.'), targets: [3, 7, 30, 60, 100], icons: ['🌱', '🌿', '🍀', '🌳', '👑'], value: badgeHabitBest, desc: function (n) { return _cl('Yomon odatdan ' + n + ' kun voz keching', 'Stay clean from a bad habit for ' + n + ' days', 'Держитесь без вредной привычки ' + n + ' дн.'); } },
+    { key: 'friends', ico: '👥', label: u('Do\'stlar', 'Friends', 'Друзья'), unit: u('do\'st', 'friends', 'друзей'), targets: [1, 3, 5, 10, 20], icons: ['🤝', '👥', '🎉', '🌍', '👑'], value: function (s) { return ((s.friends && s.friends.list) || []).length; }, desc: function (n) { return _cl(n + ' ta do\'st orttiring', 'Make ' + n + ' friends', 'Добавьте ' + n + ' друзей'); } },
+    { key: 'collect', ico: '🛍', label: u('Kolleksiya', 'Collection', 'Коллекция'), unit: u('ta', 'items', 'шт.'), targets: [1, 3, 5, 10, 20], icons: ['🎨', '🖼️', '✨', '💠', '👑'], value: function (s) { return ((s.shop && s.shop.owned) || []).length; }, desc: function (n) { return _cl('Do\'kondan ' + n + ' ta dizayn/effekt yig\'ing', 'Collect ' + n + ' designs/effects from the shop', 'Соберите ' + n + ' дизайнов/эффектов из магазина'); } }
+  ];
+}
+// 🌟 Maxsus (bir martalik) yutuqlar — yangi imkoniyatlar uchun
+function getSpecialBadges() {
+  var fg = function (s) { return s.focusgate || {}; };
+  return [
+    { id: 'sp_pc', icon: '💻', l: ['Kompyuter ulandi', 'PC connected', 'ПК подключён'], d: ['Focusgate Windows dasturini ulang', 'Connect the Focusgate Windows app', 'Подключите Focusgate для Windows'], ok: function (s) { return !!fg(s).pc; } },
+    { id: 'sp_ext', icon: '🧩', l: ['Kengaytma', 'Extension', 'Расширение'], d: ['Brauzer kengaytmasini o\'rnating', 'Install the browser extension', 'Установите расширение браузера'], ok: function (s) { return !!fg(s).ext; } },
+    { id: 'sp_tg', icon: '✈️', l: ['Telegram', 'Telegram', 'Telegram'], d: ['Telegram botni ulang', 'Connect the Telegram bot', 'Подключите Telegram-бота'], ok: function (s) { return !!fg(s).tg; } },
+    { id: 'sp_focus1', icon: '🏁', l: ['Birinchi fokus', 'First focus', 'Первый фокус'], d: ['Focusgate fokus sessiyasini oxirigacha yakunlang', 'Finish a Focusgate focus session', 'Завершите сессию фокуса в Focusgate'], ok: function (s) { return (fg(s).focusDone || 0) >= 1; } },
+    { id: 'sp_together', icon: '🤝', l: ['Birga kuchliroq', 'Better together', 'Вместе сильнее'], d: ['Do\'stingizning fokusiga qo\'shiling', 'Join a friend\'s focus session', 'Присоединитесь к фокусу друга'], ok: function (s) { return !!fg(s).joined; } },
+    { id: 'sp_strict', icon: '🔐', l: ['Temir iroda', 'Iron will', 'Железная воля'], d: ['Focusgate\'da qat\'iy rejimni yoqing', 'Turn on Focusgate strict mode', 'Включите строгий режим Focusgate'], ok: function (s) { return !!fg(s).strictUsed; } },
+    { id: 'sp_cat', icon: '🗂', l: ['Tartib ustasi', 'Organizer', 'Организатор'], d: ['Butun kategoriyaga limit qo\'ying', 'Set a limit on a whole category', 'Поставьте лимит на категорию'], ok: function (s) { return !!fg(s).catRule; } },
+    { id: 'sp_week', icon: '🗓', l: ['Mukammal hafta', 'Perfect week', 'Идеальная неделя'], d: ['7 kunlik streakka erishing', 'Reach a 7-day streak', 'Достигните серии в 7 дней'], ok: function (s) { return (s.bestStreak || s.streak || 0) >= 7; } }
+  ];
+}
+function buildAllBadges() {
   var badges = [];
-
-  // 🔥 Streak
-  T.streak.forEach(function(n, i) {
-    badges.push({ id:'streak_'+(i+1), group:'streak', icon:icons.streak[i], label:n+' '+t('badge_unit_days'), desc:t('badge_desc_streak').replace('{n}',n), check: function(s){ return (s.bestStreak||s.streak||0) >= n; } });
+  getBadgeGroups().forEach(function (g) {
+    g.targets.forEach(function (n, i) {
+      badges.push({ id: g.key + '_' + (i + 1), group: g.key, tier: i + 1, target: n, icon: g.icons[i], label: n + ' ' + g.unit(), desc: g.desc(n), value: g.value,
+        check: (function (n, g) { return function (s) { return (g.value(s) || 0) >= n; }; })(n, g) });
+    });
   });
-
-  // ✅ Vazifalar
-  T.tasks.forEach(function(n, i) {
-    badges.push({ id:'tasks_'+(i+1), group:'tasks', icon:icons.tasks[i], label:n+' '+t('badge_unit_tasks'), desc:t('badge_desc_tasks').replace('{n}',n), check: function(s){ return (s.totalTasksDone||0) >= n; } });
+  getSpecialBadges().forEach(function (b) {
+    badges.push({ id: b.id, group: 'special', tier: 0, target: 1, icon: b.icon, label: _cl(b.l[0], b.l[1], b.l[2]), desc: _cl(b.d[0], b.d[1], b.d[2]), value: function (s) { return b.ok(s) ? 1 : 0; }, check: b.ok });
   });
-
-  // 🪙 Tangalar
-  T.coins.forEach(function(n, i) {
-    badges.push({ id:'coins_'+(i+1), group:'coins', icon:icons.coins[i], label:n+t('coins_suffix_short'), desc:t('badge_desc_coins').replace('{n}',n), check: function(s){ return (s.totalCoins||0) >= n; } });
-  });
-
-  // ⚡ Qiyin vazifalar
-  T.hard.forEach(function(n, i) {
-    badges.push({ id:'hard_'+(i+1), group:'hard', icon:icons.hard[i], label:n+' '+t('badge_unit_hard'), desc:t('badge_desc_hard').replace('{n}',n), check: function(s){ return (s.hardTasksDone||0) >= n; } });
-  });
-
-  // 🛒 Mukofotlar
-  T.shop.forEach(function(n, i) {
-    badges.push({ id:'shop_'+(i+1), group:'shop', icon:icons.shop[i], label:n+' '+t('badge_unit_shop'), desc:t('badge_desc_shop').replace('{n}',n), check: function(s){ return (s.totalPurchases||0) >= n; } });
-  });
-
-  // 🧘 Fokus (neytral nom — boshqalar ko'rsa shubhalanmaydi)
-  T.focus.forEach(function(n, i) {
-    badges.push({ id:'focus_'+(i+1), group:'focus', icon:icons.focus[i], label:n+' '+t('badge_unit_days'), desc:t('badge_desc_focus').replace('{n}',n), check: function(s){ return getSecretBestStreak() >= n; } });
-  });
-
   return badges;
 }
-
+// Eski kod uchun moslik (getBadgeGroupMeta boshqa joylarda chaqirilishi mumkin)
 function getBadgeGroupMeta() {
-  var T = getBadgeTargets();
-  return {
-    streak: { label:'🔥 '+t('badge_group_streak'),     targets:T.streak, getValue: function(s){ return s.bestStreak||s.streak||0; }, unit:t('badge_unit_days') },
-    tasks:  { label:'✅ '+t('badge_group_tasks'),  targets:T.tasks,      getValue: function(s){ return s.totalTasksDone||0; },        unit:t('badge_unit_tasks')  },
-    coins:  { label:'🪙 '+t('badge_group_coins'),   targets:T.coins,     getValue: function(s){ return s.totalCoins||0; },            unit:'🪙'  },
-    hard:   { label:'⚡ '+t('badge_group_hard'),      targets:T.hard,      getValue: function(s){ return s.hardTasksDone||0; },         unit:t('badge_unit_shop')  },
-    shop:   { label:'🛒 '+t('badge_group_shop'), targets:T.shop,        getValue: function(s){ return s.totalPurchases||0; },       unit:t('badge_unit_shop')  },
-    focus:  { label:'🧘 '+t('badge_group_focus'), targets:T.focus,      getValue: function(s){ return getSecretBestStreak(); },     unit:t('badge_unit_days')  },
-  };
+  var out = {};
+  getBadgeGroups().forEach(function (g) { out[g.key] = { label: g.ico + ' ' + g.label(), targets: g.targets, getValue: g.value, unit: g.unit() }; });
+  return out;
 }
 
 var BADGE_GEM_REWARD = 2;
+var _badgeFilter = 'all', _badgeGroup = 'all';
+function badgeSetFilter(f) { _badgeFilter = f; renderBadges(); }
+function badgeSetGroup(g) { _badgeGroup = g; renderBadges(); }
+function badgeTap(id) {
+  var b = buildAllBadges().filter(function (x) { return x.id === id; })[0]; if (!b) return;
+  var v = b.value(S) || 0, ok = b.check(S);
+  toast(b.icon + ' ' + b.desc + (ok ? ' ✅' : b.tier ? ' · ' + Math.min(v, b.target) + '/' + b.target : ''));
+}
 function renderBadges() {
   var grid = document.getElementById('badges-grid');
   var prog = document.getElementById('badges-progress');
   if (!grid || !prog) return;
 
   var allBadges = buildAllBadges();
-  var groupMeta = getBadgeGroupMeta();
-
   if (!S.badgesUnlocked) S.badgesUnlocked = {};
   var newlyEarned = [];
-  allBadges.forEach(function(b) {
+  allBadges.forEach(function (b) {
     var earned = b.check(S);
     if (earned && !S.badgesUnlocked[b.id]) {
       S.badgesUnlocked[b.id] = true;
-      // 🏅 Har bir yutuq uchun 2 💎 (avval 25 🪙 edi)
+      // 🏅 Har bir yutuq uchun 2 💎
       gemsAdd(BADGE_GEM_REWARD, 'badge', '🏅 ' + b.icon + ' ' + b.label, true);
-      addTarixLog('in', '🏅 ' + b.icon + ' ' + b.label + ' (+' + BADGE_GEM_REWARD + ' 💎)', 0, 'badge_reward_'+b.id);
+      addTarixLog('in', '🏅 ' + b.icon + ' ' + b.label + ' (+' + BADGE_GEM_REWARD + ' 💎)', 0, 'badge_reward_' + b.id);
       newlyEarned.push(b);
-      // 🏅 Yutuqlar devori: vitrinada joy bo'lsa avtomatik qo'shiladi (extras.js)
       try { if (typeof window.xAchOnEarned === 'function') window.xAchOnEarned(b.id); } catch (e) {}
     }
   });
   if (newlyEarned.length) {
     save();
-    newlyEarned.forEach(function(b, i) {
-      setTimeout(function() { toast(t('badge_earned_toast')); confetti(); SFX.firework(); }, i * 500);
+    newlyEarned.forEach(function (b, i) {
+      setTimeout(function () { toast(t('badge_earned_toast') + ' ' + b.icon + ' ' + b.label); confetti(); SFX.firework(); }, i * 500);
     });
   }
 
-  // Render badge cards grouped by category
-  grid.innerHTML = '';
-  var groups = ['streak','tasks','coins','hard','shop','focus'];
-  groups.forEach(function(gk) {
-    var meta = groupMeta[gk];
-    var groupBadges = allBadges.filter(function(b){ return b.group === gk; });
-    var groupDiv = document.createElement('div');
-    groupDiv.className = 'badge-group-row';
-    groupDiv.innerHTML = '<div class="badge-group-title">' + meta.label + '</div><div class="badge-group-cards"></div>';
-    var cardsDiv = groupDiv.querySelector('.badge-group-cards');
-    groupBadges.forEach(function(b) {
-      var earned = b.check(S);
-      var div = document.createElement('div');
-      div.className = 'badge-card ' + (earned ? 'earned' : 'locked');
-      div.title = b.desc;
-      div.innerHTML =
-        '<span class="badge-icon">' + b.icon + '</span>' +
-        '<span class="badge-label">' + b.label + '</span>';
-      if (earned) div.style.boxShadow = '0 0 10px rgba(245,166,35,0.2)';
-      cardsDiv.appendChild(div);
-    });
-    grid.appendChild(groupDiv);
-  });
+  var groups = getBadgeGroups();
+  var total = allBadges.length, earnedN = allBadges.filter(function (b) { return S.badgesUnlocked[b.id] || b.check(S); }).length;
+  var pctAll = Math.round(earnedN / total * 100);
+  var isEarned = function (b) { return !!(S.badgesUnlocked[b.id] || b.check(S)); };
+  var progOf = function (b) { var v = b.value(S) || 0; return Math.max(0, Math.min(1, v / b.target)); };
+  // Eng yaqin 3 ta yutuq
+  var next = allBadges.filter(function (b) { return !isEarned(b) && b.tier; }).sort(function (a, b) { return progOf(b) - progOf(a); }).slice(0, 3);
+  var tierCount = [0, 0, 0, 0, 0, 0];
+  allBadges.forEach(function (b) { if (isEarned(b)) tierCount[b.tier]++; });
 
-  // Render progress bars for each group
-  prog.innerHTML = '';
-  groups.forEach(function(gk) {
-    var meta = groupMeta[gk];
-    var cur = meta.getValue(S);
-    // Find next target
-    var nextTarget = null;
-    for (var i=0; i<meta.targets.length; i++) {
-      if (cur < meta.targets[i]) { nextTarget = meta.targets[i]; break; }
+  var h = '<div class="bdg-sum"><div class="bdg-ring" style="--p:' + pctAll + '"><b>' + earnedN + '</b><span>/ ' + total + '</span></div>' +
+    '<div class="bdg-sum-r"><div class="bdg-sum-t">' + esc(_cl('Yutuqlar to\'plami', 'Achievement collection', 'Коллекция достижений')) + '</div>' +
+    '<div class="bdg-sum-s">💎 +' + (earnedN * BADGE_GEM_REWARD) + ' · ' + pctAll + '% ' + esc(_cl('yig\'ildi', 'collected', 'собрано')) + '</div>' +
+    '<div class="bdg-tiers">' + BADGE_TIERS.map(function (tr) { return '<span style="--tc:' + tr.c + '" title="' + esc(_cl(tr.n[0], tr.n[1], tr.n[2])) + '"><i></i>' + tierCount[tr.k] + '</span>'; }).join('') + '<span style="--tc:#f472b6" title="' + esc(_cl('Maxsus', 'Special', 'Особые')) + '"><i></i>' + tierCount[0] + '</span></div></div></div>';
+  if (next.length) {
+    h += '<div class="bdg-next"><div class="bdg-h">🎯 ' + esc(_cl('Yaqin qolgan', 'Almost there', 'Почти получено')) + '</div>' + next.map(function (b) {
+      var v = Math.min(b.value(S) || 0, b.target);
+      return '<button type="button" class="bdg-next-i" onclick="badgeTap(\'' + b.id + '\')"><span class="bdg-ic">' + b.icon + '</span><span class="bdg-next-m"><b>' + esc(b.desc) + '</b><i><s style="width:' + Math.round(progOf(b) * 100) + '%"></s></i></span><em>' + v + '/' + b.target + '</em></button>';
+    }).join('') + '</div>';
+  }
+  // Filtrlar
+  var chip = function (on, fn, arg, txt) { return '<button type="button" class="' + (on ? 'on' : '') + '" onclick="' + fn + '(\'' + arg + '\')">' + txt + '</button>'; };
+  h += '<div class="bdg-filters">' + chip(_badgeFilter === 'all', 'badgeSetFilter', 'all', esc(_cl('Hammasi', 'All', 'Все'))) + chip(_badgeFilter === 'earned', 'badgeSetFilter', 'earned', '✅ ' + esc(_cl('Olingan', 'Earned', 'Получено'))) + chip(_badgeFilter === 'locked', 'badgeSetFilter', 'locked', '🔒 ' + esc(_cl('Olinmagan', 'Locked', 'Не получено'))) + '</div>';
+  h += '<div class="bdg-groups">' + chip(_badgeGroup === 'all', 'badgeSetGroup', 'all', '✨ ' + esc(_cl('Barcha guruhlar', 'All groups', 'Все группы'))) + chip(_badgeGroup === 'special', 'badgeSetGroup', 'special', '🌟 ' + esc(_cl('Maxsus', 'Special', 'Особые'))) +
+    groups.map(function (g) { return chip(_badgeGroup === g.key, 'badgeSetGroup', g.key, g.ico + ' ' + esc(g.label())); }).join('') + '</div>';
+  // Guruhlar
+  var sections = [{ key: 'special', ico: '🌟', label: function () { return _cl('Maxsus', 'Special', 'Особые'); } }].concat(groups);
+  sections.forEach(function (g) {
+    if (_badgeGroup !== 'all' && _badgeGroup !== g.key) return;
+    var list = allBadges.filter(function (b) { return b.group === g.key; });
+    var shown = list.filter(function (b) { var e = isEarned(b); return _badgeFilter === 'all' || (_badgeFilter === 'earned' ? e : !e); });
+    if (!shown.length) return;
+    var en = list.filter(isEarned).length, sub = '';
+    if (g.targets) {
+      var cur = g.value(S) || 0, nt = null; for (var i = 0; i < g.targets.length; i++) if (cur < g.targets[i]) { nt = g.targets[i]; break; }
+      sub = nt ? '<span class="bdg-gp"><i><s style="width:' + Math.min(100, Math.round(cur / nt * 100)) + '%"></s></i>' + cur + '/' + nt + ' ' + esc(g.unit()) + '</span>' : '<span class="bdg-gp done">✓ ' + esc(t('badge_all_earned')) + '</span>';
     }
-    var prevTarget = 0;
-    for (var i=meta.targets.length-1; i>=0; i--) {
-      if (meta.targets[i] <= cur) { prevTarget = meta.targets[i]; break; }
-    }
-    if (!nextTarget) {
-      // All earned
-      var row = document.createElement('div');
-      row.className = 'badge-progress-row';
-      row.innerHTML = '<span style="font-size:var(--fs-sm);min-width:80px">' + meta.label + '</span>' +
-        '<div class="badge-progress-track"><div class="badge-progress-fill" style="width:100%"></div></div>' +
-        '<span style="color:var(--gold);font-size:var(--fs-xs);white-space:nowrap">✓ ' + t('badge_all_earned') + '</span>';
-      prog.appendChild(row);
-      return;
-    }
-    var pct = Math.min(100, Math.round((cur - prevTarget) / (nextTarget - prevTarget) * 100));
-    var row = document.createElement('div');
-    row.className = 'badge-progress-row';
-    row.innerHTML = '<span style="font-size:var(--fs-xs);min-width:80px">' + meta.label + '</span>' +
-      '<div class="badge-progress-track"><div class="badge-progress-fill" style="width:' + pct + '%"></div></div>' +
-      '<span style="white-space:nowrap;font-size:var(--fs-2xs);color:var(--text-muted)">' + cur + '/' + nextTarget + ' ' + meta.unit + '</span>';
-    prog.appendChild(row);
+    h += '<div class="bdg-sec"><div class="bdg-sec-h"><b>' + g.ico + ' ' + esc(g.label()) + '</b><em>' + en + '/' + list.length + '</em>' + sub + '</div><div class="bdg-cards">' +
+      shown.map(function (b) {
+        var e = isEarned(b), tr = BADGE_TIERS[b.tier - 1], p = Math.round(progOf(b) * 100);
+        return '<button type="button" class="bdg-card ' + (e ? 'earned' : 'locked') + '" style="--tc:' + (tr ? tr.c : '#f472b6') + '" onclick="badgeTap(\'' + b.id + '\')" title="' + esc(b.desc) + '">' +
+          '<span class="bdg-ic">' + b.icon + '</span><b>' + esc(b.label) + '</b><small>' + esc(tr ? _cl(tr.n[0], tr.n[1], tr.n[2]) : _cl('Maxsus', 'Special', 'Особое')) + '</small>' +
+          (e ? '<span class="bdg-ok">✓</span>' : (b.tier ? '<i class="bdg-p"><s style="width:' + p + '%"></s></i>' : '<span class="bdg-lock">🔒</span>')) + '</button>';
+      }).join('') + '</div></div>';
   });
+  grid.innerHTML = h;
+  prog.innerHTML = '';
+  prog.style.display = 'none';
   try { if (typeof window.xAchWallRender === 'function') window.xAchWallRender(); } catch (e) {}
 }
-
-
 
 
 
@@ -29302,6 +29337,16 @@ try {
     if (bar._last !== html) { bar.innerHTML = html; bar._last = html; }
   }
 
+
+  // 🔗 Focusgate bilan bog'lanish: ish bosqichida dasturlar bloklanadi, tanaffusda ochiladi
+  function pomoFgSync(act) {
+    try {
+      if (!window.LUFocusBus) return;
+      if (act && act.running && act.phase !== 'break') window.LUFocusBus.sync('pomo', Date.now() + Math.max(0, pomoWorkMs() - (act.cycleMs || 0)), act.name);
+      else window.LUFocusBus.sync('pomo', 0);
+      window.LUFocusBus.badge(document.getElementById('pomo-hero'), !!(act && act.running && act.phase !== 'break'));
+    } catch (e) {}
+  }
   /* ---------------- Start / Stop / Resume ---------------- */
   window.pomoStartOrResume = function (id, ev) {
     if (ev) ev.stopPropagation();
@@ -29328,6 +29373,7 @@ try {
     pomoSaveActivities();
     pomoStartTicking();
     pomoShowFloat();
+    pomoFgSync(act);
     pomoRenderActivityList();
   };
 
@@ -29398,6 +29444,7 @@ try {
     pomoUpdateFloatUI();
     pomoMaybeStopTicking();
     pomoRenderHistoryIfOpen();
+    pomoFgSync(null);
   };
 
   /* ---------------- Tanaffusni o'tkazib yuborish ---------------- */
@@ -29503,6 +29550,7 @@ try {
       pomoRenderActivityList();
     }
     pomoMaybeStopTicking();
+    pomoFgSync(act);
   }
   function pomoStartTicking() {
     if (!pomoTickHandle) pomoTickHandle = setInterval(pomoTick, 1000);

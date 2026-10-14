@@ -1507,7 +1507,7 @@
     var cur = open.find(function (t) { var a = hm2m(t.startTime), b = t.endTime ? hm2m(t.endTime) : a + 60; return a != null && nm >= a && nm < b; });
     return cur || open.find(function (t) { return t.quad === 1; }) || open.find(function (t) { return t.pinned; }) || open[0] || null;
   }
-  function openFocus(taskId, autoStart) {
+  function openFocus(taskId, autoStart, minutes) {
     if (FX) return;
     var open = todaysOpenTasks();
     var tk = taskId ? S.tasks.find(function (t) { return t.id === taskId; }) : focusPickTask();
@@ -1545,9 +1545,13 @@
       ov.querySelector('.x-fc-ph').textContent = FX.running ? L('diqqat...', 'focusing...', 'фокус...') : (left < FX.total ? L('pauza', 'paused', 'пауза') : '');
       try { document.title = (FX.running ? '🎯 ' + pad2(m) + ':' + pad2(s) + ' · ' : '') + 'LevelUpDay'; } catch (e) {}
       try { if (window.LUBlocks) window.LUBlocks.focusLiveUpdate(ov, { running: FX.running, left: left, total: FX.total, started: FX.started }); } catch (e) {}
+      try { if (window.LUFocusBus) { window.LUFocusBus.sync('focusmode', FX.running ? FX.endAt : 0, FX.tk ? FX.tk.name : ''); window.LUFocusBus.badge(ov.querySelector('.x-fc-in'), FX.running); } } catch (e) {}
       if (FX.running && left <= 0) finish();
     };
+    // 🔗 Focusgate: fokus ishlayotganda dasturlar bloklanadi
+    var fgSync = function () { try { if (window.LUFocusBus) window.LUFocusBus.sync('focusmode', FX && FX.running ? FX.endAt : 0, FX && FX.tk ? FX.tk.name : ''); } catch (e) {} };
     var credit = function () {
+      fgSync();
       if (!FX.started) return;
       var mins = Math.round((Date.now() - FX.started) / 60000); FX.started = 0;
       if (mins < 1) return;
@@ -1574,6 +1578,7 @@
     ov.querySelector('.x-fc-play').onclick = function () {
       if (FX.running) { FX.left = Math.max(0, FX.endAt - Date.now()); FX.running = false; credit(); }
       else { if (FX.left <= 0) FX.left = FX.total; FX.endAt = Date.now() + FX.left; FX.running = true; FX.started = Date.now(); }
+      fgSync();
       draw();
     };
     ov.querySelector('.x-fc-reset').onclick = function () { if (FX.running) credit(); FX.running = false; FX.left = FX.total; draw(); };
@@ -1584,12 +1589,14 @@
     FX.onKey = function (e) { if (e.key === 'Escape' && !document.querySelector('.modal-overlay.open')) { e.stopPropagation(); closeFocus(); } else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); ov.querySelector('.x-fc-play').click(); } };
     document.addEventListener('keydown', FX.onKey, true);
     FX.timer = setInterval(draw, 250); draw();
+    if (minutes > 0) { ov.querySelectorAll('.x-fc-presets button').forEach(function (z) { z.classList.remove('on'); }); setDur(minutes); }
     if (autoStart) ov.querySelector('.x-fc-play').click();
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { if (FX) FX.wake = w; }).catch(function () {}); } catch (e) {}
     requestAnimationFrame(function () { ov.classList.add('open'); });
   }
   function closeFocus() {
     if (!FX) return;
+    try { if (window.LUFocusBus) window.LUFocusBus.sync('focusmode', 0); } catch (e) {}
     if (FX.running && FX.started) { var mins = Math.round((Date.now() - FX.started) / 60000); if (mins >= 1) { S.focusLog = S.focusLog || {}; S.focusLog[today()] = (S.focusLog[today()] || 0) + mins; save(); } }
     clearInterval(FX.timer); document.removeEventListener('keydown', FX.onKey, true);
     try { FX.wake && FX.wake.release(); } catch (e) {}
@@ -2968,7 +2975,7 @@
   window.xOpenMatrix = safe(openMatrix);
   window.xOpenReview = function () {};
   window.xOpenWrap = safe(function (ym) { openWrap(ym); });
-  window.xOpenFocus = safe(function (id, autoStart) { openFocus(id, autoStart); });
+  window.xOpenFocus = safe(function (id, autoStart, minutes) { openFocus(id, autoStart, minutes); });
   window.xWaterAdd = function () {};
   window.xDismissReview = function () {};
   window.xSleepSet = safe(sleepSet);

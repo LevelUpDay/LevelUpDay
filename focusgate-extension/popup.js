@@ -1,13 +1,14 @@
 import { dayKey } from './rules.js';
-const uz = !/^(en|ru)/.test(navigator.language || '');
-const ru = /^ru/.test(navigator.language || '');
-const L = (a, b, c) => (ru ? c : uz ? a : b);
+// Til: LevelUpDay'da tanlangani (cfg.lang), bo'lmasa brauzer tili
+let LANG = /^ru/.test(navigator.language || '') ? 'ru' : /^uz/.test(navigator.language || '') ? 'uz' : 'en';
+const L = (a, b, c) => (LANG === 'ru' ? c : LANG === 'uz' ? a : b);
 const fmt = (s) => { const m = Math.round(s / 60); if (m < 1) return Math.round(s) + ' ' + L('s', 's', 'с'); const h = Math.floor(m / 60); return h ? h + ' ' + L('soat', 'h', 'ч') + (m % 60 ? ' ' + (m % 60) + ' ' + L('daq', 'min', 'мин') : '') : m + ' ' + L('daq', 'min', 'мин'); };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 async function render() {
   const o = await chrome.storage.local.get(['token', 'usage', 'cfg', 'device', 'pair', 'syncedAt']);
+  if (o.cfg && ['uz', 'en', 'ru'].includes(o.cfg.lang)) LANG = o.cfg.lang;
   const day = (o.usage || {})[dayKey()] || {};
   const list = Object.keys(day).map((k) => ({ k, l: day[k].label || k.replace(/^site:/, ''), s: day[k].s })).sort((a, b) => b.s - a.s);
   const total = list.reduce((s, x) => s + x.s, 0);

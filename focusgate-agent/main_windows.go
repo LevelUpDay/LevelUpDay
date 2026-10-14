@@ -29,7 +29,7 @@ var (
 	exePath  string
 	pairCode string
 	pairMu   sync.Mutex
-	status   = "Ishga tushmoqda…"
+	status   = ""
 	sessions = map[uint32]time.Time{} // session limiti: PID → birinchi ko'rilgan vaqt
 	lastNote = map[string]time.Time{} // xabarlarni tez-tez chiqarmaslik uchun
 	noteMu   sync.Mutex
@@ -55,8 +55,7 @@ func main() {
 	}
 	if !ok {
 		// Ishlab turgan nusxa bor: "Ha" — uni to'xtatib qayta ishga tushirish, "Yo'q" — saytni ochish
-		r := MessageBox("LevelUpDay Focusgate v"+Version, "Focusgate allaqachon ishlayapti (soat yonidagi ^ ichida 🛡 belgi).\n\n"+
-			"Ha — qayta ishga tushirish (eski nusxa to'xtatiladi)\nYo'q — LevelUpDay'da Focusgate bo'limini ochish", 0x03|0x40)
+		r := MessageBox("LevelUpDay Focusgate v"+Version, Tr("running"), 0x03|0x40)
 		switch r {
 		case 6: // Ha
 			restartFresh()
@@ -67,6 +66,7 @@ func main() {
 		return
 	}
 	st = LoadState()
+	SetLang(st.Config.Lang)
 	cleanupOld()
 	if waitLock {
 		st.AppsSentAt = 0 // yangi versiya — ro'yxatni qayta yuboramiz
@@ -166,17 +166,17 @@ func notify(key, title, body string) {
 func reasonText(v Verdict) string {
 	switch v.Reason {
 	case "focus":
-		return "fokus vaqtida bloklangan"
+		return Tr("r_focus")
 	case "always":
-		return "doimiy bloklangan"
+		return Tr("r_always")
 	case "schedule":
-		return "jadval bo'yicha bloklangan (" + v.Rule.From + "–" + v.Rule.To + ")"
+		return Tr("r_schedule", v.Rule.From+"–"+v.Rule.To)
 	case "daily":
-		return "bugungi limit tugadi (" + itoa(v.Rule.Minutes) + " daq)"
+		return Tr("r_daily", FmtDur(v.Rule.Minutes*60))
 	case "session":
-		return "bir martalik seans vaqti tugadi"
+		return Tr("r_session")
 	}
-	return "bloklangan"
+	return Tr("r_blocked")
 }
 
 // ---------- Tray ----------
@@ -190,20 +190,23 @@ func onReady() {
 	systray.SetTooltip("LevelUpDay Focusgate v" + Version)
 	vItem := systray.AddMenuItem("LevelUpDay Focusgate v"+Version, "")
 	vItem.Disable()
+	if status == "" {
+		status = Tr("starting")
+	}
 	mStatus = systray.AddMenuItem(status, "")
 	mStatus.Disable()
-	mToday = systray.AddMenuItem("Bugun: —", "")
+	mToday = systray.AddMenuItem(Tr("today")+"—", "")
 	mToday.Disable()
 	mFocus = systray.AddMenuItem("", "")
 	mFocus.Disable()
 	mFocus.Hide()
 	systray.AddSeparator()
-	mOpen = systray.AddMenuItem("📊 LevelUpDay'da ochish", "Statistika va limitlar")
-	mPair = systray.AddMenuItem("🔗 Akkauntga ulash", "")
-	mAuto = systray.AddMenuItemCheckbox("Windows bilan birga ishga tushish", "", AutostartEnabled())
-	mPause = systray.AddMenuItem("⏸ 15 daqiqa pauza", "Limitlarni vaqtincha to'xtatish")
+	mOpen = systray.AddMenuItem(Tr("open"), Tr("open_tip"))
+	mPair = systray.AddMenuItem(Tr("pair"), "")
+	mAuto = systray.AddMenuItemCheckbox(Tr("autostart"), "", AutostartEnabled())
+	mPause = systray.AddMenuItem(Tr("pause"), Tr("pause_tip"))
 	systray.AddSeparator()
-	mQuit = systray.AddMenuItem("Chiqish", "")
+	mQuit = systray.AddMenuItem(Tr("quit"), "")
 
 	go menuLoop()
 	go trackLoop()
@@ -216,9 +219,9 @@ func onReady() {
 	for _, a := range os.Args[1:] {
 		if a == "--first-run" {
 			if st.Token != "" {
-				notify("!hello", "LevelUpDay Focusgate ishlayapti ✅", "Soat yonidagi 🛡 belgisi orqali boshqaring.")
+				notify("!hello", Tr("hello_title"), Tr("hello_body"))
 			} else {
-				notify("!hello", "LevelUpDay Focusgate o'rnatildi ✅", "Brauzerda \"Ulash\" tugmasini bosing.")
+				notify("!hello", Tr("inst_title"), Tr("inst_body"))
 			}
 		}
 	}
@@ -249,19 +252,19 @@ func menuLoop() {
 			}
 		case <-mPause.ClickedCh:
 			if st.Config.Strict {
-				go MessageBox("Focusgate", "Qat'iy rejim yoqilgan — pauza qilib bo'lmaydi.", 0x30)
+				go MessageBox("Focusgate", Tr("strict_pause"), 0x30)
 				continue
 			}
 			st.mu.Lock()
 			st.Config.PauseUntil = time.Now().Add(15 * time.Minute).UnixMilli()
 			st.mu.Unlock()
-			notify("!pause", "Focusgate pauzada", "15 daqiqa davomida limitlar ishlamaydi.")
+			notify("!pause", Tr("pause_title"), Tr("pause_body"))
 		case <-mQuit.ClickedCh:
 			if st.Config.Strict && st.Config.FocusUntil > time.Now().UnixMilli() {
-				go MessageBox("Focusgate", "Qat'iy rejim: fokus sessiyasi tugamaguncha chiqib bo'lmaydi.", 0x30)
+				go MessageBox("Focusgate", Tr("strict_quit"), 0x30)
 				continue
 			}
-			if MessageBox("Focusgate", "Focusgate'ni to'xtatasizmi? Limitlar va kuzatuv ishlamay qoladi.", 0x04|0x20) == 6 {
+			if MessageBox("Focusgate", Tr("quit_confirm"), 0x04|0x20) == 6 {
 				_ = st.Save()
 				systray.Quit()
 				return
@@ -288,14 +291,14 @@ func startPairing() {
 	name := "Windows · " + host
 	code, err := PairStart(name)
 	if err != nil {
-		setStatus("⚠️ Internet yo'q — ulash keyinroq")
+		setStatus(Tr("no_net_pair"))
 		return
 	}
 	pairMu.Lock()
 	pairCode = code
 	pairMu.Unlock()
-	setStatus("🔗 Ulash kodi: " + code)
-	mPair.SetTitle("🔗 Brauzerda ulashni tasdiqlash (" + code + ")")
+	setStatus(Tr("pair_code", code))
+	mPair.SetTitle(Tr("pair_confirm", code))
 	openURL(PairURL(code))
 	deadline := time.Now().Add(15 * time.Minute)
 	for time.Now().Before(deadline) {
@@ -313,9 +316,9 @@ func startPairing() {
 			pairMu.Lock()
 			pairCode = ""
 			pairMu.Unlock()
-			mPair.SetTitle("🔗 Boshqa akkauntga qayta ulash")
-			setStatus("✅ Ulandi: " + name)
-			notify("!paired", "Focusgate ulandi ✅", "Endi limitlarni LevelUpDay → Focusgate'da boshqarasiz.")
+			mPair.SetTitle(Tr("repair"))
+			setStatus(Tr("paired_st", name))
+			notify("!paired", Tr("paired_title"), Tr("paired_body"))
 			go doSync()
 			return
 		}
@@ -323,8 +326,8 @@ func startPairing() {
 	pairMu.Lock()
 	pairCode = ""
 	pairMu.Unlock()
-	mPair.SetTitle("🔗 Akkauntga ulash")
-	setStatus("⏳ Ulash vaqti tugadi — qaytadan bosing")
+	mPair.SetTitle(Tr("pair"))
+	setStatus(Tr("pair_expired"))
 }
 
 // ---------- Hisoblash ----------
@@ -355,11 +358,11 @@ func trackLoop() {
 			_ = st.Save()
 		}
 		if now.Second()%5 == 0 && mToday != nil {
-			mToday.SetTitle("⏱ Bugun: " + FmtDur(st.TotalToday(now)))
-			systray.SetTooltip("LevelUpDay Focusgate — bugun " + FmtDur(st.TotalToday(now)))
+			mToday.SetTitle(Tr("today") + FmtDur(st.TotalToday(now)))
+			systray.SetTooltip(Tr("today_tip") + FmtDur(st.TotalToday(now)))
 			fu := cfg.FocusUntil
 			if left := (fu - now.UnixMilli()) / 1000; left > 0 {
-				mFocus.SetTitle("🎯 Fokus: " + itoa(int(left/60)) + ":" + pad2(int(left%60)) + " qoldi")
+				mFocus.SetTitle(Tr("focus_left", itoa(int(left/60))+":"+pad2(int(left%60))))
 				mFocus.Show()
 			} else {
 				mFocus.Hide()
@@ -400,7 +403,7 @@ func enforceLoop() {
 				for _, pid := range pids {
 					_ = Kill(pid)
 				}
-				notify("kill:"+exe, "🛡 "+niceName(exe)+" yopildi", reasonText(v))
+				notify("kill:"+exe, Tr("closed", niceName(exe)), reasonText(v))
 				event(now, "block", exe, niceName(exe), v.Reason)
 				continue
 			}
@@ -414,7 +417,7 @@ func enforceLoop() {
 					}
 					if now.Sub(t0) >= time.Duration(lim)*time.Minute {
 						_ = Kill(pid)
-						notify("kill:"+exe, "🛡 "+niceName(exe)+" yopildi", reasonText(Verdict{true, "session", nil}))
+						notify("kill:"+exe, Tr("closed", niceName(exe)), reasonText(Verdict{true, "session", nil}))
 						event(now, "block", exe, niceName(exe), "session")
 					}
 				}
@@ -430,7 +433,7 @@ func enforceLoop() {
 			if s, ok := SiteOf(fg.Title, cfg.Rules); ok {
 				if v := Check(&cfg, st, s.Key, now); v.Blocked {
 					CloseTab()
-					notify("site:"+s.Key, "🛡 "+s.Label+" yopildi", reasonText(v))
+					notify("site:"+s.Key, Tr("closed", s.Label), reasonText(v))
 					event(now, "site_block", s.Key, s.Label, v.Reason)
 				}
 			}
@@ -441,7 +444,7 @@ func enforceLoop() {
 				lbl = r.App
 			}
 			left := r.Minutes*60 - st.Seconds(now, r.App)
-			notify("warn:"+r.App, "⏳ "+lbl+": "+FmtDur(left)+" qoldi", "Kunlik limit tez orada tugaydi.")
+			notify("warn:"+r.App, Tr("warn_title", lbl, FmtDur(left)), Tr("warn_body"))
 			event(now, "warn", r.App, lbl, "daily")
 		}
 	}
@@ -486,13 +489,16 @@ func doSync() {
 		st.Token = ""
 		st.mu.Unlock()
 		_ = st.Save()
-		setStatus("🔌 Akkauntdan uzildi — qayta ulang")
-		mPair.SetTitle("🔗 Akkauntga ulash")
+		setStatus(Tr("unpaired"))
+		mPair.SetTitle(Tr("pair"))
 		return
 	}
 	if err != nil {
-		setStatus("⚠️ Internet yo'q — oflayn ishlayapti")
+		setStatus(Tr("offline"))
 		return
+	}
+	if SetLang(res.Config.Lang) {
+		applyMenuLang()
 	}
 	st.mu.Lock()
 	if apps != nil {
@@ -508,7 +514,7 @@ func doSync() {
 	}
 	name := st.DeviceName
 	st.mu.Unlock()
-	setStatus("✅ Ulangan: " + name)
+	setStatus(Tr("connected_st", name))
 }
 
 func syncLoop() {
@@ -593,4 +599,30 @@ func event(t time.Time, kind, app, label, reason string) {
 		eventMu.Unlock()
 		doSync()
 	}()
+}
+
+// applyMenuLang — til o'zgarganda tray menyusini qayta yozadi.
+func applyMenuLang() {
+	if mOpen == nil {
+		return
+	}
+	mOpen.SetTitle(Tr("open"))
+	mOpen.SetTooltip(Tr("open_tip"))
+	pairMu.Lock()
+	c := pairCode
+	pairMu.Unlock()
+	st.mu.Lock()
+	hasTok := st.Token != ""
+	st.mu.Unlock()
+	if c != "" {
+		mPair.SetTitle(Tr("pair_confirm", c))
+	} else if hasTok {
+		mPair.SetTitle(Tr("repair"))
+	} else {
+		mPair.SetTitle(Tr("pair"))
+	}
+	mAuto.SetTitle(Tr("autostart"))
+	mPause.SetTitle(Tr("pause"))
+	mPause.SetTooltip(Tr("pause_tip"))
+	mQuit.SetTitle(Tr("quit"))
 }

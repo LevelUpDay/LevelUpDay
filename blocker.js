@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.4.0'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.4.1'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION; // ?v= — brauzer/CDN eski faylni bermasligi uchun
 
   // ---------- Namuna (DEMO) ma'lumotlar — kompyuter ulanmaganda ko'rsatiladi ----------
@@ -172,8 +172,10 @@
       // Yaqinda saqlangan bo'lsa — serverdan kelgan (eskirgan bo'lishi mumkin) nusxa ustiga yozilmaydi
       if (!FG.cfg || Date.now() - (FG.dirtyAt || 0) > 10000) FG.cfg = Object.assign({ track: true, notif: true, strict: false, rules: [], focusApps: [], focusUntil: 0 }, c || {});
       (FG.cfg.rules || []).forEach(function (r, i) { if (!r.id) r.id = 'r' + Date.now().toString(36) + i; });
+      try { if (FG.devices.length && FG.cfg.lang !== getLang()) setTimeout(saveCfg, 0); } catch (e) {}
       FG.rows = (res[2] && res[2].data) || [];
       try { var tgr = await supabase.from('telegram_links').select('enabled,prefs').maybeSingle(); FG.tg = tgr && tgr.data ? tgr.data : null; } catch (e) { FG.tg = null; }
+      try { badgeFlags(); } catch (e) {}
       FG.at = Date.now();
       try { checkReward(); } catch (e) {}
     } catch (e) { FG.err = (e && e.message) || String(e); }
@@ -183,6 +185,7 @@
   var _saveT = 0;
   function saveCfg() {
     if (!real()) return;
+    try { FG.cfg.lang = getLang(); } catch (e) {} // Windows agenti va kengaytma shu tilda yozadi
     FG.dirtyAt = Date.now();
     clearTimeout(_saveT);
     _saveT = setTimeout(async function () {
@@ -190,8 +193,21 @@
         var r = await supabase.from('fg_config').upsert({ user_id: S.cloudUserId, config: FG.cfg, updated_at: new Date().toISOString() });
         if (r.error) throw r.error;
         FG.dirtyAt = Date.now();
+        try { badgeFlags(); } catch (e) {}
       } catch (e) { try { toast('⚠️ Focusgate: ' + L('saqlab bo\'lmadi', 'could not save', 'не удалось сохранить')); } catch (e2) {} }
     }, 350);
+  }
+
+  // 🏅 Yutuqlar uchun belgilar (script.js → getSpecialBadges / getBadgeGroups)
+  function badgeFlags() {
+    var st = fgS(), ch = false, c = FG.cfg || {};
+    var set = function (k, v) { if (v && !st[k]) { st[k] = true; ch = true; } };
+    set('pc', FG.devices.some(function (d) { return !/^ext-/.test(d.agent_version || ''); }));
+    set('ext', FG.devices.some(function (d) { return /^ext-/.test(d.agent_version || ''); }));
+    set('tg', !!(FG.tg && FG.tg.enabled));
+    set('strictUsed', !!c.strict);
+    set('catRule', (c.rules || []).some(function (r) { return r.on && String(r.app).indexOf('cat:') === 0; }));
+    if (ch) { save(); try { if (typeof renderBadges === 'function') renderBadges(); } catch (e) {} }
   }
 
   // 🪙 Kecha barcha kunlik limitlarda qolgan bo'lsa +10 tanga (kuniga bir marta)
@@ -206,6 +222,7 @@
     var ok = daily.every(function (r) { return usedMin(r.app, -1) < r.minutes; });
     S.focusgate.rewarded = y;
     if (ok) {
+      S.focusgate.goodDays = (S.focusgate.goodDays || 0) + 1;
       S.coins = (S.coins || 0) + 10;
       try { addTarixLog('in', '🛡 Focusgate: ' + L('kecha barcha limitlarda qoldingiz', 'stayed within all limits yesterday', 'вчера в пределах лимитов'), 10, 'fg-reward'); } catch (e) {}
       try { toast('🛡 +10 🪙 — ' + L('kecha barcha limitlarda qoldingiz!', 'you stayed within all limits yesterday!', 'вчера вы уложились во все лимиты!')); } catch (e) {}
@@ -369,13 +386,16 @@
   function pageBlock() {
     var c = cfg(), left = focusLeft(), h;
     if (left > 0) {
-      h = '<div class="fg-card fg-focus on"><div class="fg-focus-l"><span class="fg-focus-k">🎯 ' + E(L('Fokus davom etmoqda', 'Focus in progress', 'Идёт фокус')) + '</span><b class="fg-timer" data-fg-live>' + mmss(left) + '</b>' +
+      var own = linkOwner(), srcTxt = own && own !== 'focusgate' && SRC[own] ? ' · ' + SRC[own][0] + ' ' + T(SRC[own][1]) : '';
+      h = '<div class="fg-card fg-focus on"><div class="fg-focus-l"><span class="fg-focus-k">🎯 ' + E(L('Fokus davom etmoqda', 'Focus in progress', 'Идёт фокус') + srcTxt) + '</span><b class="fg-timer" data-fg-live>' + mmss(left) + '</b>' +
         '<small class="fg-focus-n">' + E(L('Ro\'yxatdagi dasturlar ochilsa — darhol yopiladi.', 'Listed apps are closed as soon as they open.', 'Приложения из списка закрываются сразу.')) + '</small></div>' +
         '<button type="button" class="fg-btn big ghost" data-fg-stop' + (c.strict ? ' disabled' : '') + '>■ ' + E(c.strict ? L('Qat\'iy rejim', 'Strict mode', 'Строгий режим') : L('To\'xtatish', 'Stop', 'Остановить')) + '</button></div>';
     } else {
       h = '<div class="fg-card fg-focus"><div class="fg-focus-l"><span class="fg-focus-k">' + E(L('Fokus sessiyasi', 'Focus session', 'Сессия фокуса')) + '</span><b class="fg-timer">' + String(UI.focusMin).padStart(2, '0') + ':00</b>' +
         '<div class="fg-chips">' + [15, 25, 45, 60, 90].map(function (m) { return '<button type="button" class="' + (UI.focusMin === m ? 'on' : '') + '" data-fg-min="' + m + '">' + m + ' ' + E(L('daq', 'min', 'мин')) + '</button>'; }).join('') + '</div></div>' +
-        '<button type="button" class="fg-btn big" data-fg-focus>▶ ' + E(L('Fokusni boshlash', 'Start focus', 'Начать фокус')) + '</button></div>';
+        '<div class="fg-focus-r"><button type="button" class="fg-btn big" data-fg-focus>▶ ' + E(L('Fokusni boshlash', 'Start focus', 'Начать фокус')) + '</button>' +
+        '<div class="fg-focus-alt"><span>' + E(L('yoki birga:', 'or together with:', 'или вместе с:')) + '</span><button type="button" class="fg-btn sm ghost" data-fg-withfocus>🧘 ' + E(L('Fokus ekrani', 'Focus screen', 'Экран фокуса')) + '</button><button type="button" class="fg-btn sm ghost" data-fg-withpomo>🍅 Pomodoro</button></div></div></div>' +
+        (cfg().linkFocus === false ? '' : '<div class="fg-hint">🔗 ' + E(L('Pomodoro yoki Fokus rejimini boshlasangiz ham shu ro\'yxatdagi dasturlar avtomatik bloklanadi.', 'Starting Pomodoro or Focus mode also blocks the apps below automatically.', 'При запуске Pomodoro или режима фокуса приложения ниже тоже блокируются автоматически.')) + '</div>');
     }
     var fa = c.focusApps || [];
     h += '<div class="fg-group-t">' + E(L('Fokus paytida bloklanadigan dasturlar', 'Apps blocked during focus', 'Блокируются во время фокуса')) + ' <em>' + fa.length + '</em></div><div class="fg-list" data-sort="focus">';
@@ -402,6 +422,7 @@
     var rows = [
       ['track', '👁', ['Foydalanish vaqtini kuzatish', 'Track usage time', 'Отслеживать время'], ['Dastur va saytlarda o\'tkazilgan vaqt hisoblanadi', 'Counts time spent in apps and sites', 'Считает время в приложениях и на сайтах'], c.track !== false],
       ['notif', '🔔', ['Windows bildirishnomalari', 'Windows notifications', 'Уведомления Windows'], ['Limit tugashiga 5 daqiqa qolganda va bloklanganda', '5 minutes before a limit ends and when blocking', 'За 5 минут до лимита и при блокировке'], c.notif !== false],
+      ['linkFocus', '🔗', ['Pomodoro va Fokus rejimi bilan', 'Link Pomodoro & Focus mode', 'Связать с Pomodoro и фокусом'], ['Ular ishlaganda ham fokus ro\'yxatidagi dasturlar bloklanadi', 'Apps in the focus list are blocked while they run', 'Приложения из списка фокуса блокируются и во время них'], c.linkFocus !== false],
       ['strict', '🔐', ['Qat\'iy rejim', 'Strict mode', 'Строгий режим'], ['Limitlarni o\'chirib, pauza qilib va fokusni to\'xtatib bo\'lmaydi', 'No turning off limits, pausing or stopping focus', 'Нельзя отключить лимиты, поставить паузу или остановить фокус'], !!c.strict],
       ['reward', '🪙', ['LevelUpDay mukofotlari', 'LevelUpDay rewards', 'Награды LevelUpDay'], ['Limitlarda qolgan kun: +10 🪙 · fokus: har daqiqa 1 XP', 'Day within limits: +10 🪙 · focus: 1 XP per minute', 'День в лимитах: +10 🪙 · фокус: 1 XP за минуту'], LOCAL.reward],
       ['share', '👥', ['Do\'stlarim ko\'rsin', 'Visible to friends', 'Видно друзьям'], ['Fokus va ekran vaqti do\'stlar reytingida chiqadi (dasturlar ko\'rinmaydi)', 'Focus and screen time appear in the friends board (apps stay private)', 'Фокус и экранное время видны в рейтинге друзей (приложения скрыты)'], c.share !== false],
@@ -510,6 +531,55 @@
     if (!SOC.at) loadSocial();
   }
 
+  // ---------- 🔗 Fokus bus: Pomodoro 🍅 + Fokus rejimi 🧘 + Focusgate 🔒 bir-biriga ulangan ----------
+  // Pomodoro ish bosqichi yoki Fokus rejimi taymeri ishlasa — Focusgate fokus ro'yxatidagi dasturlar bloklanadi.
+  // Har biri alohida ishlayveradi; Focusgate'da qo'lda boshlangan sessiyaga tegilmaydi.
+  var SRC = { pomo: ['🍅', ['Pomodoro', 'Pomodoro', 'Pomodoro']], focusmode: ['🧘', ['Fokus rejimi', 'Focus mode', 'Режим фокуса']], focusgate: ['🔒', ['Focusgate', 'Focusgate', 'Focusgate']] };
+  function fgS() { if (!S.focusgate || typeof S.focusgate !== 'object') S.focusgate = {}; return S.focusgate; }
+  function linkOwner() { try { return (S.focusgate && S.focusgate.linkSrc) || null; } catch (e) { return null; } }
+  window.LUFocusBus = {
+    sync: function (src, until, label) {
+      if (!real()) return;
+      var c = cfg(); if (c.linkFocus === false) return;
+      var now = Date.now(), cur = c.focusUntil || 0, owner = linkOwner(), st = fgS();
+      if (until > now) {
+        if (st.linkMute === src) return;                          // foydalanuvchi Focusgate'da to'xtatgan
+        if (cur > now && owner !== src) return;                   // boshqa sessiya davom etmoqda
+        if (owner === src && Math.abs(cur - until) < 30000) return; // o'zgarish yo'q
+        var first = owner !== src;
+        st.linkSrc = src; st.linkLabel = label || ''; c.focusUntil = until; saveCfg(); save(); rerender();
+        if (first) {
+          var n = (c.focusApps || []).filter(function (f) { return f.on; }).length;
+          try { toast('🔒 Focusgate: ' + (n ? L(n + ' ta dastur bloklandi', n + ' apps blocked', 'заблокировано: ' + n) : L('fokus ro\'yxati bo\'sh', 'focus list is empty', 'список фокуса пуст')) + ' · ' + SRC[src][0] + ' ' + T(SRC[src][1])); } catch (e) {}
+          // Do'stlar "hozir fokusda" va reytingda ko'rishi uchun sessiya yozuvi (XP — Pomodoro/Fokus rejimining o'zida)
+          var mins = Math.max(1, Math.round((until - now) / 60000));
+          st.linkSess = { start: now, src: src };
+          supabase.from('fg_sessions').insert({ planned_min: Math.min(600, mins) }).select('id').single().then(function (r) { if (r && r.data && st.linkSess) { st.linkSess.id = r.data.id; save(); } }, function () {});
+        }
+      } else {
+        if (st.linkMute === src) { st.linkMute = null; save(); }
+        if (owner !== src) return;
+        st.linkSrc = null;
+        if (cur > now) { c.focusUntil = 0; saveCfg(); }
+        var ls = st.linkSess; st.linkSess = null;
+        if (ls && ls.id) supabase.from('fg_sessions').update({ ended_at: new Date().toISOString() }).eq('id', ls.id).then(function () {}, function () {});
+        save(); rerender();
+      }
+    },
+    // Pomodoro / Fokus rejimi oynasida kichik belgi: "🔒 Focusgate: 3 ta dastur bloklangan"
+    badge: function (box, running) {
+      if (!box) return;
+      var el = box.querySelector(':scope > .fg-busbadge');
+      var on = running && real() && cfg().linkFocus !== false;
+      if (!on) { if (el) el.remove(); return; }
+      var n = (cfg().focusApps || []).filter(function (f) { return f.on; }).length;
+      var txt = '🔒 Focusgate · ' + (n ? L(n + ' ta dastur bloklangan', n + ' apps blocked', 'заблокировано: ' + n) : L('bloklash ro\'yxati bo\'sh — qo\'shing', 'block list is empty — add apps', 'список пуст — добавьте'));
+      if (!el) { el = document.createElement('button'); el.type = 'button'; el.className = 'fg-busbadge'; el.onclick = function () { try { if (typeof pomoCloseModal === 'function') pomoCloseModal(); } catch (e) {} window.xOpenBlocker('block'); }; box.appendChild(el); }
+      if (el.textContent !== txt) el.textContent = txt;
+    },
+    owner: linkOwner
+  };
+
   // ---------- 🎯 Fokus sessiyalari: server yozuvi, XP/tanga, tasma ----------
   function sess() { try { return (S.focusgate && S.focusgate.sess) || null; } catch (e) { return null; } }
   async function startFocus(min, joinedFrom) {
@@ -517,6 +587,7 @@
     c.focusUntil = Date.now() + min * 60000; saveCfg();
     if (!S.focusgate) S.focusgate = {};
     S.focusgate.sess = { id: null, start: Date.now(), end: c.focusUntil, min: min, joined: !!joinedFrom, awarded: false, stopped: false };
+    S.focusgate.linkSrc = 'focusgate';
     save(); rerender();
     try { toast('🎯 ' + L('Fokus boshlandi — ' + min + ' daqiqa. Kompyuter 30 soniyada qabul qiladi.', 'Focus started — ' + min + ' min. Your PC picks it up within 30 s.', 'Фокус начат — ' + min + ' мин. ПК получит за 30 с.')); } catch (e) {}
     try {
@@ -527,14 +598,19 @@
     SOC.at = 0;
   }
   async function stopFocus() {
-    var c = cfg(), s = sess();
+    var c = cfg(), s = sess(), own = linkOwner();
     c.focusUntil = 0; saveCfg();
+    // Pomodoro/Fokus rejimi boshlagan bo'lsa — ular davom etsa ham shu seansda qayta bloklamaymiz
+    if (own && own !== 'focusgate') { S.focusgate.linkMute = own; var ls = S.focusgate.linkSess; S.focusgate.linkSess = null; if (ls && ls.id) try { supabase.from('fg_sessions').update({ ended_at: new Date().toISOString() }).eq('id', ls.id).then(function () {}); } catch (e) {} }
+    S.focusgate.linkSrc = null; save();
+    if (own && own !== 'focusgate') { rerender(); return; }
     if (s) { s.stopped = true; save(); if (s.id) try { await supabase.from('fg_sessions').update({ ended_at: new Date().toISOString() }).eq('id', s.id); } catch (e) {} }
     rerender();
   }
   function joinFocus(sessionId, min) {
     if (!real()) { needConnect(); return; }
     if (focusLeft() > 0) return;
+    fgS().joined = true;
     startFocus(Math.max(1, Math.min(600, min || 25)), sessionId);
   }
   // Sessiya o'z vaqtida tugasa — XP va tanga (bir marta)
@@ -542,6 +618,8 @@
     var s = sess();
     if (!s || s.awarded || s.stopped || Date.now() < s.end) return;
     s.awarded = true;
+    S.focusgate.focusMin = (S.focusgate.focusMin || 0) + s.min;
+    S.focusgate.focusDone = (S.focusgate.focusDone || 0) + 1;
     var xp = Math.round(s.min * (s.joined ? 1.2 : 1)), coins = Math.floor(s.min / 5 * (s.joined ? 1.2 : 1));
     try { addXP(xp, '🎯 Focusgate: ' + s.min + ' ' + L('daqiqa fokus', 'min focus', 'мин фокуса')); } catch (e) {}
     if (coins > 0) { S.coins = (S.coins || 0) + coins; try { addTarixLog('in', '🎯 Focusgate: ' + s.min + ' ' + L('daqiqa fokus', 'min focus', 'мин фокуса'), coins, 'fg-focus-' + s.start); } catch (e) {} }
@@ -573,18 +651,35 @@
   function openExtInstall() {
     var edge = /Edg\//.test(navigator.userAgent);
     var page = edge ? 'edge://extensions' : 'chrome://extensions';
-    openSheet('<h3>🧩 ' + E(L('Brauzer kengaytmasini o\'rnatish', 'Install the browser extension', 'Установка расширения')) + '</h3>' +
-      '<p class="fg-p">' + E(L('Saytlarni bloklaydi, YouTube Shorts / Instagram Reels\'ni o\'chiradi va saytlarda o\'tgan vaqtni hisoblaydi. Chrome, Edge, Brave, Opera, Yandex uchun.', 'Blocks sites, removes YouTube Shorts / Instagram Reels and tracks time on sites. For Chrome, Edge, Brave, Opera, Yandex.', 'Блокирует сайты, убирает YouTube Shorts / Instagram Reels и считает время на сайтах. Для Chrome, Edge, Brave, Opera, Яндекс.')) + '</p>' +
-      '<ol class="fg-steps">' +
-      '<li><b>' + E(L('ZIP faylni yuklab oling va oching (Extract)', 'Download the ZIP and extract it', 'Скачайте ZIP и распакуйте')) + '</b><small>' + E(L('Ichida "focusgate-extension" papkasi bo\'ladi.', 'You get a "focusgate-extension" folder.', 'Появится папка «focusgate-extension».')) + '</small></li>' +
-      '<li><b>' + E(L('Brauzerda oching: ', 'Open in the browser: ', 'Откройте в браузере: ')) + '<code class="fg-code-in">' + page + '</code></b><small>' + E(L('Manzilni nusxalab, yangi tabga qo\'ying.', 'Copy the address into a new tab.', 'Скопируйте адрес в новую вкладку.')) + '</small></li>' +
-      '<li><b>' + E(L('"Режим разработчика / Developer mode" ni yoqing', 'Turn on "Developer mode"', 'Включите «Режим разработчика»')) + '</b><small>' + E(L('O\'ng yuqori burchakda (Edge\'da chap pastda).', 'Top-right corner (bottom-left in Edge).', 'В правом верхнем углу (в Edge — слева внизу).')) + '</small></li>' +
-      '<li><b>' + E(L('"Загрузить распакованное / Load unpacked" → papkani tanlang', '"Load unpacked" → choose the folder', '«Загрузить распакованное» → выберите папку')) + '</b></li>' +
-      '<li><b>' + E(L('LevelUpDay ochiladi — "Ulash" ni bosing ✅', 'LevelUpDay opens — press "Connect" ✅', 'Откроется LevelUpDay — нажмите «Подключить» ✅')) + '</b></li></ol>' +
-      '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-copyext="' + page + '">📋 ' + E(L('Manzilni nusxalash', 'Copy address', 'Копировать адрес')) + '</button><a class="fg-btn" href="' + EXT_URL + '" download="focusgate-extension.zip">⬇ ' + E(L('ZIP yuklab olish', 'Download ZIP', 'Скачать ZIP')) + '</a></div>');
-    var cp = document.querySelector('[data-fg-copyext]');
-    if (cp) cp.onclick = function () { try { navigator.clipboard.writeText(page); toast('📋 ' + page); } catch (e) {} };
+    function step(n, title, body, img) {
+      return '<div class="fg-gstep"><span class="fg-gnum">' + n + '</span><div class="fg-gbody"><b>' + title + '</b>' + (body ? '<small>' + body + '</small>' : '') + (img ? '<img src="downloads/guide/' + img + '" alt="" loading="lazy">' : '') + '</div></div>';
+    }
+    var q = function (ru, en) { return '<span class="fg-q">' + E(ru) + '</span> / <span class="fg-q">' + E(en) + '</span>'; };
+    openSheet('<h3>🧩 ' + E(L('Kengaytmani o\'rnatish', 'Install the extension', 'Установка расширения')) + '</h3>' +
+      '<p class="fg-p">' + E(L('5 daqiqalik ish. Chrome, Edge, Brave, Opera va Yandex brauzerlarida ishlaydi. Faqat kompyuterda.', 'Takes 5 minutes. Works in Chrome, Edge, Brave, Opera and Yandex. Computer only.', 'Займёт 5 минут. Работает в Chrome, Edge, Brave, Opera и Яндекс. Только на компьютере.')) + '</p>' +
+      '<div class="fg-guide">' +
+      step(1, E(L('ZIP faylni yuklab oling', 'Download the ZIP', 'Скачайте ZIP')), '<a class="fg-btn sm" href="' + EXT_URL + '" download="focusgate-extension.zip">⬇ focusgate-extension.zip</a>') +
+      step(2, E(L('ZIP ni oching (papkaga chiqaring)', 'Extract the ZIP', 'Распакуйте ZIP')),
+        E(L('Yuklanmalar papkasida ZIP ustiga sichqonchaning o\'ng tugmasi → ', 'In Downloads, right-click the ZIP → ', 'В «Загрузках» правой кнопкой по ZIP → ')) + q('Извлечь все…', 'Extract All…') + ' → ' + q('Извлечь', 'Extract') + '. ' +
+        E(L('"focusgate-extension" papkasi paydo bo\'ladi — ichida manifest.json bor.', 'You get a "focusgate-extension" folder with manifest.json inside.', 'Появится папка «focusgate-extension» с manifest.json внутри.'))) +
+      step(3, E(L('Kengaytmalar sahifasini oching va "Developer mode" ni yoqing', 'Open the extensions page and turn on "Developer mode"', 'Откройте страницу расширений и включите «Режим разработчика»')),
+        '<span class="fg-copy"><code class="fg-code-in">' + page + '</code><button type="button" class="fg-btn sm ghost" data-fg-copyext="' + page + '">📋 ' + E(L('Nusxalash', 'Copy', 'Копировать')) + '</button></span>' +
+        E(L(' — yangi tab ochib, manzil qatoriga qo\'ying va Enter. O\'ng yuqoridagi ', ' — paste into a new tab\'s address bar and press Enter. Top-right switch ', ' — вставьте в адресную строку новой вкладки и нажмите Enter. Переключатель справа вверху ')) + q('Режим разработчика', 'Developer mode') +
+        E(L(' ni yoqing' + (edge ? ' (Edge\'da chap pastda)' : '') + '.', (edge ? ' (bottom-left in Edge)' : '') + '.', (edge ? ' (в Edge — слева внизу)' : '') + '.')), 'ext-1.png') +
+      step(4, q('Загрузить распакованное', 'Load unpacked') + E(L(' tugmasini bosing va papkani tanlang', ' — then choose the folder', ' — и выберите папку')),
+        E(L('2-qadamdagi "focusgate-extension" papkasini tanlang (ichiga kirib, manifest.json ko\'rinadigan papka) → ', 'Pick the "focusgate-extension" folder from step 2 (the one where manifest.json is visible) → ', 'Выберите папку «focusgate-extension» из шага 2 (ту, где виден manifest.json) → ')) + q('Выбор папки', 'Select Folder'), 'ext-2.png') +
+      step('✓', E(L('Tayyor! LevelUpDay o\'zi ochiladi — "Ulash" ni bosing', 'Done! LevelUpDay opens — press "Connect"', 'Готово! Откроется LevelUpDay — нажмите «Подключить»')),
+        E(L('Qulaylik uchun: brauzerning o\'ng yuqorisidagi 🧩 belgisi → Focusgate yonidagi 📌 — belgi doim ko\'rinib turadi.', 'Tip: click 🧩 in the top-right of the browser → 📌 next to Focusgate to keep it visible.', 'Совет: 🧩 справа вверху браузера → 📌 рядом с Focusgate, чтобы значок был всегда виден.')), 'ext-3.png') +
+      '</div>' +
+      '<details class="fg-trouble"><summary>❓ ' + E(L('Ishlamadimi? Ko\'p uchraydigan xatolar', 'Didn\'t work? Common problems', 'Не получилось? Частые ошибки')) + '</summary>' +
+      '<ul><li><b>"Manifest file is missing"</b> — ' + E(L('noto\'g\'ri papka tanlangan. Papkaga kiring: ichida yana "focusgate-extension" bo\'lsa — o\'shani tanlang. To\'g\'ri papkada manifest.json fayli ko\'rinadi.', 'wrong folder. Open it: if there is another "focusgate-extension" inside, choose that one. The right folder shows manifest.json.', 'выбрана не та папка. Откройте её: если внутри ещё одна «focusgate-extension» — выберите её. В нужной папке виден manifest.json.')) + '</li>' +
+      '<li><b>' + E(L('ZIP o\'zini tanlab bo\'lmaydi', 'You can\'t pick the ZIP itself', 'Нельзя выбрать сам ZIP')) + '</b> — ' + E(L('avval 2-qadam: ZIP ni oching (Extract).', 'do step 2 first: extract it.', 'сначала шаг 2: распакуйте.')) + '</li>' +
+      '<li><b>' + E(L('"Load unpacked" tugmasi yo\'q', 'No "Load unpacked" button', 'Нет кнопки «Загрузить распакованное»')) + '</b> — ' + E(L('"Developer mode" yoqilmagan (3-qadam).', '"Developer mode" is off (step 3).', '«Режим разработчика» выключен (шаг 3).')) + '</li>' +
+      '<li><b>' + E(L('Papkani o\'chirmang', 'Don\'t delete the folder', 'Не удаляйте папку')) + '</b> — ' + E(L('kengaytma shu papkadan ishlaydi. Uni Hujjatlar kabi doimiy joyga ko\'chirib, keyin o\'rnatgan ma\'qul.', 'the extension runs from it. Move it somewhere permanent (e.g. Documents) before installing.', 'расширение работает из неё. Лучше перенести её в постоянное место (например, «Документы»).')) + '</li>' +
+      '<li><b>' + E(L('Telefonda ishlamaydi', 'Not on phones', 'Не работает на телефоне')) + '</b> — ' + E(L('kengaytmalar faqat kompyuter brauzerida.', 'extensions only work in desktop browsers.', 'расширения работают только в браузере на компьютере.')) + '</li></ul></details>');
+    document.querySelectorAll('[data-fg-copyext]').forEach(function (cp) { cp.onclick = function () { try { navigator.clipboard.writeText(page); toast('📋 ' + page + ' — ' + L('yangi tabga qo\'ying', 'paste into a new tab', 'вставьте в новую вкладку')); } catch (e) {} }; });
   }
+
 
   // ---------- 🧩 Ilova ichidagi kartalar: Profil → Statistika va Profil → Sozlamalar ----------
   function statsCardHtml() {
@@ -934,6 +1029,8 @@
       return;
     }
     if ((b = t.closest('[data-fg-stop]'))) { if (c.strict) return; stopFocus(); return; }
+    if ((b = t.closest('[data-fg-withfocus]'))) { try { window.xOpenFocus(null, true, UI.focusMin); } catch (e2) {} return; }
+    if ((b = t.closest('[data-fg-withpomo]'))) { try { pomoOpenModal(); } catch (e2) {} return; }
     if ((b = t.closest('[data-fg-fadel]'))) { c.focusApps.splice(+b.dataset.fgFadel, 1); saveCfg(); rerender(); return; }
     if ((b = t.closest('.fg-sw'))) {
       if (!real()) { needConnect(); return; }
