@@ -19,4 +19,4 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
 
 Ikonka/versiya resurslari (`rsrc_windows_*.syso`) `go-winres simply --icon assets/icon.png --manifest gui ...` bilan yaratilgan.
 
-Chiqarish: `gh release create focusgate-v0.1.0 dist/Focusgate.exe` — sayt `releases/latest/download/Focusgate.exe` havolasidan yuklaydi.
+Chiqarish: `dist/Focusgate.exe` ni repo ildizidagi `downloads/Focusgate.exe` ga ko'chiring — sayt shu yerdan yuklaydi (GitHub Pages).

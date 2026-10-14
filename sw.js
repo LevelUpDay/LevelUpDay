@@ -10,7 +10,7 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v57';
+const CACHE_VERSION = 'v58';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 
 // Pre-cache qilinadigan asosiy fayllar
@@ -147,6 +147,9 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname === 'worldtimeapi.org') {
     return;
   }
+
+  // 0. Yuklab olinadigan fayllar (Focusgate.exe) — SW umuman aralashmaydi (keshga 6 MB yozilmasin, eski versiya qolmasin)
+  if (url.origin === self.location.origin && url.pathname.indexOf('/downloads/') !== -1) return;
 
   // 1. HTML sahifa so'rovlari (Navigatsiya): Network-First
   const isNavigation =
