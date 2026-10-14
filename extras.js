@@ -2595,28 +2595,50 @@
   // 📲 ILOVANI O'RNATISH (kompyuter / telefon)
   // =========================================================
   var _installEvt = null;
+  // Windows dasturidan ochilgan oyna (Focusgate.exe --app → ?src=desktop)
+  try { if (/[?&]src=desktop/.test(location.search)) sessionStorage.setItem('luDesktop', '1'); } catch (e) {}
   function isStandalone() {
+    try { if (sessionStorage.getItem('luDesktop') === '1') return true; } catch (e) {}
     try { return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: window-controls-overlay)').matches || navigator.standalone === true; } catch (e) { return false; }
   }
   function isIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent || '')); }
-  function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS()); }
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); _installEvt = e; renderInstallUI(); });
   window.addEventListener('appinstalled', function () { _installEvt = null; toast('🎉 ' + L('LevelUpDay o\'rnatildi!', 'LevelUpDay installed!', 'LevelUpDay установлен!')); renderInstallUI(); });
+  function isWin() { return /Windows NT/i.test(navigator.userAgent || ''); }
+  function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS() || isWin()); }
+  function pwaPrompt() {
+    if (!_installEvt) return false;
+    _installEvt.prompt();
+    _installEvt.userChoice.then(function (c) { if (c && c.outcome === 'accepted') { _installEvt = null; } renderInstallUI(); }).catch(function () {});
+    return true;
+  }
   function doInstall() {
-    if (_installEvt) {
-      _installEvt.prompt();
-      _installEvt.userChoice.then(function (c) { if (c && c.outcome === 'accepted') { _installEvt = null; } renderInstallUI(); }).catch(function () {});
-      return;
-    }
     var html = '<h3 class="x-h">📲 ' + L('Ilovani o\'rnatish', 'Install the app', 'Установить приложение') + '</h3>';
+    if (isWin()) {
+      // Windows: bitta o'rnatuvchi — LevelUpDay oynasi (Ish stoli + Start menyusi) va Focusgate birga
+      var ver = (window.LUFocusgate && window.LUFocusgate.version) || '';
+      html += '<div class="x-inst-win"><div class="x-inst-win-h"><img src="icons/icon-192.png" alt=""><div><b>LevelUpDay ' + L('Windows uchun', 'for Windows', 'для Windows') + '</b>' +
+        '<span>' + L('Telegram kabi alohida dastur + Focusgate (ilova/sayt bloklovchi) — bitta faylda', 'A real desktop app like Telegram + Focusgate (app & site blocker) — in one file', 'Настоящее приложение как Telegram + Focusgate (блокировщик) — одним файлом') + '</span></div></div>' +
+        '<a class="x-btn" id="x-inst-win-dl" href="downloads/Focusgate.exe?v=' + encodeURIComponent(ver) + '" download="LevelUpDay-Setup.exe">⬇️ ' + L('Yuklab olish', 'Download', 'Скачать') + ' (Windows 10/11, 7 MB)</a>' +
+        '<div class="x-inst-steps"><div><b>1</b><span>' + L('<b>LevelUpDay-Setup.exe</b> ni oching (Windows «Noma\'lum dastur» desa: <b>Batafsil → Baribir ishga tushirish</b>)', 'Open <b>LevelUpDay-Setup.exe</b> (if Windows warns: <b>More info → Run anyway</b>)', 'Откройте <b>LevelUpDay-Setup.exe</b> (если Windows предупредит: <b>Подробнее → Выполнить в любом случае</b>)') + '</span></div>' +
+        '<div><b>2</b><span>' + L('O\'zi o\'rnatiladi: Ish stoli va Start menyusida <b>LevelUpDay</b> belgisi paydo bo\'ladi, soat yonida 🛡 Focusgate', 'It installs itself: a <b>LevelUpDay</b> icon appears on the desktop and Start menu, plus 🛡 Focusgate by the clock', 'Установится само: значок <b>LevelUpDay</b> на рабочем столе и в Пуске, 🛡 Focusgate возле часов') + '</span></div>' +
+        '<div><b>3</b><span>' + L('Ochilgan oynada <b>«Ulash»</b> ni tasdiqlang — tayyor. O\'chirish: Sozlamalar → Dasturlar → LevelUpDay', 'Confirm <b>“Connect”</b> in the window that opens — done. To remove: Settings → Apps → LevelUpDay', 'Подтвердите <b>«Подключить»</b> в открывшемся окне — готово. Удаление: Параметры → Приложения → LevelUpDay') + '</span></div></div></div>' +
+        '<div class="x-inst-alt">' + L('Yoki faqat brauzer orqali (Focusgate\'siz):', 'Or browser-only (without Focusgate):', 'Или только через браузер (без Focusgate):') + ' ' +
+        (_installEvt ? '<button class="x-link" id="x-inst-pwa">🖥 ' + L('Brauzerdan o\'rnatish', 'Install from browser', 'Установить из браузера') + '</button>' : L('manzil satridagi <b>⊕</b> belgisi', 'the <b>⊕</b> icon in the address bar', 'значок <b>⊕</b> в адресной строке')) + '</span></div>';
+      var m = xModal(html, 'x-inst-box');
+      var pb = document.getElementById('x-inst-pwa'); if (pb) pb.onclick = function () { pwaPrompt(); };
+      var dl = document.getElementById('x-inst-win-dl'); if (dl) dl.onclick = function () { setTimeout(function () { toast('⬇️ ' + L('Yuklangan faylni oching', 'Open the downloaded file', 'Откройте скачанный файл')); }, 600); };
+      return m;
+    }
+    if (pwaPrompt()) return;
     if (isIOS()) {
-      html += '<div class="x-inst-steps"><div><b>1</b>' + L('Safari pastidagi <b>Ulashish ⬆️</b> tugmasini bosing', 'Tap the <b>Share ⬆️</b> button in Safari', 'Нажмите <b>Поделиться ⬆️</b> в Safari') + '</div>' +
-        '<div><b>2</b>' + L('<b>«Bosh ekranga qo\'shish»</b> ni tanlang', 'Choose <b>“Add to Home Screen”</b>', 'Выберите <b>«На экран Домой»</b>') + '</div>' +
-        '<div><b>3</b>' + L('<b>Qo\'shish</b> ni bosing — tayyor!', 'Tap <b>Add</b> — done!', 'Нажмите <b>Добавить</b> — готово!') + '</div></div>';
+      html += '<div class="x-inst-steps"><div><b>1</b><span>' + L('Safari pastidagi <b>Ulashish ⬆️</b> tugmasini bosing', 'Tap the <b>Share ⬆️</b> button in Safari', 'Нажмите <b>Поделиться ⬆️</b> в Safari') + '</span></div>' +
+        '<div><b>2</b><span>' + L('<b>«Bosh ekranga qo\'shish»</b> ni tanlang', 'Choose <b>“Add to Home Screen”</b>', 'Выберите <b>«На экран Домой»</b>') + '</span></div>' +
+        '<div><b>3</b><span>' + L('<b>Qo\'shish</b> ni bosing — tayyor!', 'Tap <b>Add</b> — done!', 'Нажмите <b>Добавить</b> — готово!') + '</span></div></div>';
     } else {
-      html += '<div class="x-inst-steps"><div><b>1</b>' + L('Chrome yoki Edge\'da manzil satrining o\'ng tomonidagi <b>⊕ / 🖥 O\'rnatish</b> belgisini bosing', 'In Chrome or Edge, click the <b>⊕ / 🖥 Install</b> icon at the right of the address bar', 'В Chrome или Edge нажмите значок <b>⊕ Установить</b> в адресной строке') + '</div>' +
-        '<div><b>2</b>' + L('Yoki menyu <b>⋮ → «LevelUpDay\'ni o\'rnatish»</b>', 'Or menu <b>⋮ → “Install LevelUpDay”</b>', 'Или меню <b>⋮ → «Установить LevelUpDay»</b>') + '</div>' +
-        '<div><b>3</b>' + L('Ilova alohida oynada ochiladi va ish stolida belgisi paydo bo\'ladi', 'It opens in its own window with an icon on your desktop', 'Приложение откроется в отдельном окне со значком на рабочем столе') + '</div></div>';
+      html += '<div class="x-inst-steps"><div><b>1</b><span>' + L('Chrome yoki Edge\'da manzil satrining o\'ng tomonidagi <b>⊕ / 🖥 O\'rnatish</b> belgisini bosing', 'In Chrome or Edge, click the <b>⊕ / 🖥 Install</b> icon at the right of the address bar', 'В Chrome или Edge нажмите значок <b>⊕ Установить</b> в адресной строке') + '</span></div>' +
+        '<div><b>2</b><span>' + L('Yoki menyu <b>⋮ → «LevelUpDay\'ni o\'rnatish»</b>', 'Or menu <b>⋮ → “Install LevelUpDay”</b>', 'Или меню <b>⋮ → «Установить LevelUpDay»</b>') + '</span></div>' +
+        '<div><b>3</b><span>' + L('Ilova alohida oynada ochiladi va ish stolida belgisi paydo bo\'ladi', 'It opens in its own window with an icon on your desktop', 'Приложение откроется в отдельном окне со значком на рабочем столе') + '</span></div></div>';
     }
     xModal(html, 'x-inst-box');
   }

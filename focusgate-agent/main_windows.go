@@ -37,6 +37,16 @@ var (
 
 func main() {
 	exePath, _ = os.Executable()
+	appMode := false // "LevelUpDay" yorlig'i: ilova oynasini ochadi (agent ishlamayotgan bo'lsa — uni ham ishga tushiradi)
+	for _, a := range os.Args[1:] {
+		switch a {
+		case "--uninstall":
+			uninstall()
+			return
+		case "--app":
+			appMode = true
+		}
+	}
 	waitLock := false // yangi o'rnatilgan / yangilangan nusxa: eski jarayon yopilishini kutadi
 	for _, a := range os.Args[1:] {
 		if a == "--updated" || a == "--first-run" {
@@ -53,6 +63,12 @@ func main() {
 		time.Sleep(500 * time.Millisecond)
 		ok = SingleInstance()
 	}
+	if appMode {
+		openApp("")
+		if !ok {
+			return // agent allaqachon ishlayapti
+		}
+	}
 	if !ok {
 		// Ishlab turgan nusxa bor: "Ha" — uni to'xtatib qayta ishga tushirish, "Yo'q" — saytni ochish
 		r := MessageBox("LevelUpDay Focusgate v"+Version, Tr("running"), 0x03|0x40)
@@ -60,7 +76,7 @@ func main() {
 		case 6: // Ha
 			restartFresh()
 		case 7: // Yo'q
-			openURL(AppURL + "#focusgate")
+			openApp("#focusgate")
 			time.Sleep(2 * time.Second)
 		}
 		return
@@ -213,12 +229,14 @@ func onReady() {
 	go enforceLoop()
 	go syncLoop()
 	go updateLoop()
+	go ensureDesktop()
 	if st.Token == "" {
 		go startPairing()
 	}
 	for _, a := range os.Args[1:] {
 		if a == "--first-run" {
 			if st.Token != "" {
+				openApp("")
 				notify("!hello", Tr("hello_title"), Tr("hello_body"))
 			} else {
 				notify("!hello", Tr("inst_title"), Tr("inst_body"))
@@ -231,13 +249,13 @@ func menuLoop() {
 	for {
 		select {
 		case <-mOpen.ClickedCh:
-			openURL(AppURL + "#focusgate")
+			openApp("#focusgate")
 		case <-mPair.ClickedCh:
 			pairMu.Lock()
 			c := pairCode
 			pairMu.Unlock()
 			if c != "" {
-				openURL(PairURL(c))
+				openApp("#fgpair=" + c)
 			} else {
 				go startPairing()
 			}
@@ -299,7 +317,7 @@ func startPairing() {
 	pairMu.Unlock()
 	setStatus(Tr("pair_code", code))
 	mPair.SetTitle(Tr("pair_confirm", code))
-	openURL(PairURL(code))
+	openApp("#fgpair=" + code)
 	deadline := time.Now().Add(15 * time.Minute)
 	for time.Now().Before(deadline) {
 		time.Sleep(3 * time.Second)
