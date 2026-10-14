@@ -73,6 +73,13 @@ Deno.serve(async (req) => {
   }
 
   const link = await sb.auth.admin.generateLink({ type: "magiclink", email });
+  // ✈️ Telegram orqali kirgan foydalanuvchi bot xabarlariga avtomatik ulanadi (request_access: write)
+  const uid = link.data?.user?.id;
+  // (chat boshqa akkauntga — masalan email akkauntga — ulangan bo'lsa, o'sha bog'lanishga tegmaymiz)
+  if (uid) {
+    const { data: ex } = await sb.from("telegram_links").select("user_id").or(`user_id.eq.${uid},chat_id.eq.${id}`).limit(1);
+    if (!ex?.length) await sb.from("telegram_links").insert({ user_id: uid, chat_id: id, username: data.username || null });
+  }
   const tokenHash = link.data?.properties?.hashed_token;
   if (link.error || !tokenHash) return json({ error: "link_failed", detail: link.error?.message }, 500);
 

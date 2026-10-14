@@ -616,7 +616,11 @@
   // Profil bo'limlari almashganda qayta joylaymiz (onclick global funksiyani chaqiradi)
   if (typeof window.showProfileSubtab === 'function') {
     var _origSub = window.showProfileSubtab;
-    window.showProfileSubtab = function (name) { var r = _origSub.apply(this, arguments); masonrySoon(60); return r; };
+    window.showProfileSubtab = function (name) {
+      var r = _origSub.apply(this, arguments); masonrySoon(60);
+      if (name === 'settings') { try { if (window.xRenderTgSettings) window.xRenderTgSettings(); } catch (e) {} }
+      return r;
+    };
   }
   var _mqLast = null;
   window.addEventListener('resize', function () {

@@ -1245,3 +1245,7 @@ html.design-fx .fbx-item, html.design-fx .fbx-thread { background: color-mix(in 
 .xs-ov { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 html.design-fx .xs-box { background: #15141c; }
 html.design-fx .xs-foot { background: #15141c; }
+/* ✈️ Telegram eslatmalari kartasi */
+.x-tg-card .x-push-h > span { color: #29B6F6; }
+.x-tg-act { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.x-tg-act .x-tg-un { color: var(--red); }
