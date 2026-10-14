@@ -3625,3 +3625,11 @@ html.tbl-full-on #focus-mini-player, html.tbl-full-on #pomo-float { display: non
 .bdg-ok { position: absolute; top: 6px; right: 7px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #111; background: var(--tc); }
 .bdg-lock { position: absolute; top: 6px; right: 7px; font-size: 11px; opacity: .6; }
 @media (max-width: 600px) { .bdg-cards { grid-template-columns: repeat(3, 1fr); } .bdg-gp i { width: 60px; } }
+
+/* Chap paneldagi logotip — ilova emblemasi, bosilsa bosh sahifa */
+#ds-brand { cursor: pointer; border-radius: 10px; transition: background .15s, transform .15s; }
+#ds-brand:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#ds-brand:active { transform: scale(.98); }
+#ds-brand .ds-brand-ic { width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(124, 92, 252, .35); }
+.sync-pill[role="button"] { cursor: pointer; }
+.sync-pill[role="button"]:hover { filter: brightness(1.15); }

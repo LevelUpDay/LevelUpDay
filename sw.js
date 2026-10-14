@@ -10,8 +10,10 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v67';
+const CACHE_VERSION = 'v68';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
+// Fon tovushlari (sounds/*.mp3, ~0.8 MB) — alohida, versiyalar o'rtasida o'chirilmaydigan kesh
+const SOUND_CACHE = 'lud-sounds-v1';
 
 // Pre-cache qilinadigan asosiy fayllar
 const PRECACHE_URLS = [
@@ -103,7 +105,7 @@ self.addEventListener('activate', (event) => {
       const cacheNames = await caches.keys();
       await Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
+          .filter((name) => name !== CACHE_NAME && name !== SOUND_CACHE)
           .map((name) => {
             console.log('[SW] Eski kesh o\'chirilmoqda:', name);
             return caches.delete(name);
@@ -150,6 +152,15 @@ self.addEventListener('fetch', (event) => {
 
   // 0. Yuklab olinadigan fayllar (Focusgate.exe) — SW umuman aralashmaydi (keshga 6 MB yozilmasin, eski versiya qolmasin)
   if (url.origin === self.location.origin && url.pathname.indexOf('/downloads/') !== -1) return;
+
+  // 0.1 Fon tovushlari: bir marta yuklanadi, keyin doim keshdan (oflayn ham ishlaydi)
+  if (url.origin === self.location.origin && url.pathname.indexOf('/sounds/') !== -1) {
+    event.respondWith(caches.open(SOUND_CACHE).then((c) => c.match(request, { ignoreSearch: true }).then((hit) => hit || fetch(request).then((r) => {
+      if (r && r.ok) c.put(request, r.clone());
+      return r;
+    }))));
+    return;
+  }
 
   // 1. HTML sahifa so'rovlari (Navigatsiya): Network-First
   const isNavigation =
