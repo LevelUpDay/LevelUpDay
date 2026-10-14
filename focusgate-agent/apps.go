@@ -16,54 +16,47 @@ type InstalledApp struct {
 	Name string `json:"name"` // Discord
 }
 
-// LnkTarget — Windows yorlig'i (.lnk, MS-SHLLINK) ichidan maqsad faylning to'liq yo'lini oladi.
-func LnkTarget(b []byte) string { t, _ := LnkParse(b); return t }
-
-// LnkApp — yorliq qaysi dasturni ochadi. Squirrel o'rnatuvchilar (Discord, Slack...) "Update.exe --processStart X.exe"
-// ko'rinishida bo'ladi — bunda haqiqiy dastur X.exe.
-func LnkApp(b []byte) string {
-	t, args := LnkParse(b)
-	if t == "" {
-		return ""
-	}
-	if strings.EqualFold(filepath.Base(strings.ReplaceAll(t, `\`, "/")), "update.exe") {
-		if m := processStart.FindStringSubmatch(args); m != nil {
-			return t[:len(t)-len("update.exe")] + m[1]
-		}
-	}
-	return t
+// Lnk — yorliq (.lnk, MS-SHLLINK) ichidan kerakli maydonlar.
+type Lnk struct {
+	Target  string // LinkInfo dagi to'liq yo'l
+	Rel     string // RELATIVE_PATH (yorliq joylashgan papkaga nisbatan)
+	WorkDir string
+	Args    string
+	EnvPath string // EnvironmentVariableDataBlock: %ProgramFiles%\App\app.exe
 }
 
-var processStart = regexp.MustCompile(`(?i)--processStart\s+"?([^"\s]+\.exe)`)
-
-// LnkParse — maqsad yo'li va buyruq qatori argumentlari.
-func LnkParse(b []byte) (string, string) {
-	t := lnkTarget(b)
-	if t == "" {
-		return "", ""
+// ParseLnk — yorliqni o'qiydi (noto'g'ri fayl bo'lsa ok=false).
+func ParseLnk(b []byte) (Lnk, bool) {
+	var l Lnk
+	if len(b) < 0x4C || binary.LittleEndian.Uint32(b[0:4]) != 0x4C {
+		return l, false
 	}
-	return t, lnkArgs(b)
-}
-
-func lnkArgs(b []byte) string {
 	flags := binary.LittleEndian.Uint32(b[0x14:0x18])
 	off := 0x4C
-	if flags&0x1 != 0 {
+	if flags&0x1 != 0 { // HasLinkTargetIDList
+		if off+2 > len(b) {
+			return l, false
+		}
 		off += 2 + int(binary.LittleEndian.Uint16(b[off:off+2]))
 	}
-	if flags&0x2 != 0 {
+	if flags&0x2 != 0 { // HasLinkInfo
 		if off+4 > len(b) {
-			return ""
+			return l, false
 		}
-		off += int(binary.LittleEndian.Uint32(b[off : off+4]))
+		size := int(binary.LittleEndian.Uint32(b[off : off+4]))
+		if size < 0x1C || off+size > len(b) {
+			return l, false
+		}
+		l.Target = linkInfoPath(b[off : off+size])
+		off += size
 	}
 	uni := flags&0x80 != 0
-	for _, bit := range []uint32{0x4, 0x8, 0x10, 0x20} { // NAME, RELATIVE_PATH, WORKING_DIR, ARGUMENTS
+	for _, bit := range []uint32{0x4, 0x8, 0x10, 0x20, 0x40} { // NAME, RELATIVE_PATH, WORKING_DIR, ARGUMENTS, ICON_LOCATION
 		if flags&bit == 0 {
 			continue
 		}
 		if off+2 > len(b) {
-			return ""
+			return l, true
 		}
 		n := int(binary.LittleEndian.Uint16(b[off : off+2]))
 		off += 2
@@ -72,44 +65,49 @@ func lnkArgs(b []byte) string {
 			sz = n * 2
 		}
 		if off+sz > len(b) {
-			return ""
+			return l, true
 		}
-		if bit == 0x20 {
-			if uni {
-				return utf16z(append(append([]byte{}, b[off:off+sz]...), 0, 0))
-			}
-			return string(b[off : off+sz])
+		var v string
+		if uni {
+			v = utf16z(append(append([]byte{}, b[off:off+sz]...), 0, 0))
+		} else {
+			v = string(b[off : off+sz])
+		}
+		switch bit {
+		case 0x8:
+			l.Rel = v
+		case 0x10:
+			l.WorkDir = v
+		case 0x20:
+			l.Args = v
 		}
 		off += sz
 	}
-	return ""
+	// ExtraData bloklari: EnvironmentVariableDataBlock (0xA0000001) — 260 bayt ANSI + 520 bayt Unicode
+	for off+8 <= len(b) {
+		size := int(binary.LittleEndian.Uint32(b[off : off+4]))
+		if size < 4 || off+size > len(b) {
+			break
+		}
+		sig := binary.LittleEndian.Uint32(b[off+4 : off+8])
+		if sig == 0xA0000001 && size >= 0x314 {
+			l.EnvPath = utf16z(b[off+8+260 : off+size])
+			if l.EnvPath == "" {
+				l.EnvPath = cstr(b[off+8 : off+8+260])
+			}
+		}
+		off += size
+	}
+	return l, true
 }
 
-func lnkTarget(b []byte) string {
-	if len(b) < 0x4C || binary.LittleEndian.Uint32(b[0:4]) != 0x4C {
-		return ""
-	}
-	flags := binary.LittleEndian.Uint32(b[0x14:0x18])
-	off := 0x4C
-	if flags&0x1 != 0 { // HasLinkTargetIDList
-		if off+2 > len(b) {
-			return ""
-		}
-		off += 2 + int(binary.LittleEndian.Uint16(b[off:off+2]))
-	}
-	if flags&0x2 == 0 || off+0x1C > len(b) { // HasLinkInfo yo'q
-		return ""
-	}
-	li := b[off:]
-	size := int(binary.LittleEndian.Uint32(li[0:4]))
+func linkInfoPath(li []byte) string {
 	hdr := int(binary.LittleEndian.Uint32(li[4:8]))
-	liFlags := binary.LittleEndian.Uint32(li[8:12])
-	if size > len(li) || liFlags&0x1 == 0 { // VolumeIDAndLocalBasePath
+	if binary.LittleEndian.Uint32(li[8:12])&0x1 == 0 { // VolumeIDAndLocalBasePath
 		return ""
 	}
-	li = li[:size]
 	base, suffix := "", ""
-	if hdr >= 0x24 && len(li) >= 0x24 { // Unicode yo'llar
+	if hdr >= 0x24 && len(li) >= 0x24 {
 		if o := int(binary.LittleEndian.Uint32(li[0x1C:0x20])); o > 0 && o < len(li) {
 			base = utf16z(li[o:])
 		}
@@ -134,6 +132,58 @@ func lnkTarget(b []byte) string {
 	return base + suffix
 }
 
+// WinJoin — Windows yo'llarini birlashtiradi: WinJoin(`C:\a\b`, `..\c\d.exe`) = `C:\a\c\d.exe`
+func WinJoin(dir, rel string) string {
+	if len(rel) > 1 && (rel[1] == ':' || strings.HasPrefix(rel, `\\`)) {
+		return rel
+	}
+	parts := strings.Split(strings.TrimRight(dir, `\`), `\`)
+	for _, p := range strings.Split(rel, `\`) {
+		switch p {
+		case "", ".":
+		case "..":
+			if len(parts) > 1 {
+				parts = parts[:len(parts)-1]
+			}
+		default:
+			parts = append(parts, p)
+		}
+	}
+	return strings.Join(parts, `\`)
+}
+
+// LnkApp — yorliq qaysi dasturni ochadi. lnkDir — yorliq turgan papka, expand — %ENV% larni ochadi.
+// Squirrel o'rnatuvchilar (Discord, Slack...) "Update.exe --processStart X.exe" ko'rinishida — haqiqiy dastur X.exe.
+func LnkApp(b []byte, lnkDir string, expand func(string) string) string {
+	l, ok := ParseLnk(b)
+	if !ok {
+		return ""
+	}
+	t := l.Target
+	if t == "" && l.EnvPath != "" && expand != nil {
+		t = expand(l.EnvPath)
+	}
+	if t == "" && l.Rel != "" {
+		t = WinJoin(lnkDir, l.Rel)
+	}
+	if t == "" {
+		return ""
+	}
+	if strings.EqualFold(winBase(t), "update.exe") {
+		if m := processStart.FindStringSubmatch(l.Args); m != nil {
+			return t[:len(t)-len("update.exe")] + m[1]
+		}
+	}
+	return t
+}
+
+// LnkTarget — yorliqning LinkInfo dagi to'liq yo'li (testlar uchun).
+func LnkTarget(b []byte) string { l, _ := ParseLnk(b); return l.Target }
+
+func winBase(p string) string { return filepath.Base(strings.ReplaceAll(p, `\`, "/")) }
+
+var processStart = regexp.MustCompile(`(?i)--processStart\s+"?([^"\s]+\.exe)`)
+
 func cstr(b []byte) string {
 	for i, c := range b {
 		if c == 0 {
@@ -156,13 +206,23 @@ func utf16z(b []byte) string {
 }
 
 // junk — ro'yxatda kerak bo'lmagan fayllar: o'chirgichlar, o'rnatuvchilar, yangilagichlar, yordamchilar.
-var junk = regexp.MustCompile(`(?i)^(unins\d*|uninstall.*|uninst.*|setup.*|install(er)?|update(r)?|.*updater|.*crash.*|.*report.*|.*helper|.*elevat.*|repair.*|vc_redist.*|dotnet.*|msiexec|.*bugsplat.*|.*launcherpatcher.*)\.exe$`)
-var junkName = regexp.MustCompile(`(?i)(uninstall|удалить|o'chirish|readme|license|documentation|help|website|support|release notes|what's new)`)
+var junk = regexp.MustCompile(`(?i)^(unins\d*|uninstall.*|uninst.*|setup.*|.*setup|install(er)?|update(r)?|.*updater|autoupdate.*|.*crash.*|.*report.*|.*helper|.*elevat.*|repair.*|vc_redist.*|dotnet.*|.*bugsplat.*|.*launcherpatcher.*|ju(check|sched)|.*service|.*svc|.*svr|.*troubleshooter|.*userps)\.exe$`)
+var junkName = regexp.MustCompile(`(?i)(uninstall|удалить|o'chirish|readme|license|documentation|\bhelp\b|website|support|release notes|what's new|check for updates|update checker|scheduler|troubleshoot|reset preferences|\bservice\b|user process|co-authoring|feed ?provider|decoder config|about java)`)
+
+// sysExe — Windows'ning ichki/yordamchi fayllari: foydalanuvchi dasturi emas.
+var sysExe = map[string]bool{
+	"rundll32.exe": true, "cmd.exe": true, "powershell.exe": true, "pwsh.exe": true, "msiexec.exe": true, "regsvr32.exe": true,
+	"wscript.exe": true, "cscript.exe": true, "mmc.exe": true, "control.exe": true, "conhost.exe": true, "dllhost.exe": true,
+	"chrome_proxy.exe": true, "msedgewebview2.exe": true, "msedge_proxy.exe": true, "systemsettings.exe": true, "textinputhost.exe": true,
+	"widgetboard.exe": true, "widgets.exe": true, "searchapp.exe": true, "lockapp.exe": true, "smartscreen.exe": true, "securityhealthsystray.exe": true,
+	"onedrivesetup.exe": true, "filecoauth.exe": true, "microsoftstartfeedprovider.exe": true, "crossdeviceservice.exe": true, "phoneexperiencehost.exe": true,
+	"gamebar.exe": true, "gamebarftserver.exe": true, "useroobebroker.exe": true, "backgroundtaskhost.exe": true, "wmiprvse.exe": true,
+}
 
 // UsefulApp — foydalanuvchiga ko'rsatishga arziydimi?
 func UsefulApp(path, name string) bool {
-	exe := strings.ToLower(filepath.Base(strings.ReplaceAll(path, `\`, "/")))
-	if !strings.HasSuffix(exe, ".exe") || junk.MatchString(exe) || Protected[exe] {
+	exe := strings.ToLower(winBase(path))
+	if !strings.HasSuffix(exe, ".exe") || junk.MatchString(exe) || Protected[exe] || sysExe[exe] || strings.HasPrefix(exe, "focusgate") {
 		return false
 	}
 	if name != "" && junkName.MatchString(name) {
@@ -196,10 +256,10 @@ func (l *AppList) Add(path, name string) {
 	if path == "" || !UsefulApp(path, name) {
 		return
 	}
-	exe := strings.ToLower(filepath.Base(strings.ReplaceAll(path, `\`, "/")))
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = strings.TrimSuffix(filepath.Base(strings.ReplaceAll(path, `\`, "/")), filepath.Ext(path))
+	exe := strings.ToLower(winBase(path))
+	name = strings.TrimSpace(strings.TrimPrefix(name, "Запустить "))
+	if name == "" || strings.EqualFold(name, exe) {
+		name = strings.TrimSuffix(winBase(path), filepath.Ext(path))
 	}
 	if _, ok := l.m[exe]; ok {
 		return

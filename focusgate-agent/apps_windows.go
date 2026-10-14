@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/windows/registry"
@@ -45,7 +46,7 @@ func ScanApps() []InstalledApp {
 			if err != nil {
 				return nil
 			}
-			if t := LnkApp(b); t != "" {
+			if t := LnkApp(b, filepath.Dir(path), expandEnv); t != "" {
 				l.Add(t, strings.TrimSuffix(de.Name(), filepath.Ext(de.Name())))
 			}
 			return nil
@@ -77,18 +78,57 @@ func ScanApps() []InstalledApp {
 			k.Close()
 		}
 	}
+	// Microsoft Store (UWP) ilovalari: Spotify, WhatsApp, Netflix...
+	for _, a := range storeApps() {
+		l.Add(a.Exe, a.Name)
+	}
+	// Hozir ochiq oynasi bor dasturlar (portativlar ham) — fon xizmatlari kirmaydi
 	win := strings.ToLower(os.Getenv("SystemRoot"))
+	vis := VisibleWindowPIDs()
 	for _, pids := range Processes() {
-		if len(pids) == 0 {
-			continue
+		for _, pid := range pids {
+			if !vis[pid] {
+				continue
+			}
+			p := processPath(pid)
+			if p == "" || (win != "" && strings.HasPrefix(strings.ToLower(p), win)) {
+				break
+			}
+			l.Add(p, FileDescription(p))
+			break
 		}
-		p := processPath(pids[0])
-		if p == "" || (win != "" && strings.HasPrefix(strings.ToLower(p), win)) {
-			continue
-		}
-		l.Add(p, FileDescription(p))
 	}
 	return l.List()
+}
+
+func expandEnv(s string) string {
+	if v, err := registry.ExpandString(s); err == nil {
+		return v
+	}
+	return s
+}
+
+// storeApps — PowerShell orqali o'rnatilgan Store ilovalari (manifestdagi Executable va nomi).
+func storeApps() []InstalledApp {
+	ps := `$ErrorActionPreference='SilentlyContinue'; $r=@(); Get-AppxPackage -PackageTypeFilter Main | Where-Object { -not $_.IsFramework -and $_.SignatureKind -ne 'System' } | ForEach-Object { $p=$_; $m=Get-AppxPackageManifest $p; if ($m) { foreach ($a in $m.Package.Applications.Application) { if ($a.Executable) { $n=[string]$m.Package.Properties.DisplayName; if (-not $n -or $n -like 'ms-resource*') { $n=($p.Name -split '\.')[-1] }; $r += [pscustomobject]@{ exe=(Split-Path $a.Executable -Leaf); name=$n } } } } }; ConvertTo-Json -InputObject $r -Compress`
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
+	done := make(chan []byte, 1)
+	go func() { out, _ := cmd.Output(); done <- out }()
+	var out []byte
+	select {
+	case out = <-done:
+	case <-time.After(40 * time.Second):
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		return nil
+	}
+	var list []InstalledApp
+	if json.Unmarshal(out, &list) != nil {
+		return nil
+	}
+	return list
 }
 
 // ---------- Avtoyangilanish: downloads/version.json ----------

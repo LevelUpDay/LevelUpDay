@@ -25,6 +25,9 @@ var (
 	pGetWindowTextW          = user32.NewProc("GetWindowTextW")
 	pGetLastInputInfo        = user32.NewProc("GetLastInputInfo")
 	pEnumChildWindows        = user32.NewProc("EnumChildWindows")
+	pEnumWindows             = user32.NewProc("EnumWindows")
+	pIsWindowVisible         = user32.NewProc("IsWindowVisible")
+	pGetWindowTextLengthW    = user32.NewProc("GetWindowTextLengthW")
 	pMessageBoxW             = user32.NewProc("MessageBoxW")
 	pKeybdEvent              = user32.NewProc("keybd_event")
 	pGetTickCount            = kernel32.NewProc("GetTickCount")
@@ -242,4 +245,26 @@ func SetAutostart(on bool, exe string) error {
 		return nil
 	}
 	return err
+}
+
+// VisibleWindowPIDs — ko'rinadigan, sarlavhali oynasi bor jarayonlar (fon xizmatlari kirmaydi).
+var visPIDs map[uint32]bool
+var visMu sync.Mutex
+var enumWinCb = syscall.NewCallback(func(hwnd uintptr, _ uintptr) uintptr {
+	if v, _, _ := pIsWindowVisible.Call(hwnd); v != 0 {
+		if n, _, _ := pGetWindowTextLengthW.Call(hwnd); n > 0 {
+			visPIDs[pidOf(hwnd)] = true
+		}
+	}
+	return 1
+})
+
+func VisibleWindowPIDs() map[uint32]bool {
+	visMu.Lock()
+	defer visMu.Unlock()
+	visPIDs = map[uint32]bool{}
+	pEnumWindows.Call(enumWinCb, 0)
+	out := visPIDs
+	visPIDs = nil
+	return out
 }

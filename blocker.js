@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.2.2'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.2.3'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION; // ?v= — brauzer/CDN eski faylni bermasligi uchun
 
   // ---------- Namuna (DEMO) ma'lumotlar — kompyuter ulanmaganda ko'rsatiladi ----------
@@ -93,10 +93,16 @@
   var DEMO_INSTALLED = [['chrome.exe', 'Google Chrome'], ['telegram.exe', 'Telegram Desktop'], ['code.exe', 'Visual Studio Code'], ['discord.exe', 'Discord'], ['steam.exe', 'Steam'],
     ['spotify.exe', 'Spotify'], ['msedge.exe', 'Microsoft Edge'], ['winword.exe', 'Word'], ['excel.exe', 'Excel'], ['obs64.exe', 'OBS Studio'], ['epicgameslauncher.exe', 'Epic Games Launcher'],
     ['vlc.exe', 'VLC media player'], ['notepad.exe', 'Notepad'], ['whatsapp.exe', 'WhatsApp'], ['robloxplayerbeta.exe', 'Roblox Player'], ['zoom.exe', 'Zoom']];
+  // Agent eski versiyasi yuborgan keraksiz yozuvlar (xizmatlar, yangilagichlar, tizim fayllari) — saytda ham filtrlanadi
+  var JUNK_EXE = /^(unins\d*|uninstall.*|setup.*|.*setup|update(r)?|.*updater|autoupdate.*|.*crash.*|.*helper|ju(check|sched)|.*service|.*svc|.*svr|.*troubleshooter|.*userps|rundll32|cmd|powershell|pwsh|msiexec|chrome_proxy|msedgewebview2|onedrivesetup|filecoauth|widgetboard|widgetservice|microsoftstartfeedprovider|crossdeviceservice|systemsettings|focusgate.*)\.exe$/i;
+  var JUNK_NAME = /(uninstall|check for updates|update checker|scheduler|troubleshoot|reset preferences|\bservice\b|user process|co-authoring|decoder config|about java)/i;
   function installed() {
     var seen = {}, out = [];
     var src = real() ? FG.devices.reduce(function (a, d) { return a.concat(Array.isArray(d.apps) ? d.apps.map(function (x) { return [x.exe, x.name]; }) : []); }, []) : DEMO_INSTALLED;
-    src.forEach(function (x) { if (x[0] && !seen[x[0]]) { seen[x[0]] = 1; out.push({ id: x[0], n: x[1] || x[0] }); } });
+    src.forEach(function (x) {
+      if (!x[0] || seen[x[0]] || JUNK_EXE.test(x[0]) || JUNK_NAME.test(x[1] || '')) return;
+      seen[x[0]] = 1; out.push({ id: x[0], n: String(x[1] || x[0]).replace(/^Запустить\s+/, '') });
+    });
     return out.sort(function (a, b) { return a.n.toLowerCase() < b.n.toLowerCase() ? -1 : 1; });
   }
   function labelOf(app) {
@@ -421,7 +427,7 @@
   }
   // Nishon tanlash: so'nggi 7 kunda ishlatilganlar + mashhur saytlar + qo'lda kiritish
   function pickerHtml(sel) {
-    var used = knownApps().filter(function (a) { return !a.site; }).slice(0, 10).map(function (a) { return [a.id, a.n]; });
+    var used = knownApps().filter(function (a) { return !a.site && !JUNK_EXE.test(a.id) && a.id !== 'explorer.exe'; }).slice(0, 10).map(function (a) { return [a.id, a.n]; });
     var usedIds = {}; used.forEach(function (x) { usedIds[x[0]] = 1; });
     var all = installed().filter(function (a) { return !usedIds[a.id]; }).map(function (a) { return [a.id, a.n]; });
     var sites = SITES.map(function (x) { return [x[0], x[1]]; });
@@ -430,8 +436,9 @@
     function chips(items) { return items.map(function (x) { return '<button type="button" class="' + (x[0] === first ? 'on' : '') + '" data-fg-pick="' + E(x[0]) + '" data-label="' + E(x[1]) + '" data-q="' + E((x[1] + ' ' + x[0]).toLowerCase()) + '">' + tileFor(x[0], 'sm') + '<span>' + E(x[1]) + '</span></button>'; }).join(''); }
     function grp(title, items) { return items.length ? '<div class="fg-pick-g"><div class="fg-pick-t">' + E(title) + ' <em>' + items.length + '</em></div><div class="fg-pick wrap">' + chips(items) + '</div></div>' : ''; }
     return '<input class="fg-in fg-custom" maxlength="80" autocomplete="off" placeholder="🔍 ' + E(L('Qidirish yoki yozing: game.exe, kun.uz', 'Search or type: game.exe, kun.uz', 'Поиск или ввод: game.exe, kun.uz')) + '">' +
-      '<div class="fg-pickbox">' + grp(L('Ko\'p ishlatilgan', 'Most used', 'Часто используемые'), used) + grp(L('Saytlar', 'Websites', 'Сайты'), sites) +
+      '<div class="fg-pickbox">' + grp(L('Ko\'p ishlatilgan', 'Most used', 'Часто используемые'), used) +
       grp(L('Kompyuterdagi dasturlar', 'Apps on your computer', 'Программы на компьютере'), all) +
+      grp(L('Saytlar', 'Websites', 'Сайты'), sites) +
       (real() && !all.length ? '<div class="fg-pick-note">' + E(L('Dasturlar ro\'yxati Focusgate yangilangach (v0.2+) shu yerda chiqadi.', 'The full app list appears here once Focusgate updates (v0.2+).', 'Полный список появится после обновления Focusgate (v0.2+).')) + '</div>' : '') +
       '<div class="fg-pick-none" hidden>' + E(L('Topilmadi — "Saqlash" ni bossangiz, yozganingiz qo\'shiladi.', 'Not found — press "Save" to add what you typed.', 'Не найдено — нажмите «Сохранить», чтобы добавить введённое.')) + '</div></div>';
   }
