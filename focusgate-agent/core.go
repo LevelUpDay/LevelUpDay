@@ -57,6 +57,7 @@ type State struct {
 	Usage      map[string]map[string]*AppUsage `json:"usage"` // kun → ilova → hisob
 	Config     Config                          `json:"config"`
 	Warned     map[string]bool                 `json:"warned"` // "kun|qoida" — ogohlantirish yuborilgan
+	AppsSentAt int64                           `json:"appsSentAt"` // dasturlar ro'yxati oxirgi marta yuborilgan (unix s)
 	mu         sync.Mutex
 }
 

@@ -6,6 +6,8 @@ Soat yonida (tray) ishlaydigan kichik dastur:
 - **Bloklash** — har 2 soniyada qoidalarni tekshiradi: kunlik limit, jadval, doimiy blok, seans limiti, fokus sessiyasi. Bloklangan dastur yopiladi, bloklangan sayt tabi (Ctrl+W) yopiladi. Tizim jarayonlari hech qachon yopilmaydi.
 - **Sinxronlash** — har 30 soniyada `supabase/functions/focusgate` bilan: foydalanish → `fg_usage`, sozlamalar ← `fg_config`.
 - **Ulash** — birinchi ishga tushishda brauzerda `levelupday.github.io/LevelUpDay/#fgpair=XXXX-XXXX` ochiladi, foydalanuvchi "Ulash" ni bosadi.
+- **Dasturlar ro'yxati** — Start menyusi va ish stoli yorliqlari (.lnk, Squirrel `Update.exe --processStart` ham), `Uninstall` yozuvlari va ishlab turgan jarayonlardan yig'iladi; 6 soatda bir `fg_devices.apps` ga yuboriladi.
+- **Avtoyangilanish** — 6 soatda bir `downloads/version.json` ni tekshiradi, sha256 mos kelsa o'zini almashtiradi.
 - **O'rnatish** — o'zini `%LOCALAPPDATA%\Programs\LevelUpDay Focusgate\` ga ko'chiradi va Windows bilan birga ishga tushadi. Holat: `%APPDATA%\LevelUpDay\Focusgate\state.json`.
 
 ## Yig'ish (Linux/macOS/Windows)
@@ -19,4 +21,4 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
 
 Ikonka/versiya resurslari (`rsrc_windows_*.syso`) `go-winres simply --icon assets/icon.png --manifest gui ...` bilan yaratilgan.
 
-Chiqarish: `dist/Focusgate.exe` ni repo ildizidagi `downloads/Focusgate.exe` ga ko'chiring — sayt shu yerdan yuklaydi (GitHub Pages).
+Chiqarish: `api.go` dagi `Version` ni oshiring, yig'ing, `dist/Focusgate.exe` ni `downloads/Focusgate.exe` ga ko'chiring va `downloads/version.json` dagi `version` + `sha256` ni yangilang — o'rnatilgan agentlar o'zi yangilanadi.

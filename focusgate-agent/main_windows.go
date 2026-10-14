@@ -37,7 +37,18 @@ var (
 
 func main() {
 	exePath, _ = os.Executable()
-	if !SingleInstance() {
+	updated := false
+	for _, a := range os.Args[1:] {
+		if a == "--updated" {
+			updated = true
+		}
+	}
+	ok := SingleInstance()
+	for i := 0; !ok && updated && i < 30; i++ { // yangilanishdan keyin eski nusxa yopilishini kutamiz
+		time.Sleep(500 * time.Millisecond)
+		ok = SingleInstance()
+	}
+	if !ok {
 		go MessageBox("LevelUpDay Focusgate", "Focusgate allaqachon ishlayapti — soat yonidagi (tray) belgini qarang.", 0x40)
 		time.Sleep(4 * time.Second)
 		return
@@ -46,6 +57,10 @@ func main() {
 		return
 	}
 	st = LoadState()
+	cleanupOld()
+	if updated {
+		st.AppsSentAt = 0 // yangi versiya — ro'yxatni qayta yuboramiz
+	}
 	systray.Run(onReady, func() { _ = st.Save() })
 }
 
@@ -178,6 +193,7 @@ func onReady() {
 	go trackLoop()
 	go enforceLoop()
 	go syncLoop()
+	go updateLoop()
 	if st.Token == "" {
 		go startPairing()
 	}
@@ -422,7 +438,15 @@ func doSync() {
 	if tok == "" {
 		return
 	}
-	res, err := Sync(tok, st.Rows(time.Now()))
+	// O'rnatilgan dasturlar ro'yxati — 6 soatda bir marta (yoki birinchi sinxronlashda)
+	var apps []InstalledApp
+	st.mu.Lock()
+	needApps := time.Now().Unix()-st.AppsSentAt > 6*3600
+	st.mu.Unlock()
+	if needApps {
+		apps = ScanApps()
+	}
+	res, err := Sync(tok, st.Rows(time.Now()), apps)
 	if err == ErrUnauthorized {
 		st.mu.Lock()
 		st.Token = ""
@@ -437,6 +461,9 @@ func doSync() {
 		return
 	}
 	st.mu.Lock()
+	if apps != nil {
+		st.AppsSentAt = time.Now().Unix()
+	}
 	pause := st.Config.PauseUntil
 	st.Config = res.Config
 	if res.Config.PauseUntil < pause { // lokal pauza saqlanadi
@@ -456,5 +483,17 @@ func syncLoop() {
 		doSync()
 		// fokus boshlanishini tezroq sezish uchun tez-tez so'raymiz
 		time.Sleep(30 * time.Second)
+	}
+}
+
+// updateLoop — 1 daqiqadan keyin va har 6 soatda yangi versiyani tekshiradi.
+func updateLoop() {
+	time.Sleep(time.Minute)
+	for {
+		if CheckUpdate() {
+			systray.Quit()
+			return
+		}
+		time.Sleep(6 * time.Hour)
 	}
 }

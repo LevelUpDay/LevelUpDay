@@ -97,3 +97,67 @@ func TestSitesWarnRows(t *testing.T) {
 		t.Fatal("FmtDur")
 	}
 }
+
+func TestAppsFilterAndIcon(t *testing.T) {
+	if ExeOfIcon(`"C:\Program Files\Discord\app.exe",0`) != `C:\Program Files\Discord\app.exe` || ExeOfIcon(`C:\x\icon.ico`) != "" {
+		t.Fatal("ExeOfIcon")
+	}
+	l := NewAppList()
+	l.Add(`C:\Program Files\Steam\steam.exe`, "Steam")
+	l.Add(`C:\Program Files\Steam\uninstall.exe`, "Uninstall Steam")
+	l.Add(`C:\Apps\Discord\Update.exe`, "Discord")
+	l.Add(`C:\Apps\Discord\discord.exe`, "Discord")
+	l.Add(`C:\Windows\explorer.exe`, "Explorer")
+	l.Add(`C:\Program Files\Steam\steam.exe`, "Steam (dublikat)")
+	got := l.List()
+	if len(got) != 2 || got[0].Exe != "discord.exe" || got[1].Name != "Steam" {
+		t.Fatalf("AppList: %+v", got)
+	}
+}
+
+// Minimal .lnk: sarlavha + LinkInfo (ANSI LocalBasePath)
+func TestLnkTarget(t *testing.T) {
+	path := `C:\Program Files\Telegram Desktop\Telegram.exe`
+	b := make([]byte, 0x4C)
+	b[0] = 0x4C
+	b[0x14] = 0x02 // HasLinkInfo
+	li := make([]byte, 0x1C)
+	li[4] = 0x1C // header size
+	li[8] = 0x01 // VolumeIDAndLocalBasePath
+	li[0x10] = 0x1C // LocalBasePathOffset
+	li = append(li, append([]byte(path), 0)...)
+	li = append(li, 0) // CommonPathSuffix ""
+	li[0x18] = byte(len(li) - 1)
+	li[0] = byte(len(li))
+	b = append(b, li...)
+	if got := LnkTarget(b); got != path {
+		t.Fatalf("LnkTarget = %q", got)
+	}
+	if LnkTarget([]byte("nope")) != "" {
+		t.Fatal("noto'g'ri fayl")
+	}
+}
+
+func TestLnkSquirrel(t *testing.T) {
+	path := `C:\Users\a\AppData\Local\Discord\Update.exe`
+	args := `--processStart Discord.exe`
+	b := make([]byte, 0x4C)
+	b[0] = 0x4C
+	b[0x14] = 0x02 | 0x20 | 0x80 // LinkInfo + Arguments + Unicode
+	li := make([]byte, 0x1C)
+	li[4] = 0x1C
+	li[8] = 0x01
+	li[0x10] = 0x1C
+	li = append(li, append([]byte(path), 0)...)
+	li = append(li, 0)
+	li[0x18] = byte(len(li) - 1)
+	li[0] = byte(len(li))
+	b = append(b, li...)
+	b = append(b, byte(len(args)), 0)
+	for _, c := range args {
+		b = append(b, byte(c), 0)
+	}
+	if got := LnkApp(b); got != `C:\Users\a\AppData\Local\Discord\Discord.exe` {
+		t.Fatalf("LnkApp = %q", got)
+	}
+}
