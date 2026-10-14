@@ -2397,7 +2397,7 @@
       adTile('🔥', L('Bugun faol', 'Active today', 'Активны сегодня'), adFmt(T.dau), 'WAU ' + adFmt(T.wau) + ' · MAU ' + adFmt(T.mau)) +
       adTile('📆', L('Bu oy faol', 'Active this month', 'Активны в этом месяце'), adFmt(thisM), adDelta(thisM, prevM) + ' ' + L('o\'tgan oyga nisbatan', 'vs last month', 'к прошлому месяцу')) +
       adTile('🆕', L('Bu oy qo\'shildi', 'Joined this month', 'Новых в этом месяце'), adFmt(thisS), adDelta(thisS, prevS) + ' · ' + L('bugun', 'today', 'сегодня') + ' +' + (T.new_today || 0)) +
-      adTile('🔐', L('Ro\'yxatdan o\'tgan', 'Signed up', 'Зарегистрированы'), adFmt(T.confirmed), L('tasdiqlangan', 'confirmed', 'подтверждено') + ' · ' + L('kirgan', 'signed in', 'входили') + ' ' + adFmt(T.ever_signed_in)) +
+      adTile('🔐', L('Ro\'yxatdan o\'tgan', 'Signed up', 'Зарегистрированы'), adFmt(T.confirmed), L('tasdiqlangan', 'confirmed', 'подтверждено') + ' · ' + L('kirgan', 'signed in', 'входили') + ' ' + adFmt(T.ever_signed_in) + (T.telegram_bot != null ? ' · ✈️ ' + L('bot', 'bot', 'бот') + ' ' + adFmt(T.telegram_bot) : '')) +
       adTile('🔁', L('7 kunlik qaytish', '7-day retention', 'Удержание 7 дн'), d.retention_7d == null ? '—' : d.retention_7d + '%', L('7+ kun oldin qo\'shilib, shu hafta faol', 'joined 7+ days ago & active this week', 'пришли 7+ дн назад и активны')) +
       '</div>';
     h += '<div class="ad-grid">' +
@@ -2413,7 +2413,7 @@
         ((d.referral_other || []).length ? '<div class="ad-sub-t">✍️ ' + L('"Boshqa" javoblari', '"Other" answers', 'Ответы «Другое»') + '</div>' + adList(d.referral_other, function (k) { return H(k); }, 8) : '')) +
       adCard('🎯 ' + L('Qaysi fan uchun', 'Studying for', 'Для какого предмета'), adList(d.by_subject, function (k) { return SUBJ[k] || H(k); }) +
         ((d.goal_other || []).length ? '<div class="ad-sub-t">✍️ ' + L('"Boshqa maqsad"', '"Other goal"', '«Другая цель»') + '</div>' + adList(d.goal_other, function (k) { return H(k); }, 8) : '')) +
-      adCard('🔐 ' + L('Kirish usuli', 'Sign-in method', 'Способ входа'), adList(d.by_provider, function (k) { return k === 'google' ? '🔵 Google' : k === 'email' ? '📧 Email' : H(k); })) +
+      adCard('🔐 ' + L('Kirish usuli', 'Sign-in method', 'Способ входа'), adList(d.by_provider, function (k) { return k === 'google' ? '🔵 Google' : k === 'telegram' ? '✈️ Telegram' : k === 'email' ? '📧 Email' : H(k); })) +
       adCard('📱 ' + L('Qurilma', 'Device', 'Устройство'), adList(d.by_device, function (k) { return k ? (DEV[k] || H(k)) : notSet(); })) +
       adCard('⭐ ' + L('Darajalar', 'Levels', 'Уровни'), adList(d.by_level, function (k) { return 'Lv ' + k + (k >= 8 ? '+' : ''); }, 8)) +
       '</div>';
@@ -2449,7 +2449,7 @@
       adCard('🆕 ' + L('So\'nggi qo\'shilganlar', 'Recent sign-ups', 'Недавние регистрации'), tbl(d.recent_users || [], [
         [L('Ism', 'Name', 'Имя'), function (r) { return H(r.name || '—'); }], [L('Davlat', 'Country', 'Страна'), function (r) { return r.country ? adCountry(r.country) : '—'; }],
         [L('Qo\'shilgan', 'Joined', 'Дата'), function (r) { return when(r.created_at); }], [L('Oxirgi faollik', 'Last active', 'Активность'), function (r) { return when(r.last_active); }],
-        ['', function (r) { return r.provider === 'google' ? '🔵' : '📧'; }]])) +
+        ['', function (r) { return r.provider === 'google' ? '🔵' : r.provider === 'telegram' ? '✈️' : '📧'; }]])) +
       '</div>';
     box.innerHTML = h;
     try { if (window.LUBlocks) window.LUBlocks.bindAdminHero(box); } catch (e) {}
