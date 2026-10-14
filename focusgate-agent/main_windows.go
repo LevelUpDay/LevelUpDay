@@ -404,7 +404,7 @@ func enforceLoop() {
 				event(now, "block", exe, niceName(exe), v.Reason)
 				continue
 			}
-			if lim := SessionLimit(&cfg, exe); lim > 0 {
+			if lim := SessionLimit(&cfg, st, exe); lim > 0 {
 				for _, pid := range pids {
 					seen[pid] = true
 					t0, ok := sessions[pid]

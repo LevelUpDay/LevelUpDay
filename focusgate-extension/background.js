@@ -3,7 +3,7 @@
 //  • Bloklangan saytni (doimiy / jadval / kunlik limit / fokus) "bloklandi" sahifasiga yo'naltiradi
 //  • Har daqiqada LevelUpDay bilan sinxronlanadi: foydalanish → server, sozlamalar ← server (Windows agenti bilan bir xil)
 //  • Ulash: LevelUpDay'da "Ulash" tasdiqlanadi (#fgpair=KOD)
-import { siteOf, check, dayKey } from './rules.js';
+import { siteOf, check, dayKey, catOf } from './rules.js';
 
 const FN = 'https://zzcvpenkevxlurgpjltz.supabase.co/functions/v1/focusgate';
 const APP = 'https://levelupday.github.io/LevelUpDay/';
@@ -112,7 +112,14 @@ async function enforce(tabId, url) {
   if (!(await S.get('token'))) return;
   const site = siteOf(url, cfg.rules);
   if (!site) return;
-  const v = check(cfg, site.key, await usedToday(site.key));
+  // Kategoriya limiti uchun: shu kategoriyadagi barcha saytlar yig'indisi
+  const usage = (await S.get('usage')) || {}, remote = (await S.get('remote')) || {};
+  const keys = new Set(Object.keys(usage[dayKey()] || {}).concat(Object.keys(remote)));
+  const cache = {};
+  for (const k of keys) cache[k] = await usedToday(k);
+  if (!(site.key in cache)) cache[site.key] = await usedToday(site.key);
+  const used = (app) => app.startsWith('cat:') ? Object.keys(cache).filter((k) => catOf(cfg, k) === app.slice(4)).reduce((n, k) => n + cache[k], 0) : (cache[app] || 0);
+  const v = check(cfg, site.key, used);
   if (!v) return;
   const q = new URLSearchParams({ k: site.key, l: site.label, r: v.reason, m: v.rule && v.rule.minutes ? String(v.rule.minutes) : '', u: url });
   chrome.tabs.update(tabId, { url: BLOCKED + '?' + q.toString() }).catch(() => {});
