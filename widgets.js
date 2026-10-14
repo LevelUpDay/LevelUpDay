@@ -67,7 +67,11 @@
     var fuse = el('i', 'luw-t-fuse', { 'aria-hidden': 'true' });
     t.appendChild(fuse);
     w.appendChild(t);
-    while (w.children.length > MAX_TOASTS) dismissToast(w.firstElementChild, 'overflow', true);
+    // Ko'rinib turgan (yopilmayotgan) toastlar 3 tadan oshsa — eng eskilarini yopamiz.
+    // Diqqat: yopilish animatsiyasidagi (_gone) toastlar hisobga olinmaydi, aks holda
+    // ular hech qachon kamaymaydigan sikl ilovani butunlay qotirib qo'yardi.
+    var live = Array.prototype.filter.call(w.children, function (x) { return !x._gone; });
+    for (var k = 0; k < live.length - MAX_TOASTS; k++) dismissToast(live[k], 'overflow', true);
 
     var duration = o.duration || 2500, fuseAnim = null, paused = 0;
     try {
@@ -115,7 +119,8 @@
     return t;
   }
   function dismissToast(t, reason, instant) {
-    if (!t || t._gone) return;
+    if (!t) return;
+    if (t._gone) { if (instant) t.remove(); return; }
     t._gone = true;
     clearTimeout(t._tm);
     try { if (t._fuse) t._fuse.cancel(); } catch (e) {}
