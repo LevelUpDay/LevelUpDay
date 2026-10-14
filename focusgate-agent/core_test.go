@@ -237,3 +237,29 @@ func TestEvents(t *testing.T) {
 		t.Fatal("ReturnEvents")
 	}
 }
+
+func TestCategories(t *testing.T) {
+	st := NewState()
+	now := at(15, 0)
+	if AutoCat("steam.exe", "") != "games" || AutoCat("mygame.exe", `D:\SteamLibrary\steamapps\common\Hades\mygame.exe`) != "games" || AutoCat("site:youtube", "") != "fun" || AutoCat("foo.exe", "") != "other" {
+		t.Fatal("AutoCat")
+	}
+	st.AppCats = map[string]string{"hades.exe": "games"}
+	cfg := Config{Rules: []Rule{{App: "cat:games", Kind: "daily", Minutes: 60, On: true}}, Cats: map[string]string{"telegram.exe": "work"}}
+	st.Add(now, "steam.exe", "Steam", 40*60)
+	if Check(&cfg, st, "hades.exe", now).Blocked {
+		t.Fatal("40 daq — hali bloklanmasin")
+	}
+	st.Add(now, "hades.exe", "Hades", 20*60) // o'yinlar jami 60 daq
+	if v := Check(&cfg, st, "hades.exe", now); !v.Blocked || v.Reason != "daily" {
+		t.Fatalf("kategoriya limiti: %+v", v)
+	}
+	if !Check(&cfg, st, "steam.exe", now).Blocked || Check(&cfg, st, "chrome.exe", now).Blocked {
+		t.Fatal("faqat o'yinlar bloklanadi")
+	}
+	// foydalanuvchi kategoriyasi
+	cfg2 := Config{FocusApps: []FocusApp{{App: "cat:social", On: true}}, FocusUntil: now.Add(time.Minute).UnixMilli(), Cats: map[string]string{"telegram.exe": "work"}}
+	if Check(&cfg2, st, "telegram.exe", now).Blocked || !Check(&cfg2, st, "discord.exe", now).Blocked {
+		t.Fatal("cats override / fokus kategoriyasi")
+	}
+}

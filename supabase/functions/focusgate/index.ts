@@ -4,7 +4,7 @@
 //   2) sayt:   {action:'pair_approve', code} + foydalanuvchi JWT → qurilma yaratiladi
 //   3) agent:  {action:'pair_poll', code}         → {token} (bir martalik; keyin kod o'chiriladi)
 //  Sinxronlash:
-//      agent:  {action:'sync', token, version, usage:[{day, app, label, seconds, hours[24]}], apps?:[{exe, name}], events?:[{kind, app, label, reason, at}]}
+//      agent:  {action:'sync', token, version, usage:[{day, app, label, seconds, hours[24]}], apps?:[{exe, name, cat?, icon?}], events?:[{kind, app, label, reason, at}]}
 //      kengaytma ham shu funksiyadan foydalanadi (qurilma nomi 'Chrome …').
 //              → {config, device, now}   (usage — shu qurilmaning kunlik umumiy qiymatlari, ustiga yoziladi)
 // JWT tekshiruvi o'chirilgan: agent qurilma tokeni bilan, sayt esa foydalanuvchi JWT bilan tekshiriladi.
@@ -147,12 +147,17 @@ Deno.serve(async (req) => {
     // O'rnatilgan dasturlar ro'yxati (agent bir necha soatda bir yuboradi)
     if (Array.isArray(body.apps)) {
       const seen = new Set<string>();
-      const apps: { exe: string; name: string }[] = [];
+      const apps: { exe: string; name: string; cat?: string; icon?: string }[] = [];
+      const CATS = ["work", "study", "social", "games", "fun", "web", "other"];
       for (const a of body.apps.slice(0, 800)) {
         const exe = String(a?.exe || "").toLowerCase().replace(/^.*[\\/]/, "").slice(0, 80);
         if (!/^[^<>:"|?*]+\.exe$/.test(exe) || seen.has(exe)) continue;
         seen.add(exe);
-        apps.push({ exe, name: String(a?.name || exe.replace(/\.exe$/, "")).replace(/[\u0000-\u001f]/g, "").slice(0, 70) });
+        const item: { exe: string; name: string; cat?: string; icon?: string } = { exe, name: String(a?.name || exe.replace(/\.exe$/, "")).replace(/[\u0000-\u001f]/g, "").slice(0, 70) };
+        if (CATS.includes(String(a?.cat))) item.cat = String(a.cat);
+        // Ikonka: faqat kichik PNG data URL (32×32)
+        if (typeof a?.icon === "string" && a.icon.length <= 12000 && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(a.icon)) item.icon = a.icon;
+        apps.push(item);
       }
       upd.apps = apps;
       upd.apps_at = new Date().toISOString();

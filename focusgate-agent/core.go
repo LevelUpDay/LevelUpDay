@@ -39,6 +39,7 @@ type Config struct {
 	FocusApps  []FocusApp `json:"focusApps"`
 	FocusUntil int64      `json:"focusUntil"` // ms
 	PauseUntil int64      `json:"pauseUntil"` // ms
+	Cats       map[string]string `json:"cats"` // foydalanuvchi o'zgartirgan kategoriyalar: ilova → kategoriya
 }
 
 func (c *Config) TrackOn() bool { return c.Track == nil || *c.Track }
@@ -59,6 +60,7 @@ type State struct {
 	Warned     map[string]bool                 `json:"warned"` // "kun|qoida" — ogohlantirish yuborilgan
 	AppsSentAt int64                           `json:"appsSentAt"` // dasturlar ro'yxati oxirgi marta yuborilgan (unix s)
 	Events     []Event                         `json:"events"`     // serverga hali yuborilmagan hodisalar
+	AppCats    map[string]string               `json:"appCats"`    // skanerda aniqlangan kategoriyalar (o'rnatilgan papka bo'yicha)
 	lastEvent  map[string]time.Time
 	mu         sync.Mutex
 }
@@ -312,14 +314,14 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 	}
 	if cfg.FocusUntil > ms {
 		for _, f := range cfg.FocusApps {
-			if f.On && strings.EqualFold(f.App, app) {
+			if f.On && matchApp(cfg, st, f.App, app) {
 				return Verdict{true, "focus", nil}
 			}
 		}
 	}
 	for i := range cfg.Rules {
 		r := &cfg.Rules[i]
-		if !r.On || !strings.EqualFold(r.App, app) {
+		if !r.On || !matchApp(cfg, st, r.App, app) {
 			continue
 		}
 		switch r.Kind {
@@ -330,7 +332,7 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 				return Verdict{true, "schedule", r}
 			}
 		case "daily":
-			if r.Minutes > 0 && st.Seconds(t, app) >= r.Minutes*60 {
+			if r.Minutes > 0 && usedFor(cfg, st, r.App, t) >= r.Minutes*60 {
 				return Verdict{true, "daily", r}
 			}
 		}
@@ -339,9 +341,9 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 }
 
 // SessionLimit — "session" turidagi qoida bo'lsa, bir ochilishga ruxsat etilgan daqiqalar.
-func SessionLimit(cfg *Config, app string) int {
+func SessionLimit(cfg *Config, st *State, app string) int {
 	for _, r := range cfg.Rules {
-		if r.On && r.Kind == "session" && strings.EqualFold(r.App, app) && r.Minutes > 0 {
+		if r.On && r.Kind == "session" && matchApp(cfg, st, r.App, app) && r.Minutes > 0 {
 			return r.Minutes
 		}
 	}
@@ -355,7 +357,7 @@ func WarnDue(cfg *Config, st *State, t time.Time) []Rule {
 		if !r.On || r.Kind != "daily" || r.Minutes <= 5 {
 			continue
 		}
-		used := st.Seconds(t, r.App)
+		used := usedFor(cfg, st, r.App, t)
 		left := r.Minutes*60 - used
 		key := DayKey(t) + "|" + r.App
 		st.mu.Lock()

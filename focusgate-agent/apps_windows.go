@@ -98,7 +98,17 @@ func ScanApps() []InstalledApp {
 			break
 		}
 	}
-	return l.List()
+	list := l.List()
+	paths := l.Paths()
+	cats := map[string]string{}
+	for i := range list {
+		list[i].Icon = IconPNG(paths[list[i].Exe])
+		cats[list[i].Exe] = list[i].Cat
+	}
+	st.mu.Lock()
+	st.AppCats = cats
+	st.mu.Unlock()
+	return list
 }
 
 func expandEnv(s string) string {

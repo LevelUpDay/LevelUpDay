@@ -47,6 +47,16 @@ export function siteOf(url, rules) {
   return { key: 'site:' + base, label: base };
 }
 
+// Saytlar kategoriyalari (agentdagi cats.go va saytdagi blocker.js bilan bir xil)
+export const SITE_CAT = {
+  'site:instagram': 'social', 'site:tiktok': 'social', 'site:facebook': 'social', 'site:x': 'social', 'site:twitter': 'social', 'site:vk': 'social',
+  'site:telegram': 'social', 'site:discord': 'social', 'site:reddit': 'social', 'site:pinterest': 'social',
+  'site:youtube': 'fun', 'site:netflix': 'fun', 'site:twitch': 'fun', 'site:kinopoisk': 'fun', 'site:roblox': 'games',
+  'site:coursera': 'study', 'site:udemy': 'study', 'site:khanacademy': 'study', 'site:duolingo': 'study',
+};
+export function catOf(cfg, key) { return (cfg && cfg.cats && cfg.cats[key]) || SITE_CAT[key] || 'web'; }
+function matches(cfg, ruleApp, key) { return ruleApp === key || (ruleApp.startsWith('cat:') && catOf(cfg, key) === ruleApp.slice(4)); }
+
 function hm(s) { const m = /^(\d{1,2}):(\d{2})/.exec(s || ''); return m ? +m[1] * 60 + +m[2] : 0; }
 export function inSchedule(r, d) {
   let wd = d.getDay(); if (wd === 0) wd = 7;
@@ -56,17 +66,18 @@ export function inSchedule(r, d) {
   return from < to ? now >= from && now < to : now >= from || now < to;
 }
 
-// check — sayt hozir bloklanganmi? usedSec — bugun shu saytda o'tgan soniyalar (barcha qurilmalar bo'yicha eng kattasi)
-export function check(cfg, key, usedSec, now = new Date()) {
+// check — sayt hozir bloklanganmi? used(appYokiCat) — bugun sarflangan soniyalar (son ham berish mumkin)
+export function check(cfg, key, used, now = new Date()) {
   if (!cfg || !key) return null;
+  const usedOf = typeof used === 'function' ? used : () => used || 0;
   const ms = now.getTime();
   if (!cfg.strict && (cfg.pauseUntil || 0) > ms) return null;
-  if ((cfg.focusUntil || 0) > ms && (cfg.focusApps || []).some((f) => f.on && f.app === key)) return { reason: 'focus' };
+  if ((cfg.focusUntil || 0) > ms && (cfg.focusApps || []).some((f) => f.on && matches(cfg, f.app, key))) return { reason: 'focus' };
   for (const r of cfg.rules || []) {
-    if (!r.on || r.app !== key) continue;
+    if (!r.on || !r.app || !matches(cfg, r.app, key)) continue;
     if (r.kind === 'always') return { reason: 'always', rule: r };
     if (r.kind === 'schedule' && inSchedule(r, now)) return { reason: 'schedule', rule: r };
-    if (r.kind === 'daily' && r.minutes > 0 && usedSec >= r.minutes * 60) return { reason: 'daily', rule: r };
+    if (r.kind === 'daily' && r.minutes > 0 && usedOf(r.app.startsWith('cat:') ? r.app : key) >= r.minutes * 60) return { reason: 'daily', rule: r };
   }
   return null;
 }

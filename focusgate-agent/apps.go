@@ -12,8 +12,11 @@ import (
 )
 
 type InstalledApp struct {
-	Exe  string `json:"exe"`  // kichik harflarda: discord.exe
-	Name string `json:"name"` // Discord
+	Exe  string `json:"exe"`            // kichik harflarda: discord.exe
+	Name string `json:"name"`           // Discord
+	Cat  string `json:"cat,omitempty"`  // avtomatik kategoriya
+	Icon string `json:"icon,omitempty"` // data:image/png;base64,... (32×32)
+	path string
 }
 
 // Lnk — yorliq (.lnk, MS-SHLLINK) ichidan kerakli maydonlar.
@@ -264,7 +267,7 @@ func (l *AppList) Add(path, name string) {
 	if _, ok := l.m[exe]; ok {
 		return
 	}
-	l.m[exe] = &InstalledApp{Exe: exe, Name: name}
+	l.m[exe] = &InstalledApp{Exe: exe, Name: name, Cat: AutoCat(exe, path), path: path}
 }
 
 func (l *AppList) List() []InstalledApp {
@@ -273,5 +276,14 @@ func (l *AppList) List() []InstalledApp {
 		out = append(out, *a)
 	}
 	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name) })
+	return out
+}
+
+// Paths — har bir ilovaning to'liq yo'li (ikonka olish uchun).
+func (l *AppList) Paths() map[string]string {
+	out := map[string]string{}
+	for k, a := range l.m {
+		out[k] = a.path
+	}
 	return out
 }
