@@ -10610,10 +10610,14 @@ function permanentlyDeleteTask(id) {
   document.getElementById('tperm-no').onclick = function(){ ov.remove(); };
   document.getElementById('tperm-yes').onclick = function(){
     ov.remove();
-    S.deletedTasks = S.deletedTasks.filter(function(e){ return e.task.id!==id; });
-    save();
-    renderTrashList();
-    toast(_toastMsg);
+    var _fin = function(){
+      S.deletedTasks = S.deletedTasks.filter(function(e){ return e.task.id!==id; });
+      save();
+      renderTrashList();
+      toast(_toastMsg);
+    };
+    // 🧩 Shredder (widgets.js): karta maydalanadi, so'ng o'chiriladi
+    if (window.LUWidgets && LUWidgets.active()) LUWidgets.shredTrash('task', id, _fin); else _fin();
   };
   ov.addEventListener('mousedown', function(e){ if(e.target===ov) ov.remove(); });
   ov.addEventListener('touchend', function(e){ if(e.target===ov) ov.remove(); });
@@ -10706,6 +10710,7 @@ function renderTrashList() {
   items.forEach(function(entry) {
     var tk = entry.task;
     var card = document.createElement('div');
+    card.setAttribute('data-trash-task', tk.id);
     card.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;';
     card.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">' +
@@ -10728,6 +10733,7 @@ function renderTrashList() {
   subItems.forEach(function(entry, idx) {
     var sub = entry.subtask;
     var card = document.createElement('div');
+    card.setAttribute('data-trash-sub', idx);
     card.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;';
     card.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">' +
@@ -11226,6 +11232,7 @@ var toastTimer;
 // ↩ Undo toast — amaldan keyin 5 soniya ichida bekor qilish imkoni
 var _undoTimer = null, _undoFn = null, _undoRunning = false;
 function showUndoToast(msg, undoFn) {
+  if (window.LUWidgets && LUWidgets.active()) { LUWidgets.undoToast(msg, undoFn); return; }
   var el = document.getElementById('undo-toast');
   if (!el) { toast(msg); return; }
   document.getElementById('undo-toast-msg').textContent = msg;
@@ -11314,6 +11321,8 @@ function initSubtaskSortables() {
 }
 
 function toast(msg) {
+  // 🧩 Yangi standart SwipeToast (widgets.js); "Klassik interfeys" yoqilgan bo'lsa — eski toast
+  if (window.LUWidgets && LUWidgets.active()) { LUWidgets.plainToast(msg); return; }
   const el=document.getElementById('toast'); el.textContent=msg;
   el.classList.add('show'); clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>el.classList.remove('show'),2500);
@@ -12303,10 +12312,18 @@ function restoreSubtask(index) {
 
 function permanentlyDeleteSubtask(index) {
   if (!Array.isArray(S.deletedSubtasks)) return;
-  S.deletedSubtasks.splice(index, 1);
-  save();
-  renderTrashList();
-  toast(t('trash_perm_deleted_toast'));
+  var entry = S.deletedSubtasks[index];
+  if (!entry) return;
+  var _fin = function () {
+    var i = S.deletedSubtasks.indexOf(entry);
+    if (i === -1) return;
+    S.deletedSubtasks.splice(i, 1);
+    save();
+    renderTrashList();
+    toast(t('trash_perm_deleted_toast'));
+  };
+  // 🧩 Shredder (widgets.js): karta maydalanadi, so'ng o'chiriladi
+  if (window.LUWidgets && LUWidgets.active()) LUWidgets.shredTrash('sub', index, _fin); else _fin();
 }
 
 // Bitta asosiy taskni boshqa asosiy taskning sub-taski qilib qo'shish
@@ -27098,6 +27115,8 @@ function wsRenderSkipRow() {
 }
 
 function wsUpdateDots() {
+  // 🧩 Stepper (widgets.js) — raqamli qadamlar; klassik interfeysda eski nuqtalar
+  if (window.LUWidgets && LUWidgets.stepperDots()) return;
   var dotsEl = document.getElementById('ws-dots');
   if (!dotsEl) return;
   var html = '';
@@ -27221,6 +27240,7 @@ function wsRenderStep() {
 
   body.innerHTML = html;
   wsAttachHandlers();
+  try { if (window.LUWidgets) LUWidgets.stepperAnimate(); } catch (e) {}
 }
 
 function wsAttachHandlers() {

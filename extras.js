@@ -584,7 +584,11 @@
     { id: 'b_moon', kind: 'badge', v: '🌙', icon: '🌙', n: ['Oy nishon', 'Moon badge', 'Значок луна'], coins: 120 },
     { id: 'b_unicorn', kind: 'badge', v: '🦄', icon: '🦄', n: ['Yagona shox', 'Unicorn badge', 'Значок единорог'], gems: 15 },
     { id: 'b_gem', kind: 'badge', v: '💎', icon: '💎', n: ['Olmos nishon', 'Diamond badge', 'Значок алмаз'], gems: 25 },
-    { id: 'b_crown', kind: 'badge', v: '👑', icon: '👑', n: ['Toj nishon', 'Crown badge', 'Значок корона'], gems: 40 }
+    { id: 'b_crown', kind: 'badge', v: '👑', icon: '👑', n: ['Toj nishon', 'Crown badge', 'Значок корона'], gems: 40 },
+    // 🧩 Interfeys uslubi: yangi komponentlar (widgets.js) — standart va bepul;
+    // eski (klassik) toast/slayder/oynalar — do'kondan sotib olinadi. S.shop.uistyle
+    { id: 'ui_classic', kind: 'uistyle', v: 'classic', icon: '🗂', n: ['Klassik interfeys', 'Classic UI', 'Классический интерфейс'], coins: 150,
+      d: ['Eski toast, slayder va tasdiqlash oynalari', 'The old toasts, sliders and confirm dialogs', 'Старые уведомления, слайдеры и окна'] }
   ];
   // 🎨 Pullik fon dizaynlari (narxlar designs.js da — yagona manba). Egalik id: 'd_<dizayn>'
   try {
@@ -603,15 +607,35 @@
     var it = SHOP.find(function (x) { return x.id === id; }); if (!it) return;
     var st = shopState(); if (st.owned.indexOf(id) !== -1) return shopEquip(id);
     var nm = L(it.n[0], it.n[1], it.n[2]);
-    if (it.gems) {
-      if ((typeof gemsAvailable === 'function' ? gemsAvailable() : S.gems || 0) < it.gems) { toast('💎 ' + L('Gem yetarli emas', 'Not enough gems', 'Недостаточно гемов')); return; }
-      if (!confirm(nm + ' — ' + it.gems + ' 💎?')) return;
-      gemsAdd(-it.gems, 'shop', nm, true);
-    } else {
-      if ((S.coins || 0) < it.coins) { toast('🪙 ' + L('Tanga yetarli emas', 'Not enough coins', 'Недостаточно монет')); return; }
-      if (!confirm(nm + ' — ' + it.coins + ' 🪙?')) return;
-      addCoins(-it.coins, '🛍 ' + nm);
+    var gemsHave = function () { return typeof gemsAvailable === 'function' ? gemsAvailable() : S.gems || 0; };
+    if (it.gems ? gemsHave() < it.gems : (S.coins || 0) < it.coins) {
+      toast(it.gems ? '💎 ' + L('Gem yetarli emas', 'Not enough gems', 'Недостаточно гемов') : '🪙 ' + L('Tanga yetarli emas', 'Not enough coins', 'Недостаточно монет'));
+      return;
     }
+    var price = it.gems ? it.gems + ' 💎' : it.coins + ' 🪙';
+    var pay = function () {
+      if (st.owned.indexOf(id) !== -1) return true;
+      if (it.gems) { if (gemsHave() < it.gems) return false; gemsAdd(-it.gems, 'shop', nm, true); }
+      else { if ((S.coins || 0) < it.coins) return false; addCoins(-it.coins, '🛍 ' + nm); }
+      shopBought(it, id, nm);
+      return true;
+    };
+    // 🧩 SlideCommit (widgets.js): "Surib to'lash" — klassik interfeysda oddiy confirm()
+    if (window.LUWidgets && window.LUWidgets.active()) {
+      window.LUWidgets.slideConfirm({
+        icon: it.icon || '🛍', title: nm, message: price,
+        label: L('Surib to\'lang', 'Slide to pay', 'Сдвиньте для оплаты'),
+        doneLabel: L('To\'landi', 'Paid', 'Оплачено'),
+        errorLabel: L('To\'lov amalga oshmadi', 'Payment failed', 'Оплата не прошла'),
+        onConfirm: pay
+      });
+      return;
+    }
+    if (!confirm(nm + ' — ' + price + '?')) return;
+    pay();
+  }
+  function shopBought(it, id, nm) {
+    var st = shopState();
     st.owned.push(id);
     try { SFX.coin(); confetti(); } catch (e) {}
     if (it.kind === 'design') {
@@ -838,6 +862,7 @@
     var st = shopState(), root = document.documentElement;
     try { if (window.LUDesign) window.LUDesign.enforce(); } catch (e) {} // sotib olinmagan dizayn qo'llanmasin
     try { if (window.LUFx) window.LUFx.sync(); } catch (e) {}
+    try { if (window.LUWidgets) window.LUWidgets.sync(); } catch (e) {}
     var f = SHOP.find(function (x) { return x.id === st.frame; }), n = SHOP.find(function (x) { return x.id === st.nick; });
     if (f) root.setAttribute('data-x-frame', f.v); else root.removeAttribute('data-x-frame');
     if (n) root.setAttribute('data-x-nick', n.v); else root.removeAttribute('data-x-nick');
@@ -866,7 +891,8 @@
     var st = shopState();
     var groups = [['frame', '🖼 ' + L('Avatar ramkalari', 'Avatar frames', 'Рамки аватара')], ['nick', '✏️ ' + L('Nik rangi', 'Nickname color', 'Цвет ника')],
       ['badge', '🏅 ' + L('Nik yonidagi nishon', 'Nickname badge', 'Значок у ника')], ['title', '🏷 ' + L('Unvonlar', 'Titles', 'Титулы')],
-      ['theme', '🎨 ' + L('Ilova rangi', 'App color', 'Цвет приложения')], ['effect', '🎉 ' + L('Bajarilganda effekt', 'Task-done effect', 'Эффект выполнения')]];
+      ['theme', '🎨 ' + L('Ilova rangi', 'App color', 'Цвет приложения')], ['effect', '🎉 ' + L('Bajarilganda effekt', 'Task-done effect', 'Эффект выполнения')],
+      ['uistyle', '🧩 ' + L('Interfeys uslubi', 'UI style', 'Стиль интерфейса')]];
     var h = '<div class="x-shop-bal"><span>🪙 <b>' + (S.coins || 0) + '</b></span><span>💎 <b>' + (S.gems || 0) + '</b></span></div>';
     // Bo'limlarga tez o'tish
     h += '<div class="x-shop-cats">' + [['design', '🎨 ' + L('Dizaynlar', 'Designs', 'Дизайны')], ['ufx', '✨ ' + L('Effektlar', 'Effects', 'Эффекты')]].concat(groups.map(function (g) { return [g[0], g[1]]; }))
@@ -904,10 +930,14 @@
           : it.kind === 'theme' ? '<div class="x-shop-th" style="--tc:' + it.v + '"><i></i><i></i><i></i></div>'
           : it.kind === 'effect' ? '<div class="x-shop-fx" data-fx="' + it.id + '">' + it.v + '</div>'
           : it.kind === 'badge' ? '<div class="x-shop-nk">' + H(getDisplayUsername() || 'Nick') + ' ' + it.v + '</div>'
+          : it.kind === 'uistyle' ? '<div class="x-shop-ui"><i></i><i></i><i></i></div>'
           : '<div class="x-shop-tt">' + L(it.tv[0], it.tv[1], it.tv[2]) + '</div>';
         h += '<button class="x-shop-it ' + (on ? 'on' : own ? 'own' : '') + '" data-shop="' + it.id + '" data-shop-item="' + it.id + '">' + prev +
           '<div class="x-shop-n">' + L(it.n[0], it.n[1], it.n[2]).replace(/^[^:]+:\s*/, '') + '</div>' +
-          '<div class="x-shop-p">' + (on ? '✅ ' + L('Kiyilgan', 'Equipped', 'Надето') : own ? L('Kiyish', 'Equip', 'Надеть') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙')) + '</div></button>';
+          (it.d ? '<div class="x-shop-note">' + H(L(it.d[0], it.d[1], it.d[2])) + '</div>' : '') +
+          '<div class="x-shop-p">' + (it.kind === 'uistyle'
+            ? (on ? '✅ ' + L('Yoqilgan', 'On', 'Вкл') : own ? L('Yoqish', 'Turn on', 'Включить') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))
+            : (on ? '✅ ' + L('Kiyilgan', 'Equipped', 'Надето') : own ? L('Kiyish', 'Equip', 'Надеть') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))) + '</div></button>';
       });
       h += '</div>';
     });
