@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var DOWNLOAD_URL = 'https://github.com/LevelUpDay/LevelUpDay/releases/latest/download/Focusgate.exe';
+  var DOWNLOAD_URL = 'downloads/Focusgate.exe'; // GitHub Pages orqali (focusgate-agent/ dan yig'ilgan)
 
   // ---------- Namuna (DEMO) ma'lumotlar — kompyuter ulanmaganda ko'rsatiladi ----------
   var DEMO_APPS = [
