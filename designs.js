@@ -1,11 +1,16 @@
 // ============================================================
-// 🎨 DESIGNS — ilova uchun 6 ta dizayn (mavzu) tizimi:
+// 🎨 DESIGNS — ilova uchun 11 ta dizayn (mavzu) tizimi:
 //   galaxy   — Galaxy          (yulduzlar maydoni + warp; WebGL2 bo'lsa #version 300 es, shaffof)
 //   default  — Klassik (oddiy, avvalgi ko'rinish)
 //   rings    — Magic Rings     (konsentrik porlovchi halqalar)
 //   blinds   — Gradient Blinds (gradient "parda" plankalari)
 //   grid     — Grid Scan       (perspektiv to'r tunnel + skaner nuri)
 //   prism    — Prismatic Burst (aylanuvchi prizmatik nurlar)
+//   hex      — Hexagonal Vault (kursor ortidan yorug'lik tushadigan olti burchakli to'r)
+//   slats    — Prismatic Slats (qovurg'ali shisha orqali rangli suyuqlik)
+//   chroma   — Chroma Current  (nuqtalar to'ri bo'ylab yorug'lik oqimlari)
+//   astral   — Astral Shell    (bog'langan yulduzlardan aylanuvchi globus)
+//   orbits   — Binary Orbits   (qiya spiral galaktika)
 // Har bir animatsion dizayn: bitta fixed <canvas id="design-bg"> (UI ortida,
 // pointer-events:none) + xom WebGL fragment shader. WebGL bo'lmasa — statik
 // CSS gradient. Tanlov localStorage 'appTheme' da, animatsiya — 'designAnim'.
@@ -17,7 +22,7 @@
 (function () {
   'use strict';
 
-  var IDS = ['galaxy', 'default', 'rings', 'blinds', 'grid', 'prism'];
+  var IDS = ['galaxy', 'default', 'rings', 'blinds', 'grid', 'prism', 'hex', 'slats', 'chroma', 'astral', 'orbits'];
   var LS_KEY = 'appTheme', ANIM_KEY = 'designAnim';
   var root = document.documentElement;
 
@@ -36,7 +41,12 @@
     rings: { n: ['Magic Rings', 'Magic Rings', 'Magic Rings'], d: ['Porlovchi sehrli halqalar', 'Glowing magic rings', 'Светящиеся кольца'], base: '#07050f', meta: '#130b24', scale: 0.6, idleHover: 0, price: { coins: 250 } },
     blinds: { n: ['Gradient Blinds', 'Gradient Blinds', 'Gradient Blinds'], d: ['Yumshoq gradient pardalar', 'Soft gradient blinds', 'Мягкие градиентные жалюзи'], base: '#0b0618', meta: '#160b30', scale: 0.5, idleHover: 0.75, price: { coins: 300 } },
     grid: { n: ['Grid Scan', 'Grid Scan', 'Grid Scan'], d: ['Skanerlovchi 3D to\'r', 'Scanning 3D grid', 'Сканирующая 3D-сетка'], base: '#07080c', meta: '#0b0d14', scale: 0.75, idleHover: 0.5, price: { gems: 25 } },
-    prism: { n: ['Prismatic Burst', 'Prismatic Burst', 'Prismatic Burst'], d: ['Prizmatik nur portlashi', 'Prismatic light burst', 'Призматическая вспышка'], base: '#06040d', meta: '#120a26', scale: 0.5, idleHover: 0.35, price: { gems: 35 } }
+    prism: { n: ['Prismatic Burst', 'Prismatic Burst', 'Prismatic Burst'], d: ['Prizmatik nur portlashi', 'Prismatic light burst', 'Призматическая вспышка'], base: '#06040d', meta: '#120a26', scale: 0.5, idleHover: 0.35, price: { gems: 35 } },
+    hex: { n: ['Hexagonal Vault', 'Hexagonal Vault', 'Hexagonal Vault'], d: ['Kursor ortidan yorug\'lik tushadigan olti burchakli to\'r', 'A hexagon grid lit by a soft light that follows the cursor', 'Сота из шестиугольников, подсвеченная за курсором'], base: '#05030c', meta: '#0d0820', scale: 0.6, idleHover: 0.8, price: { coins: 300 } },
+    slats: { n: ['Prismatic Slats', 'Prismatic Slats', 'Prismatic Slats'], d: ['Qovurg\'ali shisha orqali rangli suyuqlik', 'Colored liquid refracted through fluted glass', 'Цветная жидкость сквозь рифлёное стекло'], base: '#05030b', meta: '#140a26', scale: 0.5, idleHover: 0.6, price: { coins: 350 } },
+    chroma: { n: ['Chroma Current', 'Chroma Current', 'Chroma Current'], d: ['Porlovchi nuqtalar bo\'ylab yorug\'lik oqimi', 'Currents of light flowing across a grid of glowing dots', 'Потоки света по сетке светящихся точек'], base: '#05030c', meta: '#120a26', scale: 0.75, idleHover: 0.5, price: { gems: 30 } },
+    astral: { n: ['Astral Shell', 'Astral Shell', 'Astral Shell'], d: ['Bog\'langan yulduzlardan aylanuvchi globus', 'A slowly turning globe of connected stars', 'Медленно вращающийся шар из связанных звёзд'], base: '#04030a', meta: '#0c0a1f', scale: 0.55, idleHover: 0.4, price: { gems: 35 } },
+    orbits: { n: ['Binary Orbits', 'Binary Orbits', 'Binary Orbits'], d: ['Qo\'llari bo\'ylab yulduzlar oqadigan spiral galaktika', 'A tilted spiral galaxy of stars streaming through its arms', 'Спиральная галактика со звёздными рукавами'], base: '#04030a', meta: '#0e0820', scale: 0.55, idleHover: 0.3, price: { gems: 40 } }
   };
   // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6): tanga 5 ga yaxlitlanadi, olmos kamida 1
   Object.keys(D).forEach(function (k) {
@@ -442,7 +452,191 @@
     if (G.depth > 1000) G.depth -= 1000; // aniqlik yo'qolmasin (fract davriy)
   }
 
-  var SHADERS = { rings: FS_RINGS, blinds: FS_BLINDS, grid: FS_GRID, prism: FS_PRISM };
+
+  // ============================================================
+  // ➕ React Bits Pro'dan ilhomlangan jonli fonlar (vanilla GLSL):
+  //   hex, slats, chroma, astral, orbits
+  // ============================================================
+  var EXTRA = [
+    'vec2 h22(vec2 p){return vec2(hash(p),hash(p+19.19));}',
+    'vec2 rot2(vec2 p,float a){float c=cos(a),s=sin(a);return vec2(c*p.x-s*p.y,s*p.x+c*p.y);}',
+    'float vign(vec2 uv){return 1.0-0.35*smoothstep(0.5,1.3,length(uv));}',
+    ''
+  ].join('\n');
+
+  // --- 5) Hexagonal Vault: olti burchakli to'r, kursor ortidan yumshoq yorug'lik
+  var FS_HEX = HEAD + EXTRA + [
+    'const vec3 H1=vec3(0.486,0.227,0.929);const vec3 H2=vec3(0.655,0.545,0.980);const vec3 H3=vec3(0.941,0.671,0.988);',
+    'float hxd(vec2 p){p=abs(p);return max(dot(p,vec2(0.5,0.8660254)),p.x);}',
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy);',
+    '  float sc=7.5; vec2 p=uv*sc;',
+    '  vec2 r=vec2(1.0,1.7320508); vec2 h=r*0.5;',
+    '  vec2 a=mod(p,r)-h; vec2 b=mod(p-h,r)-h;',
+    '  vec2 gv=dot(a,a)<dot(b,b)?a:b; vec2 id=p-gv;',
+    '  float d=hxd(gv); float e=0.5-d;',
+    '#ifdef GL_OES_standard_derivatives',
+    '  float w=fwidth(e)*1.5;',
+    '#else',
+    '  float w=0.02;',
+    '#endif',
+    '  float line=1.0-smoothstep(0.0,w+0.01,e);',
+    '  float halo=exp(-e*16.0);',
+    '  vec2 m=toUv(uMouse);',
+    '  float ld=length(uv-m);',
+    '  float L=exp(-ld*ld*4.5)*(0.35+0.65*uHover)+0.05;',
+    '  float cl=exp(-pow(length(id/sc-m),2.0)*4.5)*(0.35+0.65*uHover);',
+    '  float fl=0.5+0.5*sin(uTime*0.9+hash(id)*6.2832);',
+    '  vec3 col=vec3(0.020,0.014,0.040);',
+    '  col+=mix(H1,H2,clamp(L,0.0,1.0))*line*(0.10+1.25*L);',
+    '  col+=H1*halo*(0.025+0.4*L);',
+    '  col+=mix(H1,H3,0.35)*cl*0.14*(0.55+0.45*fl)*(1.0-smoothstep(0.0,0.5,d));',
+    '  col+=H3*line*pow(clamp(L,0.0,1.0),3.0)*0.9;',
+    '  for(int j=0;j<4;j++){ vec4 bb=uBursts[j];',
+    '    if(bb.z>=0.0&&bb.z<1.8){ vec2 bp=toUv(bb.xy); float bd=length(uv-bp); float fade=exp(-bb.z*2.2)*bb.w;',
+    '      col+=H2*(line*1.3+0.06)*exp(-pow((bd-bb.z*0.55)/0.07,2.0))*fade; } }',
+    '  col*=vign(uv);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
+  // --- 6) Prismatic Slats: qovurg'ali shisha orqali sinib ko'rinadigan rangli suyuqlik
+  var FS_SLATS = HEAD + EXTRA + [
+    'const vec3 S1=vec3(0.66,0.33,0.97);const vec3 S2=vec3(0.93,0.36,0.75);const vec3 S3=vec3(0.30,0.36,0.95);',
+    'float blob(vec2 p,vec2 c,float r){vec2 d=p-c;return exp(-dot(d,d)/(r*r));}',
+    'vec3 liquid(vec2 p,float t,vec2 m){',
+    '  vec2 q=p+0.16*vec2(sin(p.y*2.1+t*0.6),sin(p.x*1.7-t*0.5));',
+    '  float b1=blob(q,vec2(0.35*sin(t*0.31),0.25*cos(t*0.27))+m*0.3,0.42);',
+    '  float b2=blob(q,vec2(-0.45+0.2*cos(t*0.23),0.3*sin(t*0.37+1.0)),0.36);',
+    '  float b3=blob(q,vec2(0.5*cos(t*0.19+2.0),-0.35+0.15*sin(t*0.29)),0.40);',
+    '  return S1*b1*1.15+S2*b2*0.85+S3*b3*0.95;',
+    '}',
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy);',
+    '  vec2 m=(toUv(uMouse))*uHover;',
+    '  float ang=-0.6; vec2 ru=rot2(uv,ang);',
+    '  float N=7.0; float s=ru.x*N+0.5; float f=fract(s); float id=floor(s);',
+    // har bir planka o'z markaziy chizig'ini kattalashtirib ko'rsatadi (sinish)
+    '  vec2 rq=vec2(id/N+(f-0.5)/N*0.42+0.08*sin(id*1.7),ru.y);',
+    '  vec3 c=liquid(rot2(rq,-ang),uTime*0.55,m);',
+    '  float shade=0.5+0.5*sin(f*3.14159);',
+    '  float hi=pow(1.0-f,22.0)*0.7+pow(f,46.0)*0.3;',
+    '  float dark=smoothstep(0.82,1.0,f)*0.55;',
+    '  vec3 col=vec3(0.012,0.008,0.026)+c*shade*(1.0-dark)*0.62;',
+    '  col+=vec3(0.92,0.86,1.0)*hi*(0.08+length(c)*0.35);',
+    '  for(int j=0;j<4;j++){ vec4 bb=uBursts[j];',
+    '    if(bb.z>=0.0&&bb.z<1.8){ vec2 bp=toUv(bb.xy); float bd=length(uv-bp); float fade=exp(-bb.z*2.2)*bb.w;',
+    '      col+=S2*exp(-pow((bd-bb.z*0.5)/0.08,2.0))*fade*0.6*(0.4+shade); } }',
+    '  col*=vign(uv);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
+  // --- 7) Chroma Current: porlovchi nuqtalar to'ri bo'ylab yorug'lik oqimlari
+  var FS_CHROMA = HEAD + EXTRA + [
+    'const vec3 C1=vec3(0.55,0.30,0.98);const vec3 C2=vec3(0.95,0.40,0.80);const vec3 C3=vec3(0.35,0.45,1.0);',
+    'void main(){',
+    '  float sp=max(5.0,min(uRes.x,uRes.y)/72.0);',
+    '  vec2 cell=floor(gl_FragCoord.xy/sp); vec2 f=fract(gl_FragCoord.xy/sp)-0.5;',
+    '  vec2 uv=toUv((cell+0.5)*sp); vec2 pu=toUv(gl_FragCoord.xy);',
+    '  float t=uTime*0.5;',
+    '  float v=0.5+0.5*sin(uv.x*3.0+t+sin(uv.y*2.3-t*0.7)*1.6);',
+    '  float w=0.5+0.5*sin(uv.y*4.0-t*1.2+sin(uv.x*1.7+t*0.4)*2.0);',
+    '  float flow=pow(v*w,1.5)*1.45;',
+    '  flow+=0.35*pow(0.5+0.5*sin(length(uv-vec2(0.3*sin(t*0.3),0.15))*9.0-t*2.2),6.0);',
+    '  float mg=exp(-pow(length(uv-toUv(uMouse)),2.0)*10.0)*uHover;',
+    '  float I=clamp(flow+mg*0.9,0.0,1.6);',
+    '  float r=0.10+0.27*clamp(I,0.0,1.0);',
+    '  float dm=1.0-smoothstep(r-0.07,r+0.03,length(f));',
+    '  vec3 hue=mix(C3,C1,smoothstep(0.0,0.6,v)); hue=mix(hue,C2,smoothstep(0.55,1.0,w));',
+    '  vec3 col=vec3(0.016,0.010,0.036)+hue*dm*(0.08+0.85*I)+hue*exp(-length(f)*4.0)*I*0.10;',
+    '  col+=hue*0.10*smoothstep(0.6,1.4,I)*exp(-length(f)*1.5);',
+    '  for(int j=0;j<4;j++){ vec4 bb=uBursts[j];',
+    '    if(bb.z>=0.0&&bb.z<1.8){ vec2 bp=toUv(bb.xy); float bd=length(uv-bp); float fade=exp(-bb.z*2.0)*bb.w;',
+    '      col+=C2*dm*exp(-pow((bd-bb.z*0.6)/0.08,2.0))*fade*1.2; } }',
+    '  col*=vign(pu);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
+  // --- 8) Astral Shell: yulduzlari bog'langan, sekin aylanuvchi globus
+  var FS_ASTRAL = HEAD + EXTRA + [
+    'const vec2 GR=vec2(26.0,13.0);',
+    'vec3 rY(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);}',
+    'vec3 rX(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z);}',
+    'float segd(vec2 p,vec2 a,vec2 b){vec2 pa=p-a,ba=b-a;float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);return length(pa-ba*h);}',
+    'vec2 starAt(vec2 id){vec2 w=vec2(mod(id.x,GR.x),id.y);return id+0.2+0.6*h22(w+3.7);}',
+    'float plex(vec2 q,out float pts){',
+    '  vec2 id=floor(q); vec2 c=starAt(id); float ln=0.0; pts=0.0;',
+    '  for(int i=-1;i<=1;i++){ for(int j=-1;j<=1;j++){',
+    '    vec2 o=vec2(float(i),float(j)); vec2 s=starAt(id+o);',
+    '    vec2 dd=q-s; pts=max(pts,exp(-dot(dd,dd)*110.0));',
+    '    if(i!=0||j!=0){ float L=length(s-c); if(L<1.45){ float d=segd(q,c,s);',
+    '      ln=max(ln,(1.0-smoothstep(0.0,0.04,d))*(1.0-smoothstep(0.9,1.45,L))); } }',
+    '  } }',
+    '  return ln;',
+    '}',
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy);',
+    '  vec2 m=toUv(uMouse)*uHover;',
+    '  float R0=0.52; float d2=dot(uv,uv);',
+    '  vec3 col=vec3(0.012,0.010,0.030);',
+    '  col+=vec3(0.40,0.30,0.85)*0.12*exp(-abs(sqrt(d2)-R0)*9.0);',
+    '  col+=vec3(0.25,0.18,0.55)*0.06*exp(-d2*2.0);',
+    '  if(d2<R0*R0){',
+    '    float z=sqrt(R0*R0-d2);',
+    '    for(int k=0;k<2;k++){',
+    '      float sg=k==0?1.0:-1.0;',
+    '      vec3 n=vec3(uv,z*sg)/R0;',
+    '      n=rX(n,-0.38+m.y*0.6); n=rY(n,uTime*0.12+m.x*0.9);',
+    '      vec2 sp=vec2(atan(n.z,n.x)/6.28318+0.5,acos(clamp(n.y,-1.0,1.0))/3.14159);',
+    '      float fade=smoothstep(0.03,0.2,sp.y)*smoothstep(0.03,0.2,1.0-sp.y);',
+    '      float pts; float ln=plex(sp*GR,pts);',
+    '      float br=k==0?(0.55+0.45*z/R0):0.22;',
+    '      col+=(vec3(0.70,0.64,1.0)*ln*0.34+vec3(1.0,0.97,1.0)*pts*1.0)*br*fade;',
+    '    }',
+    '  }',
+    '  for(int j=0;j<4;j++){ vec4 bb=uBursts[j];',
+    '    if(bb.z>=0.0&&bb.z<1.8){ vec2 bp=toUv(bb.xy); float bd=length(uv-bp); float fade2=exp(-bb.z*2.2)*bb.w;',
+    '      col+=vec3(0.7,0.6,1.0)*exp(-pow((bd-bb.z*0.5)/0.05,2.0))*fade2*0.5; } }',
+    '  col*=vign(uv);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
+  // --- 9) Binary Orbits: qiya spiral galaktika, yulduzlar qo'llar bo'ylab oqadi
+  var FS_ORBITS = HEAD + EXTRA + [
+    'float stars(vec2 q,float scale,float dens){',
+    '  vec2 g=q*scale; vec2 id=floor(g); vec2 f=fract(g)-0.5;',
+    '  vec2 jo=h22(id)-0.5; vec2 d=f-jo*0.7;',
+    '  float keep=step(1.0-dens,hash(id+5.3));',
+    '  return exp(-dot(d,d)*80.0)*keep*(0.5+0.5*hash(id+9.1));',
+    '}',
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy);',
+    '  vec2 m=toUv(uMouse)*uHover;',
+    '  vec2 p=rot2(uv-m*0.06,0.42); p.y/=0.44;',
+    '  float r=length(p); float a=atan(p.y,p.x);',
+    '  float t=uTime*0.08;',
+    '  float arm=0.5+0.5*cos(2.0*(a-log(r+0.02)*2.4-t*2.0)); arm=pow(arm,3.0);',
+    '  float disc=exp(-r*2.5);',
+    '  float dens=disc*(0.22+arm*1.25);',
+    '  vec3 col=vec3(0.010,0.008,0.024);',
+    '  col+=mix(vec3(0.42,0.24,0.85),vec3(0.95,0.55,0.85),arm)*dens*0.5;',
+    '  col+=vec3(1.0,0.93,0.95)*exp(-r*r*45.0)*0.75+vec3(0.9,0.75,1.0)*exp(-r*8.0)*0.26;',
+    // differensial aylanish — ichki qism tezroq
+    '  vec2 q=rot2(p,t*3.0/(r+0.25));',
+    '  col+=vec3(0.96,0.92,1.0)*stars(q,52.0,0.06+0.7*clamp(dens,0.0,1.0))*(0.55+0.9*dens);',
+    '  col+=vec3(0.8,0.8,1.0)*stars(uv+vec2(t*0.05,0.0),26.0,0.05)*0.5;',
+    '  for(int j=0;j<4;j++){ vec4 bb=uBursts[j];',
+    '    if(bb.z>=0.0&&bb.z<1.8){ vec2 bp=toUv(bb.xy); float bd=length(uv-bp); float fade=exp(-bb.z*2.2)*bb.w;',
+    '      col+=vec3(0.9,0.7,1.0)*exp(-pow((bd-bb.z*0.5)/0.06,2.0))*fade*0.5; } }',
+    '  col*=vign(uv);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
+  var SHADERS = { rings: FS_RINGS, blinds: FS_BLINDS, grid: FS_GRID, prism: FS_PRISM, hex: FS_HEX, slats: FS_SLATS, chroma: FS_CHROMA, astral: FS_ASTRAL, orbits: FS_ORBITS };
 
   var R = {
     canvas: null, gl: null, kind: null, gl2: false, prog: null, progId: null, buf: null, u: null, failed: false, lost: false,
