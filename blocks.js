@@ -496,15 +496,144 @@
       '<div class="lub-orb-cap">🔐 ' + H(L('Ma\'lumotlaringiz shifrlangan holda saqlanadi', 'Your data is stored encrypted', 'Ваши данные хранятся в зашифрованном виде')) + '</div>';
   }
 
+  /* ============================================================
+     7) 🎰 SPIN sahifasi — taymer, statistika, so'nggi yutuqlar, sovrinlar
+     ============================================================ */
+  function spinLog(prize) {
+    try {
+      if (!prize) return;
+      S.spinHistory = Array.isArray(S.spinHistory) ? S.spinHistory : [];
+      S.spinHistory.unshift({ d: today(), l: String(prize.label || ''), c: String(prize.color || '#7C5CFC'), t: String(prize.type || '') });
+      if (S.spinHistory.length > 12) S.spinHistory.length = 12;
+      S.spinTotal = (S.spinTotal || 0) + 1;
+      if (prize.type === 'coins') S.spinCoinsWon = (S.spinCoinsWon || 0) + (prize.coins || 0);
+      setTimeout(renderSpinDeck, 400);
+    } catch (e) {}
+  }
+  function spinCountdownText() {
+    var now = new Date(), next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+    var d = Math.max(0, next - now), h = Math.floor(d / 3600000), m = Math.floor(d % 3600000 / 60000), s = Math.floor(d % 60000 / 1000);
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+  var _spinTick = 0;
+  function renderSpinDeck() {
+    var view = $('view-spin'); if (!view) return;
+    var hero = view.firstElementChild; if (!hero) return;
+    hero.classList.add('lub-spin-hero');
+    if (!hero.querySelector('.lub-spin-title')) {
+      var tt = el('div', 'lub-spin-title');
+      tt.innerHTML = '<b>🎰 ' + H(L('Kunlik Spin', 'Daily Spin', 'Ежедневный спин')) + '</b><span>' + H(L('Har kuni 1 ta tekin aylantirish — tanga, olmos, XP va boshqa sovg\'alar', 'One free spin every day — coins, gems, XP and more', 'Один бесплатный спин в день — монеты, алмазы, XP и другое')) + '</span>';
+      hero.insertBefore(tt, hero.firstChild);
+    }
+    var deck = $('lub-spin-deck');
+    if (!deck) { deck = el('div', 'lub-spin-deck'); deck.id = 'lub-spin-deck'; view.appendChild(deck); }
+    var done = false; try { done = hasSpunToday(); } catch (e) {}
+    var hist = Array.isArray(S.spinHistory) ? S.spinHistory : [];
+    // Sovrinlar jadvali — tur bo'yicha jamlangan ehtimollar
+    var groups = {}, total = 0;
+    try {
+      SPIN_PRIZES.forEach(function (p) {
+        var w = p.weight || 1; total += w;
+        var key = p.type === 'coins' ? 'c' + p.coins : p.type;
+        if (!groups[key]) groups[key] = { label: p.label, color: p.color, w: 0, type: p.type, coins: p.coins || 0 };
+        groups[key].w += w;
+      });
+    } catch (e) {}
+    var rows = Object.keys(groups).map(function (k) { return groups[k]; }).sort(function (a, b) { return b.w - a.w; });
+    var pct = function (w) { var v = w / total * 100; return v >= 10 ? Math.round(v) + '%' : (Math.round(v * 10) / 10) + '%'; };
+    deck.innerHTML =
+      '<div class="lub-sd-card lub-sd-timer' + (done ? '' : ' ready') + '"><div class="lub-sd-h">⏳ ' + H(L('Keyingi tekin spin', 'Next free spin', 'Следующий бесплатный спин')) + '</div>' +
+        (done ? '<div class="lub-sd-big" id="lub-spin-cd">' + spinCountdownText() + '</div><div class="lub-sd-sub">' + H(L('Yarim tunda yangilanadi', 'Resets at midnight', 'Обновится в полночь')) + '</div>'
+          : '<div class="lub-sd-big ok">✨ ' + H(L('Hozir tayyor!', 'Ready now!', 'Готово!')) + '</div><div class="lub-sd-sub">' + H(L('Tugmani bosing va omadingizni sinang', 'Hit the button and try your luck', 'Жмите кнопку и испытайте удачу')) + '</div>') +
+      '</div>' +
+      '<div class="lub-sd-card"><div class="lub-sd-h">📊 ' + H(L('Statistika', 'Stats', 'Статистика')) + '</div>' +
+        '<div class="lub-sd-stats"><div><b>' + (S.spinTotal || 0) + '</b><span>' + H(L('jami spin', 'total spins', 'всего спинов')) + '</span></div>' +
+        '<div><b>' + (S.spinCoinsWon || 0) + ' 🪙</b><span>' + H(L('yutilgan tanga', 'coins won', 'выиграно монет')) + '</span></div></div>' +
+        '<div class="lub-sd-h sm">🕘 ' + H(L('So\'nggi yutuqlar', 'Recent wins', 'Последние призы')) + '</div>' +
+        (hist.length ? '<div class="lub-sd-hist">' + hist.slice(0, 8).map(function (x) { return '<span style="--c:' + H(x.c) + '" title="' + H(x.d) + '">' + H(x.l) + '</span>'; }).join('') + '</div>'
+          : '<div class="lub-sd-sub">' + H(L('Hali spin qilinmagan', 'No spins yet', 'Спинов ещё не было')) + '</div>') +
+      '</div>' +
+      '<div class="lub-sd-card lub-sd-prizes"><div class="lub-sd-h">🎁 ' + H(L('Sovrinlar va ehtimollar', 'Prizes & odds', 'Призы и шансы')) + '</div>' +
+        '<div class="lub-sd-list">' + rows.map(function (r) {
+          return '<div class="lub-sd-row"><i style="background:' + H(r.color) + '"></i><span>' + H(r.label) + '</span><b>' + pct(r.w) + '</b><em style="--w:' + Math.max(2, r.w / rows[0].w * 100) + '%;--c:' + H(r.color) + '"></em></div>';
+        }).join('') + '</div></div>';
+    clearInterval(_spinTick);
+    if (done) _spinTick = setInterval(function () {
+      var n = $('lub-spin-cd');
+      if (!n || view.style.display === 'none') { clearInterval(_spinTick); return; }
+      n.textContent = spinCountdownText();
+    }, 1000);
+  }
+
+  /* ============================================================
+     8) Masonry — Statistika va Sozlamalar: ustunlar mustaqil oqadi (bo'sh joy qolmaydi)
+     ============================================================ */
+  var MAS = [
+    { sel: '#profile-subtab-stats', mq: '(min-width: 1000px)', full: function (c) { return c.matches('.pf-kpis, .xst-reports, #pomo-stats-card, #lub-stat-cards'); } },
+    { sel: '#settings-panel .settings-groups-grid', mq: '(min-width: 900px)', full: function () { return false; } }
+  ];
+  function unMasonry(box) {
+    Array.prototype.slice.call(box.querySelectorAll(':scope > .lub-mas')).forEach(function (w) {
+      var items = [];
+      w.querySelectorAll(':scope > .lub-mas-col > *').forEach(function (n) { items.push(n); });
+      items.sort(function (a, b) { return (+a.dataset.masI) - (+b.dataset.masI); });
+      items.forEach(function (n) { box.insertBefore(n, w); });
+      w.remove();
+    });
+    box.classList.remove('lub-masonry');
+  }
+  function doMasonry(cfg) {
+    var box = document.querySelector(cfg.sel); if (!box) return;
+    unMasonry(box);
+    var on = false; try { on = window.matchMedia(cfg.mq).matches; } catch (e) {}
+    if (!on) return;
+    var kids = Array.prototype.slice.call(box.children), seg = [], segs = [];
+    kids.forEach(function (c, i) {
+      c.dataset.masI = i;
+      if (cfg.full(c) || getComputedStyle(c).display === 'none') { if (seg.length) segs.push(seg); seg = []; return; }
+      seg.push(c);
+    });
+    if (seg.length) segs.push(seg);
+    segs.forEach(function (items) {
+      if (items.length < 2) return;
+      var w = el('div', 'lub-mas'), a = el('div', 'lub-mas-col'), b = el('div', 'lub-mas-col');
+      w.appendChild(a); w.appendChild(b);
+      box.insertBefore(w, items[0]);
+      var ha = 0, hb = 0;
+      items.forEach(function (n, i) {
+        var h = n.offsetHeight || 0;
+        // balandlik ma'lum bo'lsa — qisqa ustunga, aks holda navbatma-navbat
+        var toA = h ? ha <= hb : i % 2 === 0;
+        (toA ? a : b).appendChild(n);
+        if (toA) ha += h + 12; else hb += h + 12;
+      });
+    });
+    box.classList.add('lub-masonry');
+  }
+  function masonryAll() { MAS.forEach(function (c) { try { doMasonry(c); } catch (e) { console.warn('[LUB] masonry', e); } }); }
+  var _masT = 0;
+  function masonrySoon(ms) { clearTimeout(_masT); _masT = setTimeout(masonryAll, ms || 80); }
+  // Profil bo'limlari almashganda qayta joylaymiz (onclick global funksiyani chaqiradi)
+  if (typeof window.showProfileSubtab === 'function') {
+    var _origSub = window.showProfileSubtab;
+    window.showProfileSubtab = function (name) { var r = _origSub.apply(this, arguments); masonrySoon(60); return r; };
+  }
+  var _mqLast = null;
+  window.addEventListener('resize', function () {
+    var k = MAS.map(function (c) { try { return window.matchMedia(c.mq).matches ? 1 : 0; } catch (e) { return 0; } }).join('');
+    if (k !== _mqLast) { _mqLast = k; masonrySoon(120); }
+  });
+
   window.LUBlocks = {
     openPalette: openPalette, closePalette: closePalette,
     focusLiveHtml: focusLiveHtml, focusLiveUpdate: focusLiveUpdate,
     polishText: polishText, mountFeedbackRewrite: mountFeedbackRewrite,
     adminHeroHtml: adminHeroHtml, bindAdminHero: bindAdminHero,
-    renderStatCards: renderStatCards, orbitHtml: orbitHtml
+    renderStatCards: renderStatCards, orbitHtml: orbitHtml,
+    spinLog: spinLog, renderSpinDeck: renderSpinDeck, masonry: masonryAll
   };
 
-  function boot() { call(mountSearchBtn); call(renderStatCards); }
+  function boot() { call(mountSearchBtn); call(renderStatCards); call(renderSpinDeck); masonrySoon(600); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
   window.addEventListener('load', boot);
 })();

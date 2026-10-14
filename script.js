@@ -11657,8 +11657,9 @@ function kbActionLabel(a) {
     del: _cl("O'chirish", "Delete", "Удалить"), help: _cl("Yordam oynasi", "Help window", "Окно справки")
   })[a] || a;
 }
-function kbMap() { var m = {}; Object.keys(KB_DEFAULTS).forEach(function (k) { m[k] = (typeof S !== 'undefined' && S && S.kbMap && S.kbMap[k]) || KB_DEFAULTS[k]; }); return m; }
-function kbKeyLabel(k) { return k === ' ' ? 'Space' : (k.length === 1 ? k.toUpperCase() : k); }
+// S.kbMap[a] === 'none' — yorliq o'chirilgan (sozlamalarda Esc bosilganda)
+function kbMap() { var m = {}; Object.keys(KB_DEFAULTS).forEach(function (k) { var v = (typeof S !== 'undefined' && S && S.kbMap && S.kbMap[k]) || KB_DEFAULTS[k]; m[k] = v === 'none' ? '' : v; }); return m; }
+function kbKeyLabel(k) { return !k ? _cl("Yo'q", 'None', 'Нет') : k === ' ' ? 'Space' : (k.length === 1 ? k.toUpperCase() : k); }
 function kbMatch(e, action) { var k = kbMap()[action]; if (!k) return false; return k.length === 1 ? e.key.toLowerCase() === k.toLowerCase() : e.key === k; }
 function showShortcutsHelp() {
   var old = document.getElementById('kb-help'); if (old) { old.remove(); return; }
@@ -11685,7 +11686,7 @@ function renderKbSettings() {
   box.innerHTML = Object.keys(KB_DEFAULTS).map(function (a) {
     var cap = _kbCapturing === a;
     return '<div class="kbs-row"><span class="kbs-label">' + kbActionLabel(a) + '</span>' +
-      '<button type="button" class="kbs-key' + (cap ? ' capturing' : '') + '" onclick="kbStartCapture(\'' + a + '\')">' + (cap ? _cl("Tugmani bosing…", "Press a key…", "Нажмите клавишу…") : esc(kbKeyLabel(m[a]))) + '</button></div>';
+      '<button type="button" class="kbs-key' + (cap ? ' capturing' : '') + (!m[a] ? ' none' : '') + '" onclick="kbStartCapture(\'' + a + '\')">' + (cap ? _cl("Tugmani bosing… (Esc — o'chirish)", "Press a key… (Esc — none)", "Нажмите клавишу… (Esc — нет)") : esc(kbKeyLabel(m[a]))) + '</button></div>';
   }).join('');
 }
 function kbStartCapture(a) { _kbCapturing = (_kbCapturing === a) ? null : a; renderKbSettings(); }
@@ -11693,12 +11694,13 @@ function kbResetDefaults() { S.kbMap = {}; save(); _kbCapturing = null; renderKb
 document.addEventListener('keydown', function (e) {
   if (!_kbCapturing) return;
   e.preventDefault(); e.stopImmediatePropagation();
-  if (e.key === 'Escape') { _kbCapturing = null; renderKbSettings(); return; }
+  // Esc — shu yorliqni o'chiradi ("None")
+  if (e.key === 'Escape') { S.kbMap = S.kbMap || {}; S.kbMap[_kbCapturing] = 'none'; save(); _kbCapturing = null; renderKbSettings(); toast('⌨️ ' + _cl("Yorliq o'chirildi", 'Shortcut cleared', 'Сочетание удалено')); return; }
   if (['Shift', 'Control', 'Alt', 'Meta', 'Tab', 'Enter'].indexOf(e.key) !== -1 || /^[1-7]$/.test(e.key)) {
     toast(_cl("Bu tugma band — boshqasini tanlang", "This key is reserved — pick another", "Эта клавиша занята — выберите другую")); return;
   }
   var key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-  var m = kbMap(), clash = Object.keys(m).find(function (a) { return a !== _kbCapturing && (m[a].length === 1 ? m[a].toLowerCase() : m[a]) === key; });
+  var m = kbMap(), clash = Object.keys(m).find(function (a) { return a !== _kbCapturing && m[a] && (m[a].length === 1 ? m[a].toLowerCase() : m[a]) === key; });
   if (clash) { toast(_cl("Bu tugma allaqachon band", "This key is already used for", "Эта клавиша уже назначена") + ': ' + kbActionLabel(clash)); return; }
   S.kbMap = S.kbMap || {}; S.kbMap[_kbCapturing] = key; save();
   _kbCapturing = null; renderKbSettings();
@@ -11706,9 +11708,13 @@ document.addEventListener('keydown', function (e) {
 document.addEventListener('keydown', function (e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   var tg = e.target, tag = (tg && tg.tagName) || '';
-  var typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (tg && tg.isContentEditable);
-  // Yopilgan oynadagi yashirin maydonda fokus qolib ketgan bo'lsa — yozish deb hisoblamaymiz
-  if (typing && tg.offsetParent === null) { try { tg.blur(); } catch (er) {} typing = false; }
+  var ae = document.activeElement, aeTag = (ae && ae.tagName) || '';
+  var typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (tg && tg.isContentEditable) ||
+    aeTag === 'INPUT' || aeTag === 'TEXTAREA' || aeTag === 'SELECT' || (ae && ae.isContentEditable) || e.isComposing;
+  // Yopilgan oynadagi yashirin maydonda fokus qolib ketgan bo'lsa — yozish deb hisoblamaymiz.
+  // (offsetParent fixed-joylashgan oynalarda ham null bo'ladi — shuning uchun getClientRects bilan tekshiramiz)
+  var _fe = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') ? tg : ae;
+  if (typing && _fe && _fe.getClientRects && !_fe.getClientRects().length && !e.isComposing) { try { _fe.blur(); } catch (er) {} typing = false; }
   // Onboarding turi o'z tugmalarini o'zi boshqaradi
   if (typeof onboardingState !== 'undefined' && onboardingState && onboardingState.active) return;
   if (e.key === 'Escape') {
@@ -17598,6 +17604,8 @@ function renderSpin() {
       btn.style.cursor  = 'not-allowed';
     }
   }
+  // 🎰 Spin sahifasi: taymer, statistika, so'nggi yutuqlar, sovrinlar jadvali (blocks.js)
+  try { if (window.LUBlocks) LUBlocks.renderSpinDeck(); } catch (e) {}
 }
 
 // Standoff2/CS-uslubidagi "case opening" reel: kartalar gorizontal qatorda
@@ -17654,6 +17662,7 @@ function doSpin() {
       spinRunning = false;
       spinState = 'result';
       var prize = SPIN_PRIZES[idx];
+      try { if (window.LUBlocks) LUBlocks.spinLog(prize); } catch (e) {}
       // Yutgan kartani ajratib ko'rsatish
       var cards = track.children;
       if (cards[landIndex]) {

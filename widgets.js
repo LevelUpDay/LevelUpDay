@@ -448,7 +448,9 @@
     function label() { head.innerHTML = '<span class="luw-bm-ic">🧭</span><span class="luw-bm-t"></span><span class="luw-bm-car">▾</span>'; head.querySelector('.luw-bm-t').textContent = L('Tez o\'tish', 'Quick jump', 'Быстрый переход'); }
     function build() {
       label(); ul.innerHTML = '';
-      var cards = Array.prototype.filter.call(grid.children, function (c) { return c.classList.contains('settings-sub-card') && c.id && c.style.display !== 'none'; });
+      // (masonry ustunlariga o'ralgan bo'lishi mumkin — shuning uchun querySelectorAll, asl tartib bo'yicha)
+      var cards = Array.prototype.filter.call(grid.querySelectorAll('.settings-sub-card[id]'), function (c) { return c.style.display !== 'none'; })
+        .sort(function (x, y) { return (+x.dataset.masI || 0) - (+y.dataset.masI || 0); });
       cards.forEach(function (c, i) {
         var ti = c.querySelector('.settings-sub-title'), ic = c.querySelector('.settings-sub-icon');
         if (!ti) return;
