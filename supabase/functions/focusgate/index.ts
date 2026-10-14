@@ -1,4 +1,4 @@
-// 🛡 focusgate — Windows agent (Focusgate.exe) ↔ LevelUpDay.
+// 🛡 focusgate — Windows agent (Focusgate.exe), brauzer kengaytmasi va Android ilovasi ↔ LevelUpDay.
 //  Ulash (device flow):
 //   1) agent:  {action:'pair_start', name}        → {code}  (agent brauzerda levelupday.../#fgpair=CODE ni ochadi)
 //   2) sayt:   {action:'pair_approve', code} + foydalanuvchi JWT → qurilma yaratiladi
@@ -151,7 +151,8 @@ Deno.serve(async (req) => {
       const CATS = ["work", "study", "social", "games", "fun", "web", "other"];
       for (const a of body.apps.slice(0, 800)) {
         const exe = String(a?.exe || "").toLowerCase().replace(/^.*[\\/]/, "").slice(0, 80);
-        if (!/^[^<>:"|?*]+\.exe$/.test(exe) || seen.has(exe)) continue;
+        // Windows: "discord.exe"; Android: paket nomi "com.instagram.android"
+        if (!(/^[^<>:"|?*]+\.exe$/.test(exe) || /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(exe)) || seen.has(exe)) continue;
         seen.add(exe);
         const item: { exe: string; name: string; cat?: string; icon?: string } = { exe, name: String(a?.name || exe.replace(/\.exe$/, "")).replace(/[\u0000-\u001f]/g, "").slice(0, 70) };
         if (CATS.includes(String(a?.cat))) item.cat = String(a.cat);
@@ -185,7 +186,17 @@ Deno.serve(async (req) => {
       site_usage = {};
       for (const r of su || []) site_usage[r.app] = Math.max(site_usage[r.app] || 0, r.seconds || 0);
     }
-    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.name }, now, site_usage });
+    // Android: bugun BOSHQA qurilmalarda o'tgan vaqt (umumiy limit: kompyuter + telefon). Saytlar — eng kattasi, dasturlar — yig'indi.
+    let others: Record<string, number> | undefined;
+    if (String(body.version || "").startsWith("android-") && DAY_RE.test(String(body.today || ""))) {
+      const { data: ou } = await sb.from("fg_usage").select("app,seconds").eq("user_id", dev.user_id).eq("day", String(body.today)).neq("device_id", dev.id);
+      others = {};
+      for (const r of ou || []) {
+        const v = r.seconds || 0;
+        others[r.app] = r.app.startsWith("site:") ? Math.max(others[r.app] || 0, v) : (others[r.app] || 0) + v;
+      }
+    }
+    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.name }, now, site_usage, others });
   }
 
   return json({ error: "unknown_action" }, 400);

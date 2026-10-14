@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guard_desc">LevelUpDay\'da qo\'ygan limitlaringiz bo\'yicha ilova va saytlarni bloklaydi (kunlik limit, jadval, fokus sessiyasi). Faqat ochiq ilova nomi va sayt manzili o\'qiladi — siz yozgan matnlar o\'qilmaydi.</string>
+</resources>
