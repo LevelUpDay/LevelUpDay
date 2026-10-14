@@ -32,6 +32,7 @@ var (
 	pKeybdEvent              = user32.NewProc("keybd_event")
 	pGetTickCount            = kernel32.NewProc("GetTickCount")
 	pCreateMutexW            = kernel32.NewProc("CreateMutexW")
+	pGetUserDefaultUILanguage = kernel32.NewProc("GetUserDefaultUILanguage")
 
 	pGetFileVersionInfoSizeW = version.NewProc("GetFileVersionInfoSizeW")
 	pGetFileVersionInfoW     = version.NewProc("GetFileVersionInfoW")
@@ -267,4 +268,18 @@ func VisibleWindowPIDs() map[uint32]bool {
 	out := visPIDs
 	visPIDs = nil
 	return out
+}
+
+// Windows interfeysi tili → uz | ru | en
+func init() {
+	osLangFn = func() string {
+		id, _, _ := pGetUserDefaultUILanguage.Call()
+		switch id & 0x3ff { // asosiy til
+		case 0x43:
+			return "uz"
+		case 0x19:
+			return "ru"
+		}
+		return "en"
+	}
 }

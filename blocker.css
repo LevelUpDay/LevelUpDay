@@ -421,6 +421,31 @@ a.fg-btn { display: inline-flex; align-items: center; justify-content: center; g
 .fg-chosen { box-shadow: 0 12px 30px rgba(0,0,0,.35), 0 0 0 2px var(--accent) !important; transform: scale(1.01); }
 .fg-drag { opacity: .95; }
 
+/* ---------- 🧩 Kengaytma o'rnatish yo'riqnomasi ---------- */
+.fg-guide { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.fg-gstep { display: flex; gap: 12px; align-items: flex-start; }
+.fg-gnum { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; background: var(--accent); margin-top: 1px; }
+.fg-gbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fg-gbody b { font-size: 14px; color: var(--text); line-height: 1.35; }
+.fg-gbody small { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
+.fg-gbody img { width: 100%; border-radius: 12px; border: 1px solid var(--border); background: #fff; }
+.fg-gbody .fg-btn { align-self: flex-start; }
+.fg-q { color: var(--text); font-weight: 700; white-space: nowrap; }
+.fg-copy { display: inline-flex; align-items: center; gap: 8px; margin-right: 4px; vertical-align: middle; }
+.fg-trouble { margin-top: 16px; border-radius: 14px; background: var(--surface2); padding: 10px 14px; }
+.fg-trouble summary { cursor: pointer; font-weight: 700; font-size: 13.5px; color: var(--text); }
+.fg-trouble ul { margin: 10px 0 2px; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+.fg-trouble li b { color: var(--text); }
+
+/* ---------- 🔗 Pomodoro / Fokus rejimi bilan bog'lanish ---------- */
+.fg-focus-r { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.fg-focus-alt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.fg-focus-alt span { font-size: 11.5px; color: var(--text-muted); }
+.fg-busbadge { display: block; margin: 10px auto 0; border: 1px solid color-mix(in srgb, var(--accent, #7C5CFC) 45%, transparent); background: color-mix(in srgb, var(--accent, #7C5CFC) 16%, transparent); color: var(--text, #fff);
+  font: 600 12.5px/1.2 inherit; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
+.fg-busbadge:hover { filter: brightness(1.15); }
+@media (max-width: 600px) { .fg-focus-r { align-items: stretch; width: 100%; } .fg-focus-alt { justify-content: flex-start; } }
+
 /* ---------- Telefon ---------- */
 @media (max-width: 600px) {
   .fg-hero { padding: 14px; border-radius: 18px; }

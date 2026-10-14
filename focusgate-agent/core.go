@@ -39,7 +39,8 @@ type Config struct {
 	FocusApps  []FocusApp `json:"focusApps"`
 	FocusUntil int64      `json:"focusUntil"` // ms
 	PauseUntil int64      `json:"pauseUntil"` // ms
-	Cats       map[string]string `json:"cats"` // foydalanuvchi o'zgartirgan kategoriyalar: ilova → kategoriya
+	Cats       map[string]string `json:"cats"`
+	Lang       string            `json:"lang"` // LevelUpDay'da tanlangan til: uz | en | ru // foydalanuvchi o'zgartirgan kategoriyalar: ilova → kategoriya
 }
 
 func (c *Config) TrackOn() bool { return c.Track == nil || *c.Track }
@@ -369,20 +370,6 @@ func WarnDue(cfg *Config, st *State, t time.Time) []Rule {
 		st.mu.Unlock()
 	}
 	return out
-}
-
-func FmtDur(sec int) string {
-	h, m := sec/3600, (sec%3600)/60
-	if h > 0 {
-		if m > 0 {
-			return itoa(h) + " soat " + itoa(m) + " daq"
-		}
-		return itoa(h) + " soat"
-	}
-	if m > 0 {
-		return itoa(m) + " daq"
-	}
-	return itoa(sec) + " s"
 }
 
 func itoa(n int) string {

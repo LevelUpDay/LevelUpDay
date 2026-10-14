@@ -94,8 +94,20 @@ func TestSitesWarnRows(t *testing.T) {
 	if len(st.Usage) != 1 {
 		t.Fatal("eski kunlar o'chirilishi kerak")
 	}
+	SetLang("uz")
 	if FmtDur(3725) != "1 soat 2 daq" || FmtDur(59) != "59 s" {
-		t.Fatal("FmtDur")
+		t.Fatal("FmtDur uz")
+	}
+	SetLang("en")
+	if FmtDur(3725) != "1 h 2 min" || Tr("closed", "Steam") != "🛡 Steam was closed" {
+		t.Fatal("FmtDur/Tr en")
+	}
+	SetLang("ru")
+	if FmtDur(125) != "2 мин" || Tr("warn_title", "Steam", "5 мин") != "⏳ Steam: осталось 5 мин" {
+		t.Fatal("ru")
+	}
+	if SetLang("xx") {
+		t.Fatal("noto'g'ri til qabul qilinmasin")
 	}
 }
 
