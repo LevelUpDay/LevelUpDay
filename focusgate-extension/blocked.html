@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focusgate — bloklandi</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #F0EEF8;
+    background: radial-gradient(700px 420px at 80% 0%, rgba(255,79,154,.22), transparent 70%), radial-gradient(700px 500px at 0% 100%, rgba(91,59,255,.35), transparent 70%), #0E0E12; }
+  .card { width: 100%; max-width: 460px; text-align: center; padding: 34px 28px; border-radius: 28px; background: rgba(24,24,31,.86); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+  .logo { width: 76px; height: 76px; margin: 0 auto 18px; border-radius: 22px; display: grid; place-items: center; background: linear-gradient(145deg, #7C5CFC, #c056e0); box-shadow: 0 12px 34px rgba(124,92,252,.45); }
+  h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: -.3px; }
+  .site { display: inline-block; margin: 4px 0 14px; padding: 6px 14px; border-radius: 999px; background: rgba(248,113,113,.14); color: #F87171; font-weight: 700; }
+  p { margin: 0 0 22px; color: rgba(240,238,248,.6); line-height: 1.55; font-size: 15px; }
+  .quote { font-style: italic; color: rgba(240,238,248,.75); margin-bottom: 24px; }
+  .row { display: flex; gap: 10px; }
+  button, a.btn { flex: 1; border: 0; border-radius: 14px; padding: 13px 16px; font: 700 14px system-ui, sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .primary { background: #7C5CFC; color: #fff; }
+  .ghost { background: rgba(255,255,255,.08); color: #F0EEF8; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><svg viewBox="0 0 24 24" width="38" height="38" aria-hidden="true"><path d="M12 2.5 4.5 5.4v6.1c0 4.7 3.2 8.6 7.5 10 4.3-1.4 7.5-5.3 7.5-10V5.4L12 2.5Z" fill="rgba(255,255,255,.22)" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="m8.6 12.2 2.4 2.4 4.6-4.8" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h1 id="t">Bu sayt hozir bloklangan</h1>
+    <div class="site" id="site"></div>
+    <p id="why"></p>
+    <div class="quote" id="q"></div>
+    <div class="row">
+      <button class="ghost" id="close">Tabni yopish</button>
+      <a class="btn primary" id="go" href="https://levelupday.github.io/LevelUpDay/#focusgate">🎯 LevelUpDay</a>
+    </div>
+  </div>
+  <script src="blocked.js"></script>
+</body>
+</html>

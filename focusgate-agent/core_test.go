@@ -218,3 +218,22 @@ func TestJunkFromRealList(t *testing.T) {
 		t.Fatal("'Запустить' olib tashlanmadi")
 	}
 }
+
+func TestEvents(t *testing.T) {
+	st := NewState()
+	now := at(10, 0)
+	if !st.AddEvent(now, "block", "steam.exe", "Steam", "daily") || st.AddEvent(now.Add(30*time.Second), "block", "steam.exe", "Steam", "daily") {
+		t.Fatal("60 soniya ichida takrorlanmasligi kerak")
+	}
+	if !st.AddEvent(now.Add(61*time.Second), "block", "steam.exe", "Steam", "daily") || !st.AddEvent(now, "warn", "steam.exe", "Steam", "daily") {
+		t.Fatal("yangi hodisa qo'shilishi kerak")
+	}
+	ev := st.TakeEvents()
+	if len(ev) != 3 || len(st.Events) != 0 {
+		t.Fatalf("TakeEvents: %d", len(ev))
+	}
+	st.ReturnEvents(ev)
+	if len(st.Events) != 3 {
+		t.Fatal("ReturnEvents")
+	}
+}

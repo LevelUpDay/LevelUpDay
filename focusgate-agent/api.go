@@ -14,7 +14,7 @@ import (
 const (
 	FunctionURL = "https://zzcvpenkevxlurgpjltz.supabase.co/functions/v1/focusgate"
 	AppURL      = "https://levelupday.github.io/LevelUpDay/"
-	Version     = "0.2.3"
+	Version     = "0.3.0"
 )
 
 var ErrUnauthorized = errors.New("unauthorized")
@@ -79,13 +79,16 @@ type SyncResult struct {
 }
 
 // Sync — apps nil bo'lmasa, o'rnatilgan dasturlar ro'yxati ham yuboriladi.
-func Sync(token string, rows []UsageRow, apps []InstalledApp) (*SyncResult, error) {
+func Sync(token string, rows []UsageRow, apps []InstalledApp, events []Event) (*SyncResult, error) {
 	if rows == nil {
 		rows = []UsageRow{}
 	}
 	body := map[string]any{"action": "sync", "token": token, "version": Version, "usage": rows}
 	if apps != nil {
 		body["apps"] = apps
+	}
+	if len(events) > 0 {
+		body["events"] = events
 	}
 	var r SyncResult
 	if err := call(body, &r); err != nil {

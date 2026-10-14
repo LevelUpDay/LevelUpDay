@@ -2202,7 +2202,7 @@
     } else if (sec === 'shop') {
       h = '<div class="x-card">' + shopHtml() + '</div>';
     } else if (sec === 'together') {
-      h = '<div id="x-hub-shared"></div>';
+      h = '<div id="fg-together"></div><div id="x-hub-shared"></div>';
     } else if (sec === 'feed') {
       h = '<div id="x-hub-feed"></div>';
     }
@@ -2219,6 +2219,7 @@
     }
     if (sec === 'boss') bindBossHub(body);
     if (sec === 'together') { if (sharedCache && !force) renderShared(); else loadShared(); }
+    if (sec === 'together') { try { if (window.LUFocusgate) window.LUFocusgate.renderTogether(); } catch (e) {} }
     if (sec === 'feed') { if (feedCache && !force) renderFeed(); else loadFeed(); }
 
   }
