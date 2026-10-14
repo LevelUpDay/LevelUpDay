@@ -12,7 +12,8 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var DOWNLOAD_URL = 'downloads/Focusgate.exe'; // GitHub Pages orqali (focusgate-agent/ dan yig'ilgan)
+  var AGENT_VERSION = '0.2.2'; // downloads/version.json bilan bir xil bo'lsin
+  var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION; // ?v= — brauzer/CDN eski faylni bermasligi uchun
 
   // ---------- Namuna (DEMO) ma'lumotlar — kompyuter ulanmaganda ko'rsatiladi ----------
   var DEMO_APPS = [
@@ -214,12 +215,12 @@
   function connectCard() {
     if (real()) return '';
     var signed = sbOk();
-    return '<div class="fg-card fg-connect"><div class="fg-connect-h"><span>💻</span><div><b>' + E(L('Kompyuteringizni ulang', 'Connect your computer', 'Подключите компьютер')) + '</b><small>' + E(L('Windows 10/11 · bepul · 7 MB', 'Windows 10/11 · free · 7 MB', 'Windows 10/11 · бесплатно · 7 МБ')) + '</small></div></div>' +
+    return '<div class="fg-card fg-connect"><div class="fg-connect-h"><span>💻</span><div><b>' + E(L('Kompyuteringizni ulang', 'Connect your computer', 'Подключите компьютер')) + '</b><small>' + E(L('Windows 10/11 · bepul · 7 MB · v' + AGENT_VERSION, 'Windows 10/11 · free · 7 MB · v' + AGENT_VERSION, 'Windows 10/11 · бесплатно · 7 МБ · v' + AGENT_VERSION)) + '</small></div></div>' +
       '<ol class="fg-steps">' +
       '<li><b>' + E(L('Focusgate.exe ni yuklab oling', 'Download Focusgate.exe', 'Скачайте Focusgate.exe')) + '</b></li>' +
       '<li><b>' + E(L('Ishga tushiring', 'Run it', 'Запустите')) + '</b><small>' + E(L('Windows "Kompyuteringiz himoyalandi" desa: "Подробнее / More info" → "Run anyway".', 'If Windows says "Windows protected your PC": More info → Run anyway.', 'Если Windows пишет «Система защитила ваш ПК»: «Подробнее» → «Выполнить в любом случае».')) + '</small></li>' +
       '<li><b>' + E(L('Brauzer o\'zi ochiladi — "Ulash" ni bosing', 'Your browser opens — press "Connect"', 'Откроется браузер — нажмите «Подключить»')) + '</b>' + (signed ? '' : '<small class="red">' + E(L('Avval LevelUpDay akkauntingizga kiring (Profil → Sozlamalar).', 'Sign in to your LevelUpDay account first (Profile → Settings).', 'Сначала войдите в аккаунт LevelUpDay (Профиль → Настройки).')) + '</small>') + '</li></ol>' +
-      '<a class="fg-btn big fg-dl" href="' + DOWNLOAD_URL + '" rel="noopener">⬇ ' + E(L('Windows uchun yuklab olish', 'Download for Windows', 'Скачать для Windows')) + '</a></div>';
+      '<a class="fg-btn big fg-dl" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Windows uchun yuklab olish', 'Download for Windows', 'Скачать для Windows')) + '</a></div>';
   }
   function nav() {
     var tabs = [['today', '📊', ['Bugun', 'Today', 'Сегодня']], ['limits', '⏳', ['Limitlar', 'Limits', 'Лимиты']], ['block', '🚫', ['Bloklash', 'Block', 'Блокировка']], ['settings', '⚙️', ['Sozlamalar', 'Settings', 'Настройки']]];
@@ -348,7 +349,7 @@
   }
   function getCards() {
     return '<div class="fg-get">' +
-      '<div class="fg-card fg-get-c"><span class="fg-get-ic">🪟</span><b>' + E(L('Windows uchun Focusgate', 'Focusgate for Windows', 'Focusgate для Windows')) + '</b><span>' + E(L('Dasturlarni kuzatadi va bloklaydi. Soat yonida (tray) ishlaydi.', 'Tracks and blocks programs. Lives in the system tray.', 'Отслеживает и блокирует программы. Работает в трее.')) + '</span><a class="fg-btn" href="' + DOWNLOAD_URL + '" rel="noopener">⬇ ' + E(L('Yuklab olish', 'Download', 'Скачать')) + '</a></div>' +
+      '<div class="fg-card fg-get-c"><span class="fg-get-ic">🪟</span><b>' + E(L('Windows uchun Focusgate', 'Focusgate for Windows', 'Focusgate для Windows')) + '</b><span>' + E(L('Dasturlarni kuzatadi va bloklaydi. Soat yonida (tray) ishlaydi.', 'Tracks and blocks programs. Lives in the system tray.', 'Отслеживает и блокирует программы. Работает в трее.')) + '</span><a class="fg-btn" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Yuklab olish', 'Download', 'Скачать')) + '</a></div>' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🧩</span><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><span>' + E(L('Shorts, Reels va sayt ichidagi bo\'limlarni bloklash.', 'Blocks Shorts, Reels and in-site sections.', 'Блокирует Shorts, Reels и разделы сайтов.')) + '</span><button type="button" class="fg-btn ghost" data-fg-soon>' + E(L('Tez kunda', 'Coming soon', 'Скоро')) + '</button></div></div>';
   }
   function pageSettings() {
@@ -381,7 +382,7 @@
       }).join('') + '</div>';
     } else h += '<div class="fg-empty sm">' + E(L('Bugun hali ma\'lumot yo\'q', 'No data yet today', 'Сегодня пока нет данных')) + '</div>';
     if (over.length) h += '<button type="button" class="fg-emb-warn" data-fg-go="limits">⛔ ' + E(over.map(function (x) { return x.label || labelOf(x.app); }).join(', ')) + ' — ' + E(L('limit tugadi', 'limit reached', 'лимит исчерпан')) + ' ›</button>';
-    if (!real()) h += '<a class="fg-emb-cta" href="' + DOWNLOAD_URL + '" rel="noopener">💻 ' + E(L('Haqiqiy statistika uchun kompyuterni ulang — Focusgate.exe', 'Connect your PC for real stats — Focusgate.exe', 'Подключите ПК для реальной статистики — Focusgate.exe')) + ' ⬇</a>';
+    if (!real()) h += '<a class="fg-emb-cta" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">💻 ' + E(L('Haqiqiy statistika uchun kompyuterni ulang — Focusgate.exe', 'Connect your PC for real stats — Focusgate.exe', 'Подключите ПК для реальной статистики — Focusgate.exe')) + ' ⬇</a>';
     return h;
   }
   function settingsCardHtml() {
