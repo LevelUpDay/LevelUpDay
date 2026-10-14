@@ -3548,3 +3548,28 @@ html[data-tab]:not([data-tab="tasks"]) .wrapper > #streak-milestones { display: 
 .econ-t th { text-align: left; font-size: 11px; color: var(--text-muted); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--border); }
 .econ-t td { padding: 7px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .econ-t td small { display: block; color: var(--text-muted); font-size: 11px; }
+
+/* ⛶ Kun jadvali — to'liq ekran */
+.tb-timeline.tbl-full {
+  position: fixed; inset: 0; z-index: 95; margin: 0; border: none; border-radius: 0;
+  display: flex; flex-direction: column; background: var(--bg);
+  padding: calc(10px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  animation: tblFullIn .22s ease;
+}
+@keyframes tblFullIn { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+.tb-timeline.tbl-full .tbl-scroll { flex: 1; min-height: 0; max-height: none; }
+.tb-timeline.tbl-full .tbl-head { flex-shrink: 0; }
+.tb-timeline.tbl-full .tbl-title { pointer-events: none; }
+.tb-timeline.tbl-full .tbl-caret { display: none; }
+@media (min-width: 900px) {
+  .tb-timeline.tbl-full { padding-left: max(24px, calc((100vw - 1100px) / 2)); padding-right: max(24px, calc((100vw - 1100px) / 2)); }
+}
+html.tbl-full-on, html.tbl-full-on body { overflow: hidden; }
+html.tbl-full-on .x-bnav { display: none !important; }
+html.tbl-full-on #focus-mini-player, html.tbl-full-on #pomo-float { display: none !important; }
+.tbl-exp[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.tbl-tray-auto {
+  flex-shrink: 0; padding: 5px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); font: 600 12px 'DM Sans', sans-serif; cursor: pointer; white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) { .tb-timeline.tbl-full { animation: none; } }

@@ -11197,6 +11197,8 @@ function showProfileSubtab(name) {
 
 function showTab(tab) {
   if (tab === 'secret' && !S.personalCheckEnabled) { showTab('tasks'); return; }
+  // ⛶ Jadval to'liq ekranda bo'lsa — boshqa bo'limga o'tganda yopiladi
+  try { if (typeof _tbView !== 'undefined' && _tbView.full && tab !== 'tasks') { _tbView.full = false; tbFullDom(false); } } catch (e) {}
   try { document.documentElement.setAttribute('data-tab', tab); } catch (e) {}
   if (tab !== 'secret' && _secretUnlocked) {
     _secretUnlocked = false;
@@ -12814,7 +12816,11 @@ function tbHeadHtml(ds, collapsed, week) {
     (collapsed ? '' : '<div class="tbl-tools">' +
       '<div class="tbl-seg" role="tablist"><button type="button" data-act="day" class="' + (week ? '' : 'on') + '">' + _cl('Kun', 'Day', 'День') + '</button><button type="button" data-act="week" class="' + (week ? 'on' : '') + '">' + _cl('Hafta', 'Week', 'Неделя') + '</button></div>' +
       (ds >= td && !week ? '<button type="button" class="tbl-ib" data-act="add" title="' + _cl("Qo'shish", 'Add', 'Добавить') + '" aria-label="' + _cl("Qo'shish", 'Add', 'Добавить') + '">＋</button>' : '') +
-      '<button type="button" class="tbl-ib" data-act="menu" title="' + _cl('Sozlamalar', 'Settings', 'Настройки') + '" aria-label="' + _cl('Sozlamalar', 'Settings', 'Настройки') + '">⚙</button></div>') +
+      '<button type="button" class="tbl-ib" data-act="menu" title="' + _cl('Sozlamalar', 'Settings', 'Настройки') + '" aria-label="' + _cl('Sozlamalar', 'Settings', 'Настройки') + '">⚙</button>' +
+      // ⛶ To'liq ekran — jadval butun oynani egallaydi
+      '<button type="button" class="tbl-ib tbl-exp" data-act="expand" aria-pressed="' + (!!_tbView.full) + '" title="' + (_tbView.full ? _cl('Kichraytirish (Esc)', 'Exit full screen (Esc)', 'Свернуть (Esc)') : _cl('Butun oynaga kattalashtirish', 'Expand to full window', 'Развернуть на всё окно')) + '" aria-label="' + (_tbView.full ? _cl('Kichraytirish', 'Exit full screen', 'Свернуть') : _cl('Kattalashtirish', 'Expand', 'Развернуть')) + '">' +
+        (_tbView.full ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
+          : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>') + '</button></div>') +
     '</div>' + (collapsed ? '' : tbMenuHtml(ds));
 }
 function tbMenuHtml(ds) {
@@ -12823,6 +12829,8 @@ function tbMenuHtml(ds) {
     '<div class="tbl-m-row"><span>🔍 ' + _cl('Masshtab', 'Zoom', 'Масштаб') + '</span><span class="tbl-zoom"><button type="button" data-act="zout" aria-label="−">－</button><b>' + Math.round(px / TB_PX_DEFAULT * 100) + '%</b><button type="button" data-act="zin" aria-label="+">＋</button></span></div>' +
     '<div class="tbl-m-row"><span>🧲 ' + _cl('Sudrash qadami', 'Drag step', 'Шаг перетаскивания') + '</span><span class="tbl-seg"><button type="button" data-act="snap5" class="' + (sn === 5 ? 'on' : '') + '">5 ' + _cl('daq', 'min', 'мин') + '</button><button type="button" data-act="snap15" class="' + (sn === 15 ? 'on' : '') + '">15</button></span></div>' +
     '<div class="tbl-m-row"><span>🕛 ' + _cl("Butun kun (24 soat)", 'Whole day (24h)', 'Весь день (24 ч)') + '</span><button type="button" class="tbl-sw' + (S.tbFullDay ? ' on' : '') + '" data-act="full" role="switch" aria-checked="' + (!!S.tbFullDay) + '"><i></i></button></div>' +
+    '<div class="tbl-m-row"><span>🗂 ' + _cl("Bloklar bo'lim rangida", 'Color blocks by category', 'Цвет блоков по разделу') + '</span><button type="button" class="tbl-sw' + (S.tbCatColor ? ' on' : '') + '" data-act="catcolor" role="switch" aria-checked="' + (!!S.tbCatColor) + '"><i></i></button></div>' +
+    (ds >= today() && tbUnscheduled(ds).length ? '<button type="button" class="tbl-m-btn" data-act="autoplace">✨ ' + _cl("Vaqtsiz vazifalarni bo'sh joylarga joylashtirish", 'Auto-place untimed tasks into free slots', 'Расставить задачи без времени по свободным окнам') + '</button>' : '') +
     (ds >= today() ? '<button type="button" class="tbl-m-btn" data-act="addnote">📌 ' + _cl("Eslatma qo'shish (vazifa emas)", 'Add a schedule note (not a task)', 'Добавить заметку (не задача)') + '</button>' : '') +
     '<button type="button" class="tbl-m-btn" data-act="copy">📋 ' + _cl("Shu kun eslatmalarini boshqa kunga nusxalash", "Copy this day's notes to another day", 'Скопировать заметки дня на другой день') + '</button>' +
     '<div class="tbl-m-hint">' + _cl("Blokni bosib turing va suring — vaqti o'zgaradi. Yuqori/pastki chetidan suring — cho'ziladi. Yonma-yon bloklar orasidagi chiziqni suring — eni o'zgaradi (2× bosish — teng).",
@@ -12874,6 +12882,7 @@ function tbTrayHtml(ds) {
   var un = tbUnscheduled(ds);
   if (!un.length) return '';
   return '<div class="tbl-tray"><span class="tbl-tray-t" title="' + _cl("Bosing — vaqt tanlang, yoki bosib turib jadvalga sudrang", 'Tap to pick a time, or press-and-hold and drag onto the schedule', 'Нажмите — выбрать время, или удерживайте и перетащите в расписание') + '">⏱ ' + _cl('Vaqtsiz', 'No time', 'Без времени') + ' · ' + un.length + '</span>' +
+    '<button type="button" class="tbl-tray-auto" data-act="autoplace" title="' + _cl("Bo'sh vaqtlarga avtomatik joylashtirish", 'Auto-place into free time', 'Автоматически расставить по свободному времени') + '">✨ ' + _cl('Joylashtirish', 'Auto-place', 'Расставить') + '</button>' +
     '<div class="tbl-tray-list">' + un.map(function (tk) {
       return '<button type="button" class="tbl-chip" data-id="' + tk.id + '"' + (tk.label ? ' style="--tbl-c:' + esc(tk.label) + '"' : '') + '>' + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</button>';
     }).join('') + '</div></div>';
@@ -12892,7 +12901,9 @@ function tbBlockHtml(it, ds, r0, px, editable) {
       '<div class="tbl-b-mini"><span>' + (n.emoji || '📌') + '</span><small>' + n.start + '</small></div></div>';
   }
   var tk = it.tk, stt = tbTaskStatus(tk, ds), cls = 'tbl-block' + size + (stt ? ' ' + stt : '');
-  return '<div class="' + cls + '" data-key="' + esc(it.key) + '" data-id="' + tk.id + '" role="button" tabindex="0" style="' + pos + (tk.label ? ';--tbl-c:' + esc(tk.label) : '') + '">' + handles +
+  var _bc = tk.label;
+  if (S.tbCatColor) { try { var _cc = taskCatOf(tk); if (_cc && _cc.color) _bc = _cc.color; } catch (e) {} }
+  return '<div class="' + cls + '" data-key="' + esc(it.key) + '" data-id="' + tk.id + '" role="button" tabindex="0" style="' + pos + (_bc ? ';--tbl-c:' + esc(_bc) : '') + '">' + handles +
     '<div class="tbl-b-main"><div class="tbl-b-name">' + (stt === 'done' ? '✅ ' : '') + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</div>' +
     '<div class="tbl-b-time">' + tk.startTime + (tk.endTime ? '–' + tk.endTime : '') + (tk.endTime ? ' · ' + tbShortDur(it.b - it.a) : '') + (tk.autoPomo ? ' · 🍅' : '') + '</div></div>' +
     '<div class="tbl-b-mini"><span>' + (stt === 'done' ? '✅' : (tk.emoji || esc(String(tk.name || '•').slice(0, 1)))) + '</span><small>' + tk.startTime + '</small></div></div>';
@@ -12965,14 +12976,16 @@ function renderTimeline() {
   var box = document.getElementById('tb-timeline');
   if (!box) return;
   var q = ((document.getElementById('task-search') || {}).value || '').trim();
-  if (!S.timeView || q) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  if (!S.timeView || q) { if (_tbView.full) { _tbView.full = false; tbFullDom(false); } box.style.display = 'none'; box.innerHTML = ''; return; }
   if (_tbDrag) return; // sudrash / bosib turish davomida qayta chizilmaydi
   var sc0 = box.querySelector('.tbl-scroll'), keep = sc0 ? sc0.scrollTop : null;
   var ds = tbViewDate(), td = today(), week = tbIsWeek(), nm = _tbNowMin();
   var sameView = box.dataset.date === ds && box.dataset.week === (week ? '1' : '0');
   box.style.display = '';
-  var collapsed = !!S.tbCollapsed;
+  var collapsed = !!S.tbCollapsed && !_tbView.full;
   box.classList.toggle('collapsed', collapsed);
+  box.classList.toggle('tbl-full', !!_tbView.full);
+  document.documentElement.classList.toggle('tbl-full-on', !!_tbView.full);
   box.classList.toggle('menu-open', !collapsed && !!_tbView.menu);
   box.classList.toggle('tbl-past', ds < td);
   tbBindBox(box);
@@ -13002,7 +13015,53 @@ function renderTimeline() {
   else target = r0 + 60;
   try { sc.scrollTop = Math.max(0, grid.offsetTop + (target - r0) * gpx - off); } catch (e) {}
 }
-function tbToggleCollapse() { S.tbCollapsed = !S.tbCollapsed; _tbView.menu = false; save(); renderTimeline(); }
+function tbToggleCollapse() { if (_tbView.full) return; S.tbCollapsed = !S.tbCollapsed; _tbView.menu = false; save(); renderTimeline(); }
+// ⛶ To'liq ekran rejimi (faqat sessiya uchun)
+// To'liq ekranda blok <body> ga ko'chiriladi (ota-elementlarning qatlami/z-index'i to'smasin), chiqqanda joyiga qaytadi
+var _tbFullHome = null;
+function tbFullDom(on) {
+  var box = document.getElementById('tb-timeline'); if (!box) return;
+  if (on && box.parentNode !== document.body) {
+    _tbFullHome = document.createComment('tb-timeline-home');
+    box.parentNode.insertBefore(_tbFullHome, box);
+    document.body.appendChild(box);
+  } else if (!on && _tbFullHome && _tbFullHome.parentNode) {
+    _tbFullHome.parentNode.replaceChild(box, _tbFullHome); _tbFullHome = null;
+  }
+  if (!on) { box.classList.remove('tbl-full'); document.documentElement.classList.remove('tbl-full-on'); }
+}
+window.tbFullDom = tbFullDom;
+function tbToggleFull(on) {
+  _tbView.full = on == null ? !_tbView.full : !!on;
+  tbFullDom(_tbView.full);
+  _tbView.menu = false; _tbView.scrolled = false;
+  tbClosePop(); renderTimeline();
+  if (_tbView.full) {
+    try { toast('⛶ ' + _cl('← → kun · T bugun · W hafta · Esc chiqish', '← → day · T today · W week · Esc exit', '← → день · T сегодня · W неделя · Esc выход')); } catch (e) {}
+  }
+}
+window.tbToggleFull = tbToggleFull;
+// ✨ Vaqtsiz vazifalarni bo'sh oraliqlarga joylashtirish (qiyinlikka qarab davomiylik)
+function tbAutoPlace() {
+  var ds = tbViewDate(), un = tbUnscheduled(ds);
+  if (!un.length) { toast('✅ ' + _cl("Hamma vazifalarning vaqti bor", 'Every task already has a time', 'У всех задач уже есть время')); return; }
+  var DUR = { 0: 15, 1: 30, 2: 45, 3: 60, 4: 90 };
+  var snap = un.map(function (tk) { return { id: tk.id, s: tk.startTime || null, e: tk.endTime || null }; });
+  var placed = 0, LATE = 23 * 60;
+  // Qiyinroq vazifalar oldinroq (ertalabki kuch bilan)
+  un.slice().sort(function (a, b) { return (taskDiffOrDefault(b) - taskDiffOrDefault(a)); }).forEach(function (tk) {
+    var dur = DUR[taskDiffOrDefault(tk)] || 30, st = tbNextFree(ds, dur);
+    if (st + dur > LATE) return;
+    tk.startTime = _tbHM(st); tk.endTime = _tbHM(st + dur);
+    placed++;
+  });
+  if (!placed) { toast('⏳ ' + _cl("Bugun bo'sh vaqt qolmadi", 'No free time left today', 'Свободного времени не осталось')); return; }
+  save(); renderTaskList();
+  showUndoToast('✨ ' + placed + ' ' + _cl("ta vazifa jadvalga joylashtirildi", 'task(s) placed on the schedule', 'задач(и) добавлено в расписание'), function () {
+    snap.forEach(function (o) { var t = (S.tasks || []).find(function (x) { return x.id === o.id; }); if (t) { t.startTime = o.s; t.endTime = o.e; } });
+  });
+}
+window.tbAutoPlace = tbAutoPlace;
 window.tbToggleCollapse = tbToggleCollapse;
 
 // Bo'sh joydan vazifa qo'shish (ko'rilayotgan kun kelajak bo'lsa — o'sha kunga bir martalik)
@@ -13154,10 +13213,35 @@ function tbBindBox(box) {
   // faol sudrash paytida sahifa aylanmasin
   document.addEventListener('touchmove', function (e) { if (_tbDrag && _tbDrag.active) e.preventDefault(); }, { passive: false });
   document.addEventListener('keydown', function (e) {
+    // To'liq ekranda: ← → kun, T bugun, W hafta/kun, F yoki Esc chiqish
+    if (_tbView.full && e.key !== 'Escape') {
+      var tg = e.target, tag = tg && tg.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (tg && tg.isContentEditable) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (document.querySelector('.modal-overlay.open, .tbn-ov, .lub-cp-ov')) return;
+      var k = e.key.toLowerCase();
+      if (k === 'arrowleft') { e.preventDefault(); tbShiftDate(-1); }
+      else if (k === 'arrowright') { e.preventDefault(); tbShiftDate(1); }
+      else if (k === 't') { e.preventDefault(); tbSetDate(today()); }
+      else if (k === 'w') { e.preventDefault(); tbSetWeek(!tbIsWeek()); }
+      else if (k === 'f') { e.preventDefault(); tbToggleFull(false); }
+      return;
+    }
     if (e.key !== 'Escape') return;
     if (document.querySelector('.tbl-pop')) { tbClosePop(); return; }
-    if (_tbView.menu) { _tbView.menu = false; box.classList.remove('menu-open'); }
+    if (_tbView.menu) { _tbView.menu = false; box.classList.remove('menu-open'); return; }
+    if (_tbView.full && !document.querySelector('.modal-overlay.open, .tbn-ov, .lub-cp-ov')) tbToggleFull(false);
   });
+  // To'liq ekranda telefonda chapga/o'ngga surish — kun almashadi
+  var sw = null;
+  box.addEventListener('touchstart', function (e) {
+    sw = (_tbView.full && e.touches.length === 1 && !e.target.closest('.tbl-block, .tbl-note, .tbl-chip, .tbl-split, .tbl-h')) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null;
+  }, { passive: true });
+  box.addEventListener('touchend', function (e) {
+    if (!sw || _tbDrag) { sw = null; return; }
+    var t0 = e.changedTouches[0], dx = t0.clientX - sw.x, dy = t0.clientY - sw.y, fast = Date.now() - sw.t < 600;
+    sw = null;
+    if (fast && Math.abs(dx) > 70 && Math.abs(dy) < 45) tbShiftDate(dx < 0 ? 1 : -1);
+  }, { passive: true });
   document.addEventListener('pointerdown', function (e) {
     if (_tbView.menu && !e.target.closest('.tbl-menu, [data-act="menu"]')) { _tbView.menu = false; box.classList.remove('menu-open'); }
     var pop = document.querySelector('.tbl-pop');
@@ -13206,6 +13290,9 @@ function tbOnClick(e) {
     if (act === 'zin' || act === 'zout') { tbZoomStep(act === 'zin' ? 1 : -1); return; }
     if (act === 'snap5' || act === 'snap15') { S.tbSnap = act === 'snap15' ? 15 : 5; save(); renderTimeline(); return; }
     if (act === 'full') { S.tbFullDay = !S.tbFullDay; _tbView.scrolled = false; save(); renderTimeline(); return; }
+    if (act === 'expand') { tbToggleFull(); return; }
+    if (act === 'catcolor') { S.tbCatColor = !S.tbCatColor; save(); renderTimeline(); return; }
+    if (act === 'autoplace') { _tbView.menu = false; box.classList.remove('menu-open'); tbAutoPlace(); return; }
     if (act === 'addnote') { _tbView.menu = false; box.classList.remove('menu-open'); tbOpenNoteEditor(null); return; }
     if (act === 'copy') { _tbView.menu = false; box.classList.remove('menu-open'); tbOpenCopyNotes(); return; }
     if (act === 'add') {
