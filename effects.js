@@ -4,6 +4,7 @@
 //   u_magnet — Magnet     : asosiy tugmalar sichqonchaga yengil tortiladi (faqat sichqoncha)
 //   u_cross  — Crosshair  : butun ekran nishon chiziqlari + tugmalarga "lock" (faqat sichqoncha)
 //   u_star   — StarBorder : asosiy tugma/kartalar chegarasi bo'ylab yuguruvchi yulduz (CSS)
+//   u_target — TargetCursor: aylanuvchi burchakli kursor, tugmalarni "qamrab oladi" (faqat sichqoncha)
 // Egalik: S.shop.owned (id), yoqilganlar: S.shop.ufx = [id...] — app_state orqali sinxronlanadi.
 // Hech bir effekt bosishlarni to'smaydi (pointer-events: none), "harakatni kamaytirish" va
 // dizayn animatsiyasi toggle'iga (LUDesign.anim) bo'ysunadi. script.js dan KEYIN, extras.js dan OLDIN yuklanadi.
@@ -23,7 +24,9 @@
     { id: 'u_cross', key: 'cross', icon: '🎯', coins: 120, desktop: true, n: ['Nishon (Crosshair)', 'Crosshair', 'Прицел (Crosshair)'],
       d: ['Kursor ortidan nishon + tugmalarga lock', 'Cursor crosshair that locks onto buttons', 'Прицел за курсором с захватом кнопок'] },
     { id: 'u_star', key: 'star', icon: '🌠', gems: 20, n: ['Yulduz chegara', 'Star Border', 'Звёздная рамка'],
-      d: ['Tugmalar chegarasida yuguruvchi yulduz', 'A comet runs around key buttons', 'Комета бежит по краю кнопок'] }
+      d: ['Tugmalar chegarasida yuguruvchi yulduz', 'A comet runs around key buttons', 'Комета бежит по краю кнопок'] },
+    { id: 'u_target', key: 'target', icon: '⌖', gems: 25, desktop: true, n: ['Nishon kursor (TargetCursor)', 'Target Cursor', 'Курсор-мишень (TargetCursor)'],
+      d: ['Aylanuvchi burchaklar tugmalarni qamrab oladi', 'Spinning corners snap around buttons', 'Вращающиеся уголки обхватывают кнопки'] }
   ];
   function byId(id) { for (var i = 0; i < CAT.length; i++) if (CAT[i].id === id) return CAT[i]; return null; }
   function byKey(k) { for (var i = 0; i < CAT.length; i++) if (CAT[i].key === k) return CAT[i]; return null; }
@@ -194,6 +197,66 @@
   document.addEventListener('scroll', function () { if (CH.el) CH.el.classList.remove('locked'); }, { passive: true, capture: true });
 
   // =========================================================
+  // 5) TargetCursor — spinDuration 2s, hideDefaultCursor, parallaxOn
+  // =========================================================
+  var TC_SEL = 'button, a[href], [role="button"], [role="switch"], [role="tab"], [onclick], select, label[for], .cursor-target';
+  var TC = { on: false, el: null, dot: null, cs: [], raf: 0, shown: false, mx: -100, my: -100, ang: 0, cur: null, lock: null, last: 0, spin: 2 };
+  var TC_OFF = [[-1, -1], [1, -1], [1, 1], [-1, 1]], TC_R = 11, TC_PAD = 6;
+  function tcBuild() {
+    if (TC.el) return;
+    var w = document.createElement('div');
+    w.id = 'lu-fx-target'; w.setAttribute('aria-hidden', 'true');
+    w.innerHTML = '<i class="tc tl"></i><i class="tc tr"></i><i class="tc br"></i><i class="tc bl"></i><b class="tc-dot"></b>';
+    document.body.appendChild(w);
+    TC.el = w; TC.cs = Array.prototype.slice.call(w.querySelectorAll('.tc')); TC.dot = w.querySelector('.tc-dot');
+    TC.cur = TC_OFF.map(function (o) { return [TC.mx + o[0] * TC_R, TC.my + o[1] * TC_R]; });
+  }
+  function tcShow(on) { if (TC.el && TC.shown !== on) { TC.shown = on; TC.el.classList.toggle('on', on); } if (!on) root.classList.remove('lu-tc-lock'); }
+  function tcTargets() {
+    var r = TC.lock && TC.lock.isConnected ? TC.lock.getBoundingClientRect() : null;
+    if (r && r.width) {
+      // parallax: burchaklar kursor tomonga biroz siljiydi
+      var px = (TC.mx - (r.left + r.width / 2)) * 0.06, py = (TC.my - (r.top + r.height / 2)) * 0.06;
+      return [[r.left - TC_PAD + px, r.top - TC_PAD + py], [r.right + TC_PAD + px, r.top - TC_PAD + py], [r.right + TC_PAD + px, r.bottom + TC_PAD + py], [r.left - TC_PAD + px, r.bottom + TC_PAD + py]];
+    }
+    var a = TC.ang * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return TC_OFF.map(function (o) { var x = o[0] * TC_R, y = o[1] * TC_R; return [TC.mx + x * c - y * s, TC.my + x * s + y * c]; });
+  }
+  function tcTick(now) {
+    TC.raf = 0;
+    if (!TC.shown) return;
+    var dt = Math.min(0.05, (now - (TC.last || now)) / 1000); TC.last = now;
+    var mo = motionOK();
+    if (TC.lock) TC.ang += ((Math.round(TC.ang / 90) * 90) - TC.ang) * 0.25;
+    else if (mo) TC.ang = (TC.ang + dt * 360 / TC.spin) % 360;
+    var tg = tcTargets(), k = mo ? 0.3 : 1, rot = TC.lock ? 0 : TC.ang;
+    for (var i = 0; i < 4; i++) {
+      TC.cur[i][0] += (tg[i][0] - TC.cur[i][0]) * k; TC.cur[i][1] += (tg[i][1] - TC.cur[i][1]) * k;
+      TC.cs[i].style.transform = 'translate3d(' + TC.cur[i][0].toFixed(1) + 'px,' + TC.cur[i][1].toFixed(1) + 'px,0) rotate(' + rot.toFixed(1) + 'deg)';
+    }
+    TC.dot.style.transform = 'translate3d(' + TC.mx + 'px,' + TC.my + 'px,0)';
+    TC.raf = requestAnimationFrame(tcTick);
+  }
+  function tcUsable() { return TC.on && finePointer(); }
+  document.addEventListener('pointermove', function (e) {
+    if (!tcUsable()) return;
+    if (e.pointerType !== 'mouse') { tcShow(false); return; }
+    tcBuild();
+    TC.mx = e.clientX; TC.my = e.clientY;
+    var t = e.target && e.target.closest ? e.target.closest(TC_SEL) : null;
+    if (t) { var r = t.getBoundingClientRect(); if (!r.width || r.width > window.innerWidth * 0.9 || r.height > 220) t = null; }
+    TC.lock = t;
+    root.classList.toggle('lu-tc-lock', !!t);
+    if (!TC.shown) { TC.cur = tcTargets().map(function (p) { return p.slice(); }); TC.last = 0; }
+    tcShow(true);
+    if (!TC.raf) TC.raf = requestAnimationFrame(tcTick);
+  }, { passive: true });
+  document.addEventListener('pointerdown', function () { if (TC.el && TC.shown) { TC.el.classList.add('down'); } }, { passive: true });
+  document.addEventListener('pointerup', function () { if (TC.el) TC.el.classList.remove('down'); }, { passive: true });
+  document.addEventListener('mouseout', function (e) { if (!e.relatedTarget) tcShow(false); }, { passive: true });
+  window.addEventListener('blur', function () { tcShow(false); });
+
+  // =========================================================
   // 4) StarBorder — CSS (effects.css): html.lu-fx-star; hover 'lap' — tezlashadi, clickPulse
   // =========================================================
   var SB_SEL = '.add-task-btn, .btn-save, .ct-btn-save, #reyting-me-card, .lu-sb-demo';
@@ -237,6 +300,9 @@
     if (!CH.on) chShow(false);
     root.classList.toggle('lu-fx-star', enabled('u_star'));
     root.classList.toggle('lu-fx-cross', CH.on && finePointer());
+    TC.on = enabled('u_target');
+    if (!TC.on) tcShow(false);
+    root.classList.toggle('lu-fx-tc', TC.on && finePointer());
   }
 
   function toggle(id) {
@@ -258,6 +324,7 @@
     if (key === 'magnet') return '<div class="fxp fxp-mag"><span class="fxp-btn">+ Add</span><i class="fxp-cur"></i></div>';
     if (key === 'cross') return '<div class="fxp fxp-ch"><i class="h"></i><i class="v"></i><span class="fxp-btn">OK</span><b></b></div>';
     if (key === 'star') return '<div class="fxp fxp-star"><span class="fxp-btn lu-sb-demo">+ Add</span></div>';
+    if (key === 'target') return '<div class="fxp fxp-tc"><span class="fxp-btn">OK</span><i></i><i></i><i></i><i></i></div>';
     return '';
   }
   function demo(key, x, y) { if (key === 'spark' && motionOK()) spBurst(x, y); }
