@@ -3561,9 +3561,9 @@ html[data-tab]:not([data-tab="tasks"]) .wrapper > #streak-milestones { display: 
 .tb-timeline.tbl-full .tbl-head { flex-shrink: 0; }
 .tb-timeline.tbl-full .tbl-title { pointer-events: none; }
 .tb-timeline.tbl-full .tbl-caret { display: none; }
-@media (min-width: 900px) {
-  .tb-timeline.tbl-full { padding-left: max(24px, calc((100vw - 1100px) / 2)); padding-right: max(24px, calc((100vw - 1100px) / 2)); }
-}
+/* To'liq ekranda jadval ikki chetigacha cho'ziladi */
+@media (min-width: 900px) { .tb-timeline.tbl-full { padding-left: 20px; padding-right: 20px; } }
+.tb-timeline.tbl-full .tbl-scroll { overflow-x: hidden; }
 html.tbl-full-on, html.tbl-full-on body { overflow: hidden; }
 html.tbl-full-on .x-bnav { display: none !important; }
 html.tbl-full-on #focus-mini-player, html.tbl-full-on #pomo-float { display: none !important; }
