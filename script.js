@@ -33707,7 +33707,7 @@ window.openAdminPanel = async function () {
       '<div style="margin-bottom:14px;font-size:15px"><b style="color:var(--text)">👤 ' + _cl("Jami foydalanuvchi", "Total users", "Всего пользователей") + ':</b> ' + (d.total_users || 0) +
       ' &nbsp; <b style="color:var(--text)">' + _cl("Profil to'ldirgan", "Profiles filled", "Заполнили профиль") + ':</b> ' + (d.total_profiles || 0) + '</div>' +
       '<h4 style="color:var(--text);margin:10px 0 4px">🔐 ' + _cl("Kirish usuli", "Sign-in method", "Способ входа") + '</h4>' +
-      statRows(d.by_provider, 'provider', function (v) { return v === 'google' ? '🔵 Google' : (v === 'email' ? '📧 ' + _cl("Email/parol", "Email/password", "Email/пароль") : esc(v)); }) +
+      statRows(d.by_provider, 'provider', function (v) { return v === 'google' ? '🔵 Google' : v === 'telegram' ? '✈️ Telegram' : (v === 'email' ? '📧 ' + _cl("Email/parol", "Email/password", "Email/пароль") : esc(v)); }) +
       '<h4 style="color:var(--text);margin:10px 0 4px">🌍 Davlat</h4>' +
       statRows(d.by_country, 'country', function (v) {
         return (v && v !== '—' && typeof countryName === 'function') ? (countryFlagImg(v, 14) + ' ' + esc(countryName(v))) : '— (' + _cl("tanlanmagan", "not set", "не выбрано") + ')';
