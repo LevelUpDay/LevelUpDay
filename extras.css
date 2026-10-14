@@ -1211,3 +1211,37 @@ html.design-fx .fbx-item, html.design-fx .fbx-thread { background: color-mix(in 
 .xs-bal { font-size: 11px; color: var(--text-dim); margin: 2px 0 10px; text-align: right; }
 .xs-pay { width: 100%; padding: 13px; border-radius: 14px; border: none; background: var(--accent); color: #fff; font: 700 15px 'DM Sans', sans-serif; cursor: pointer; }
 .xs-pay:disabled { opacity: .5; cursor: not-allowed; }
+/* 🛍 Do'kon studiyasi — barcha narsalar bitta oynada */
+.xs-sale { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #ef4444; color: #fff; font: 800 11px 'DM Sans', sans-serif; vertical-align: 2px; }
+.xs-tabs { overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+.xs-tabs::-webkit-scrollbar { display: none; }
+.xs-tabs button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; padding: 8px 12px; }
+.xs-prev { position: relative; overflow: hidden; flex-shrink: 0; }
+.xs-prev > * { position: relative; }
+.xs-prev .xs-pv-bg { position: absolute !important; inset: 0; opacity: .55; border-radius: inherit; }
+.xs-pv-t { font-size: 11px; color: var(--text-muted); margin-top: -4px; }
+.xs-seg { display: flex; gap: 6px; margin-bottom: 10px; }
+.xs-seg button { flex: 1; padding: 7px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font: 600 12px 'DM Sans', sans-serif; cursor: pointer; }
+.xs-seg button.on { background: var(--surface2); color: var(--text); border-color: var(--border-hover); }
+.xs-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+.xs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.xs-it {
+  display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 6px 9px; min-width: 0; cursor: pointer;
+  border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface2); color: var(--text); font-family: 'DM Sans', sans-serif;
+}
+.xs-it.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.xs-it-pv { position: relative; width: 100%; height: 54px; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 20px; }
+.xs-it-pv.dz-prev { display: block; }
+.xs-it-pv .fxp { transform: scale(.8); }
+.xs-it-fx { letter-spacing: 2px; }
+.xs-it-n { font-size: 12px; font-weight: 700; text-align: center; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xs-it-note { font-size: 10px; color: var(--text-dim); text-align: center; line-height: 1.2; }
+.xs-it-p { font-size: 11px; font-weight: 700; color: #F5A623; }
+.xs-it.on .xs-it-p { color: var(--accent); }
+.xs-none .xs-it-pv { font-size: 26px; color: var(--text-dim); }
+.xs-n { font-weight: 500; color: var(--text-dim); font-size: 11px; }
+.xs-lines { max-height: 92px; overflow-y: auto; }
+@media (min-width: 640px) { .xs-box { max-width: 560px; } .xs-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.xs-ov { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+html.design-fx .xs-box { background: #15141c; }
+html.design-fx .xs-foot { background: #15141c; }
