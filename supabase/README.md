@@ -49,3 +49,15 @@ panelida fikrni o'chirish ishlamaydi.
 | `am_i_admin` | ilova admin tugmasini ko'rsatishi uchun |
 
 Admin qo'shish: `insert into public.admins (user_id) values ('<user uuid>');`
+
+## ✈️ Telegram (@LevelUpDayLoginBot)
+| Qism | Nima qiladi |
+|---|---|
+| `telegram_links` | foydalanuvchi ↔ Telegram chat (RLS: faqat o'zinikini ko'radi; mijoz faqat `enabled/prefs/tz/lang` ni o'zgartira oladi — `_telegram_links_guard` trigger) |
+| `telegram_link_codes`, `tg_link_code()` | ilovadagi "Ulash" → bir martalik kod (30 daqiqa) → `t.me/LevelUpDayLoginBot?start=<kod>` |
+| `telegram_state` | webhook o'rnatilganini eslab qoladi |
+| `functions/telegram-auth` | Telegram Login (HMAC tekshiruvi) → akkaunt + sessiya; avtomatik `telegram_links` ga ulaydi |
+| `functions/telegram-bot` | webhook: `/start <kod>`, `/start`, `/today`, `/stop`, `/help`; ilovadan "sinov xabari" |
+| `functions/send-reminders` | har 5 daqiqada: vazifa eslatmasi, boshlanish vaqti, 08:00 reja, 20:00 streak, 21:30 kun yakuni (Telegram) + web push; webhook va buyruqlar menyusini o'zi o'rnatadi |
+
+Sir: **Edge Functions → Secrets → `TELEGRAM_BOT_TOKEN`**. Token almashtirilsa, webhook keyingi 5 daqiqada o'zi qayta o'rnatiladi.

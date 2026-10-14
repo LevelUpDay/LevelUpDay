@@ -2703,6 +2703,85 @@
   window.xRenderPushSettings = safe(renderPushSettings);
 
   // =========================================================
+  // ✈️ TELEGRAM ESLATMALARI — @LevelUpDayLoginBot (telegram_links jadvali)
+  //   Ulash: tg_link_code() → t.me/<bot>?start=<kod> → bot webhook'i bog'laydi
+  // =========================================================
+  var TG_BOT = 'LevelUpDayLoginBot';
+  var _tgPoll = 0;
+  async function renderTgSettings() {
+    var st = document.getElementById('profile-subtab-settings'); if (!st) return;
+    var card = document.getElementById('x-tg-card');
+    if (!card) {
+      card = document.createElement('div'); card.id = 'x-tg-card'; card.className = 'x-card x-push-card x-tg-card';
+      var pc = document.getElementById('x-push-card');
+      st.insertBefore(card, pc ? pc.nextSibling : st.firstChild);
+    }
+    var head = function (sub, btn) {
+      return '<div class="x-push-h"><span>✈️</span><div><b>' + L('Telegram eslatmalari', 'Telegram reminders', 'Напоминания в Telegram') + '</b><small>' + sub + '</small></div>' + (btn || '') + '</div>';
+    };
+    if (!cloudOk()) {
+      card.innerHTML = head(H(L('Avval akkauntga kiring — keyin eslatmalar Telegram\'ga keladi', 'Sign in first — then reminders will come to Telegram', 'Сначала войдите — затем напоминания придут в Telegram')));
+      return;
+    }
+    var r = await supabase.from('telegram_links').select('chat_id,username,enabled,prefs,tz,lang').maybeSingle();
+    var link = r && !r.error ? r.data : null;
+    if (!link) {
+      card.innerHTML = head(H(L('Vazifa eslatmalari, 08:00 reja, streak va kun yakuni — @' + TG_BOT + ' orqali', 'Task reminders, 08:00 plan, streak and day summary — via @' + TG_BOT, 'Напоминания, план в 08:00, серия и итоги дня — через @' + TG_BOT)),
+        '<button class="x-btn sm" id="x-tg-link">' + L('Ulash', 'Connect', 'Подключить') + '</button>');
+      card.querySelector('#x-tg-link').onclick = async function () {
+        var b = this; b.disabled = true;
+        // Popup bloklanmasligi uchun oyna darhol ochiladi, manzil keyin beriladi
+        var w = null; try { w = window.open('', '_blank'); } catch (e) {}
+        var c = await supabase.rpc('tg_link_code');
+        b.disabled = false;
+        if (c.error || !c.data) { try { w && w.close(); } catch (e) {} toast('⚠️ ' + ((c.error && c.error.message) || 'error')); return; }
+        var url = 'https://t.me/' + TG_BOT + '?start=' + encodeURIComponent(c.data);
+        if (w) w.location.href = url; else location.href = url;
+        toast('✈️ ' + L('Telegram\'da «Start» ni bosing', 'Press “Start” in Telegram', 'Нажмите «Start» в Telegram'));
+        // Ulanishni kutamiz (2 daqiqagacha)
+        clearInterval(_tgPoll); var n = 0;
+        _tgPoll = setInterval(async function () {
+          if (++n > 40) { clearInterval(_tgPoll); return; }
+          var q = await supabase.from('telegram_links').select('chat_id').maybeSingle();
+          if (q && q.data) { clearInterval(_tgPoll); toast('✅ ' + L('Telegram ulandi!', 'Telegram connected!', 'Telegram подключён!')); renderTgSettings(); }
+        }, 3000);
+      };
+      return;
+    }
+    // Soat mintaqasi / til — server eslatmalarni to'g'ri vaqtda yuborishi uchun
+    var tz = 'Asia/Tashkent'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) {}
+    var lang = 'uz'; try { lang = getLang(); } catch (e) {}
+    if (link.tz !== tz || link.lang !== lang) { try { await supabase.from('telegram_links').update({ tz: tz, lang: lang }).eq('chat_id', link.chat_id); } catch (e) {} }
+    var pf = link.prefs || {};
+    var opts = [['tasks', L('⏰ Vazifa eslatmalari', '⏰ Task reminders', '⏰ Напоминания о задачах')], ['start', L('▶️ Vazifa boshlanish vaqti', '▶️ Task start time', '▶️ Время начала задачи')],
+      ['morning', L('🌅 08:00 — bugungi reja', '🌅 08:00 — today\'s plan', '🌅 08:00 — план на день')], ['streak', L('🔥 20:00 — streak eslatmasi', '🔥 20:00 — streak reminder', '🔥 20:00 — напоминание о серии')],
+      ['evening', L('🌙 21:30 — kun yakuni', '🌙 21:30 — day summary', '🌙 21:30 — итоги дня')]];
+    card.innerHTML = head(H((link.username ? '@' + link.username + ' · ' : '') + (link.enabled ? L('yoqilgan', 'on', 'включено') : L('to\'xtatilgan', 'paused', 'на паузе'))),
+      '<button class="x-btn sm' + (link.enabled ? ' ghost' : '') + '" id="x-tg-en">' + (link.enabled ? L('To\'xtatish', 'Pause', 'Пауза') : L('Yoqish', 'Turn on', 'Включить')) + '</button>') +
+      (link.enabled ? opts.map(function (o) { return '<label class="x-chk"><input type="checkbox" data-tgp="' + o[0] + '"' + (pf[o[0]] !== false ? ' checked' : '') + '> ' + H(o[1]) + '</label>'; }).join('') : '') +
+      '<div class="x-tg-act"><button class="x-btn ghost sm" id="x-tg-test">🧪 ' + L('Sinov xabari', 'Send test', 'Тест') + '</button>' +
+      '<button class="x-btn ghost sm" id="x-tg-open">💬 @' + TG_BOT + '</button>' +
+      '<button class="x-btn ghost sm x-tg-un" id="x-tg-unlink">' + L('Uzish', 'Disconnect', 'Отключить') + '</button></div>';
+    card.querySelector('#x-tg-en').onclick = async function () { this.disabled = true; await supabase.from('telegram_links').update({ enabled: !link.enabled }).eq('chat_id', link.chat_id); renderTgSettings(); };
+    card.querySelectorAll('[data-tgp]').forEach(function (c) {
+      c.onchange = async function () { pf[c.dataset.tgp] = c.checked; await supabase.from('telegram_links').update({ prefs: pf }).eq('chat_id', link.chat_id); };
+    });
+    card.querySelector('#x-tg-test').onclick = async function () {
+      this.disabled = true;
+      var t = await supabase.functions.invoke('telegram-bot', { body: { action: 'test' } });
+      this.disabled = false;
+      toast(t && !t.error && t.data && t.data.ok ? '✅ ' + L('Telegram\'ga yuborildi', 'Sent to Telegram', 'Отправлено в Telegram') : '⚠️ ' + L('Yuborib bo\'lmadi — botni bloklamaganingizni tekshiring', 'Could not send — make sure the bot is not blocked', 'Не удалось — проверьте, что бот не заблокирован'));
+    };
+    card.querySelector('#x-tg-open').onclick = function () { window.open('https://t.me/' + TG_BOT, '_blank'); };
+    card.querySelector('#x-tg-unlink').onclick = async function () {
+      if (!confirm(L('Telegram eslatmalari uzilsinmi?', 'Disconnect Telegram reminders?', 'Отключить напоминания в Telegram?'))) return;
+      await supabase.from('telegram_links').delete().eq('chat_id', link.chat_id);
+      toast(L('Telegram uzildi', 'Telegram disconnected', 'Telegram отключён')); renderTgSettings();
+    };
+  }
+  window.xRenderTgSettings = safe(function () { renderTgSettings().catch(function (e) { console.warn('[tg]', e); }); });
+
+  // =========================================================
   // 🎁 DO'ST TAKLIF QILISH — havola: ?ref=KOD
   //   Taklif qilingan yangi foydalanuvchi 3 xil kunda faol bo'lsa: ikkalasiga ham +10 💎
   // =========================================================
@@ -2908,6 +2987,7 @@
   function boot() {
     try { markMovedTabs(); buildBottomNav(); renderInstallUI(); handleLaunchAction(); } catch (e) { console.warn('[extras nav]', e); }
     try { renderPushSettings(); setTimeout(window.xPushAuto, 4000); } catch (e) { console.warn('[push]', e); }
+    try { setTimeout(window.xRenderTgSettings, 1500); } catch (e) {}
     // 💚 Onlayn holat: ilova ochiq turganda har 2 daqiqada faollik yuboriladi (do'stlarda "onlayn" ko'rinadi)
     var beat = function () {
       if (document.visibilityState !== 'visible' || !cloudOk()) return;
