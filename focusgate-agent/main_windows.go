@@ -37,52 +37,75 @@ var (
 
 func main() {
 	exePath, _ = os.Executable()
-	updated := false
+	waitLock := false // yangi o'rnatilgan / yangilangan nusxa: eski jarayon yopilishini kutadi
 	for _, a := range os.Args[1:] {
-		if a == "--updated" {
-			updated = true
+		if a == "--updated" || a == "--first-run" {
+			waitLock = true
 		}
 	}
+	// 1) Avval o'rnatish (yuklab olingan joydan ishga tushirilgan bo'lsa). Bu qulf (mutex) olishdan OLDIN bo'lishi shart —
+	//    aks holda o'rnatilgan nusxa "allaqachon ishlayapti" deb yopilib qolardi (v0.2.0 xatosi).
+	if installIfNeeded() {
+		return
+	}
 	ok := SingleInstance()
-	for i := 0; !ok && updated && i < 30; i++ { // yangilanishdan keyin eski nusxa yopilishini kutamiz
+	for i := 0; !ok && waitLock && i < 30; i++ {
 		time.Sleep(500 * time.Millisecond)
 		ok = SingleInstance()
 	}
 	if !ok {
-		go MessageBox("LevelUpDay Focusgate", "Focusgate allaqachon ishlayapti — soat yonidagi (tray) belgini qarang.", 0x40)
-		time.Sleep(4 * time.Second)
-		return
-	}
-	if installIfNeeded() {
+		if MessageBox("LevelUpDay Focusgate", "Focusgate allaqachon ishlayapti (soat yonidagi 🛡 belgi).\n\nLevelUpDay'da Focusgate bo'limini ochaymi?", 0x04|0x40) == 6 {
+			openURL(AppURL + "#focusgate")
+			time.Sleep(2 * time.Second)
+		}
 		return
 	}
 	st = LoadState()
 	cleanupOld()
-	if updated {
+	if waitLock {
 		st.AppsSentAt = 0 // yangi versiya — ro'yxatni qayta yuboramiz
 	}
 	systray.Run(onReady, func() { _ = st.Save() })
 }
 
-// installIfNeeded — birinchi ishga tushishda o'zini %LOCALAPPDATA%\Programs\LevelUpDay Focusgate ga ko'chiradi,
-// Windows bilan birga ishga tushishni yoqadi va o'sha nusxani ishga tushiradi.
+// installIfNeeded — yuklab olingan Focusgate.exe ishga tushirilganda: eski nusxani to'xtatadi, o'zini
+// %LOCALAPPDATA%\Programs\LevelUpDay Focusgate ga ko'chiradi, avtoishga tushishni yoqadi va o'sha nusxani ishga tushiradi.
 func installIfNeeded() bool {
 	for _, a := range os.Args[1:] {
-		if a == "--no-install" || a == "--background" {
+		if a == "--no-install" || a == "--background" || a == "--first-run" || a == "--updated" {
 			return false
 		}
 	}
-	base, err := os.UserCacheDir() // %LOCALAPPDATA%
+	dst := installedPath()
+	if dst == "" || strings.EqualFold(filepath.Clean(exePath), filepath.Clean(dst)) {
+		return false
+	}
+	_ = os.MkdirAll(filepath.Dir(dst), 0o755)
+	// Ishlab turgan eski nusxa (har qanday versiya) yopiladi — yangi fayl uning o'rniga yoziladi
+	self := uint32(os.Getpid())
+	killed := false
+	for exe, pids := range Processes() {
+		if exe != "focusgate.exe" {
+			continue
+		}
+		for _, pid := range pids {
+			if pid != self {
+				_ = Kill(pid)
+				killed = true
+			}
+		}
+	}
+	if killed {
+		time.Sleep(1200 * time.Millisecond)
+	}
+	var err error
+	for i := 0; i < 6; i++ {
+		if err = copyFile(exePath, dst); err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	if err != nil {
-		return false
-	}
-	dir := filepath.Join(base, "Programs", "LevelUpDay Focusgate")
-	dst := filepath.Join(dir, "Focusgate.exe")
-	if strings.EqualFold(filepath.Clean(exePath), filepath.Clean(dst)) {
-		return false
-	}
-	_ = os.MkdirAll(dir, 0o755)
-	if err := copyFile(exePath, dst); err != nil {
 		return false // ko'chirib bo'lmasa — joyida ishlayveramiz
 	}
 	_ = SetAutostart(true, dst)
@@ -198,8 +221,12 @@ func onReady() {
 		go startPairing()
 	}
 	for _, a := range os.Args[1:] {
-		if a == "--first-run" && st.Token != "" {
-			notify("!hello", "LevelUpDay Focusgate ishlayapti", "Soat yonidagi 🛡 belgisi orqali boshqaring.")
+		if a == "--first-run" {
+			if st.Token != "" {
+				notify("!hello", "LevelUpDay Focusgate ishlayapti ✅", "Soat yonidagi 🛡 belgisi orqali boshqaring.")
+			} else {
+				notify("!hello", "LevelUpDay Focusgate o'rnatildi ✅", "Brauzerda \"Ulash\" tugmasini bosing.")
+			}
 		}
 	}
 }
