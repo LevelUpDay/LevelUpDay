@@ -1175,6 +1175,7 @@
       '<select class="x-fc-sel">' + '<option value="">— ' + L('Vazifasiz', 'No task', 'Без задачи') + ' —</option>' + open.map(function (t) { return '<option value="' + t.id + '"' + (tk && tk.id === t.id ? ' selected' : '') + '>' + H((t.emoji ? t.emoji + ' ' : '') + t.name + (t.startTime ? ' · ' + t.startTime : '')) + '</option>'; }).join('') + '</select>' +
       '<div class="x-fc-task"></div>' +
       '<div class="x-fc-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" class="bg"/><circle cx="60" cy="60" r="54" class="fg"/></svg><div class="x-fc-time">25:00</div><div class="x-fc-ph"></div></div>' +
+      (window.LUBlocks ? window.LUBlocks.focusLiveHtml() : '') +
       '<div class="x-fc-presets"><button data-m="25">25m</button><button data-m="50">50m</button><button data-m="90">90m</button><button data-m="block" class="blk">' + L('Blok oxirigacha', 'Until block end', 'До конца блока') + '</button></div>' +
       '<div class="x-fc-ctrl"><button class="x-fc-play">▶</button><button class="x-fc-reset">↺</button></div>' +
       '<div class="x-fc-act"><button class="x-fc-done">✅ ' + L('Bajarildi', 'Done', 'Готово') + '</button><button class="x-fc-snd">🎵 ' + L('Tovushlar', 'Sounds', 'Звуки') + '</button></div>' +
@@ -1198,9 +1199,10 @@
       ov.querySelector('.x-fc-time').textContent = pad2(m) + ':' + pad2(s);
       var fg = ov.querySelector('.fg'), C = 2 * Math.PI * 54;
       fg.style.strokeDasharray = C; fg.style.strokeDashoffset = C * (1 - left / FX.total);
-      ov.querySelector('.x-fc-play').textContent = FX.running ? '⏸' : '▶';
+      if (!window.LUBlocks) ov.querySelector('.x-fc-play').textContent = FX.running ? '⏸' : '▶'; // aks holda blocks.js yorliqli tugma chizadi
       ov.querySelector('.x-fc-ph').textContent = FX.running ? L('diqqat...', 'focusing...', 'фокус...') : (left < FX.total ? L('pauza', 'paused', 'пауза') : '');
       try { document.title = (FX.running ? '🎯 ' + pad2(m) + ':' + pad2(s) + ' · ' : '') + 'LevelUpDay'; } catch (e) {}
+      try { if (window.LUBlocks) window.LUBlocks.focusLiveUpdate(ov, { running: FX.running, left: left, total: FX.total, started: FX.started }); } catch (e) {}
       if (FX.running && left <= 0) finish();
     };
     var credit = function () {
@@ -2039,7 +2041,7 @@
     var thisM = am.length ? am[am.length - 1].n : 0, prevM = am.length > 1 ? am[am.length - 2].n : 0;
     var thisS = sm.length ? sm[sm.length - 1].n : 0, prevS = sm.length > 1 ? sm[sm.length - 2].n : 0;
     var dayLbl = function (v) { var p = String(v).split('-'); return +p[2] + '.' + p[1]; };
-    var h = '<div class="ad-kpis">' +
+    var h = (window.LUBlocks ? window.LUBlocks.adminHeroHtml(d) : '') + '<div class="ad-kpis">' +
       adTile('👥', L('Jami foydalanuvchi', 'Total users', 'Всего пользователей'), adFmt(T.users), adDelta(T.new_30d, T.new_prev_30d) + ' ' + L('30 kunda', 'in 30d', 'за 30 дн') + ' +' + (T.new_30d || 0)) +
       adTile('🔥', L('Bugun faol', 'Active today', 'Активны сегодня'), adFmt(T.dau), 'WAU ' + adFmt(T.wau) + ' · MAU ' + adFmt(T.mau)) +
       adTile('📆', L('Bu oy faol', 'Active this month', 'Активны в этом месяце'), adFmt(thisM), adDelta(thisM, prevM) + ' ' + L('o\'tgan oyga nisbatan', 'vs last month', 'к прошлому месяцу')) +
@@ -2099,6 +2101,7 @@
         ['', function (r) { return r.provider === 'google' ? '🔵' : '📧'; }]])) +
       '</div>';
     box.innerHTML = h;
+    try { if (window.LUBlocks) window.LUBlocks.bindAdminHero(box); } catch (e) {}
     // tooltip
     var tip = document.getElementById('ad-tip');
     box.querySelectorAll('[data-tip]').forEach(function (el) {

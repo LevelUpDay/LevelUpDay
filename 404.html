@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E0E12">
+<title>Sahifa topilmadi · LevelUpDay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Syne:wght@800&display=swap">
+<style>
+  :root {
+    --bg: #0E0E12; --surface: #18181F; --text: #F0EEF8; --muted: rgba(240,238,248,.55);
+    --border: rgba(255,255,255,.1); --accent: #7C5CFC;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #F4F3FF; --surface: #FFFFFF; --text: #1A1830; --muted: rgba(26,24,48,.55); --border: rgba(0,0,0,.08); }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text); font-family: 'DM Sans', system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 16px;
+  }
+  .stage { position: fixed; inset: 0; pointer-events: none; }
+  .card {
+    position: absolute; left: 0; top: 0; padding: 10px 14px; border-radius: 14px; font-weight: 700; font-size: 14px;
+    color: #fff; box-shadow: 0 12px 30px rgba(0,0,0,.28); white-space: nowrap; pointer-events: auto; cursor: grab;
+    user-select: none; touch-action: none; will-change: transform;
+  }
+  .card.drag { cursor: grabbing; box-shadow: 0 20px 44px rgba(0,0,0,.38); z-index: 5; }
+  .card small { display: block; font-weight: 500; font-size: 11px; opacity: .8; }
+  main { position: relative; z-index: 2; text-align: center; max-width: 440px; pointer-events: none; }
+  h1 {
+    margin: 0; font: 800 clamp(110px, 32vw, 220px)/.9 Syne, sans-serif; letter-spacing: -.04em;
+    background: linear-gradient(135deg, #7C5CFC 0%, #F472B6 45%, #F5A623 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  h2 { margin: 10px 0 6px; font-size: 22px; }
+  p { margin: 0 0 22px; color: var(--muted); line-height: 1.5; }
+  .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; pointer-events: auto; }
+  a.btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; text-decoration: none;
+    font-weight: 700; font-size: 15px; background: var(--accent); color: #fff; box-shadow: 0 10px 26px rgba(124,92,252,.35);
+  }
+  a.btn.ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: none; }
+  .hint { margin-top: 16px; font-size: 12px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" aria-hidden="true"></div>
+<main>
+  <h1>404</h1>
+  <h2 id="t-title">Bu sahifa topilmadi</h2>
+  <p id="t-desc">Havola eskirgan yoki noto'g'ri yozilgan bo'lishi mumkin. Vazifalaringiz joyida — bosh sahifaga qayting.</p>
+  <div class="btns">
+    <a class="btn" id="home" href="./">🏠 <span id="t-home">Bosh sahifaga</span></a>
+    <a class="btn ghost" id="back" href="./">← <span id="t-back">Orqaga</span></a>
+  </div>
+  <div class="hint" id="t-hint">💡 Kartalarni sudrab ko'ring</div>
+</main>
+<script>
+(function () {
+  // GitHub Pages loyiha sayti: /LevelUpDay/... — bosh sahifa shu papka
+  var seg = location.pathname.split('/').filter(Boolean);
+  var base = /github\.io$/.test(location.hostname) && seg.length ? '/' + seg[0] + '/' : '/';
+  document.getElementById('home').href = base;
+  document.getElementById('back').addEventListener('click', function (e) {
+    if (history.length > 1) { e.preventDefault(); history.back(); }
+  });
+
+  var lang = 'uz';
+  try { lang = localStorage.getItem('lang') || (navigator.language || 'uz').slice(0, 2); } catch (e) {}
+  var T = {
+    en: ['Page not found', 'The link may be outdated or mistyped. Your tasks are safe — head back home.', 'Go home', 'Back', '💡 Try dragging the cards', 'Page not found · LevelUpDay'],
+    ru: ['Страница не найдена', 'Ссылка устарела или набрана с ошибкой. Ваши задачи на месте — вернитесь на главную.', 'На главную', 'Назад', '💡 Попробуйте перетащить карточки', 'Страница не найдена · LevelUpDay']
+  }[lang];
+  if (T) {
+    ['t-title', 't-desc', 't-home', 't-back', 't-hint'].forEach(function (id, i) { document.getElementById(id).textContent = T[i]; });
+    document.title = T[5]; document.documentElement.lang = lang;
+  }
+
+  var CARDS = [
+    ['✅', 'Vazifa bajarildi', '+12 🪙', '#22c55e'], ['🔥', 'Streak', '7 kun', '#f97316'], ['🎯', 'Maqsad', '3 / 5', '#7C5CFC'],
+    ['⏱', 'Fokus', '25:00', '#0ea5e9'], ['🏆', 'Reyting', '#4', '#eab308'], ['💎', 'Olmos', '+5', '#ec4899'],
+    ['📚', "O'qish", 'IELTS', '#a78bfa'], ['🐉', 'Boss', '−40 HP', '#ef4444'], ['🎁', 'Mukofot', 'ochildi', '#14b8a6']
+  ];
+  var stage = document.getElementById('stage'), W = innerWidth, H = innerHeight, items = [];
+  var reduce = false; try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+  var n = W < 520 ? 6 : CARDS.length;
+  CARDS.slice(0, n).forEach(function (c, i) {
+    var d = document.createElement('div');
+    d.className = 'card'; d.style.background = c[3];
+    d.textContent = c[0] + ' ' + c[1];
+    var sm = document.createElement('small'); sm.textContent = c[2]; d.appendChild(sm);
+    stage.appendChild(d);
+    // markazdagi matndan chetroqda tarqatamiz
+    // kartalar yuqori va pastki chiziqlarda — o'rtadagi matnni yopmaydi
+    var top = i % 2 === 0, col = Math.floor(i / 2), cols = Math.ceil(n / 2);
+    var x0 = (col + .5) / cols * W - 70 + (Math.random() - .5) * 40;
+    var y0 = top ? H * (.06 + Math.random() * .16) : H * (.74 + Math.random() * .14);
+    var it = { el: d, x: x0, y: y0, r: (Math.random() - .5) * 26, vx: 0, vy: 0, ph: Math.random() * 6.28, drag: false };
+    it.x = Math.max(8, Math.min(W - 150, it.x)); it.y = Math.max(8, Math.min(H - 60, it.y));
+    items.push(it);
+    var sx, sy, ox, oy, lx, ly, lt;
+    d.addEventListener('pointerdown', function (e) {
+      it.drag = true; d.classList.add('drag'); d.setPointerCapture(e.pointerId);
+      sx = e.clientX; sy = e.clientY; ox = it.x; oy = it.y; lx = sx; ly = sy; lt = performance.now();
+    });
+    d.addEventListener('pointermove', function (e) {
+      if (!it.drag) return;
+      var now = performance.now(), dt = Math.max(1, now - lt);
+      it.vx = (e.clientX - lx) / dt * 16; it.vy = (e.clientY - ly) / dt * 16; lx = e.clientX; ly = e.clientY; lt = now;
+      it.x = ox + e.clientX - sx; it.y = oy + e.clientY - sy;
+    });
+    function up() { it.drag = false; d.classList.remove('drag'); }
+    d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
+  });
+  var t0 = performance.now();
+  function frame(now) {
+    var t = (now - t0) / 1000;
+    items.forEach(function (it) {
+      if (!it.drag) {
+        it.x += it.vx; it.y += it.vy; it.vx *= .92; it.vy *= .92;
+        var w = it.el.offsetWidth, h = it.el.offsetHeight;
+        if (it.x < 0 || it.x > W - w) { it.vx *= -.6; it.x = Math.max(0, Math.min(W - w, it.x)); }
+        if (it.y < 0 || it.y > H - h) { it.vy *= -.6; it.y = Math.max(0, Math.min(H - h, it.y)); }
+      }
+      var fy = reduce || it.drag ? 0 : Math.sin(t * 1.2 + it.ph) * 6;
+      var rot = it.drag ? 0 : it.r + (reduce ? 0 : Math.sin(t * .8 + it.ph) * 3);
+      it.el.style.transform = 'translate(' + it.x.toFixed(1) + 'px,' + (it.y + fy).toFixed(1) + 'px) rotate(' + rot.toFixed(1) + 'deg)';
+    });
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  addEventListener('resize', function () { W = innerWidth; H = innerHeight; });
+})();
+</script>
+</body>
+</html>

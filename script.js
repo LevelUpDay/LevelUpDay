@@ -9755,7 +9755,7 @@ function openModal(e) {
   document.getElementById('m-strict-schedule').checked = false;
   selDiff(1); selRepeat('daily');
   tmFillLabels();
-  ensureTaskCats(); mCat = (function () { var f = taskCatFilter(); return (f !== 'all' && f !== 'none') ? f : ''; })(); tmRenderCats();
+  ensureTaskCats(); mCat = (function () { var f = taskCatFilter(); return (f !== 'all' && f !== 'none') ? f : ''; })(); mCats = mCat ? [mCat] : []; tmRenderCats();
   document.getElementById('modal-title').textContent = t('task_modal_title_new');
   document.getElementById('modal-save-btn').textContent = t('btn_save_disk');
   document.getElementById('modal-overlay').classList.add('open');
@@ -9786,7 +9786,7 @@ function editTask(id) {
   tmFillLabels();
   selRepeat(mRepeat);
   selLabel(mLabel);
-  mCat = (tk.cat && taskCatById(tk.cat)) ? tk.cat : ''; tmRenderCats();
+  mCats = taskCatIds(tk); mCat = mCats[0] || ''; tmRenderCats();
   // custom-days tugmalarini belgilash
   document.querySelectorAll('.day-btn').forEach(function(el){
     el.classList.toggle('sel', mDays.includes(parseInt(el.dataset.d)));
@@ -10019,7 +10019,7 @@ function saveTask() {
       if (!!tk.autoPomo !== autoPomo && S.pomoAutoSent) delete S.pomoAutoSent[tk.id];
       tk.autoPomo = autoPomo;
       tk.emoji = mEmoji || null;
-      tk.cat = (mCat && taskCatById(mCat)) ? mCat : null;
+      taskSetCats(tk, mCats);
       try { refreshStalePenaltyAmts(S.taskDayFlags && S.taskDayFlags[tk.id], tk); } catch (e) {}
     }
     _editingTaskId = null;
@@ -10051,7 +10051,8 @@ function saveTask() {
     label: mLabel || null,
     note: document.getElementById('m-note').value.trim() || null,
     emoji: mEmoji || null,
-    cat: (mCat && taskCatById(mCat)) ? mCat : null,
+    cat: mCats[0] && taskCatById(mCats[0]) ? mCats[0] : null,
+    cats: (function () { var a = mCats.filter(function (id) { return !!taskCatById(id); }); return a.length > 1 ? a : undefined; })(),
     isFrozen: false, frozenAt: null,
     subtasks: [],
   };
@@ -13672,7 +13673,7 @@ function makeTaskEl(t, future) {
         <div class="task-name">${t.pinned ? '<span class="tk-pin" title="' + esc(tr('task_pinned_badge')) + '">📌</span>' : ''}${t.fromParentName ? `<span class="task-parent-badge">${esc(t.fromParentName)} ›</span> ` : ''}${t.emoji ? `<span class="tk-emoji">${t.emoji}</span>` : ''}${esc(t.name)}</div>
         ${t.note ? `<div class="task-note task-note-collapsed" id="note-${t.id}">📝 ${esc(t.note)}</div><button class="task-note-toggle" onclick="event.stopPropagation();toggleNote(${t.id},this)">${tr('note_more_btn')}</button>` : ''}
         <div class="tk-meta">
-          ${(function () { var _c = taskCatOf(t); return _c ? `<span class="tk-chip tk-chip-cat" style="--tc:${esc(_c.color || '#7C5CFC')}">${esc(taskCatLabel(_c))}</span>` : ''; })()}${tbChip}${tbDur}${window.xTaskChips ? window.xTaskChips(t, future) : ''}${(t.done && t.startTime && !future && getTaskDayFlag(t.id, today()).onTimeGiven) ? `<span class="tk-chip tk-chip-ontime">⏱ ${_cl("O'z vaqtida", 'On time', 'Вовремя')} +${TB_ONTIME_BONUS}🪙</span>` : ''}${(t.autoPomo && t.startTime && !t.done) ? `<span class="tk-chip tk-chip-info" title="${_cl("Boshlanganda Pomodoro avtomatik yoqiladi", "Pomodoro auto-starts at the start time", "Pomodoro запустится автоматически")}">🍅 ${_cl('Avto', 'Auto', 'Авто')}</span>` : ''}
+          ${taskCatsOf(t).map(function (_c) { return `<span class="tk-chip tk-chip-cat" style="--tc:${esc(_c.color || '#7C5CFC')}">${esc(taskCatLabel(_c))}</span>`; }).join('')}${tbChip}${tbDur}${window.xTaskChips ? window.xTaskChips(t, future) : ''}${(t.done && t.startTime && !future && getTaskDayFlag(t.id, today()).onTimeGiven) ? `<span class="tk-chip tk-chip-ontime">⏱ ${_cl("O'z vaqtida", 'On time', 'Вовремя')} +${TB_ONTIME_BONUS}🪙</span>` : ''}${(t.autoPomo && t.startTime && !t.done) ? `<span class="tk-chip tk-chip-info" title="${_cl("Boshlanganda Pomodoro avtomatik yoqiladi", "Pomodoro auto-starts at the start time", "Pomodoro запустится автоматически")}">🍅 ${_cl('Avto', 'Auto', 'Авто')}</span>` : ''}
           ${t.skipped && !t.done ? `<span class="tk-chip tk-chip-skip">⏭ ${_cl("O'tkazildi", 'Skipped', 'Пропущено')}</span>` : ''}
           ${subTextF ? `<span class="tk-chip ${subOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${subOverdue ? '⏰ ' : ''}${subTextF}</span>` : ''}
           ${dueLineF ? `<span class="tk-chip ${dueOverdue ? 'tk-chip-over' : 'tk-chip-info'}">${dueOverdue ? '' : '📅 '}${dueLineF}</span>` : ''}
@@ -15114,12 +15115,15 @@ function daysBadge(days) {
 // =========================================================
 // 🗂 VAZIFA BO'LIMLARI (kategoriyalar): 💼 Ish, 📚 O'qish, 🏠 Shaxsiy ...
 //   S.taskCats = [{id, name, emoji, color}] — app_state orqali bulutga ketadi
-//   t.cat = bo'lim id (yoki null — bo'limsiz) — todos.task_data bilan ketadi
+//   t.cats = [id...] — vazifaning BARCHA bo'limlari (bir nechta bo'lishi mumkin)
+//   t.cat = birinchi (asosiy) bo'lim id yoki null — eski versiyalar/qurilmalar bilan moslik uchun
+//   (todos.task_data bilan ketadi)
 //   S.taskCatFilter = 'all' | 'none' | <id> — vazifalar sahifasidagi filtr
 // =========================================================
 var TASK_CAT_MAX = 12;
 var TASK_CAT_COLORS = ['#60A5FA', '#A78BFA', '#34D399', '#F59E0B', '#F87171', '#F472B6', '#22D3EE', '#A3E635'];
-var mCat = '';
+var mCat = '';      // asosiy (birinchi) tanlangan bo'lim — eski kod uchun
+var mCats = [];     // modalda tanlangan barcha bo'limlar
 var _tcLongPressed = false;
 function ensureTaskCats() {
   if (!Array.isArray(S.taskCats)) {
@@ -15138,7 +15142,25 @@ function taskCatById(id) {
   for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
   return null;
 }
-function taskCatOf(t) { return t ? taskCatById(t.cat) : null; }
+function taskCatIds(t) {
+  if (!t) return [];
+  var raw = Array.isArray(t.cats) ? t.cats : (t.cat ? [t.cat] : []);
+  var out = [];
+  raw.forEach(function (id) { if (id && out.indexOf(id) === -1 && taskCatById(id)) out.push(id); });
+  // Eski qurilma faqat t.cat ni o'zgartirgan bo'lsa — u ham ro'yxatda bo'lsin
+  if (t.cat && out.indexOf(t.cat) === -1 && taskCatById(t.cat)) out.unshift(t.cat);
+  return out;
+}
+function taskCatsOf(t) { return taskCatIds(t).map(taskCatById); }
+function taskCatOf(t) { var ids = taskCatIds(t); return ids.length ? taskCatById(ids[0]) : null; }
+// Vazifaga bo'limlar ro'yxatini yozadi (t.cat — birinchisi)
+function taskSetCats(t, ids) {
+  var clean = [];
+  (ids || []).forEach(function (id) { if (id && clean.indexOf(id) === -1 && taskCatById(id)) clean.push(id); });
+  t.cats = clean.length ? clean : null;
+  if (!t.cats) delete t.cats;
+  t.cat = clean.length ? clean[0] : null;
+}
 function taskCatFilter() {
   var f = S.taskCatFilter || 'all';
   if (f !== 'all' && f !== 'none' && !taskCatById(f)) f = 'all';
@@ -15146,8 +15168,8 @@ function taskCatFilter() {
 }
 function taskCatMatches(t, f) {
   if (!f || f === 'all') return true;
-  var c = taskCatOf(t);
-  return f === 'none' ? !c : !!(c && c.id === f);
+  var ids = taskCatIds(t);
+  return f === 'none' ? !ids.length : ids.indexOf(f) !== -1;
 }
 function _tcSplitEmoji(raw) {
   var s = String(raw || '').trim(), emoji = '';
@@ -15178,15 +15200,25 @@ function tmRenderCats() {
   var box = document.getElementById('m-cat-opts'); if (!box) return;
   var lb = document.getElementById('m-cat-label'); if (lb) lb.textContent = _cl("Bo'lim", 'Category', 'Раздел');
   ensureTaskCats();
-  if (mCat && !taskCatById(mCat)) mCat = '';
-  var h = '<button type="button" class="tc-opt' + (!mCat ? ' sel' : '') + '" onclick="tmSelCat(\'\')">' + _cl("Yo'q", 'None', 'Нет') + '</button>';
+  mCats = (mCats || []).filter(function (id) { return !!taskCatById(id); });
+  if (mCat && taskCatById(mCat) && mCats.indexOf(mCat) === -1) mCats.unshift(mCat);
+  mCat = mCats[0] || '';
+  if (lb) lb.innerHTML = esc(_cl("Bo'limlar", 'Categories', 'Разделы')) + ' <small style="opacity:.6;font-weight:500">· ' + esc(_cl("bir nechtasini tanlash mumkin", 'pick one or more', 'можно несколько')) + '</small>';
+  var h = '<button type="button" class="tc-opt' + (!mCats.length ? ' sel' : '') + '" aria-pressed="' + (!mCats.length) + '" onclick="tmSelCat(\'\')">' + _cl("Yo'q", 'None', 'Нет') + '</button>';
   S.taskCats.forEach(function (c) {
-    h += '<button type="button" class="tc-opt' + (mCat === c.id ? ' sel' : '') + '" data-cat="' + esc(c.id) + '" style="--tc:' + esc(c.color || '#7C5CFC') + '" onclick="tmSelCat(\'' + esc(c.id) + '\')">' + esc(taskCatLabel(c)) + '</button>';
+    var on = mCats.indexOf(c.id) !== -1;
+    h += '<button type="button" class="tc-opt' + (on ? ' sel' : '') + '" aria-pressed="' + on + '" data-cat="' + esc(c.id) + '" style="--tc:' + esc(c.color || '#7C5CFC') + '" onclick="tmSelCat(\'' + esc(c.id) + '\')">' + (on ? '✓ ' : '') + esc(taskCatLabel(c)) + '</button>';
   });
   if (S.taskCats.length < TASK_CAT_MAX) h += '<button type="button" class="tc-opt tc-add" onclick="tmAddCatInline()" title="' + _cl("Yangi bo'lim", 'New category', 'Новый раздел') + '" aria-label="' + _cl("Yangi bo'lim", 'New category', 'Новый раздел') + '">＋</button>';
   box.innerHTML = h;
 }
-function tmSelCat(id) { mCat = id || ''; tmRenderCats(); }
+// Bo'lim tugmasi — yoqib/o'chiradi (bir nechtasi tanlanishi mumkin); "Yo'q" — hammasini tozalaydi
+function tmSelCat(id) {
+  if (!id) mCats = [];
+  else { var i = mCats.indexOf(id); if (i === -1) mCats.push(id); else mCats.splice(i, 1); }
+  mCat = mCats[0] || '';
+  tmRenderCats();
+}
 function tmAddCatInline() {
   var box = document.getElementById('m-cat-opts'); if (!box) return;
   var add = box.querySelector('.tc-add'); if (!add) return;
@@ -15198,7 +15230,7 @@ function tmAddCatInline() {
   var done = function (ok) {
     if (wrap._done) return; wrap._done = true;
     var v = inp.value.trim();
-    if (ok && v) { var c = taskCatCreate(v); if (c) { mCat = c.id; save(); } }
+    if (ok && v) { var c = taskCatCreate(v); if (c) { if (mCats.indexOf(c.id) === -1) mCats.push(c.id); mCat = mCats[0]; save(); } }
     tmRenderCats();
   };
   inp.addEventListener('keydown', function (e) {
@@ -15226,7 +15258,7 @@ function renderTaskCatBar(pool, shownCount) {
   bar.style.display = '';
   var f = taskCatFilter();
   var cnt = { all: pool.length, none: 0 };
-  pool.forEach(function (t) { var c = taskCatOf(t); if (c) cnt[c.id] = (cnt[c.id] || 0) + 1; else cnt.none++; });
+  pool.forEach(function (t) { var ids = taskCatIds(t); if (!ids.length) cnt.none++; ids.forEach(function (id) { cnt[id] = (cnt[id] || 0) + 1; }); });
   var chip = function (key, label, n, color) {
     return '<button type="button" class="tc-chip' + (f === key ? ' on' : '') + '" data-f="' + esc(key) + '"' + (color ? ' style="--tc:' + esc(color) + '"' : '') +
       ' onclick="setTaskCatFilter(\'' + esc(key) + '\')">' + label + ' <span class="tc-n">' + n + '</span></button>';
@@ -15292,7 +15324,7 @@ function openTaskCatManager() {
   document.addEventListener('keydown', onKey, true);
   ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
   ov.querySelector('.tc-x').onclick = close;
-  var countOf = function (id) { return S.tasks.filter(function (t) { return t.cat === id; }).length; };
+  var countOf = function (id) { return S.tasks.filter(function (t) { return taskCatIds(t).indexOf(id) !== -1; }).length; };
   var draw = function () {
     var rows = ov.querySelector('.tc-rows');
     rows.innerHTML = S.taskCats.length ? S.taskCats.map(function (c, i) {
@@ -15316,8 +15348,9 @@ function openTaskCatManager() {
         var msg = _cl('«' + c.name + "» bo'limi o'chirilsinmi?", 'Delete the «' + c.name + '» category?', 'Удалить раздел «' + c.name + '»?') +
           (n ? '\n' + _cl(n + " ta vazifa bo'limsiz qoladi (o'zi o'chmaydi).", n + ' task(s) will become uncategorized (not deleted).', 'Задач без раздела станет: ' + n + ' (сами задачи не удаляются).') : '');
         if (!confirm(msg)) return;
-        S.tasks.forEach(function (t) { if (t.cat === c.id) t.cat = null; });
+        S.tasks.forEach(function (t) { var ids = taskCatIds(t); if (ids.indexOf(c.id) !== -1) taskSetCats(t, ids.filter(function (x) { return x !== c.id; })); });
         S.taskCats = S.taskCats.filter(function (x) { return x.id !== c.id; });
+        mCats = mCats.filter(function (x) { return x !== c.id; });
         if (S.taskCatFilter === c.id) S.taskCatFilter = 'all';
         if (mCat === c.id) mCat = '';
         save(); render(); draw();
@@ -20575,6 +20608,8 @@ function renderStats() {
   var wcEl = document.getElementById('stats-week-coins');
   if(wdEl) wdEl.textContent = weekDone;
   if(wcEl) wcEl.textContent = weekCoins + ' 🪙';
+  // 📈 Stats 14 — sparkline + delta kartalari (blocks.js)
+  try { if (window.LUBlocks) LUBlocks.renderStatCards(); } catch (e) {}
 
   // Bar chart — endi tanlangan davrga (_statsChartRange: hafta/30 kun/
   // barchasi) qarab quriladi, doim joriy haftaning 7 kuni bilan cheklanmaydi.
@@ -24392,7 +24427,7 @@ function openTaskSheet(id, future, anchor) {
   const cat = taskCatOf(t);
   const titleHtml = (t.label ? '<span class="as-title-dot" style="background:' + esc(t.label) + '"></span>' : '') + (t.emoji ? esc(t.emoji) + ' ' : '') + esc(t.name);
   const badgesHtml = `<span class="badge ${rl.cls}">${rl.text}</span>${diffBadge(taskDiffOrDefault(t))}<span class="badge badge-coins">+${taskCoinValue(t)}🪙</span>` +
-    (cat ? `<span class="tk-chip tk-chip-cat" style="--tc:${esc(cat.color || '#7C5CFC')}">${esc(taskCatLabel(cat))}</span>` : '');
+    taskCatsOf(t).map(function (c) { return `<span class="tk-chip tk-chip-cat" style="--tc:${esc(c.color || '#7C5CFC')}">${esc(taskCatLabel(c))}</span>`; }).join('');
   const C = function (js) { return 'closeTaskSheet();' + js; };
   const tiles = [];
   let note = '';
@@ -24420,7 +24455,7 @@ function openTaskSheet(id, future, anchor) {
   ];
   const org = [
     subInTiles ? '' : _asItem({ ic: '➕', label: _cl("Sub-task qo'shish", 'Add subtask', 'Добавить подзадачу'), on: C(`openSubtaskModal(${id})`) }),
-    _asItem({ ic: '🗂', label: _cl("Bo'lim", 'Category', 'Раздел'), hint: cat ? esc(taskCatLabel(cat)) : '', chev: true, on: `tmPick('cat',${id})` }),
+    _asItem({ ic: '🗂', label: _cl("Bo'limlar", 'Categories', 'Разделы'), hint: esc(taskCatsOf(t).map(taskCatLabel).join(', ')), chev: true, on: `tmPick('cat',${id})` }),
     _asItem({ ic: '⭐', label: _cl('Qiyinlik', 'Difficulty', 'Сложность'), hint: esc(taskTierName(taskDiffOrDefault(t))), chev: true, on: `tmPick('diff',${id})` }),
     _asItem({ ic: '🎨', label: _cl('Rang belgisi', 'Colour label', 'Цветная метка'), hint: t.label ? '<span class="as-dot" style="background:' + esc(t.label) + '"></span>' : '', chev: true, on: `tmPick('label',${id})` }),
     _asItem({ ic: '⧉', label: _cl('Nusxa olish', 'Duplicate', 'Дублировать'), on: `tmDuplicate(${id})` }),
@@ -24473,12 +24508,14 @@ function tmPick(kind, target) {
   var title = '', body = '';
   if (kind === 'cat') {
     ensureTaskCats();
-    var cur = _tmCommon(target, 'cat');
-    title = '🗂 ' + _cl("Bo'limga ko'chirish", 'Move to category', 'Переместить в раздел');
+    // Har bir bo'lim — hammasida bor bo'lsa "sel"; bosilganda qo'shiladi/olib tashlanadi
+    var allHave = function (id) { return ts.length && ts.every(function (x) { return taskCatIds(x).indexOf(id) !== -1; }); };
+    var noneHave = ts.every(function (x) { return !taskCatIds(x).length; });
+    title = '🗂 ' + _cl("Bo'limlar (bir nechtasini tanlang)", 'Categories (pick several)', 'Разделы (можно несколько)');
     body = '<div class="as-chips" role="group">' +
-      '<button type="button" class="as-chip' + (cur === null ? ' sel' : '') + '" data-as-item onclick="tmSetCat(' + T + ',\'\')">' + esc(_cl("Bo'limsiz", 'No category', 'Без раздела')) + '</button>' +
+      '<button type="button" class="as-chip' + (noneHave ? ' sel' : '') + '" data-as-item onclick="tmSetCat(' + T + ',\'\')">' + esc(_cl("Bo'limsiz", 'No category', 'Без раздела')) + '</button>' +
       S.taskCats.map(function (c) {
-        return '<button type="button" class="as-chip' + (cur === c.id ? ' sel' : '') + '" data-as-item style="--tc:' + esc(c.color || '#7C5CFC') + '" onclick="tmSetCat(' + T + ',\'' + esc(String(c.id).replace(/[^a-z0-9_-]/gi, '')) + '\')"><span class="as-dot" style="background:' + esc(c.color || '#7C5CFC') + '"></span>' + esc(taskCatLabel(c)) + '</button>';
+        return '<button type="button" class="as-chip' + (allHave(c.id) ? ' sel' : '') + '" aria-pressed="' + allHave(c.id) + '" data-as-item style="--tc:' + esc(c.color || '#7C5CFC') + '" onclick="tmSetCat(' + T + ',\'' + esc(String(c.id).replace(/[^a-z0-9_-]/gi, '')) + '\')"><span class="as-dot" style="background:' + esc(c.color || '#7C5CFC') + '"></span>' + esc(taskCatLabel(c)) + '</button>';
       }).join('') +
       (S.taskCats.length < TASK_CAT_MAX ? '<button type="button" class="as-chip as-chip-add" data-as-item onclick="tmNewCat(' + T + ')">＋ ' + esc(_cl("Yangi bo'lim", 'New category', 'Новый раздел')) + '</button>' : '') +
       '</div>';
@@ -24529,8 +24566,22 @@ function tmPick(kind, target) {
 function tmSetCat(target, catId) {
   var ts = _tmTasks(target);
   var c = catId ? taskCatById(catId) : null;
-  ts.forEach(function (tk) { tk.cat = c ? c.id : null; });
-  _tmFinish(target, '🗂 ' + (c ? taskCatLabel(c) : _cl("Bo'limsiz", 'No category', 'Без раздела')) + _tmCountSuffix(target, ts.length));
+  if (!c) {
+    ts.forEach(function (tk) { taskSetCats(tk, []); });
+    _tmFinish(target, '🗂 ' + _cl("Bo'limsiz", 'No category', 'Без раздела') + _tmCountSuffix(target, ts.length));
+    return;
+  }
+  // Hammasida bor bo'lsa — olib tashlanadi, aks holda hammasiga qo'shiladi
+  var all = ts.every(function (tk) { return taskCatIds(tk).indexOf(c.id) !== -1; });
+  ts.forEach(function (tk) {
+    var ids = taskCatIds(tk);
+    taskSetCats(tk, all ? ids.filter(function (x) { return x !== c.id; }) : ids.concat([c.id]));
+  });
+  save(); render();
+  if (target === 'bulk') { _bulkPrune(); updateBulkBar(); }
+  toast('🗂 ' + (all ? '− ' : '+ ') + taskCatLabel(c) + _tmCountSuffix(target, ts.length));
+  // Oyna ochiq qoladi — yana bo'lim tanlash mumkin
+  try { tmPick('cat', target); } catch (e) {}
 }
 function tmNewCat(target) {
   showPromptModal('🗂 ' + _cl("Yangi bo'lim nomi", 'New category name', 'Название раздела'), '', function (val) {
@@ -26518,15 +26569,25 @@ var wsSubmitRegister = async function() {
     }
     // 📧 Email tasdiqlash yoqilgan: sessiya hali yo'q — avval emaildagi havolani bosish kerak
     if (!res.data.session) {
-      toast('📧 ' + _cl('Emailingizga tasdiqlash xati yuborildi. Xatdagi havolani bosing, keyin shu yerda "Kirish" orqali kiring.',
-        'We sent a confirmation email. Click the link in it, then sign in here.',
-        'Мы отправили письмо для подтверждения. Перейдите по ссылке, затем войдите здесь.'));
-      try { wsState.authMode = 'login'; wsState.loginEmail = emailVal; wsRenderStep(); } catch (e) {}
+      // 🔢 Auth 6: emaildagi 6 xonali kod bilan tasdiqlash (havola ham ishlayveradi)
+      toast('📧 ' + _cl('Emailingizga tasdiqlash kodi yuborildi', 'We sent a confirmation code to your email', 'Мы отправили код подтверждения на email'));
+      try { wsState.authMode = 'verify'; wsState.verifyEmail = emailVal; wsState.verifyName = nameVal; wsState.loginEmail = emailVal; wsRenderStep(); } catch (e) {}
       return;
     }
-    if (_cloudAccountSwitchReset(res.data.user && res.data.user.id)) return;
+    wsCompleteRegistration(res.data.user, emailVal, nameVal);
+  } catch (e) {
+    toast('⚠️ ' + (e && e.message ? e.message : String(e)));
+  } finally {
+    wsSetAuthBusy('ws-reg-submit-btn', false);
+  }
+};
+
+// Ro'yxatdan o'tish yakuni (sessiya bor): signUp yoki 6 xonali kod tasdiqlangandan keyin
+var wsCompleteRegistration = function(user, emailVal, nameVal) {
+  {
+    if (_cloudAccountSwitchReset(user && user.id)) return;
     S.cloudLinked = true;
-    S.cloudUserId = res.data.user ? res.data.user.id : null;
+    S.cloudUserId = user ? user.id : null;
     S.cloudEmail = emailVal;
     S.lastCloudUserId = S.cloudUserId;
     window._cloudPullDone = true; // yangi akkaunt: bulutda hali hech narsa yo'q, mahalliy holat yoziladi
@@ -26540,11 +26601,40 @@ var wsSubmitRegister = async function() {
     // uchun syncTasksToLocalStorage() ularni navbatga qo'yadi).
     try { syncTasksToLocalStorage(); scheduleTodosCloudSync(true); } catch (e) {}
     try { scheduleAppStateSync(true); } catch (e) {}
+  }
+};
+
+// 🔢 6 xonali kodni tekshirish (Supabase: verifyOtp, type 'signup'). true/false qaytaradi
+var wsVerifyCode = async function(code) {
+  var emailVal = wsState.verifyEmail || '';
+  if (!emailVal || !/^\d{6}$/.test(code)) return false;
+  try {
+    var r = await supabase.auth.verifyOtp({ email: emailVal, token: code, type: 'signup' });
+    if (r.error) r = await supabase.auth.verifyOtp({ email: emailVal, token: code, type: 'email' });
+    if (r.error || !r.data || !r.data.session) {
+      toast('⚠️ ' + _cl("Kod noto'g'ri yoki muddati o'tgan", 'Invalid or expired code', 'Неверный или просроченный код'));
+      return false;
+    }
+    setTimeout(function () { wsCompleteRegistration(r.data.user, emailVal, wsState.verifyName || ''); }, 650);
+    return true;
   } catch (e) {
     toast('⚠️ ' + (e && e.message ? e.message : String(e)));
-  } finally {
-    wsSetAuthBusy('ws-reg-submit-btn', false);
+    return false;
   }
+};
+var wsResendCode = async function() {
+  var emailVal = wsState.verifyEmail || '';
+  if (!emailVal) return;
+  var now = Date.now();
+  if (wsState._resendAt && now - wsState._resendAt < 30000) {
+    toast('⏳ ' + _cl('Biroz kuting — ' + Math.ceil((30000 - (now - wsState._resendAt)) / 1000) + ' soniya', 'Please wait ' + Math.ceil((30000 - (now - wsState._resendAt)) / 1000) + 's', 'Подождите ' + Math.ceil((30000 - (now - wsState._resendAt)) / 1000) + ' с'));
+    return;
+  }
+  wsState._resendAt = now;
+  try {
+    var r = await supabase.auth.resend({ type: 'signup', email: emailVal, options: { emailRedirectTo: location.origin + location.pathname } });
+    toast(r.error ? '⚠️ ' + r.error.message : '📧 ' + _cl('Kod qayta yuborildi', 'Code sent again', 'Код отправлен снова'));
+  } catch (e) { toast('⚠️ ' + (e && e.message ? e.message : String(e))); }
 };
 
 var wsSubmitLogin = async function() {
@@ -27198,6 +27288,7 @@ function wsRenderStep() {
   } else if (wsState.step === 2) {
     if (!wsState.authMode) {
       html +=
+        (window.LUBlocks && LUBlocks.orbitHtml ? LUBlocks.orbitHtml() : '') +
         '<div style="' + titleStyle + '">' + (wsState.miniMode ? t('ws_account_link_title') : t('ws_step_auth_title')) + '</div>' +
         '<div style="' + descStyle + '">' + (wsState.miniMode ? t('ws_account_link_desc') : t('ws_step_auth_desc')) + '</div>' +
         '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">' +
@@ -27207,6 +27298,7 @@ function wsRenderStep() {
           ) +
           '<button type="button" id="ws-mode-register" style="padding:12px;border-radius:var(--radius-md);border:none;background:var(--accent);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('ws_auth_register_btn') + '</button>' +
           '<button type="button" id="ws-mode-login" style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--border-hover);background:var(--surface2);color:var(--text);font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('ws_auth_login_btn') + '</button>' +
+          wsTelegramBtnHtml() +
         '</div>' +
         '<div class="onboarding-tt-actions" style="margin-top:16px">' +
           '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn" style="flex:1">' + t(wsState.miniMode ? 'btn_cancel' : 'guide_back_btn') + '</button>' +
@@ -27216,6 +27308,7 @@ function wsRenderStep() {
         '<div style="' + titleStyle + '">' + t('ws_reg_title') + '</div>' +
         '<div style="' + descStyle + '">' + t('ws_reg_desc') + '</div>' +
         '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-bottom:10px">' + t('ws_reg_google_btn') + '</button>' +
+        wsTelegramBtnHtml('margin:-2px 0 10px') +
         '<input id="ws-reg-name-input" type="text" maxlength="' + USERNAME_MAX_LEN + '" placeholder="' + t('ws_reg_name_ph') + '" value="' + esc(wsState.regName) + '" style="' + fieldStyle + '" />' +
         '<input id="ws-reg-email-input" type="email" placeholder="' + t('ws_reg_email_ph') + '" value="' + esc(wsState.regEmail || '') + '" style="' + fieldStyle + '" />' +
         '<input id="ws-reg-pass-input" type="password" placeholder="' + t('ws_reg_pass_ph') + '" value="' + esc(wsState.regPass || '') + '" style="' + fieldStyle + '" />' +
@@ -27228,12 +27321,26 @@ function wsRenderStep() {
         '<div style="' + titleStyle + '">' + t('ws_login_title') + '</div>' +
         '<div style="' + descStyle + '">' + t('ws_login_desc_simple') + '</div>' +
         '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-bottom:10px">' + t('ws_login_google_btn') + '</button>' +
+        wsTelegramBtnHtml('margin:-2px 0 10px') +
         '<input id="ws-login-email-input" type="email" placeholder="' + t('ws_login_email_ph') + '" value="' + esc(wsState.loginEmail || '') + '" style="' + fieldStyle + '" />' +
         '<input id="ws-login-pass-input" type="password" placeholder="' + t('ws_login_pass_ph') + '" value="' + esc(wsState.loginPass || '') + '" style="' + fieldStyle + '" />' +
         '<div id="ws-forgot-link" style="text-align:right;font-size:12px;opacity:.75;cursor:pointer;margin-top:-4px;text-decoration:underline">' + _cl('Parolni unutdingizmi?', 'Forgot password?', 'Забыли пароль?') + '</div>' +
         '<div class="onboarding-tt-actions" style="margin-top:16px">' +
           '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn">' + t('guide_back_btn') + '</button>' +
           '<button class="onboarding-btn onboarding-btn-primary" id="ws-login-submit-btn">' + t('ws_login_submit_btn') + '</button>' +
+        '</div>';
+    } else if (wsState.authMode === 'verify') {
+      // 🔢 Auth 6 — olti xonali kod
+      html +=
+        '<div class="lub-vf-ic" aria-hidden="true">📬</div>' +
+        '<div style="' + titleStyle + ';text-align:center">' + _cl('Emailingizni tasdiqlang', 'Verify your email', 'Подтвердите email') + '</div>' +
+        '<div style="' + descStyle + ';text-align:center"><b style="color:var(--text)">' + esc(wsState.verifyEmail || '') + '</b> ' +
+          _cl("manziliga 6 xonali kod yubordik. Kodni kiriting yoki xatdagi havolani bosing.", '— we sent a 6-digit code. Enter it, or tap the link in the email.', '— мы отправили 6-значный код. Введите его или перейдите по ссылке из письма.') + '</div>' +
+        '<div id="ws-code-host" class="lub-vf-host"></div>' +
+        '<div class="lub-vf-links"><button type="button" id="ws-resend-btn" class="lub-link">' + _cl('Kodni qayta yuborish', 'Resend code', 'Отправить код ещё раз') + '</button>' +
+          '<button type="button" id="ws-verify-login-btn" class="lub-link">' + _cl('Havolani bosdim — kirish', 'I used the link — sign in', 'Я перешёл по ссылке — войти') + '</button></div>' +
+        '<div class="onboarding-tt-actions" style="margin-top:14px">' +
+          '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn" style="flex:1">' + t('guide_back_btn') + '</button>' +
         '</div>';
     }
   }
@@ -27305,6 +27412,28 @@ function wsAttachHandlers() {
   };
   var forgotLink = document.getElementById('ws-forgot-link');
   if (forgotLink) forgotLink.onclick = function () { cloudForgotPassword(); };
+
+  // 🔢 Kod tasdiqlash ekrani
+  var codeHost = document.getElementById('ws-code-host');
+  if (codeHost && window.UIKit && UIKit.codeSlots) {
+    UIKit.codeSlots(codeHost, { length: 6, autoFocus: true, slotSize: 44, gap: 7, label: _cl('6 xonali kod', '6-digit code', '6-значный код'),
+      onComplete: function (code) { return wsVerifyCode(code); } });
+  }
+  var resendBtn = document.getElementById('ws-resend-btn');
+  if (resendBtn) resendBtn.onclick = function () { wsResendCode(); };
+  var vLoginBtn = document.getElementById('ws-verify-login-btn');
+  if (vLoginBtn) vLoginBtn.onclick = function () { wsState.authMode = 'login'; wsRenderStep(); };
+  // ✈️ Telegram — hozircha faol emas
+  document.querySelectorAll('.lub-tg-btn').forEach(function (b) {
+    b.onclick = function () { toast('✈️ ' + _cl('Telegram orqali kirish tez kunda qo\'shiladi', 'Telegram sign-in is coming soon', 'Вход через Telegram скоро появится')); };
+  });
+}
+
+// ✈️ Telegram orqali kirish tugmasi (keyinroq faollashtiriladi)
+function wsTelegramBtnHtml(extraStyle) {
+  return '<button type="button" class="onboarding-btn onboarding-btn-ghost lub-tg-btn" aria-disabled="true" style="width:100%;' + (extraStyle || '') + '">' +
+    '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><path fill="#29B6F6" d="M21.9 4.3 18.7 19.4c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.1 13 1.2 11.5c-1.1-.3-1.1-1.1.2-1.6L20.6 2.6c.9-.3 1.7.2 1.3 1.7z"/></svg>' +
+    _cl('Telegram orqali', 'Continue with Telegram', 'Через Telegram') + ' <span class="lub-soon">' + _cl('tez kunda', 'soon', 'скоро') + '</span></button>';
 }
 
 function wsNext() {
@@ -27317,6 +27446,7 @@ function wsBack() {
   // Yakuniy qadamda avval "Register/Login" tanlovi tanlangan bo'lsa,
   // Orqaga tugmasi avval o'sha tanlov ekraniga qaytaradi, keyin qadamlar bo'ylab.
   if (wsState.step === 2 && wsState.authMode) {
+    if (wsState.authMode === 'verify') { wsState.authMode = 'register'; wsRenderStep(); return; }
     wsState.authMode = null;
     wsRenderStep();
     return;
