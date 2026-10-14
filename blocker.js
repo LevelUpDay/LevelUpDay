@@ -34,6 +34,13 @@
     { id: 'tt', n: 'TikTok', ic: '♪', c: '#25F4EE', open: false, opts: [['all', ["Butunlay bloklash", 'Block completely', 'Блокировать полностью'], false]] }
   ];
   var SETTINGS = { track: true, sites: true, notif: true, strict: false, pin: false, reward: true };
+  // Sozlamalar ilova holatida (S.focusgate.settings) saqlanadi — akkaunt bilan sinxronlanadi
+  function loadSettings() {
+    try { var x = (typeof S !== 'undefined' && S && S.focusgate && S.focusgate.settings) || null; if (x) Object.keys(SETTINGS).forEach(function (k) { if (typeof x[k] === 'boolean') SETTINGS[k] = x[k]; }); } catch (e) {}
+  }
+  function saveSettings() {
+    try { if (typeof S === 'undefined' || !S) return; if (!S.focusgate || typeof S.focusgate !== 'object') S.focusgate = {}; S.focusgate.settings = Object.assign({}, SETTINGS); if (typeof save === 'function') save(); } catch (e) {}
+  }
   var UI = { tab: 'today', day: 0, cat: 'all', kind: 'all', chart: 'bar', setupOpen: false, limTab: 'limits', focusMin: 25 };
 
   function app(id) { for (var i = 0; i < APPS.length; i++) if (APPS[i].id === id) return APPS[i]; return null; }
@@ -155,7 +162,7 @@
   }
 
   // ---------- ⚙️ Sozlamalar ----------
-  function pageSettings() {
+  function settingsRows() {
     var rows = [
       ['track', '👁', ['Foydalanish vaqtini kuzatish', 'Track usage time', 'Отслеживать время'], ['Dastur va saytlarda o\'tkazilgan vaqt hisoblanadi', 'Counts time spent in apps and sites', 'Считает время в приложениях и на сайтах']],
       ['sites', '🌐', ['Saytlarni ham kuzatish', 'Track websites too', 'Отслеживать сайты'], ['Brauzer kengaytmasi kerak bo\'ladi', 'Requires the browser extension', 'Нужно расширение браузера']],
@@ -164,13 +171,58 @@
       ['strict', '🔐', ['Qat\'iy rejim', 'Strict mode', 'Строгий режим'], ['Fokus paytida limitlarni o\'chirib bo\'lmaydi', 'Limits can\'t be turned off during focus', 'Во время фокуса лимиты не отключить']],
       ['pin', '🔢', ['PIN bilan himoya', 'PIN protection', 'Защита PIN-кодом'], ['Sozlamalarni o\'zgartirish uchun PIN so\'raladi', 'PIN required to change settings', 'PIN для изменения настроек']]
     ];
-    var h = '<div class="fg-card fg-set">' + rows.map(function (r) {
+    return rows.map(function (r) {
       return '<div class="fg-opt"><span class="fg-set-ic">' + r[1] + '</span><span class="fg-set-t"><b>' + E(T(r[2])) + '</b><small>' + E(T(r[3])) + '</small></span>' + sw(SETTINGS[r[0]], 'data-fg-set="' + r[0] + '"') + '</div>';
-    }).join('') + '</div>';
-    h += '<div class="fg-get">' +
+    }).join('');
+  }
+  function getCards() {
+    return '<div class="fg-get">' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🪟</span><b>' + E(L('Windows uchun Focusgate', 'Focusgate for Windows', 'Focusgate для Windows')) + '</b><span>' + E(L('Dasturlarni kuzatish va bloklash uchun kichik yordamchi ilova.', 'A small helper app that tracks and blocks programs.', 'Небольшое приложение для отслеживания и блокировки программ.')) + '</span><button type="button" class="fg-btn" data-fg-soon>⬇ ' + E(L('Tez kunda', 'Coming soon', 'Скоро')) + '</button></div>' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🧩</span><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><span>' + E(L('Chrome / Edge: Shorts, Reels va saytlarni bloklaydi.', 'Chrome / Edge: blocks Shorts, Reels and sites.', 'Chrome / Edge: блокирует Shorts, Reels и сайты.')) + '</span><button type="button" class="fg-btn" data-fg-soon>⬇ ' + E(L('Tez kunda', 'Coming soon', 'Скоро')) + '</button></div></div>';
+  }
+  function pageSettings() {
+    return '<div class="fg-card fg-set">' + settingsRows() + '</div>' + getCards() +
+      '<div class="fg-hint">⚙️ ' + E(L('Bu sozlamalar Profil → Sozlamalar → Focusgate bo\'limida ham bor.', 'These settings also live in Profile → Settings → Focusgate.', 'Эти настройки также есть в Профиль → Настройки → Focusgate.')) + '</div>';
+  }
+
+  // ---------- 🧩 Ilova ichidagi kartalar: Profil → Statistika va Profil → Sozlamalar ----------
+  function statsCardHtml() {
+    var total = APPS.reduce(function (s, a) { return s + a.m; }, 0), max = Math.max.apply(null, HOURS);
+    var week = [262, 301, 245, 330, 271, 296, total], avg = week.slice(0, 6).reduce(function (s, x) { return s + x; }, 0) / 6;
+    var diff = Math.round((total - avg) / avg * 100);
+    var over = LIMITS.daily.filter(function (x) { return x.on && x.used >= x.max; });
+    var active = LIMITS.daily.filter(function (x) { return x.on; }).length;
+    var top = APPS.slice().sort(function (a, b) { return b.m - a.m; }).slice(0, 4);
+    var h = '<div class="fg-emb-h"><span class="fg-emb-ic"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2.5 4.5 5.4v6.1c0 4.7 3.2 8.6 7.5 10 4.3-1.4 7.5-5.3 7.5-10V5.4L12 2.5Z" fill="rgba(255,255,255,.22)" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>' +
+      '<div><b>' + E(L('Ekran vaqti', 'Screen time', 'Экранное время')) + '</b><small>Focusgate · ' + E(L('namuna', 'sample', 'пример')) + '</small></div>' +
+      '<button type="button" class="fg-emb-more" data-fg-go="today">' + E(L('Batafsil', 'Details', 'Подробнее')) + ' ›</button></div>';
+    h += '<div class="fg-emb-kpis">' +
+      '<div><b>' + E(fmt(total)) + '</b><span>' + E(L('Bugun', 'Today', 'Сегодня')) + '</span></div>' +
+      '<div class="' + (diff > 0 ? 'up' : 'down') + '"><b>' + (diff > 0 ? '▲ ' : '▼ ') + Math.abs(diff) + '%</b><span>' + E(L('Haftalik o\'rtachaga', 'vs weekly avg', 'к среднему за неделю')) + '</span></div>' +
+      '<div class="' + (over.length ? 'up' : 'down') + '"><b>' + (active - over.length) + '/' + active + '</b><span>' + E(L('Limitda', 'Within limit', 'В пределах')) + '</span></div></div>';
+    h += '<div class="fg-emb-spark" aria-hidden="true">' + HOURS.map(function (v) { return '<i style="height:' + Math.max(v ? 6 : 2, max ? v / max * 100 : 0) + '%"' + (v ? '' : ' class="z"') + '></i>'; }).join('') + '</div>' +
+      '<div class="fg-emb-x"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>';
+    h += '<div class="fg-emb-top">' + top.map(function (a) {
+      var lim = LIMITS.daily.filter(function (x) { return x.app === a.id && x.on; })[0], red = lim && lim.used >= lim.max;
+      return '<button type="button" class="fg-emb-app" data-fg-appopen="' + a.id + '">' + tile(a, 'sm') + '<span class="fg-emb-n">' + E(a.n) + '</span><span class="fg-prog' + (red ? ' red' : '') + '"><i style="width:' + (a.m / top[0].m * 100).toFixed(1) + '%"></i></span><b>' + E(fmt(a.m)) + '</b></button>';
+    }).join('') + '</div>';
+    if (over.length) h += '<button type="button" class="fg-emb-warn" data-fg-go="limits">⛔ ' + E(over.map(function (x) { return app(x.app).n; }).join(', ')) + ' — ' + E(L('limit tugadi', 'limit reached', 'лимит исчерпан')) + ' ›</button>';
     return h;
+  }
+  function settingsCardHtml() {
+    var nL = LIMITS.daily.filter(function (x) { return x.on; }).length + LIMITS.blocked.filter(function (x) { return x.on; }).length;
+    var nF = FOCUS_APPS.filter(function (x) { return x.on; }).length;
+    return '<div class="fg-emb-set">' + settingsRows() + '</div>' +
+      '<div class="fg-emb-links">' +
+      '<button type="button" data-fg-go="limits"><span>⏳</span><b>' + E(L('Limitlar', 'Limits', 'Лимиты')) + '</b><small>' + nL + ' ' + E(L('faol', 'active', 'активно')) + '</small><i>›</i></button>' +
+      '<button type="button" data-fg-go="block"><span>🚫</span><b>' + E(L('Fokusda bloklash', 'Focus blocking', 'Блокировка в фокусе')) + '</b><small>' + nF + ' ' + E(L('dastur', 'apps', 'прил.')) + '</small><i>›</i></button>' +
+      '<button type="button" data-fg-go="today"><span>📊</span><b>' + E(L('Ekran vaqti', 'Screen time', 'Экранное время')) + '</b><small>' + E(L('statistika', 'statistics', 'статистика')) + '</small><i>›</i></button></div>' + getCards();
+  }
+  function renderEmbeds() {
+    loadSettings();
+    var st = document.getElementById('fg-stats-card'); if (st) st.innerHTML = statsCardHtml();
+    var se = document.getElementById('fg-settings-root'); if (se) se.innerHTML = settingsCardHtml();
+    try { var sub = document.querySelector('#focusgate-settings-card .fg-set-sub'); if (sub) sub.textContent = L('Ekran vaqti, limitlar va bloklash', 'Screen time, limits and blocking', 'Экранное время, лимиты и блокировка'); } catch (e) {}
   }
 
   // ---------- Pastki oynalar (sheet) ----------
@@ -218,6 +270,7 @@
 
   // ---------- Chizish ----------
   function render() {
+    loadSettings();
     var v = document.getElementById('view-blocker'); if (!v) return;
     var page = UI.tab === 'limits' ? pageLimits() : UI.tab === 'block' ? pageBlock() : UI.tab === 'settings' ? pageSettings() : pageToday();
     v.innerHTML = '<div class="fg">' + hero() + nav() + '<div class="fg-page" data-p="' + UI.tab + '">' + page + '</div>' + demoNote() + '</div>';
@@ -225,11 +278,14 @@
   function flip(arr, i, key) { var x = arr[+i]; if (x) x[key || 'on'] = !x[key || 'on']; }
   document.addEventListener('click', function (e) {
     var t = e.target && e.target.closest ? e.target : null; if (!t) return;
-    var inView = t.closest('#view-blocker'), inSheet = t.closest('.fg-sheet');
-    if (!inView && !inSheet) return;
+    var inView = t.closest('#view-blocker'), inSheet = t.closest('.fg-sheet'), inEmb = t.closest('.fg-scope');
+    if (!inView && !inSheet && !inEmb) return;
     var b;
     if ((b = t.closest('[data-fg-soon]'))) { soon(); return; }
     if ((b = t.closest('[data-fg-addlimit]'))) { openAddLimit(); return; }
+    if ((b = t.closest('[data-fg-go]'))) { window.xOpenBlocker(b.dataset.fgGo); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e2) {} return; }
+    if ((b = t.closest('[data-fg-appopen]'))) { openApp(b.dataset.fgAppopen); return; }
+    if (inEmb && (b = t.closest('.fg-sw[data-fg-set]'))) { SETTINGS[b.dataset.fgSet] = !SETTINGS[b.dataset.fgSet]; saveSettings(); renderEmbeds(); return; }
     if (!inView) return;
     if ((b = t.closest('[data-fg-tab]'))) { UI.tab = b.dataset.fgTab; render(); try { document.querySelector('#view-blocker .fg-nav').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e2) {} return; }
     if ((b = t.closest('[data-fg-day]'))) { UI.day = Math.min(0, UI.day + (+b.dataset.fgDay)); render(); return; }
@@ -248,8 +304,8 @@
       else if (d.fgRem != null) flip(REMINDERS, d.fgRem);
       else if (d.fgFa != null) flip(FOCUS_APPS, d.fgFa);
       else if (d.fgOpt != null) { var p = d.fgOpt.split(':'), o = SITES[+p[0]].opts[+p[1]]; o[2] = !o[2]; }
-      else if (d.fgSet != null) SETTINGS[d.fgSet] = !SETTINGS[d.fgSet];
-      var y = window.scrollY; render(); window.scrollTo(0, y);
+      else if (d.fgSet != null) { SETTINGS[d.fgSet] = !SETTINGS[d.fgSet]; saveSettings(); }
+      var y = window.scrollY; render(); renderEmbeds(); window.scrollTo(0, y);
       return;
     }
   });
@@ -258,5 +314,9 @@
   });
 
   window.xRenderBlocker = render;
+  window.LUFocusgate = { renderEmbeds: renderEmbeds, open: function (tab) { window.xOpenBlocker(tab); } };
+  function bootEmb() { try { renderEmbeds(); } catch (e) {} }
+  if (document.readyState === 'complete') bootEmb(); else window.addEventListener('load', bootEmb);
+  window.addEventListener('lu:lang', bootEmb);
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
 })();

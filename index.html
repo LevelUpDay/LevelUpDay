@@ -597,6 +597,8 @@
     </div>
 
     <div id="xst-heatmap" class="xst-card"></div>
+    <!-- 🛡 Focusgate: ekran vaqti (blocker.js chizadi) -->
+    <div id="fg-stats-card" class="xst-card fg-scope"></div>
     <!-- 3. Bar chart -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
@@ -1202,6 +1204,22 @@
         </div>
       </div>
 
+      <!-- 🛡 Focusgate — ilova va sayt blokeri sozlamalari (blocker.js chizadi) -->
+      <div id="focusgate-settings-card" class="settings-sub-card">
+        <button type="button" class="settings-sub-header" onclick="toggleSettingsSubCard('focusgate-settings-card')">
+          <span class="settings-sub-header-left">
+            <span class="settings-sub-icon">🛡</span>
+            <span style="min-width:0">
+              <span class="settings-sub-title">Focusgate</span>
+              <span class="settings-sub-subtitle fg-set-sub">Ekran vaqti, limitlar va bloklash</span>
+            </span>
+          </span>
+          <span class="settings-sub-arrow-wrap"><span class="settings-sub-arrow">▾</span></span>
+        </button>
+        <div class="settings-sub-body" style="display:none">
+          <div id="fg-settings-root" class="fg-scope"></div>
+        </div>
+      </div>
       </div><!-- /.settings-groups-grid -->
 
       <div class="settings-eyebrow"><span data-i18n="settings_eyebrow_data">🗂️ Ma'lumotlar va tozalash</span></div>

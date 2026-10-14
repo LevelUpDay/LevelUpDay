@@ -620,6 +620,7 @@
     window.showProfileSubtab = function (name) {
       var r = _origSub.apply(this, arguments); masonrySoon(60);
       if (name === 'settings') { try { if (window.xRenderTgSettings) window.xRenderTgSettings(); } catch (e) {} }
+      if (name === 'settings' || name === 'stats') { try { if (window.LUFocusgate) window.LUFocusgate.renderEmbeds(); } catch (e) {} }
       return r;
     };
   }
