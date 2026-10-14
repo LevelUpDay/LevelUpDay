@@ -68,6 +68,7 @@
       ['stats', '📊', [L('Statistika', 'Statistics', 'Статистика')], N, 'stats statistika chart grafik статистика', go('profile', function () { showProfileSubtab('stats'); })],
       ['badges', '🏅', [L('Yutuqlar', 'Achievements', 'Достижения')], N, 'badges achievements yutuqlar nishon достижения', go('profile', function () { showProfileSubtab('badges'); })],
       ['settings', '⚙️', [L('Sozlamalar', 'Settings', 'Настройки')], N, 'settings sozlamalar настройки', go('profile', function () { showProfileSubtab('settings'); })],
+      ['studio', '🎨', [L('Dizayn studiyasi', 'Design studio', 'Студия дизайна')], A, 'studio studiya design dizayn color rang nik ramka frame theme цвет дизайн', function () { window.xOpenHub && window.xOpenHub('shop'); setTimeout(function () { window.xOpenStudio && window.xOpenStudio(); }, 150); }],
       ['shop', '🛍', [L('Do\'kon', 'Shop', 'Магазин')], N, 'shop dokon magazin buy sotib olish design dizayn магазин', function () { window.xOpenHub && window.xOpenHub('shop'); }],
       ['boss', '🐉', ['Boss'], N, 'boss jang босс', function () { window.xOpenHub && window.xOpenHub('boss'); }],
       ['health', '🧘', [L('Salomatlik', 'Wellbeing', 'Самочувствие')], N, 'health salomatlik sleep uyqu mood kayfiyat здоровье сон', function () { window.xOpenHub && window.xOpenHub('health'); }],
