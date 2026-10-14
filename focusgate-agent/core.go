@@ -58,6 +58,8 @@ type State struct {
 	Config     Config                          `json:"config"`
 	Warned     map[string]bool                 `json:"warned"` // "kun|qoida" — ogohlantirish yuborilgan
 	AppsSentAt int64                           `json:"appsSentAt"` // dasturlar ro'yxati oxirgi marta yuborilgan (unix s)
+	Events     []Event                         `json:"events"`     // serverga hali yuborilmagan hodisalar
+	lastEvent  map[string]time.Time
 	mu         sync.Mutex
 }
 
@@ -401,4 +403,47 @@ func itoa(n int) string {
 		b[i] = '-'
 	}
 	return string(b[i:])
+}
+
+// ---------- Hodisalar (bloklash/ogohlantirish) → server → Telegram ----------
+type Event struct {
+	Kind   string `json:"kind"` // block | site_block | warn
+	App    string `json:"app"`
+	Label  string `json:"label"`
+	Reason string `json:"reason"`
+	At     int64  `json:"at"` // ms
+}
+
+// AddEvent — hodisani navbatga qo'shadi (bir xil hodisa 60 soniyada bir marta; navbat 200 tadan oshmaydi).
+func (s *State) AddEvent(t time.Time, kind, app, label, reason string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.lastEvent == nil {
+		s.lastEvent = map[string]time.Time{}
+	}
+	key := kind + "|" + app
+	if last, ok := s.lastEvent[key]; ok && t.Sub(last) < 60*time.Second {
+		return false
+	}
+	s.lastEvent[key] = t
+	s.Events = append(s.Events, Event{kind, app, label, reason, t.UnixMilli()})
+	if len(s.Events) > 200 {
+		s.Events = s.Events[len(s.Events)-200:]
+	}
+	return true
+}
+
+// TakeEvents — yuborish uchun navbatdagi hodisalar (muvaffaqiyatsiz bo'lsa ReturnEvents bilan qaytariladi).
+func (s *State) TakeEvents() []Event {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ev := s.Events
+	s.Events = nil
+	return ev
+}
+
+func (s *State) ReturnEvents(ev []Event) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Events = append(ev, s.Events...)
 }

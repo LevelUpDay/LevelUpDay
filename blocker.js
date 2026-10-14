@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.2.3'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.3.0'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION; // ?v= — brauzer/CDN eski faylni bermasligi uchun
 
   // ---------- Namuna (DEMO) ma'lumotlar — kompyuter ulanmaganda ko'rsatiladi ----------
@@ -69,12 +69,18 @@
       return { apps: DEMO_APPS.map(function (a) { return mkApp(a.id, a.n, a.m); }), hours: DEMO_HOURS.slice() };
     }
     var d = dayStr(off), by = {}, hours = new Array(24).fill(0);
+    // Saytlarni Windows agenti ham, kengaytma ham hisoblaydi — sayt uchun eng katta qiymat olinadi, dasturlar qo'shiladi
+    var siteBest = {};
     FG.rows.forEach(function (r) {
       if (r.day !== d) return;
+      var site = r.app.indexOf('site:') === 0;
       var x = by[r.app] || (by[r.app] = { label: r.label, s: 0 });
-      x.s += r.seconds || 0; if (r.label) x.label = r.label;
+      if (r.label) x.label = r.label;
+      if (site) { if ((r.seconds || 0) > x.s) { x.s = r.seconds || 0; siteBest[r.app] = r.hours || []; } return; }
+      x.s += r.seconds || 0;
       (r.hours || []).forEach(function (v, i) { if (i < 24) hours[i] += (v || 0) / 60; });
     });
+    Object.keys(siteBest).forEach(function (k) { siteBest[k].forEach(function (v, i) { if (i < 24) hours[i] += (v || 0) / 60; }); });
     var apps = Object.keys(by).map(function (k) { return mkApp(k, by[k].label, by[k].s / 60); }).filter(function (a) { return a.m >= 0.5; }).sort(function (a, b) { return b.m - a.m; });
     return { apps: apps, hours: hours };
   }
@@ -126,6 +132,7 @@
       // Yaqinda saqlangan bo'lsa — serverdan kelgan (eskirgan bo'lishi mumkin) nusxa ustiga yozilmaydi
       if (!FG.cfg || Date.now() - (FG.dirtyAt || 0) > 10000) FG.cfg = Object.assign({ track: true, notif: true, strict: false, rules: [], focusApps: [], focusUntil: 0 }, c || {});
       FG.rows = (res[2] && res[2].data) || [];
+      try { var tgr = await supabase.from('telegram_links').select('enabled,prefs').maybeSingle(); FG.tg = tgr && tgr.data ? tgr.data : null; } catch (e) { FG.tg = null; }
       FG.at = Date.now();
       try { checkReward(); } catch (e) {}
     } catch (e) { FG.err = (e && e.message) || String(e); }
@@ -229,7 +236,7 @@
       '<a class="fg-btn big fg-dl" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Windows uchun yuklab olish', 'Download for Windows', 'Скачать для Windows')) + '</a></div>';
   }
   function nav() {
-    var tabs = [['today', '📊', ['Bugun', 'Today', 'Сегодня']], ['limits', '⏳', ['Limitlar', 'Limits', 'Лимиты']], ['block', '🚫', ['Bloklash', 'Block', 'Блокировка']], ['settings', '⚙️', ['Sozlamalar', 'Settings', 'Настройки']]];
+    var tabs = [['today', '📊', ['Bugun', 'Today', 'Сегодня']], ['limits', '⏳', ['Limitlar', 'Limits', 'Лимиты']], ['block', '🚫', ['Bloklash', 'Block', 'Блокировка']], ['compete', '🏆', ['Reyting', 'Compete', 'Рейтинг']], ['settings', '⚙️', ['Sozlamalar', 'Settings', 'Настройки']]];
     return '<div class="fg-nav" role="tablist">' + tabs.map(function (t) {
       return '<button type="button" role="tab" aria-selected="' + (UI.tab === t[0]) + '" class="' + (UI.tab === t[0] ? 'on' : '') + '" data-fg-tab="' + t[0] + '"><span>' + t[1] + '</span>' + E(T(t[2])) + '</button>';
     }).join('') + '</div>';
@@ -327,7 +334,7 @@
       var on = !!(r && r.on);
       h += '<div class="fg-opt"><span class="fg-site-l"><span class="fg-tile sm" style="--tc:' + s[2] + '">' + E(s[1].charAt(0)) + '</span>' + E(s[1]) + '</span>' + sw(on, 'data-fg-site="' + s[0] + '"', c.strict && on && real()) + '</div>';
     });
-    h += '</div><div class="fg-hint">🧩 ' + E(L('Shorts / Reels kabi sayt ichidagi bo\'limlarni alohida bloklash — brauzer kengaytmasida (tez kunda).', 'Blocking Shorts / Reels inside sites — coming with the browser extension.', 'Блокировка Shorts / Reels внутри сайтов — скоро в расширении.')) + '</div>';
+    h += '</div>' + inSiteHtml();
     return h;
   }
 
@@ -338,10 +345,12 @@
       ['track', '👁', ['Foydalanish vaqtini kuzatish', 'Track usage time', 'Отслеживать время'], ['Dastur va saytlarda o\'tkazilgan vaqt hisoblanadi', 'Counts time spent in apps and sites', 'Считает время в приложениях и на сайтах'], c.track !== false],
       ['notif', '🔔', ['Windows bildirishnomalari', 'Windows notifications', 'Уведомления Windows'], ['Limit tugashiga 5 daqiqa qolganda va bloklanganda', '5 minutes before a limit ends and when blocking', 'За 5 минут до лимита и при блокировке'], c.notif !== false],
       ['strict', '🔐', ['Qat\'iy rejim', 'Strict mode', 'Строгий режим'], ['Limitlarni o\'chirib, pauza qilib va fokusni to\'xtatib bo\'lmaydi', 'No turning off limits, pausing or stopping focus', 'Нельзя отключить лимиты, поставить паузу или остановить фокус'], !!c.strict],
-      ['reward', '🪙', ['LevelUpDay mukofotlari', 'LevelUpDay rewards', 'Награды LevelUpDay'], ['Barcha limitlarda qolgan kun uchun +10 tanga', '+10 coins for a day within all limits', '+10 монет за день в пределах лимитов'], LOCAL.reward]
+      ['reward', '🪙', ['LevelUpDay mukofotlari', 'LevelUpDay rewards', 'Награды LevelUpDay'], ['Limitlarda qolgan kun: +10 🪙 · fokus: har daqiqa 1 XP', 'Day within limits: +10 🪙 · focus: 1 XP per minute', 'День в лимитах: +10 🪙 · фокус: 1 XP за минуту'], LOCAL.reward],
+      ['share', '👥', ['Do\'stlarim ko\'rsin', 'Visible to friends', 'Видно друзьям'], ['Fokus va ekran vaqti do\'stlar reytingida chiqadi (dasturlar ko\'rinmaydi)', 'Focus and screen time appear in the friends board (apps stay private)', 'Фокус и экранное время видны в рейтинге друзей (приложения скрыты)'], c.share !== false],
+      ['tg', '✈️', ['Telegram\'ga xabar', 'Telegram alerts', 'Сообщения в Telegram'], [FG.tg ? 'Dastur bloklansa yoki limit tugasa — botdan xabar' : 'Telegram ulanmagan — Profil → Sozlamalar → Telegram', FG.tg ? 'Message from the bot when something is blocked or a limit ends' : 'Telegram not connected — Profile → Settings → Telegram', FG.tg ? 'Сообщение от бота при блокировке или исчерпании лимита' : 'Telegram не подключён — Профиль → Настройки → Telegram'], !!(FG.tg && FG.tg.enabled && !(FG.tg.prefs && FG.tg.prefs.fg === false))]
     ];
     return rows.map(function (r) {
-      return '<div class="fg-opt"><span class="fg-set-ic">' + r[1] + '</span><span class="fg-set-t"><b>' + E(T(r[2])) + '</b><small>' + E(T(r[3])) + '</small></span>' + sw(r[4], 'data-fg-set="' + r[0] + '"', r[0] === 'strict' && r[4] && real()) + '</div>';
+      return '<div class="fg-opt"><span class="fg-set-ic">' + r[1] + '</span><span class="fg-set-t"><b>' + E(T(r[2])) + '</b><small>' + E(T(r[3])) + '</small></span>' + sw(r[4], 'data-fg-set="' + r[0] + '"', (r[0] === 'strict' && r[4] && real()) || (r[0] === 'tg' && !FG.tg)) + '</div>';
     }).join('');
   }
   function devicesHtml() {
@@ -349,18 +358,174 @@
     return '<div class="fg-group-t">💻 ' + E(L('Ulangan kompyuterlar', 'Connected computers', 'Подключённые компьютеры')) + ' <em>' + FG.devices.length + '</em></div><div class="fg-list">' +
       FG.devices.map(function (d) {
         var on = d.last_seen && Date.now() - new Date(d.last_seen).getTime() < 120000;
-        return '<div class="fg-row"><span class="fg-tile" style="--tc:#3b82f6">🪟</span><span class="fg-row-m"><b>' + E(d.name || 'Windows') + '</b><small class="' + (on ? 'grn' : '') + '">' + (on ? '● ' : '') + E(ago(d.last_seen)) + (d.agent_version ? ' · v' + E(d.agent_version) : '') + (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small></span>' +
+        var ext = /^ext-/.test(d.agent_version || '');
+        return '<div class="fg-row"><span class="fg-tile" style="--tc:' + (ext ? '#f59e0b' : '#3b82f6') + '">' + (ext ? '🧩' : '🪟') + '</span><span class="fg-row-m"><b>' + E(d.name || 'Windows') + '</b><small class="' + (on ? 'grn' : '') + '">' + (on ? '● ' : '') + E(ago(d.last_seen)) + (d.agent_version ? ' · v' + E(String(d.agent_version).replace(/^ext-/, '')) : '') + (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small></span>' +
           '<button type="button" class="fg-btn sm ghost" data-fg-unpair="' + E(d.id) + '">' + E(L('Uzish', 'Remove', 'Отключить')) + '</button></div>';
       }).join('') + '</div>';
   }
   function getCards() {
     return '<div class="fg-get">' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🪟</span><b>' + E(L('Windows uchun Focusgate', 'Focusgate for Windows', 'Focusgate для Windows')) + '</b><span>' + E(L('Dasturlarni kuzatadi va bloklaydi. Soat yonida (tray) ishlaydi.', 'Tracks and blocks programs. Lives in the system tray.', 'Отслеживает и блокирует программы. Работает в трее.')) + '</span><a class="fg-btn" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Yuklab olish', 'Download', 'Скачать')) + '</a></div>' +
-      '<div class="fg-card fg-get-c"><span class="fg-get-ic">🧩</span><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><span>' + E(L('Shorts, Reels va sayt ichidagi bo\'limlarni bloklash.', 'Blocks Shorts, Reels and in-site sections.', 'Блокирует Shorts, Reels и разделы сайтов.')) + '</span><button type="button" class="fg-btn ghost" data-fg-soon>' + E(L('Tez kunda', 'Coming soon', 'Скоро')) + '</button></div></div>';
+      '<div class="fg-card fg-get-c"><span class="fg-get-ic">🧩</span><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><span>' + E(L('Shorts, Reels va sayt ichidagi bo\'limlarni bloklash.', 'Blocks Shorts, Reels and in-site sections.', 'Блокирует Shorts, Reels и разделы сайтов.')) + '</span><button type="button" class="fg-btn" data-fg-extinstall>⬇ ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div></div>';
   }
   function pageSettings() {
     return '<div class="fg-card fg-set">' + settingsRows() + '</div>' + devicesHtml() + getCards() +
       '<div class="fg-hint">⚙️ ' + E(L('Bu sozlamalar Profil → Sozlamalar → Focusgate bo\'limida ham bor.', 'These settings also live in Profile → Settings → Focusgate.', 'Эти настройки также есть в Профиль → Настройки → Focusgate.')) + '</div>';
+  }
+
+  // ---------- 🏆 Reyting: dunyo va do'stlar ----------
+  var SOC = { world: null, board: null, focusing: null, at: 0, loading: false };
+  async function loadSocial(force) {
+    if (!sbOk() || SOC.loading || (!force && Date.now() - SOC.at < 60000)) return;
+    SOC.loading = true;
+    try {
+      var r = await Promise.all([supabase.rpc('fg_world_stats', { p_days: 7 }), supabase.rpc('fg_friends_board', { p_days: 7 }), supabase.rpc('fg_friends_focus')]);
+      SOC.world = r[0].data || null; SOC.board = r[1].data || []; SOC.focusing = r[2].data || [];
+      SOC.at = Date.now();
+    } catch (e) {}
+    SOC.loading = false;
+    rerender(); renderTogether();
+  }
+  function avatar(p) {
+    var ph = p.photo || '';
+    if (/^https?:\/\//.test(ph) || /^data:image\//.test(ph)) return '<span class="fg-av" style="background-image:url(' + E(ph) + ')"></span>';
+    if (ph && ph.length <= 4) return '<span class="fg-av emo">' + E(ph) + '</span>';
+    return '<span class="fg-av" style="--tc:' + color(p.id || p.name || '?') + '">' + E(String(p.name || '?').charAt(0).toUpperCase()) + '</span>';
+  }
+  function pageCompete() {
+    if (!sbOk()) return '<div class="fg-card fg-empty">🔐 ' + E(L('Reyting uchun akkauntga kiring.', 'Sign in to see the rankings.', 'Войдите, чтобы увидеть рейтинг.')) + '</div>';
+    if (!SOC.at) return '<div class="fg-card fg-empty">⏳ ' + E(L('Yuklanmoqda…', 'Loading…', 'Загрузка…')) + '</div>';
+    var w = SOC.world || {}, h = '';
+    // 🌍 Dunyo
+    var mine = w.my_min, avg = w.avg_min || 0, better = w.better_than_pct;
+    h += '<div class="fg-card fg-world"><div class="fg-card-h"><b>🌍 ' + E(L('Dunyo bo\'yicha · 7 kun', 'Worldwide · 7 days', 'В мире · 7 дней')) + '</b><small>' + (w.users || 0) + ' ' + E(L('foydalanuvchi', 'users', 'польз.')) + '</small></div>' +
+      '<div class="fg-vs"><div><b>' + (mine != null ? E(fmt(mine)) : '—') + '</b><span>' + E(L('Siz / kun', 'You / day', 'Вы / день')) + '</span></div><i>vs</i><div><b>' + E(fmt(avg)) + '</b><span>' + E(L('O\'rtacha / kun', 'Average / day', 'В среднем / день')) + '</span></div></div>';
+    if (better != null) h += '<div class="fg-better"><div class="fg-prog"><i style="width:' + better + '%"></i></div><span>' + (mine <= avg ? '🌿 ' : '📱 ') + E(L('Siz foydalanuvchilarning ' + better + '% idan kamroq ekranga qaraysiz', 'You spend less screen time than ' + better + '% of users', 'У вас меньше экранного времени, чем у ' + better + '% пользователей')) + '</span></div>';
+    if ((w.apps || []).length) {
+      var amax = Math.max.apply(null, w.apps.map(function (a) { return a.avg_min || 0; }).concat([1]));
+      h += '<div class="fg-sec-t">' + E(L('Eng ko\'p vaqt olayotgan dasturlar (o\'rtacha / kun)', 'Biggest time sinks (average / day)', 'Больше всего времени (в среднем / день)')) + '</div><div class="fg-wapps">' + w.apps.map(function (a) {
+        return '<div class="fg-wapp">' + tileFor(a.app, 'sm') + '<span class="fg-wapp-n"><b>' + E(a.label || labelOf(a.app)) + '</b><small>' + a.users + ' ' + E(L('kishi', 'people', 'чел.')) + '</small></span><span class="fg-prog"><i style="width:' + ((a.avg_min || 0) / amax * 100).toFixed(1) + '%"></i></span><em>' + E(fmt(a.avg_min || 0)) + '</em></div>';
+      }).join('') + '</div>';
+    } else h += '<div class="fg-hint">' + E(L('Dasturlar reytingi kamida 3 kishi ishlatgan dasturlar uchun chiqadi (anonim).', 'App averages appear once 3+ people use an app (anonymous).', 'Средние по приложениям появятся, когда их используют 3+ человека (анонимно).')) + '</div>';
+    h += '</div>';
+    // 👥 Do'stlar
+    var board = (SOC.board || []).slice(), mode = UI.board || 'focus';
+    board.sort(function (a, b) { return mode === 'focus' ? (b.focus_min - a.focus_min) || (a.screen_min - b.screen_min) : ((a.days ? a.screen_min : 1e9) - (b.days ? b.screen_min : 1e9)); });
+    h += '<div class="fg-card fg-board"><div class="fg-card-h"><b>👥 ' + E(L('Do\'stlar bilan musobaqa · 7 kun', 'Friends challenge · 7 days', 'Соревнование с друзьями · 7 дней')) + '</b>' +
+      '<div class="fg-seg"><button type="button" class="' + (mode === 'focus' ? 'on' : '') + '" data-fg-board="focus">🎯</button><button type="button" class="' + (mode === 'screen' ? 'on' : '') + '" data-fg-board="screen">📱</button></div></div>' +
+      '<div class="fg-board-sub">' + E(mode === 'focus' ? L('Kim ko\'proq fokus qildi', 'Who focused the most', 'Кто больше фокусировался') : L('Kim ekranga kamroq qaradi (kunlik o\'rtacha)', 'Who used screens the least (daily average)', 'У кого меньше экранного времени (в среднем)')) + '</div>';
+    board.forEach(function (p, i) {
+      var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+      var main = mode === 'focus' ? fmt(p.focus_min || 0) : (p.days ? fmt(p.screen_min) : '—');
+      var sub = mode === 'focus' ? (p.sessions || 0) + ' ' + L('sessiya', 'sessions', 'сессий') + (p.days ? ' · 📱 ' + fmt(p.screen_min) + '/' + L('kun', 'day', 'день') : '') : '🎯 ' + fmt(p.focus_min || 0) + (p.blocks ? ' · 🛡 ' + p.blocks : '');
+      h += '<div class="fg-brow' + (p.me ? ' me' : '') + '"><span class="fg-rank">' + medal + '</span>' + avatar(p) + '<span class="fg-bname"><b>' + E(p.me ? L('Siz', 'You', 'Вы') : (p.name || '—')) + '</b><small>' + E(sub) + (p.has_fg ? '' : ' · ' + L('Focusgate yo\'q', 'no Focusgate', 'без Focusgate')) + '</small></span><em>' + E(main) + '</em></div>';
+    });
+    if (board.length <= 1) h += '<div class="fg-empty sm">' + E(L('Do\'stlaringiz hali yo\'q yoki ular Focusgate ishlatmayapti. Taklif qiling — birga raqobatlashing!', 'No friends here yet. Invite them and compete together!', 'Друзей пока нет. Пригласите их и соревнуйтесь!')) + '<button type="button" class="fg-btn sm" data-fg-invite>👥 ' + E(L('Do\'stlar', 'Friends', 'Друзья')) + '</button></div>';
+    h += '</div>';
+    // 🤝 Hozir fokusda
+    h += focusingHtml(true);
+    // Mukofotlar
+    h += '<div class="fg-card fg-rewards"><b>🎁 ' + E(L('Nima uchun mukofot beriladi', 'How you earn rewards', 'За что награды')) + '</b><ul>' +
+      '<li>🎯 ' + E(L('Fokus sessiyasini oxirigacha yakunlash: har daqiqa = 1 XP, har 5 daqiqa = 1 🪙', 'Finish a focus session: 1 XP per minute, 1 🪙 per 5 minutes', 'Завершить фокус: 1 XP за минуту, 1 🪙 за 5 минут')) + '</li>' +
+      '<li>🤝 ' + E(L('Do\'st bilan birga fokus: +20% bonus', 'Focus with a friend: +20% bonus', 'Фокус с другом: +20% бонус')) + '</li>' +
+      '<li>🌿 ' + E(L('Kun bo\'yi barcha limitlarda qolish: +10 🪙', 'Stay within all limits for a day: +10 🪙', 'День в пределах всех лимитов: +10 🪙')) + '</li></ul></div>';
+    return h;
+  }
+  function focusingHtml(withStart) {
+    var list = SOC.focusing || [];
+    var h = '<div class="fg-card fg-together"><div class="fg-card-h"><b>🤝 ' + E(L('Hozir fokusda', 'Focusing now', 'Сейчас в фокусе')) + '</b>' + (list.length ? '<small class="fg-live-n">● ' + list.length + '</small>' : '') + '</div>';
+    if (!list.length) h += '<div class="fg-empty sm">' + E(L('Hozir hech bir do\'stingiz fokusda emas. Siz boshlang — ular qo\'shilishi mumkin!', 'None of your friends are focusing right now. Start one — they can join!', 'Сейчас никто из друзей не в фокусе. Начните — они смогут присоединиться!')) + '</div>';
+    list.forEach(function (p) {
+      var left = Math.max(0, new Date(p.ends_at).getTime() - Date.now()), min = Math.ceil(left / 60000);
+      h += '<div class="fg-brow">' + avatar(p) + '<span class="fg-bname"><b>' + E(p.name || '—') + '</b><small>🎯 ' + E(L(min + ' daqiqa qoldi', min + ' min left', 'осталось ' + min + ' мин')) + (p.together ? ' · 👥 +' + p.together : '') + '</small></span>' +
+        (focusLeft() > 0 ? '' : '<button type="button" class="fg-btn sm" data-fg-join="' + E(p.session) + '" data-min="' + min + '">' + E(L('Qo\'shilish', 'Join', 'Присоединиться')) + '</button>') + '</div>';
+    });
+    if (withStart && focusLeft() <= 0) h += '<button type="button" class="fg-add" data-fg-go="block">🎯 ' + E(L('Fokus boshlash', 'Start focus', 'Начать фокус')) + '</button>';
+    return h + '</div>';
+  }
+  // Hub → Birga bo'limi uchun karta
+  function renderTogether() {
+    var el = document.getElementById('fg-together'); if (!el) return;
+    if (!sbOk()) { el.innerHTML = ''; return; }
+    el.className = 'fg-scope fg-tg-wrap';
+    el.innerHTML = '<div class="fg-tg-h"><span>🔒</span><b>Focusgate · ' + E(L('Birga fokus', 'Focus together', 'Фокус вместе')) + '</b><button type="button" class="fg-emb-more" data-fg-go="compete">🏆 ' + E(L('Reyting', 'Rankings', 'Рейтинг')) + ' ›</button></div>' + focusingHtml(true);
+    if (!SOC.at) loadSocial();
+  }
+
+  // ---------- 🎯 Fokus sessiyalari: server yozuvi, XP/tanga, tasma ----------
+  function sess() { try { return (S.focusgate && S.focusgate.sess) || null; } catch (e) { return null; } }
+  async function startFocus(min, joinedFrom) {
+    var c = cfg();
+    c.focusUntil = Date.now() + min * 60000; saveCfg();
+    if (!S.focusgate) S.focusgate = {};
+    S.focusgate.sess = { id: null, start: Date.now(), end: c.focusUntil, min: min, joined: !!joinedFrom, awarded: false, stopped: false };
+    save(); rerender();
+    try { toast('🎯 ' + L('Fokus boshlandi — ' + min + ' daqiqa. Kompyuter 30 soniyada qabul qiladi.', 'Focus started — ' + min + ' min. Your PC picks it up within 30 s.', 'Фокус начат — ' + min + ' мин. ПК получит за 30 с.')); } catch (e) {}
+    try {
+      var r = await supabase.from('fg_sessions').insert({ planned_min: min, joined_from: joinedFrom || null }).select('id').single();
+      if (r.data && sess()) { S.focusgate.sess.id = r.data.id; save(); }
+    } catch (e) {}
+    try { if (window.xFeedPost) window.xFeedPost('focus', L(min + ' daqiqalik fokus boshladi', 'started a ' + min + '-minute focus', 'начал(а) фокус на ' + min + ' мин') + (joinedFrom ? ' 🤝' : ''), '🎯'); } catch (e) {}
+    SOC.at = 0;
+  }
+  async function stopFocus() {
+    var c = cfg(), s = sess();
+    c.focusUntil = 0; saveCfg();
+    if (s) { s.stopped = true; save(); if (s.id) try { await supabase.from('fg_sessions').update({ ended_at: new Date().toISOString() }).eq('id', s.id); } catch (e) {} }
+    rerender();
+  }
+  function joinFocus(sessionId, min) {
+    if (!real()) { needConnect(); return; }
+    if (focusLeft() > 0) return;
+    startFocus(Math.max(1, Math.min(600, min || 25)), sessionId);
+  }
+  // Sessiya o'z vaqtida tugasa — XP va tanga (bir marta)
+  function checkFocusDone() {
+    var s = sess();
+    if (!s || s.awarded || s.stopped || Date.now() < s.end) return;
+    s.awarded = true;
+    var xp = Math.round(s.min * (s.joined ? 1.2 : 1)), coins = Math.floor(s.min / 5 * (s.joined ? 1.2 : 1));
+    try { addXP(xp, '🎯 Focusgate: ' + s.min + ' ' + L('daqiqa fokus', 'min focus', 'мин фокуса')); } catch (e) {}
+    if (coins > 0) { S.coins = (S.coins || 0) + coins; try { addTarixLog('in', '🎯 Focusgate: ' + s.min + ' ' + L('daqiqa fokus', 'min focus', 'мин фокуса'), coins, 'fg-focus-' + s.start); } catch (e) {} }
+    save();
+    try { if (typeof render === 'function') render(); } catch (e) {}
+    try { toast('🎉 ' + L('Fokus yakunlandi! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : ''), 'Focus complete! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : ''), 'Фокус завершён! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : ''))); } catch (e) {}
+    try { if (window.xFeedPost) window.xFeedPost('focus', L(s.min + ' daqiqa fokusni yakunladi', 'completed ' + s.min + ' minutes of focus', 'завершил(а) ' + s.min + ' мин фокуса'), '🏁'); } catch (e) {}
+    SOC.at = 0;
+  }
+
+  // ---------- 🧩 Sayt ichida bloklash (kengaytma) ----------
+  var INSITE = [
+    ['site:youtube', 'YouTube', '#FF0033', [['yt_shorts', ["Shorts'ni bloklash", 'Block Shorts', 'Блокировать Shorts']], ['yt_home', ['Tavsiyalarni yashirish', 'Hide recommendations', 'Скрыть рекомендации']], ['yt_comments', ['Izohlarni yashirish', 'Hide comments', 'Скрыть комментарии']]]],
+    ['site:instagram', 'Instagram', '#E1306C', [['ig_reels', ["Reels'ni bloklash", 'Block Reels', 'Блокировать Reels']], ['ig_explore', ["Explore'ni bloklash", 'Block Explore', 'Блокировать «Интересное»']]]],
+    ['site:facebook', 'Facebook', '#1877F2', [['fb_reels', ['Reels va Watch\'ni bloklash', 'Block Reels & Watch', 'Блокировать Reels и Watch']]]]
+  ];
+  function hasExt() { return FG.devices.some(function (d) { return /^ext-/.test(d.agent_version || ''); }); }
+  function inSiteHtml() {
+    var c = cfg(), o = c.inSite || {}, h = '<div class="fg-group-t">🧩 ' + E(L('Sayt ichida bloklash', 'Inside websites', 'Внутри сайтов')) + ' <small>· ' + E(L('brauzer kengaytmasi', 'browser extension', 'расширение браузера')) + '</small></div>';
+    if (real() && !hasExt()) h += '<div class="fg-extnote"><span>🧩</span><div><b>' + E(L('Kengaytma o\'rnatilmagan', 'Extension not installed', 'Расширение не установлено')) + '</b><small>' + E(L('Bu sozlamalar Chrome/Edge kengaytmasi orqali ishlaydi.', 'These settings work through the Chrome/Edge extension.', 'Эти настройки работают через расширение Chrome/Edge.')) + '</small></div><button type="button" class="fg-btn sm" data-fg-extinstall>⬇ ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div>';
+    INSITE.forEach(function (s) {
+      var n = s[3].filter(function (x) { return o[x[0]]; }).length;
+      h += '<div class="fg-card fg-acc' + (UI.openSite === s[0] ? ' open' : '') + '"><button type="button" class="fg-acc-h" data-fg-acc="' + s[0] + '"><span class="fg-tile" style="--tc:' + s[2] + '">' + E(s[1].charAt(0)) + '</span><b>' + E(s[1]) + '</b>' + (n ? '<em class="fg-tag">' + n + ' ' + E(L('yoqilgan', 'on', 'вкл.')) + '</em>' : '') + '<span class="fg-chev">⌄</span></button><div class="fg-acc-b">' +
+        s[3].map(function (x) { return '<div class="fg-opt"><span>' + E(T(x[1])) + '</span>' + sw(!!o[x[0]], 'data-fg-insite="' + x[0] + '"') + '</div>'; }).join('') + '</div></div>';
+    });
+    return h;
+  }
+  var EXT_URL = 'downloads/focusgate-extension.zip?v=' + AGENT_VERSION;
+  function openExtInstall() {
+    var edge = /Edg\//.test(navigator.userAgent);
+    var page = edge ? 'edge://extensions' : 'chrome://extensions';
+    openSheet('<h3>🧩 ' + E(L('Brauzer kengaytmasini o\'rnatish', 'Install the browser extension', 'Установка расширения')) + '</h3>' +
+      '<p class="fg-p">' + E(L('Saytlarni bloklaydi, YouTube Shorts / Instagram Reels\'ni o\'chiradi va saytlarda o\'tgan vaqtni hisoblaydi. Chrome, Edge, Brave, Opera, Yandex uchun.', 'Blocks sites, removes YouTube Shorts / Instagram Reels and tracks time on sites. For Chrome, Edge, Brave, Opera, Yandex.', 'Блокирует сайты, убирает YouTube Shorts / Instagram Reels и считает время на сайтах. Для Chrome, Edge, Brave, Opera, Яндекс.')) + '</p>' +
+      '<ol class="fg-steps">' +
+      '<li><b>' + E(L('ZIP faylni yuklab oling va oching (Extract)', 'Download the ZIP and extract it', 'Скачайте ZIP и распакуйте')) + '</b><small>' + E(L('Ichida "focusgate-extension" papkasi bo\'ladi.', 'You get a "focusgate-extension" folder.', 'Появится папка «focusgate-extension».')) + '</small></li>' +
+      '<li><b>' + E(L('Brauzerda oching: ', 'Open in the browser: ', 'Откройте в браузере: ')) + '<code class="fg-code-in">' + page + '</code></b><small>' + E(L('Manzilni nusxalab, yangi tabga qo\'ying.', 'Copy the address into a new tab.', 'Скопируйте адрес в новую вкладку.')) + '</small></li>' +
+      '<li><b>' + E(L('"Режим разработчика / Developer mode" ni yoqing', 'Turn on "Developer mode"', 'Включите «Режим разработчика»')) + '</b><small>' + E(L('O\'ng yuqori burchakda (Edge\'da chap pastda).', 'Top-right corner (bottom-left in Edge).', 'В правом верхнем углу (в Edge — слева внизу).')) + '</small></li>' +
+      '<li><b>' + E(L('"Загрузить распакованное / Load unpacked" → papkani tanlang', '"Load unpacked" → choose the folder', '«Загрузить распакованное» → выберите папку')) + '</b></li>' +
+      '<li><b>' + E(L('LevelUpDay ochiladi — "Ulash" ni bosing ✅', 'LevelUpDay opens — press "Connect" ✅', 'Откроется LevelUpDay — нажмите «Подключить» ✅')) + '</b></li></ol>' +
+      '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-copyext="' + page + '">📋 ' + E(L('Manzilni nusxalash', 'Copy address', 'Копировать адрес')) + '</button><a class="fg-btn" href="' + EXT_URL + '" download="focusgate-extension.zip">⬇ ' + E(L('ZIP yuklab olish', 'Download ZIP', 'Скачать ZIP')) + '</a></div>');
+    var cp = document.querySelector('[data-fg-copyext]');
+    if (cp) cp.onclick = function () { try { navigator.clipboard.writeText(page); toast('📋 ' + page); } catch (e) {} };
   }
 
   // ---------- 🧩 Ilova ichidagi kartalar: Profil → Statistika va Profil → Sozlamalar ----------
@@ -387,6 +552,12 @@
         return '<button type="button" class="fg-emb-app" data-fg-appopen="' + E(a.id) + '">' + tile(a, 'sm') + '<span class="fg-emb-n">' + E(a.n) + '</span><span class="fg-prog' + (red ? ' red' : '') + '"><i style="width:' + (a.m / top[0].m * 100).toFixed(1) + '%"></i></span><b>' + E(fmt(a.m)) + '</b></button>';
       }).join('') + '</div>';
     } else h += '<div class="fg-empty sm">' + E(L('Bugun hali ma\'lumot yo\'q', 'No data yet today', 'Сегодня пока нет данных')) + '</div>';
+    if (SOC.world && SOC.world.my_min != null) {
+      var bd = (SOC.board || []).slice().sort(function (a, b) { return (b.focus_min - a.focus_min) || (a.screen_min - b.screen_min); });
+      var rank = bd.findIndex(function (p) { return p.me; }) + 1;
+      h += '<button type="button" class="fg-emb-soc" data-fg-go="compete"><span>🌍 ' + E(L('O\'rtacha', 'Avg', 'Средн.')) + ' <b>' + E(fmt(SOC.world.avg_min || 0)) + '</b>' + (SOC.world.better_than_pct != null ? ' · ' + E(L(SOC.world.better_than_pct + '% dan yaxshi', 'better than ' + SOC.world.better_than_pct + '%', 'лучше ' + SOC.world.better_than_pct + '%')) : '') + '</span>' +
+        (bd.length > 1 ? '<span>👥 #' + rank + ' / ' + bd.length + '</span>' : '') + '<i>›</i></button>';
+    } else if (sbOk() && real()) loadSocial();
     if (over.length) h += '<button type="button" class="fg-emb-warn" data-fg-go="limits">⛔ ' + E(over.map(function (x) { return x.label || labelOf(x.app); }).join(', ')) + ' — ' + E(L('limit tugadi', 'limit reached', 'лимит исчерпан')) + ' ›</button>';
     if (!real()) h += '<a class="fg-emb-cta" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">💻 ' + E(L('Haqiqiy statistika uchun kompyuterni ulang — Focusgate.exe', 'Connect your PC for real stats — Focusgate.exe', 'Подключите ПК для реальной статистики — Focusgate.exe')) + ' ⬇</a>';
     return h;
@@ -610,7 +781,8 @@
     loadLocal();
     var v = document.getElementById('view-blocker'); if (!v) return;
     if (!FG.loaded && sbOk()) { load(); }
-    var page = UI.tab === 'limits' ? pageLimits() : UI.tab === 'block' ? pageBlock() : UI.tab === 'settings' ? pageSettings() : pageToday();
+    var page = UI.tab === 'limits' ? pageLimits() : UI.tab === 'block' ? pageBlock() : UI.tab === 'settings' ? pageSettings() : UI.tab === 'compete' ? pageCompete() : pageToday();
+    if (UI.tab === 'compete' && sbOk()) loadSocial();
     v.innerHTML = '<div class="fg' + (real() ? ' is-real' : ' is-demo') + '">' + hero() + connectCard() + nav() + '<div class="fg-page" data-p="' + UI.tab + '">' + page + '</div>' + (real() ? '' : demoNote()) + '</div>';
   }
   function visible() { var v = document.getElementById('view-blocker'); return !!(v && v.style.display !== 'none' && v.offsetParent !== null); }
@@ -625,6 +797,14 @@
     if ((b = t.closest('[data-fg-go]'))) { window.xOpenBlocker(b.dataset.fgGo); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e2) {} return; }
     if ((b = t.closest('[data-fg-appopen]'))) { openApp(b.dataset.fgAppopen); return; }
     if ((b = t.closest('[data-fg-allapps]'))) { openAllApps(); return; }
+    if ((b = t.closest('[data-fg-extinstall]'))) { openExtInstall(); return; }
+    if ((b = t.closest('[data-fg-join]'))) { joinFocus(b.dataset.fgJoin, +b.dataset.min); return; }
+    if ((b = t.closest('[data-fg-invite]'))) { try { if (typeof openFriendsModal === 'function') openFriendsModal(); } catch (e2) {} return; }
+    if ((b = t.closest('[data-fg-board]'))) { UI.board = b.dataset.fgBoard; rerender(); return; }
+    if ((b = t.closest('.fg-sw[data-fg-insite]'))) {
+      if (!real()) { needConnect(); return; }
+      c.inSite = c.inSite || {}; c.inSite[b.dataset.fgInsite] = !c.inSite[b.dataset.fgInsite]; saveCfg(); rerender(); return;
+    }
     if ((b = t.closest('[data-fg-unpair]'))) {
       if (!confirm(L('Bu kompyuterni uzasizmi? Focusgate u yerda ishlashdan to\'xtaydi.', 'Remove this computer? Focusgate will stop working there.', 'Отключить этот компьютер? Focusgate перестанет там работать.'))) return;
       supabase.from('fg_devices').delete().eq('id', b.dataset.fgUnpair).then(function () { load(true); });
@@ -633,12 +813,14 @@
     if ((b = t.closest('.fg-sw[data-fg-set]'))) {
       var k = b.dataset.fgSet;
       if (k === 'reward') { LOCAL.reward = !LOCAL.reward; saveLocal(); }
-      else if (real()) { if (k === 'strict' && c.strict) return; c[k] = !(k === 'strict' ? c.strict : c[k] !== false); saveCfg(); }
+      else if (k === 'tg') { if (!FG.tg) return; var pr = Object.assign({}, FG.tg.prefs || {}); pr.fg = pr.fg === false; FG.tg.prefs = pr; supabase.from('telegram_links').update({ prefs: pr }).eq('user_id', S.cloudUserId).then(function () {}); }
+      else if (real()) { if (k === 'strict' && c.strict) return; c[k] = !(k === 'strict' ? c.strict : c[k] !== false); saveCfg(); if (k === 'share') SOC.at = 0; }
       else { needConnect(); return; }
       rerender(); return;
     }
     if (!inView) return;
     if ((b = t.closest('[data-fg-tab]'))) { UI.tab = b.dataset.fgTab; render(); return; }
+    if ((b = t.closest('[data-fg-acc]'))) { var k2 = b.dataset.fgAcc; UI.openSite = UI.openSite === k2 ? null : k2; b.parentNode.classList.toggle('open', UI.openSite === k2); return; }
     if ((b = t.closest('[data-fg-day]'))) { UI.day = Math.max(-6, Math.min(0, UI.day + (+b.dataset.fgDay))); render(); return; }
     if ((b = t.closest('[data-fg-kind]'))) { UI.kind = b.dataset.fgKind; render(); return; }
     if ((b = t.closest('[data-fg-chart]'))) { UI.chart = b.dataset.fgChart; render(); return; }
@@ -650,11 +832,10 @@
     if ((b = t.closest('[data-fg-focus]'))) {
       if (!real()) { needConnect(); return; }
       if (!(c.focusApps || []).some(function (f) { return f.on; })) { try { toast('➕ ' + L('Avval fokusda bloklanadigan dastur qo\'shing', 'Add an app to block during focus first', 'Сначала добавьте приложение для блокировки')); } catch (e2) {} return; }
-      c.focusUntil = Date.now() + UI.focusMin * 60000; saveCfg(); rerender();
-      try { toast('🎯 ' + L('Fokus boshlandi — kompyuter 30 soniyada qabul qiladi', 'Focus started — your PC picks it up within 30 s', 'Фокус начат — ПК получит за 30 с')); } catch (e2) {}
+      startFocus(UI.focusMin, null);
       return;
     }
-    if ((b = t.closest('[data-fg-stop]'))) { if (c.strict) return; c.focusUntil = 0; saveCfg(); rerender(); return; }
+    if ((b = t.closest('[data-fg-stop]'))) { if (c.strict) return; stopFocus(); return; }
     if ((b = t.closest('[data-fg-fadel]'))) { c.focusApps.splice(+b.dataset.fgFadel, 1); saveCfg(); rerender(); return; }
     if ((b = t.closest('.fg-sw'))) {
       if (!real()) { needConnect(); return; }
@@ -676,12 +857,13 @@
   setInterval(function () {
     var el = document.querySelector('#view-blocker [data-fg-live]');
     if (el) { var left = focusLeft(); if (left <= 0) rerender(); else el.textContent = mmss(left); }
+    try { checkFocusDone(); } catch (e) {}
   }, 1000);
   setInterval(function () { if (real() && (visible() || document.querySelector('#fg-stats-card'))) load(); }, 60000);
 
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, _state: FG };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();

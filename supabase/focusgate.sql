@@ -18,3 +18,16 @@ grant select, insert, update on public.fg_config to authenticated;
 grant select, delete on public.fg_devices to authenticated;
 grant select on public.fg_usage to authenticated;
 grant select, insert, update, delete on public.fg_config, public.fg_devices, public.fg_pair, public.fg_usage to service_role;
+
+-- ===== v0.3: hodisalar (Telegram), fokus sessiyalari, dunyo/do'stlar statistikasi =====
+alter table public.fg_devices add column if not exists apps jsonb;
+alter table public.fg_devices add column if not exists apps_at timestamptz;
+create table if not exists public.fg_events (id bigserial primary key, user_id uuid not null references auth.users(id) on delete cascade, device_id uuid references public.fg_devices(id) on delete cascade, kind text not null, app text not null, label text, reason text, at timestamptz not null default now(), notified boolean not null default false);
+create index if not exists fg_events_user_at on public.fg_events(user_id, at desc);
+alter table public.fg_events enable row level security;
+create policy fge_sel on public.fg_events for select to authenticated using (user_id = auth.uid());
+create table if not exists public.fg_sessions (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade default auth.uid(), started_at timestamptz not null default now(), planned_min int not null check (planned_min between 1 and 600), ended_at timestamptz, joined_from uuid);
+alter table public.fg_sessions enable row level security;
+-- siyosatlar: fgs_sel / fgs_ins (started_at ≈ now()) / fgs_upd; trigger _fg_sessions_guard: faqat ended_at o'zgaradi
+-- RPC: fg_world_stats(p_days) — anonim (≥3 foydalanuvchi), fg_friends_board(p_days) — config.share=false bo'lsa ko'rinmaydi, fg_friends_focus()
+-- To'liq matn bazada qo'llangan (security definer, search_path=public).

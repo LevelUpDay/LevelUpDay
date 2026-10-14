@@ -401,6 +401,7 @@ func enforceLoop() {
 					_ = Kill(pid)
 				}
 				notify("kill:"+exe, "🛡 "+niceName(exe)+" yopildi", reasonText(v))
+				event(now, "block", exe, niceName(exe), v.Reason)
 				continue
 			}
 			if lim := SessionLimit(&cfg, exe); lim > 0 {
@@ -414,6 +415,7 @@ func enforceLoop() {
 					if now.Sub(t0) >= time.Duration(lim)*time.Minute {
 						_ = Kill(pid)
 						notify("kill:"+exe, "🛡 "+niceName(exe)+" yopildi", reasonText(Verdict{true, "session", nil}))
+						event(now, "block", exe, niceName(exe), "session")
 					}
 				}
 			}
@@ -429,6 +431,7 @@ func enforceLoop() {
 				if v := Check(&cfg, st, s.Key, now); v.Blocked {
 					CloseTab()
 					notify("site:"+s.Key, "🛡 "+s.Label+" yopildi", reasonText(v))
+					event(now, "site_block", s.Key, s.Label, v.Reason)
 				}
 			}
 		}
@@ -439,6 +442,7 @@ func enforceLoop() {
 			}
 			left := r.Minutes*60 - st.Seconds(now, r.App)
 			notify("warn:"+r.App, "⏳ "+lbl+": "+FmtDur(left)+" qoldi", "Kunlik limit tez orada tugaydi.")
+			event(now, "warn", r.App, lbl, "daily")
 		}
 	}
 }
@@ -472,7 +476,11 @@ func doSync() {
 	if needApps {
 		apps = ScanApps()
 	}
-	res, err := Sync(tok, st.Rows(time.Now()), apps)
+	events := st.TakeEvents()
+	res, err := Sync(tok, st.Rows(time.Now()), apps, events)
+	if err != nil {
+		st.ReturnEvents(events)
+	}
 	if err == ErrUnauthorized {
 		st.mu.Lock()
 		st.Token = ""
@@ -561,4 +569,28 @@ func restartFresh() {
 		}
 	}
 	_ = exec.Command(target, "--first-run").Start()
+}
+
+// event — hodisani navbatga qo'yadi va 4 soniyadan keyin sinxronlaydi (Telegram xabari tez kelsin).
+var eventSyncPending bool
+var eventMu sync.Mutex
+
+func event(t time.Time, kind, app, label, reason string) {
+	if !st.AddEvent(t, kind, app, label, reason) {
+		return
+	}
+	eventMu.Lock()
+	if eventSyncPending {
+		eventMu.Unlock()
+		return
+	}
+	eventSyncPending = true
+	eventMu.Unlock()
+	go func() {
+		time.Sleep(4 * time.Second)
+		eventMu.Lock()
+		eventSyncPending = false
+		eventMu.Unlock()
+		doSync()
+	}()
 }
