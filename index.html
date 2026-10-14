@@ -32,6 +32,7 @@
   <link rel="stylesheet" href="widgets.css">
   <link rel="stylesheet" href="blocks.css">
   <link rel="stylesheet" href="exam-prep.css">
+  <link rel="stylesheet" href="blocker.css">
 </head>
 <body>
 
@@ -144,6 +145,7 @@
     <button class="tab"        id="tab-sat"     data-tab="sat"     onclick="showTab('sat')" data-i18n="tab_sat">📐 SAT</button>
     <button class="tab"        id="tab-cefr"    data-tab="cefr"    onclick="showTab('cefr')" style="display:none">📘 CEFR</button>
     <button class="tab"        id="tab-pomo"    data-tab="pomo"    onclick="pomoOpenModal()" data-i18n-title="pomo_nav_tab_title">⏱️ <span id="pomo-header-label">Pomodoro</span></button>
+    <button class="tab"        id="tab-blocker" data-tab="blocker" onclick="showTab('blocker')">🛡 Focusgate</button>
     <button class="tab"        id="tab-hub"     data-tab="hub"     onclick="showTab('hub')">🚀 Hub</button>
     <button class="tab" id="tab-profile" data-tab="profile" onclick="showTab('profile')" data-i18n="guide_step_profile_title">👤 Profil</button>
   </div>
@@ -307,6 +309,7 @@
   <!-- view-stats removed — merged into view-profile -->
   <div id="view-stats" style="display:none"></div>
   <div id="view-hub" class="x-hub" style="display:none"></div>
+  <div id="view-blocker" style="display:none"></div>
 
   <div id="view-profile" style="display:none;padding:8px 0">
 
@@ -3472,6 +3475,7 @@
   <script src="effects.js"></script>
   <script src="extras.js"></script>
   <script src="blocks.js"></script>
+  <script src="blocker.js"></script>
   <script src="exam-prep.js"></script>
 </body>
 </html>

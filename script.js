@@ -11206,7 +11206,7 @@ function showTab(tab) {
     if (typeof _pcClearAutoLockTimer === 'function') _pcClearAutoLockTimer();
   }
   if (tab !== 'stats' && tab !== 'calendar') SFX.click();
-  ['tasks','rewards','spin','profile','tarix','secret','goals','chest','ielts','sat','cefr','reyting','hub'].forEach(function(t){
+  ['tasks','rewards','spin','profile','tarix','secret','goals','chest','ielts','sat','cefr','reyting','hub','blocker'].forEach(function(t){
     var el=document.getElementById('view-'+t);
     if(el) el.style.display=tab===t?'':'none';
     var tb=document.getElementById('tab-'+t);
@@ -11227,6 +11227,7 @@ function showTab(tab) {
   if(tab==='sat') renderSatTab();
   if(tab==='cefr') renderCefrTab();
   if(tab==='hub' && typeof window.xRenderHub==='function') window.xRenderHub();
+  if(tab==='blocker' && typeof window.xRenderBlocker==='function') window.xRenderBlocker();
   if(tab==='stats') { showTab('profile'); return; }
   if(tab==='calendar') { showTab('profile'); return; }
 }
