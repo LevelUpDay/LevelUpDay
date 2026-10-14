@@ -63,6 +63,7 @@
       ['tasks', '📋', [L('Vazifalar', 'Tasks', 'Задачи')], N, 'tasks vazifalar todo задачи', go('tasks')],
       ['goals', '🎯', [L('Maqsadlar', 'Goals', 'Цели')], N, 'goals maqsadlar цели', go('goals')],
       ['hub', '🚀', ['Hub'], N, 'hub markaz', go('hub')],
+      ['blocker', '🛡', ['Focusgate — ' + L('ilova blokeri', 'app blocker', 'блокировщик')], N, 'focusgate blocker block bloklash limit app ilova sayt блокировка лимит', go('blocker')],
       ['rewards', '🎁', [L('Mukofotlar', 'Rewards', 'Награды')], N, 'rewards mukofotlar награды', go('rewards')],
       ['profile', '👤', [L('Profil', 'Profile', 'Профиль')], N, 'profile profil профиль', go('profile', function () { showProfileSubtab('overview'); })],
       ['stats', '📊', [L('Statistika', 'Statistics', 'Статистика')], N, 'stats statistika chart grafik статистика', go('profile', function () { showProfileSubtab('stats'); })],

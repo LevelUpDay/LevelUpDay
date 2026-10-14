@@ -2519,7 +2519,7 @@
   // 🧭 ASOSIY NAVIGATSIYA: 5 ta bo'lim, qolganlari Hub → "Bo'limlar"
   // =========================================================
   var MAIN_TABS = ['tasks', 'goals', 'hub', 'rewards', 'profile'];
-  var MOVED_TABS = ['chest', 'reyting', 'ielts', 'sat', 'cefr', 'pomo'];
+  var MOVED_TABS = ['chest', 'reyting', 'ielts', 'sat', 'cefr', 'pomo', 'blocker'];
   function tabAvailable(id) {
     var t = document.getElementById('tab-' + id);
     return !!(t && t.style.display !== 'none');
@@ -2530,6 +2530,7 @@
   function sectionsGrid() {
     var items = [
       ['inbox', '📥', 'Inbox', function () { if (window.xInbox) window.xInbox.open(); }],
+      ['blocker', '🛡', 'Focusgate', function () { showTab('blocker'); }],
       ['pomo', '🍅', L('Pomodoro', 'Pomodoro', 'Pomodoro'), function () { pomoOpenModal(); }],
       ['reyting', '🏆', L('Reyting', 'Leaderboard', 'Рейтинг'), function () { showTab('reyting'); }],
       ['friends', '👥', L('Do\'stlar', 'Friends', 'Друзья'), function () { openFriendsModal(); }],
