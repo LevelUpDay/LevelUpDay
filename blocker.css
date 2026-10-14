@@ -266,6 +266,55 @@ body.light .fg-sheet { background: #fff; }
   .fg-emb-app { grid-template-columns: 28px minmax(0, 7.5em) 1fr auto; }
 }
 
+
+/* ---------- 🔌 Haqiqiy rejim: ulash, qurilmalar, tahrirlash ---------- */
+a.fg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.fg-btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.fg-btn.danger { color: var(--red); }
+.fg-live.warn { color: var(--gold); background: var(--gold-dim); border-color: color-mix(in srgb, var(--gold) 30%, transparent); }
+.fg-live.warn i { animation: none; }
+.fg-connect { display: flex; flex-direction: column; gap: 12px; border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface)); }
+.fg-connect.in { background: none; border: 0; padding: 0; }
+.fg-connect-h { display: flex; align-items: center; gap: 12px; }
+.fg-connect-h > span { font-size: 30px; }
+.fg-connect-h b { display: block; font-size: 16px; color: var(--text); }
+.fg-connect-h small { font-size: 12px; color: var(--text-muted); }
+.fg-steps { margin: 0; padding: 0 0 0 4px; list-style: none; counter-reset: fgs; display: flex; flex-direction: column; gap: 10px; }
+.fg-steps li { counter-increment: fgs; position: relative; padding-left: 34px; min-height: 24px; }
+.fg-steps li::before { content: counter(fgs); position: absolute; left: 0; top: -1px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); }
+.fg-steps b { display: block; font-size: 13.5px; color: var(--text); }
+.fg-steps small { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.45; }
+.fg-steps small.red { color: var(--red); }
+.fg-dl { align-self: flex-start; }
+.fg-row-btn { border: 0; background: none; color: inherit; text-align: left; padding: 0; cursor: pointer; font: inherit; }
+.fg-row-btn:hover b { color: var(--accent); }
+.fg-del { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--surface2); color: var(--text-muted); cursor: pointer; font-size: 12px; }
+.fg-del:hover { color: var(--red); }
+.fg-empty.sm { padding: 12px; font-size: 12.5px; background: var(--surface); border: 1px dashed var(--border); border-radius: 14px; }
+.fg-row-m small.grn { color: var(--green); }
+.fg-sw:disabled { opacity: .6; cursor: not-allowed; }
+.fg-focus.on { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); box-shadow: 0 0 0 3px var(--accent-glow); }
+.fg-focus-n { font-size: 12px; color: var(--text-muted); }
+.fg-sites { padding: 4px 16px; }
+.fg-sites .fg-opt:first-child { border-top: 0; }
+.fg-site-l { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.fg-kopt { margin-top: 2px; }
+.fg-days { display: flex; gap: 6px; flex-wrap: wrap; }
+.fg-days button { width: 42px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-weight: 700; font-size: 12.5px; cursor: pointer; }
+.fg-days button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.fg-times { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.fg-times label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
+.fg-custom { margin-top: 8px; }
+.fg-pair { text-align: center; }
+.fg-pair-ic { font-size: 44px; display: block; margin: 4px 0 6px; }
+.fg-pair h3 { margin: 0 0 8px; }
+.fg-p { font-size: 13.5px; color: var(--text-muted); line-height: 1.5; margin: 0 0 14px; }
+.fg-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 30px; font-weight: 800; letter-spacing: 4px; color: var(--accent); padding: 14px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 10%, var(--surface2)); border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); }
+.fg-emb-cta { display: block; margin-top: 12px; padding: 10px 12px; border-radius: 12px; text-decoration: none; font-size: 12.5px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface2)); border: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent); }
+.fg-emb-note { font-size: 12.5px; color: var(--text-muted); padding: 10px 12px; border-radius: 12px; background: var(--surface2); margin-bottom: 8px; }
+#fg-settings-root .fg-group-t { padding: 12px 0 6px; }
+#fg-settings-root .fg-row { background: var(--surface2); border-color: transparent; padding: 10px; }
+
 /* ---------- Telefon ---------- */
 @media (max-width: 600px) {
   .fg-hero { padding: 14px; border-radius: 18px; }
