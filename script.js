@@ -27519,17 +27519,67 @@ function wsAttachHandlers() {
   if (resendBtn) resendBtn.onclick = function () { wsResendCode(); };
   var vLoginBtn = document.getElementById('ws-verify-login-btn');
   if (vLoginBtn) vLoginBtn.onclick = function () { wsState.authMode = 'login'; wsRenderStep(); };
-  // ✈️ Telegram — hozircha faol emas
-  document.querySelectorAll('.lub-tg-btn').forEach(function (b) {
-    b.onclick = function () { toast('✈️ ' + _cl('Telegram orqali kirish tez kunda qo\'shiladi', 'Telegram sign-in is coming soon', 'Вход через Telegram скоро появится')); };
-  });
+  // ✈️ Telegram orqali kirish (skript oldindan yuklanadi — popup foydalanuvchi bosishida ochilishi uchun)
+  var _tgBtns = document.querySelectorAll('.lub-tg-btn');
+  if (_tgBtns.length) wsTelegramPreload();
+  _tgBtns.forEach(function (b) { b.onclick = function () { wsTelegramLogin(); }; });
 }
 
-// ✈️ Telegram orqali kirish tugmasi (keyinroq faollashtiriladi)
+// ✈️ TELEGRAM LOGIN — Telegram Login Widget (popup) → telegram-auth Edge Function (HMAC tekshiruvi)
+// → bir martalik token_hash → supabase.auth.verifyOtp → cloudBoot (Google kirishi bilan bir xil oqim)
+var TG_BOT_ID = '8996608491'; // @LevelUpDayLoginBot (bot id maxfiy emas — token emas)
+var _tgLoading = null;
+function wsTelegramPreload() {
+  if ((window.Telegram && window.Telegram.Login) || _tgLoading) return _tgLoading;
+  _tgLoading = new Promise(function (res, rej) {
+    var sc = document.createElement('script');
+    sc.src = 'https://telegram.org/js/telegram-widget.js?22'; sc.async = true;
+    sc.onload = function () { res(); }; sc.onerror = function () { _tgLoading = null; rej(new Error('load')); };
+    document.head.appendChild(sc);
+  });
+  _tgLoading.catch(function () {});
+  return _tgLoading;
+}
+var wsTelegramLogin = function () {
+  if (!(window.Telegram && window.Telegram.Login)) {
+    toast('⏳ ' + _cl('Telegram yuklanmoqda — bir soniyadan keyin yana bosing', 'Loading Telegram — tap again in a second', 'Загрузка Telegram — нажмите ещё раз через секунду'));
+    wsTelegramPreload();
+    return;
+  }
+  var lang = 'en'; try { lang = getLang(); } catch (e) {}
+  window.Telegram.Login.auth({ bot_id: TG_BOT_ID, request_access: 'write', lang: lang }, function (user) {
+    if (!user) { toast(_cl('Telegram orqali kirish bekor qilindi', 'Telegram sign-in cancelled', 'Вход через Telegram отменён')); return; }
+    wsTelegramFinish(user);
+  });
+};
+var wsTelegramFinish = async function (user) {
+  toast('⏳ ' + _cl('Telegram orqali kirilmoqda…', 'Signing in with Telegram…', 'Вход через Telegram…'));
+  try {
+    var r = await supabase.functions.invoke('telegram-auth', { body: user });
+    var d = r && r.data;
+    if (r.error || !d || !d.token_hash) {
+      console.warn('[telegram-auth]', r.error || d);
+      toast('⚠️ ' + _cl('Telegram orqali kirib bo\'lmadi. Keyinroq urinib ko\'ring.', 'Could not sign in with Telegram. Please try again later.', 'Не удалось войти через Telegram. Попробуйте позже.'));
+      return;
+    }
+    var v = await supabase.auth.verifyOtp({ token_hash: d.token_hash, type: 'email' });
+    if (v.error || !v.data || !v.data.session) v = await supabase.auth.verifyOtp({ token_hash: d.token_hash, type: 'magiclink' });
+    if (v.error || !v.data || !v.data.session) { toast('⚠️ ' + ((v.error && v.error.message) || 'session')); return; }
+    await cloudBoot(v.data.session);
+    try { if (!S.profile) S.profile = {}; S.profile.loginMethod = 'telegram'; save(); } catch (e) {}
+    try { closeWelcomeSurvey(); } catch (e) {}
+    try { render(); } catch (e) {}
+    toast('✈️ ' + _cl('Telegram orqali kirdingiz ✅', 'Signed in with Telegram ✅', 'Вход через Telegram выполнен ✅'));
+  } catch (e) {
+    toast('⚠️ ' + (e && e.message ? e.message : String(e)));
+  }
+};
+
+// ✈️ Telegram orqali kirish tugmasi
 function wsTelegramBtnHtml(extraStyle) {
-  return '<button type="button" class="onboarding-btn onboarding-btn-ghost lub-tg-btn" aria-disabled="true" style="width:100%;' + (extraStyle || '') + '">' +
+  return '<button type="button" class="onboarding-btn onboarding-btn-ghost lub-tg-btn" style="width:100%;' + (extraStyle || '') + '">' +
     '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><path fill="#29B6F6" d="M21.9 4.3 18.7 19.4c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.1 13 1.2 11.5c-1.1-.3-1.1-1.1.2-1.6L20.6 2.6c.9-.3 1.7.2 1.3 1.7z"/></svg>' +
-    _cl('Telegram orqali', 'Continue with Telegram', 'Через Telegram') + ' <span class="lub-soon">' + _cl('tez kunda', 'soon', 'скоро') + '</span></button>';
+    _cl('Telegram orqali', 'Continue with Telegram', 'Через Telegram') + '</button>';
 }
 
 function wsNext() {
