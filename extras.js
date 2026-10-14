@@ -2605,7 +2605,7 @@
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); _installEvt = e; renderInstallUI(); });
   window.addEventListener('appinstalled', function () { _installEvt = null; toast('🎉 ' + L('LevelUpDay o\'rnatildi!', 'LevelUpDay installed!', 'LevelUpDay установлен!')); renderInstallUI(); });
   function isWin() { return /Windows NT/i.test(navigator.userAgent || ''); }
-  function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS() || isWin()); }
+  function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS() || isWin() || /Android/i.test(navigator.userAgent || '')); }
   function pwaPrompt() {
     if (!_installEvt) return false;
     _installEvt.prompt();
@@ -2629,6 +2629,18 @@
       var pb = document.getElementById('x-inst-pwa'); if (pb) pb.onclick = function () { pwaPrompt(); };
       var dl = document.getElementById('x-inst-win-dl'); if (dl) dl.onclick = function () { setTimeout(function () { toast('⬇️ ' + L('Yuklangan faylni oching', 'Open the downloaded file', 'Откройте скачанный файл')); }, 600); };
       return m;
+    }
+    if (/Android/i.test(navigator.userAgent || '') && window.LUFocusgate && window.LUFocusgate.androidGuide) {
+      // Android: haqiqiy ilova (APK) — ilovalarni bloklash va ekran vaqti bilan; yoki oddiy o'rnatish (PWA)
+      html += '<div class="x-inst-win"><div class="x-inst-win-h"><img src="icons/icon-192.png" alt=""><div><b>LevelUpDay ' + L('Android uchun', 'for Android', 'для Android') + '</b>' +
+        '<span>' + L('Ilovalarni bloklaydi, ekran vaqtini hisoblaydi — kompyuter bilan umumiy limitlar', 'Blocks apps, counts screen time — limits shared with your computer', 'Блокирует приложения, считает экранное время — лимиты общие с компьютером') + '</span></div></div>' +
+        '<a class="x-btn" id="x-inst-apk" href="' + window.LUFocusgate.apk + '" download="LevelUpDay.apk">⬇️ ' + L('APK yuklab olish', 'Download APK', 'Скачать APK') + ' (0.1 MB)</a>' +
+        '<div class="x-inst-alt"><button class="x-link" id="x-inst-guide">📖 ' + L('O\'rnatish bo\'yicha qo\'llanma', 'Step-by-step guide', 'Пошаговая инструкция') + '</button></div></div>' +
+        (_installEvt ? '<div class="x-inst-alt">' + L('Yoki faqat bosh ekranga (bloklashsiz):', 'Or just add to Home screen (no blocking):', 'Или просто на главный экран (без блокировки):') + ' <button class="x-link" id="x-inst-pwa">📲 ' + L('O\'rnatish', 'Install', 'Установить') + '</button></div>' : '');
+      var am = xModal(html, 'x-inst-box');
+      var gb = document.getElementById('x-inst-guide'); if (gb) gb.onclick = function () { if (am && am._close) am._close(); window.LUFocusgate.androidGuide(); };
+      var pb2 = document.getElementById('x-inst-pwa'); if (pb2) pb2.onclick = function () { pwaPrompt(); };
+      return am;
     }
     if (pwaPrompt()) return;
     if (isIOS()) {
