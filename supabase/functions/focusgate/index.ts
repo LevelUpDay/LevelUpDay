@@ -4,7 +4,7 @@
 //   2) sayt:   {action:'pair_approve', code} + foydalanuvchi JWT → qurilma yaratiladi
 //   3) agent:  {action:'pair_poll', code}         → {token} (bir martalik; keyin kod o'chiriladi)
 //  Sinxronlash:
-//      agent:  {action:'sync', token, version, usage:[{day, app, label, seconds, hours[24]}]}
+//      agent:  {action:'sync', token, version, usage:[{day, app, label, seconds, hours[24]}], apps?:[{exe, name}]}
 //              → {config, device, now}   (usage — shu qurilmaning kunlik umumiy qiymatlari, ustiga yoziladi)
 // JWT tekshiruvi o'chirilgan: agent qurilma tokeni bilan, sayt esa foydalanuvchi JWT bilan tekshiriladi.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -107,7 +107,21 @@ Deno.serve(async (req) => {
       const { error } = await sb.from("fg_usage").upsert(rows, { onConflict: "user_id,device_id,day,app" });
       if (error) return json({ error: "usage_failed", detail: error.message }, 500);
     }
-    await sb.from("fg_devices").update({ last_seen: new Date().toISOString(), agent_version: body.version ? String(body.version).slice(0, 20) : null }).eq("id", dev.id);
+    const upd: Record<string, unknown> = { last_seen: new Date().toISOString(), agent_version: body.version ? String(body.version).slice(0, 20) : null };
+    // O'rnatilgan dasturlar ro'yxati (agent bir necha soatda bir yuboradi)
+    if (Array.isArray(body.apps)) {
+      const seen = new Set<string>();
+      const apps: { exe: string; name: string }[] = [];
+      for (const a of body.apps.slice(0, 800)) {
+        const exe = String(a?.exe || "").toLowerCase().replace(/^.*[\\/]/, "").slice(0, 80);
+        if (!/^[^<>:"|?*]+\.exe$/.test(exe) || seen.has(exe)) continue;
+        seen.add(exe);
+        apps.push({ exe, name: String(a?.name || exe.replace(/\.exe$/, "")).replace(/[\u0000-\u001f]/g, "").slice(0, 70) });
+      }
+      upd.apps = apps;
+      upd.apps_at = new Date().toISOString();
+    }
+    await sb.from("fg_devices").update(upd).eq("id", dev.id);
     const { data: cfg } = await sb.from("fg_config").select("config,updated_at").eq("user_id", dev.user_id).maybeSingle();
     return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.name }, now });
   }
