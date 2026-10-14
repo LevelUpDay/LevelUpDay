@@ -23063,7 +23063,7 @@ function renderCalendar() {
   // Empty cells before first day
   for (var i = 0; i < startOffset; i++) {
     var empty = document.createElement('div');
-    empty.style.cssText = 'aspect-ratio:1;max-height:48px;';
+    empty.className = 'calx-pad';
     grid.appendChild(empty);
   }
 

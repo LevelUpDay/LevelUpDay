@@ -3300,10 +3300,13 @@ body.light .undo-toast { background: #fff; }
 
 /* 📅 Kalendar — yumshoq katakchalar */
 #cal-grid { gap: 5px !important; }
-.calx-day { --cc: transparent; position: relative; aspect-ratio: 1; max-height: 52px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; overflow: hidden;
+.calx-day { --cc: transparent; position: relative; box-sizing: border-box; width: 100%; height: 52px !important; max-height: none !important; min-height: 0 !important; aspect-ratio: auto !important; padding: 0 !important; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; overflow: hidden;
   background: color-mix(in srgb, var(--cc) 18%, var(--surface2)); border: 1.5px solid color-mix(in srgb, var(--cc) 55%, transparent); transition: transform .12s; }
 .calx-day:not(.future):hover { transform: translateY(-1px); }
-.calx-day.future { background: transparent; border-color: transparent; opacity: .4; }
+.calx-day.future { background: var(--surface2); border-color: transparent; opacity: .45; }
+#cal-grid > .calx-pad { height: 52px; }
+/* Maqsadlar kalendarlari — barcha kataklar bir xil balandlikda */
+#gcal-grid > *, #goal-cal-grid > * { aspect-ratio: auto !important; max-height: none !important; height: 46px; box-sizing: border-box; }
 .calx-day.empty { background: var(--surface2); border-color: transparent; opacity: .55; }
 .calx-day.today { box-shadow: 0 0 0 2px var(--accent); }
 .calx-day.perfect { background: color-mix(in srgb, var(--cc) 30%, var(--surface2)); }
