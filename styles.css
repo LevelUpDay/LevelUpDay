@@ -3633,3 +3633,12 @@ html.tbl-full-on #focus-mini-player, html.tbl-full-on #pomo-float { display: non
 #ds-brand .ds-brand-ic { width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(124, 92, 252, .35); }
 .sync-pill[role="button"] { cursor: pointer; }
 .sync-pill[role="button"]:hover { filter: brightness(1.15); }
+
+/* Baland modal oynalar ekrandan chiqib ketmasin (tepa/past ko'rinmay qolardi) */
+.modal-overlay.open .modal { max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; }
+/* 🎶 Fon tovushlari pleyeri — kengroq: 15 ta tovush 5 ustunda, hammasi bir ekranga sig'adi */
+#focus-player-modal-overlay .modal { max-width: 760px !important; }
+@media (min-width: 700px) {
+  #focus-sound-grid { grid-template-columns: repeat(5, 1fr) !important; }
+}
+#focus-sound-grid .focus-sound-btn { min-height: 0; padding-top: 12px; padding-bottom: 12px; }

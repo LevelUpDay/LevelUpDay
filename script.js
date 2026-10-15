@@ -6901,15 +6901,29 @@ var FocusAudio = (function () {
     p.catch(function () { delete fileBufs[id]; });
     return p;
   }
+  // Yozuv balandligi: o'rtacha (RMS) darajasi o'lchanib, barcha tovushlar bir xil balandlikka keltiriladi (≈ −17 dBFS)
+  var fileGain = {};
+  function autoGain(id, buf) {
+    if (fileGain[id]) return fileGain[id];
+    var ch = buf.getChannelData(0), step = Math.max(1, Math.floor(ch.length / 200000)), sum = 0, n = 0;
+    for (var i = 0; i < ch.length; i += step) { sum += ch[i] * ch[i]; n++; }
+    var rms = Math.sqrt(sum / Math.max(1, n)) || 0.01;
+    return (fileGain[id] = Math.max(0.5, Math.min(5, 0.14 / rms)));
+  }
   function buildFile(id, gain, fallback) {
     var c = ac(), bus = makeBus();
-    var g = c.createGain(); g.gain.value = gain || 1; g.connect(bus);
+    // Cheklovchi (limiter): kuchaytirilgan tovush cho'qqilari buzilmasin
+    var lim = c.createDynamicsCompressor();
+    lim.threshold.value = -4; lim.knee.value = 2; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.25;
+    lim.connect(bus);
+    var g = c.createGain(); g.gain.value = gain || 1; g.connect(lim);
     var node = { bus: bus, sources: [], stops: [] }, dead = false;
     node.stops.push(function () { dead = true; });
     loadSound(id).then(function (buf) {
       if (dead) return;
       var src = c.createBufferSource();
       src.buffer = buf; src.loop = true;
+      g.gain.value = (gain || 1) * autoGain(id, buf);
       src.connect(g);
       src.start();
       node.sources.push(src);
@@ -6924,19 +6938,19 @@ var FocusAudio = (function () {
 
   var BUILDERS = {
     rain: file('rain', 1, function () { return buildRain(false); }),
-    storm: file('storm', 1.1, function () { return buildRain(true); }),
+    storm: file('storm', 1.5, function () { return buildRain(true); }),
     window: file('window', 1, function () { return buildRain(false); }),
     ocean: file('ocean', 1, buildOcean),
     river: file('river', 1, buildOcean),
-    fire: file('fire', 1.1, buildFire),
-    forest: file('forest', 1.1, buildForest),
-    wind: file('wind', 0.85, buildOcean),
+    fire: file('fire', 1, buildFire),
+    forest: file('forest', 1, buildForest),
+    wind: file('wind', 1, buildOcean),
     night: file('night', 1, buildCrickets),
-    cafe: file('cafe', 0.9, buildPink),
-    library: file('library', 0.8, buildBrown),
-    train: file('train', 0.8, buildBrown),
-    space: file('space', 0.9, buildSpace),
-    bowl: file('bowl', 1.5, buildBowl),
+    cafe: file('cafe', 1, buildPink),
+    library: file('library', 1, buildBrown),
+    train: file('train', 1, buildBrown),
+    space: file('space', 1, buildSpace),
+    bowl: file('bowl', 0.6, buildBowl),
     brown: buildBrown
   };
 

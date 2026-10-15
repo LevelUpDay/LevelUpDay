@@ -1,7 +1,7 @@
 # Fon tovushlari / Ambient sounds
 
 Sources: [Moodist](https://github.com/remvze/moodist) collection (Pixabay Content License / CC0).
-Edited for LevelUpDay: trimmed, loudness-normalised (−23 LUFS), turned into seamless crossfaded loops, MP3 96 kbps.
+Edited for LevelUpDay: trimmed, loudness-normalised (−16 LUFS, peak-limited), turned into seamless crossfaded loops, MP3 96 kbps.
 
 | File | Original |
 | --- | --- |
