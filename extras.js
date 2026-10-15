@@ -2052,7 +2052,9 @@
   function loadFeed() {
     var box = document.getElementById('x-hub-feed'); if (!box) return;
     if (!cloudOk()) { box.innerHTML = '<div class="x-empty">🔐 ' + L('Do\'stlar lentasi uchun hisobingizga kiring (Profil → Sozlamalar).', 'Sign in to see your friends\' feed.', 'Войдите, чтобы видеть ленту друзей.') + '</div>'; return; }
-    box.innerHTML = '<div class="x-empty">⏳ ' + L('Yuklanmoqda...', 'Loading...', 'Загрузка...') + '</div>';
+    var rf = document.getElementById('x-feed-ref');
+    if (rf && feedCache) rf.classList.add('spin');
+    else box.innerHTML = '<div class="fd-skel"><i></i><i></i><i></i></div>';
     supabase.rpc('get_friend_feed', { p_limit: 50 }).then(function (r) {
       if (r.error) { box.innerHTML = '<div class="x-empty">⚠️ ' + H(sqlHint(r.error)) + '</div>'; return; }
       feedCache = r.data || [];
@@ -2062,16 +2064,20 @@
   function renderFeed() {
     var box = document.getElementById('x-hub-feed'); if (!box) return;
     var items = feedCache || [];
-    var h = '<div class="x-row x-feed-tools"><button class="x-btn ghost sm" id="x-feed-ref">↻ ' + L('Yangilash', 'Refresh', 'Обновить') + '</button>' +
-      '<label class="x-chk"><input type="checkbox" id="x-feed-auto" ' + (S.xFeedOff ? '' : 'checked') + '> ' + L('Yutuqlarimni avtomatik ulashish', 'Auto-share my achievements', 'Делиться достижениями автоматически') + '</label></div>';
-    if (!items.length) h += '<div class="x-empty">📭 ' + L('Hali hech narsa yo\'q. Vazifalarni bajaring — do\'stlaringiz ko\'radi!', 'Nothing yet. Complete tasks — your friends will see it!', 'Пока пусто.') + '</div>';
-    items.forEach(function (it) {
+    var h = '<div class="fd-head"><div class="fd-head-t"><b>📰 ' + L('Do\'stlar lentasi', 'Friends feed', 'Лента друзей') + '</b><small>' +
+        (items.length ? items.length + ' ' + L('ta yozuv', 'posts', 'записей') : L('Do\'stlaringiz yutuqlari shu yerda', 'Your friends\' wins show up here', 'Успехи друзей появятся здесь')) + '</small></div>' +
+      '<button class="fd-ref" id="x-feed-ref" title="' + L('Yangilash', 'Refresh', 'Обновить') + '" aria-label="' + L('Yangilash', 'Refresh', 'Обновить') + '">↻</button></div>' +
+      '<label class="fd-auto"><span><b>' + L('Avtomatik ulashish', 'Auto-share', 'Автопубликация') + '</b><small>' + L('Yutuqlarimni avtomatik ulashish', 'Auto-share my achievements', 'Делиться достижениями автоматически') + '</small></span>' +
+      '<input type="checkbox" id="x-feed-auto" ' + (S.xFeedOff ? '' : 'checked') + '><i class="fd-sw"></i></label>';
+    if (!items.length) h += '<div class="fd-empty"><span>📭</span>' + L('Hali hech narsa yo\'q. Vazifalarni bajaring — do\'stlaringiz ko\'radi!', 'Nothing yet. Complete tasks — your friends will see it!', 'Пока пусто. Выполняйте задачи — друзья увидят!') + '</div>';
+    items.forEach(function (it, i) {
       var rc = it.reactions || {}, mine = it.my_reactions || [];
-      h += '<div class="x-feed-it"><div class="x-feed-h">' + avatar(it.name, it.photo) + '<div><b>' + H(it.name || '—') + (it.is_me ? ' <i>(' + L('siz', 'you', 'вы') + ')</i>' : '') + '</b><span>' + ago(it.created_at) + '</span></div><em>' + H(it.emoji || '✅') + '</em></div>' +
+      var tot = REACTS.reduce(function (a, e) { return a + (rc[e] || 0); }, 0);
+      h += '<div class="x-feed-it fd-card' + (it.is_me ? ' me' : '') + '" style="--i:' + Math.min(i, 12) + '"><div class="x-feed-h">' + avatar(it.name, it.photo) + '<div><b>' + H(it.name || '—') + (it.is_me ? ' <i>' + L('siz', 'you', 'вы') + '</i>' : '') + '</b><span>' + ago(it.created_at) + '</span></div><em>' + H(it.emoji || '✅') + '</em></div>' +
         '<div class="x-feed-t">' + H(it.text) + '</div><div class="x-feed-r">' + REACTS.map(function (e) {
           var on = mine.indexOf(e) !== -1, n = rc[e] || 0;
-          return '<button class="' + (on ? 'on' : '') + '" data-fr="' + it.id + '" data-e="' + e + '">' + e + (n ? ' ' + n : '') + '</button>';
-        }).join('') + '</div></div>';
+          return '<button class="' + (on ? 'on' : '') + '" data-fr="' + it.id + '" data-e="' + e + '"><span>' + e + '</span>' + (n ? '<b>' + n + '</b>' : '') + '</button>';
+        }).join('') + (tot ? '<small class="fd-tot">' + tot + ' ' + L('reaksiya', tot === 1 ? 'reaction' : 'reactions', 'реакц.') + '</small>' : '') + '</div></div>';
     });
     box.innerHTML = h;
     box.querySelector('#x-feed-ref').onclick = loadFeed;
@@ -2083,6 +2089,7 @@
         var on = it.my_reactions.indexOf(e) === -1;
         if (on) { it.my_reactions.push(e); it.reactions[e] = (it.reactions[e] || 0) + 1; } else { it.my_reactions = it.my_reactions.filter(function (z) { return z !== e; }); it.reactions[e] = Math.max(0, (it.reactions[e] || 1) - 1); }
         renderFeed();
+        if (on) { var nb = document.querySelector('#x-hub-feed [data-fr="' + id + '"][data-e="' + e + '"]'); if (nb) nb.classList.add('pop'); }
         supabase.rpc('react_activity', { p_feed: id, p_emoji: e, p_on: on }).then(function (r) { if (r.error) toast('⚠️ ' + sqlHint(r.error)); });
       };
     });

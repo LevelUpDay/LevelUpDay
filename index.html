@@ -1459,45 +1459,43 @@
   </div>
 
   <!-- IELTS Result Modal -->
-  <div id="view-tarix" style="display:none;padding:4px 0">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <button onclick="showTab('tasks')" title="Orqaga" data-i18n-title="tarix_back_title"
-        style="width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:var(--fs-md);flex-shrink:0">←</button>
-      <div style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:600;color:var(--text)" data-i18n="tarix_title">🪙 Tanga tarixi</div>
+  <div id="view-tarix" class="th" style="display:none">
+    <div class="th-top">
+      <button class="th-back" onclick="showTab('tasks')" title="Orqaga" data-i18n-title="tarix_back_title">←</button>
+      <div class="th-title" data-i18n="tarix_title">🪙 Tanga tarixi</div>
+      <button class="th-clear" onclick="confirmClearHistory()" title="Tarixni tozalash" data-i18n-title="tarix_clear_confirm_title">🗑️</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-      <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);border-radius:var(--radius-md);padding:14px 16px">
-        <div style="font-size:var(--fs-2xs);color:#34D399;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px" data-i18n="tarix_total_in">⬆ Jami kirim</div>
-        <div id="tarix-total-in" style="font-size:var(--fs-2xl);font-weight:700;color:#34D399;font-family:Syne,sans-serif">0 🪙</div>
+    <div class="th-hero">
+      <i class="th-coin c1">🪙</i><i class="th-coin c2">🪙</i><i class="th-coin c3">🪙</i>
+      <div class="th-bal-l" id="tarix-bal-label">Balance</div>
+      <div class="th-bal"><span id="tarix-balance">0</span> <small>🪙</small></div>
+      <div class="th-split">
+        <div class="th-in"><span data-i18n="tarix_total_in">⬆ Jami kirim</span><b id="tarix-total-in">0 🪙</b></div>
+        <div class="th-out"><span data-i18n="tarix_total_out">⬇ Jami chiqim</span><b id="tarix-total-out">0 🪙</b></div>
       </div>
-      <div style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius-md);padding:14px 16px">
-        <div style="font-size:var(--fs-2xs);color:#F87171;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px" data-i18n="tarix_total_out">⬇ Jami chiqim</div>
-        <div id="tarix-total-out" style="font-size:var(--fs-2xl);font-weight:700;color:#F87171;font-family:Syne,sans-serif">0 🪙</div>
-      </div>
+      <div class="th-ratio"><s id="tarix-ratio" style="width:50%"></s></div>
     </div>
 
-    <!-- Qidiruv -->
-    <input type="text" id="tarix-search" oninput="onTarixSearchInput()" data-i18n-ph="tarix_search_placeholder" placeholder="🔍 Nom bo'yicha qidirish..."
-      style="width:100%;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:var(--fs-sm);font-family:'DM Sans',sans-serif;box-sizing:border-box;margin-bottom:8px">
-
-    <!-- Sana oralig'i -->
-    <div style="display:flex;gap:6px;margin-bottom:8px">
-      <input type="date" id="tarix-date-from" onchange="onTarixDateChange()" style="flex:1;min-width:0;padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:var(--fs-2xs);font-family:'DM Sans',sans-serif">
-      <input type="date" id="tarix-date-to" onchange="onTarixDateChange()" style="flex:1;min-width:0;padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:var(--fs-2xs);font-family:'DM Sans',sans-serif">
+    <div class="th-search">
+      <input type="text" id="tarix-search" oninput="onTarixSearchInput()" data-i18n-ph="tarix_search_placeholder" placeholder="🔍 Nom bo'yicha qidirish...">
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:14px">
-      <button onclick="tarixQuickRange('week')" style="flex:1;padding:7px;border-radius:var(--radius-full);font-size:var(--fs-2xs);cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-family:DM Sans,sans-serif" data-i18n="tarix_range_week">Bu hafta</button>
-      <button onclick="tarixQuickRange('month')" style="flex:1;padding:7px;border-radius:var(--radius-full);font-size:var(--fs-2xs);cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-family:DM Sans,sans-serif" data-i18n="tarix_range_month">Bu oy</button>
-      <button onclick="tarixQuickRange('all')" style="flex:1;padding:7px;border-radius:var(--radius-full);font-size:var(--fs-2xs);cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-family:DM Sans,sans-serif" data-i18n="tarix_range_all">Barchasi</button>
+    <div class="th-dates">
+      <input type="date" id="tarix-date-from" onchange="onTarixDateChange()">
+      <span>→</span>
+      <input type="date" id="tarix-date-to" onchange="onTarixDateChange()">
+    </div>
+    <div class="th-quick">
+      <button id="tqr-week" onclick="tarixQuickRange('week')" data-i18n="tarix_range_week">Bu hafta</button>
+      <button id="tqr-month" onclick="tarixQuickRange('month')" data-i18n="tarix_range_month">Bu oy</button>
+      <button id="tqr-all" class="on" onclick="tarixQuickRange('all')" data-i18n="tarix_range_all">Barchasi</button>
     </div>
 
-    <div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">
+    <div class="th-tabs">
       <div id="ttab-seg" style="flex:1;display:flex;gap:6px;min-width:0">
-      <button id="ttab-all" onclick="switchTarixTab('all')" style="flex:1;padding:9px;border-radius:var(--radius-full);font-size:var(--fs-sm);font-weight:500;cursor:pointer;border:1px solid transparent;background:var(--accent);color:#fff;font-family:DM Sans,sans-serif" data-i18n="tarix_tab_all">Hammasi</button>
-      <button id="ttab-in"  onclick="switchTarixTab('in')"  style="flex:1;padding:9px;border-radius:var(--radius-full);font-size:var(--fs-sm);font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-family:DM Sans,sans-serif" data-i18n="tarix_tab_in">⬆ Kirim</button>
-      <button id="ttab-out" onclick="switchTarixTab('out')" style="flex:1;padding:9px;border-radius:var(--radius-full);font-size:var(--fs-sm);font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-family:DM Sans,sans-serif" data-i18n="tarix_tab_out">⬇ Chiqim</button>
+      <button id="ttab-all" class="active" onclick="switchTarixTab('all')" style="flex:1;padding:9px;font-size:var(--fs-sm)" data-i18n="tarix_tab_all">Hammasi</button>
+      <button id="ttab-in"  onclick="switchTarixTab('in')"  style="flex:1;padding:9px;font-size:var(--fs-sm)" data-i18n="tarix_tab_in">⬆ Kirim</button>
+      <button id="ttab-out" onclick="switchTarixTab('out')" style="flex:1;padding:9px;font-size:var(--fs-sm)" data-i18n="tarix_tab_out">⬇ Chiqim</button>
       </div>
-      <button onclick="confirmClearHistory()" title="Tarixni tozalash" data-i18n-title="tarix_clear_confirm_title" style="padding:9px 12px;border-radius:var(--radius-full);font-size:var(--fs-sm);cursor:pointer;border:1px solid rgba(248,113,113,0.4);background:rgba(248,113,113,0.08);color:#F87171;font-family:DM Sans,sans-serif">🗑️</button>
     </div>
     <div id="tarix-list"></div>
   </div>
