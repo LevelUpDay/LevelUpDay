@@ -485,3 +485,11 @@ a.fg-btn { display: inline-flex; align-items: center; justify-content: center; g
 .fg-codeform { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-muted); }
 .fg-codeform-r { display: flex; gap: 8px; }
 .fg-codeform-r .fg-in { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 2px; text-transform: uppercase; text-align: center; font-size: 16px; }
+
+/* 🔗 Ilova/sayt tanlash (mukofotlar) */
+.fg-pkbox { max-height: 46vh; overflow-y: auto; margin: 10px 0; padding-right: 2px; }
+.fg-pkl { padding: 2px 12px; margin-bottom: 10px; }
+.fg-pk[hidden] { display: none !important; }
+.fg-pk-block { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); margin: 4px 2px 10px; cursor: pointer; }
+.fg-pk-block input { width: 16px; height: 16px; accent-color: var(--accent); }
+.fg-pkg[hidden] { display: none !important; }

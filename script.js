@@ -1017,6 +1017,7 @@ var I18N = {
     rstep4_label: 'Qancha?',
     rstep4_ph: "Yoki o'zingiz kiriting...",
     rstep5_label: 'Emoji (ixtiyoriy)',
+    rstep6_label: "🔗 Ilovaga bog'lash (ixtiyoriy)",
     rstep5_ph: 'Yoki emoji kiriting...',
     add_reward_btn: '🎁 Mukofot qo\'shish',
     // Goals
@@ -2627,6 +2628,7 @@ var I18N = {
     rstep4_label: 'How much?',
     rstep4_ph: 'Or enter your own...',
     rstep5_label: 'Emoji (optional)',
+    rstep6_label: '🔗 Link to an app (optional)',
     rstep5_ph: 'Or type an emoji...',
     add_reward_btn: '🎁 Add reward',
     // Goals
@@ -4239,6 +4241,7 @@ var I18N = {
     rstep4_label: 'Сколько?',
     rstep4_ph: 'Или введите своё число...',
     rstep5_label: 'Emoji (необязательно)',
+    rstep6_label: '🔗 Привязать к приложению (необязательно)',
     rstep5_ph: 'Или введите emoji...',
     add_reward_btn: '🎁 Добавить награду',
     // Цели
@@ -11041,6 +11044,24 @@ function parseIntSafe(str) {
   return isNaN(n) ? 0 : n;
 }
 
+// 🔗 Mukofot ↔ Focusgate: vaqtli mukofotni ilova/saytlarga bog'lash (blocker.js: LUFocusgate.pickApps)
+var _rewardLinks = [], _rewardLinkBlock = true, _editRewardLinks = [], _editRewardLinkBlock = true;
+function renderRewardLinksBox(boxId, isEdit) {
+  var box = document.getElementById(boxId); if (!box) return;
+  var arr = isEdit ? _editRewardLinks : _rewardLinks, blk = isEdit ? _editRewardLinkBlock : _rewardLinkBlock;
+  var chips = arr.map(function (l) { return '<span class="rw-link-chip">' + esc(l.label || l.app.replace(/^site:/, '')) + '</span>'; }).join('');
+  box.innerHTML = '<div class="rw-links">' + (chips || '<span class="rw-links-hint">' + _cl("Masalan: Instagram mukofoti → Instagram'da o'tirgan vaqt balansdan avtomatik ayriladi.", 'E.g. an Instagram reward → time spent on Instagram is taken from the balance automatically.', 'Например: награда Instagram → время в Instagram списывается с баланса автоматически.') + '</span>') + '</div>' +
+    '<button type="button" class="rw-links-btn">' + (arr.length ? '✏️ ' + _cl("O'zgartirish", 'Change', 'Изменить') : '＋ ' + _cl('Ilova yoki sayt tanlash', 'Choose apps or sites', 'Выбрать приложения или сайты')) + '</button>' +
+    (arr.length ? '<small class="rw-links-note">' + (blk ? '🔒 ' + _cl('Vaqt tugasa bloklanadi', 'Blocked when time runs out', 'Блокируется, когда время закончится') : '⏱ ' + _cl('Faqat vaqt hisoblanadi', 'Time is only counted', 'Только учёт времени')) + '</small>' : '');
+  box.querySelector('.rw-links-btn').onclick = function () {
+    if (!window.LUFocusgate || !window.LUFocusgate.pickApps) { toast('⚠️ Focusgate'); return; }
+    window.LUFocusgate.pickApps(arr, function (list, block) {
+      if (isEdit) { _editRewardLinks = list; _editRewardLinkBlock = block; } else { _rewardLinks = list; _rewardLinkBlock = block; }
+      renderRewardLinksBox(boxId, isEdit);
+    }, { block: blk });
+  };
+}
+
 function selRewardType(type) {
   _rewardType = type;
   var body = document.getElementById('add-reward-body');
@@ -11049,6 +11070,8 @@ function selRewardType(type) {
   document.getElementById('rtype-count').className = 'rtype-btn' + (type==='count'?' sel':'');
   var step4 = document.getElementById('rstep-4');
   step4.style.display = '';
+  var step6 = document.getElementById('rstep-6');
+  if (step6) { step6.style.display = type === 'time' ? '' : 'none'; if (type === 'time') renderRewardLinksBox('r-links-box', false); }
   var label = document.getElementById('rstep-4-label');
   var presets = document.getElementById('r-amount-presets');
   document.getElementById('r-amount').value = '';
@@ -11178,7 +11201,11 @@ function addReward() {
       amount: amount,          // 'time' bo'lsa — daqiqa, 'count' bo'lsa — dona
       baseName: name
     };
+    if (_rewardType === 'time' && _rewardLinks.length) { newReward.links = _rewardLinks.slice(); newReward.linkBlock = _rewardLinkBlock; }
     S.rewards.push(newReward);
+    var _linkedNew = !!newReward.links;
+    _rewardLinks = []; _rewardLinkBlock = true;
+    var _s6 = document.getElementById('rstep-6'); if (_s6) _s6.style.display = 'none';
 
     document.getElementById('r-name').value='';
     document.getElementById('r-cost').value='';
@@ -11193,6 +11220,7 @@ function addReward() {
     document.querySelectorAll('.remoji-chip').forEach(function(b){b.className='remoji-chip';});
 
     save(); renderRewards(); toast(t('reward_added_toast'));
+    if (_linkedNew) { try { window.LUFocusgate.rewardLinked(newReward.id); } catch (e) {} }
   } finally {
     _addingRewardInProgress = false;
   }
@@ -11222,6 +11250,7 @@ function claimReward(id) {
     recordPurchase(r, safeCost);
     addTarixLog('out',r.icon+' '+r.name+' '+t('reward_purchased_log_suffix'),-safeCost);
     toast(t('reward_claimed_toast').replace('{icon}', r.icon).replace('{name}', rwName(r)).replace('{cost}', safeCost)); confetti(); SFX.click(); save(); render();
+    if (Array.isArray(r.links) && r.links.length) { try { window.LUFocusgate.rewardSync(); } catch (e) {} }
   } finally {
     _claimingRewardIds[id] = false;
   }
@@ -11494,6 +11523,8 @@ function rewardNameWithoutTimeSuffix(r) {
 
 function selEditRewardType(type) {
   _editRewardType = type;
+  var lf = document.getElementById('er-links-field');
+  if (lf) { lf.style.display = type === 'time' ? '' : 'none'; if (type === 'time') renderRewardLinksBox('er-links-box', true); }
   document.getElementById('er-rtype-time').className = 'rtype-btn' + (type==='time'?' sel':'');
   document.getElementById('er-rtype-count').className = 'rtype-btn' + (type==='count'?' sel':'');
   var label = document.getElementById('er-amount-label');
@@ -11522,6 +11553,7 @@ function openRewardEditModal(id) {
   document.getElementById('er-cost').value = r.cost;
   document.getElementById('er-icon').value = r.icon;
   document.getElementById('er-amount').value = r.amount || '';
+  _editRewardLinks = Array.isArray(r.links) ? r.links.slice() : []; _editRewardLinkBlock = r.linkBlock !== false;
   selEditRewardType(r.rtype === 'time' ? 'time' : 'count');
   document.getElementById('reward-modal-overlay').classList.add('open');
   setTimeout(()=>document.getElementById('er-name').focus(),150);
@@ -11545,6 +11577,10 @@ function saveRewardEdit() {
   // (masalan -10 daqiqa) o'tkazib yuborardi. Endi `amount>0` tekshiriladi.
   if(!(amount>0)){ document.getElementById('er-amount').focus(); toast(_editRewardType==='time'?t('reward_minutes_required_toast'):t('reward_amount_required_toast')); return; }
   const newRtype = _editRewardType || r.rtype || 'count';
+  // 🔗 Focusgate bog'lanishi
+  var _oldLinks = JSON.stringify(r.links || []), _newLinks = newRtype === 'time' ? _editRewardLinks.slice() : [];
+  if (_newLinks.length) { r.links = _newLinks; r.linkBlock = _editRewardLinkBlock; } else { delete r.links; delete r.linkBlock; }
+  if (JSON.stringify(_newLinks) !== _oldLinks || newRtype !== r.rtype) setTimeout(function () { try { window.LUFocusgate.rewardLinked(r.id); } catch (e) {} try { window.LUFocusgate.rewardSync(); } catch (e) {} }, 50);
 
   if (newRtype !== r.rtype) {
     var hadClaims = (S.rewardClaims && S.rewardClaims[r.id]) ? true : false;
@@ -13985,6 +14021,9 @@ function renderRewards() {
     } else {
       var remCount = claims - totalUsedCount;
       if (remCount > 0) chips += '<span class="rw-chip rw-chip-own">' + t('reward_remaining_label') + ' ' + remCount + ' ' + t('reward_unit_count') + '</span>';
+    }
+    if (r.rtype === 'time' && Array.isArray(r.links) && r.links.length) {
+      chips += '<span class="rw-chip rw-chip-link" title="' + esc(r.links.map(function (l) { return l.label || l.app; }).join(', ')) + '">🔗 ' + esc(r.links.slice(0, 2).map(function (l) { return l.label || l.app.replace(/^site:/, ''); }).join(', ')) + (r.links.length > 2 ? ' +' + (r.links.length - 2) : '') + ' · ' + _cl('avto', 'auto', 'авто') + '</span>';
     }
     if (claims > 0) {
       chips += '<span class="rw-chip rw-chip-muted">' + t('reward_bought_label') + ' ' + (isTimeReward ? formatMinutes(claims) : claims + ' ' + t('reward_unit_count')) + '</span>';
