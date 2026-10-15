@@ -14,9 +14,9 @@
   function T(a) { return L(a[0], a[1], a[2]); }
   var AGENT_VERSION = '0.5.3'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
-  // ⏸ Yuklab olinadigan fayllar (Windows dasturi, Android APK, kengaytma ZIP) hozircha saytda taklif qilinmaydi —
-  // o'z serverga ko'chirilgach yoqiladi. Fayllar joyida qoladi: o'rnatilgan Focusgate'lar avtoyangilanishda davom etadi.
-  var DOWNLOADS_ON = false;
+  // ✅ Focusgate kuzatuvchilari (Windows dasturi Focusgate.exe va brauzer kengaytmasi ZIP) — Focusgate bo'limida yuklab olinadi.
+  // Faqat "Ilovani o'rnatish" oynasidagi Windows o'rnatuvchisi o'chirilgan (extras.js: dlOn).
+  var DOWNLOADS_ON = true;
   function soonCard() {
     return '<div class="fg-card fg-connect fg-soon"><div class="fg-connect-h"><span>⏳</span><div><b>' + E(L('Kompyuter va telefon ilovasi — tez kunda', 'Computer & phone apps — coming soon', 'Приложения для компьютера и телефона — скоро')) + '</b>' +
       '<small>' + E(L('Dasturlarni bloklash va ekran vaqti uchun ilovalar tayyorlanmoqda. Hozircha LevelUpDay\'ni brauzerda (Google Chrome) ishlating — pastda namuna statistikani ko\'rishingiz mumkin.', 'Apps for blocking programs and tracking screen time are on the way. For now, use LevelUpDay in your browser (Google Chrome) — below is sample data.', 'Приложения для блокировки и учёта экранного времени готовятся. Пока используйте LevelUpDay в браузере (Google Chrome) — ниже пример статистики.')) + '</small></div></div></div>';
