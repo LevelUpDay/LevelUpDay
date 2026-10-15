@@ -34026,6 +34026,9 @@ var _cloudWipeLocalAndReload = function(msg, keepAuth) {
     if (typeof _cloudSyncTimer !== 'undefined' && _cloudSyncTimer) clearTimeout(_cloudSyncTimer);
     try { stopRealtimeSync(); } catch (e) {}
     window.save = function () {}; save = window.save; // qayta yuklanguncha hech narsa yozilmasin
+    // To'g'ridan-to'g'ri yozuvchilar ham (realtime, profil, pomodoro) — eski akkaunt ID'si qayta yozilib qolsa, sahifa cheksiz qayta yuklanardi
+    saveToLocalStorage = function () {}; syncTasksToLocalStorage = function () {};
+    try { var w = JSON.parse(sessionStorage.getItem('ludWipeLog') || '[]').filter(function (t) { return Date.now() - t < 30000; }); w.push(Date.now()); sessionStorage.setItem('ludWipeLog', JSON.stringify(w)); } catch (e) {}
     var del = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
@@ -34042,6 +34045,12 @@ var _cloudWipeLocalAndReload = function(msg, keepAuth) {
 // aralashib (va bulutga yozilib) ketmasligi uchun tozalab, qayta yuklaymiz. true — chaqiruvchi to'xtasin.
 var _cloudAccountSwitchReset = function(newUid) {
   if (!newUid || !S.lastCloudUserId || S.lastCloudUserId === newUid) return false;
+  // 🛟 Tsikldan himoya: 30 soniyada 2 martadan ko'p tozalab qayta yuklangan bo'lsa — endi qayta yuklamaymiz,
+  // eski akkaunt belgisini almashtirib, odatdagidek davom etamiz (aks holda sahifa "kirish"da qotib qolardi)
+  try {
+    var w = JSON.parse(sessionStorage.getItem('ludWipeLog') || '[]').filter(function (t) { return Date.now() - t < 30000; });
+    if (w.length >= 2) { S.lastCloudUserId = newUid; sessionStorage.removeItem('ludWipeLog'); return false; }
+  } catch (e) {}
   _cloudWipeLocalAndReload(_cl('Boshqa akkaunt — ma\'lumotlar yuklanmoqda…', 'Different account — loading its data…', 'Другой аккаунт — загружаем данные…'), true);
   return true;
 };
