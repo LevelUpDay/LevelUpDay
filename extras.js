@@ -2829,6 +2829,57 @@
   window.xRenderTgSettings = safe(function () { renderTgSettings().catch(function (e) { console.warn('[tg]', e); }); });
 
   // =========================================================
+  // 🕒 VAQT — davlat bo'yicha (tz.js). Sukut bo'yicha O'CHIQ: qurilma vaqti.
+  //   S.tzByCountry = true → localStorage.ludTz = profil davlatining vaqt mintaqasi (sahifa qayta yuklanadi)
+  // =========================================================
+  function tzOfCountry() { var c = S.profile && S.profile.country; return (c && window.LUD_TZ_MAP && window.LUD_TZ_MAP[c]) || null; }
+  function tzWanted() { return S.tzByCountry ? tzOfCountry() : null; }
+  function tzClock(zone) { try { return new Intl.DateTimeFormat(getLang ? getLang() : 'en', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()); } catch (e) { return ''; } }
+  // Kerakli holat amaldagidan farq qilsa — saqlab, bir marta qayta yuklaymiz (sessiyada tsikl bo'lmasin)
+  function tzApply(force) {
+    var want = tzWanted(), cur = null; try { cur = localStorage.getItem('ludTz'); } catch (e) {}
+    if ((want || null) === (cur || null)) return false;
+    try { if (want) localStorage.setItem('ludTz', want); else localStorage.removeItem('ludTz'); } catch (e) { return false; }
+    var k = 'ludTzReload:' + (want || 'off');
+    try { if (!force && sessionStorage.getItem(k)) return false; sessionStorage.setItem(k, '1'); } catch (e) {}
+    toast('🕒 ' + L('Vaqt yangilanmoqda…', 'Updating time…', 'Обновляем время…'));
+    setTimeout(function () { location.reload(); }, 600);
+    return true;
+  }
+  window.xTzApply = tzApply;
+  function renderTzSettings() {
+    var st = document.getElementById('profile-subtab-settings'); if (!st) return;
+    var card = document.getElementById('x-tz-card');
+    if (!card) {
+      card = document.createElement('div'); card.id = 'x-tz-card'; card.className = 'x-card x-push-card x-tz-card';
+      var tg = document.getElementById('x-tg-card');
+      st.insertBefore(card, tg ? tg.nextSibling : st.firstChild);
+    }
+    var on = !!S.tzByCountry, cz = tzOfCountry(), cc = S.profile && S.profile.country, dev = (window.LUD_TZ && window.LUD_TZ.device) || '';
+    var flag = cc && typeof countryFlagImg === 'function' ? countryFlagImg(cc, 14) + ' ' : '';
+    var sub = on && cz
+      ? flag + H(typeof countryName === 'function' ? countryName(cc) : cc) + ' · ' + H(cz.replace(/_/g, ' ')) + ' · <b>' + H(tzClock(cz)) + '</b>'
+      : L('Qurilma vaqti', 'Device time', 'Время устройства') + ' · ' + H(dev.replace(/_/g, ' ')) + ' · <b>' + H(tzClock(dev || undefined)) + '</b>';
+    card.innerHTML = '<div class="x-push-h"><span>🕒</span><div><b>' + L('Vaqt — davlat bo\'yicha', 'Time by country', 'Время по стране') + '</b><small>' + sub + '</small></div>' +
+      '<button type="button" class="x-tg-sw' + (on ? ' on' : '') + '" id="x-tz-sw" role="switch" aria-checked="' + on + '"' + (!cz && !on ? ' disabled' : '') + '><i></i></button></div>' +
+      '<div class="x-tg-hint">' + (cz
+        ? L('Yoqilsa: kun, soat, eslatmalar va statistika profilingizdagi davlat vaqti bilan hisoblanadi — boshqa davlatga borsangiz ham. O\'chiq bo\'lsa — telefon/noutbuk soati.', 'When on, days, hours, reminders and stats use your profile country\'s time — even when you travel. When off, your phone/laptop clock is used.', 'Если включено, дни, часы, напоминания и статистика считаются по времени страны из профиля — даже в поездке. Если выключено — по часам телефона/ноутбука.')
+        : L('Avval profilda davlatingizni tanlang (Profil → ✎ Tahrirlash), keyin yoqish mumkin.', 'Choose your country in your profile first (Profile → ✎ Edit), then you can turn this on.', 'Сначала выберите страну в профиле (Профиль → ✎ Изменить), затем можно включить.') +
+        (!cz ? ' <button type="button" class="x-link" id="x-tz-country">' + L('Davlatni tanlash', 'Choose country', 'Выбрать страну') + '</button>' : '')) + '</div>';
+    var sw = card.querySelector('#x-tz-sw');
+    sw.onclick = function () {
+      if (!cz && !S.tzByCountry) return;
+      S.tzByCountry = !S.tzByCountry; save();
+      if (!tzApply(true)) renderTzSettings();
+    };
+    var cb = card.querySelector('#x-tz-country'); if (cb) cb.onclick = function () { try { showProfileEdit(); } catch (e) {} };
+  }
+  window.xRenderTzSettings = safe(renderTzSettings);
+  // Bulutdan kelgan sozlama yoki davlat o'zgargan bo'lsa — mos holatga keltiramiz
+  setTimeout(function () { try { tzApply(false); } catch (e) {} }, 4000);
+  setTimeout(function () { try { tzApply(false); } catch (e) {} }, 15000);
+
+  // =========================================================
   // 🎁 DO'ST TAKLIF QILISH — havola: ?ref=KOD
   //   Taklif qilingan yangi foydalanuvchi 3 xil kunda faol bo'lsa: ikkalasiga ham +10 💎
   // =========================================================
@@ -3038,6 +3089,7 @@
     try { markMovedTabs(); buildBottomNav(); renderInstallUI(); handleLaunchAction(); } catch (e) { console.warn('[extras nav]', e); }
     try { renderPushSettings(); setTimeout(window.xPushAuto, 4000); } catch (e) { console.warn('[push]', e); }
     try { setTimeout(window.xRenderTgSettings, 1500); } catch (e) {}
+    try { setTimeout(window.xRenderTzSettings, 1600); } catch (e) {}
     // 💚 Onlayn holat: ilova ochiq turganda har 2 daqiqada faollik yuboriladi (do'stlarda "onlayn" ko'rinadi)
     var beat = function () {
       if (document.visibilityState !== 'visible' || !cloudOk()) return;
