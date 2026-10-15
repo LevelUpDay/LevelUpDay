@@ -2611,7 +2611,7 @@
   function isWin() { return /Windows NT/i.test(navigator.userAgent || ''); }
   // Yuklab olinadigan fayllar (Focusgate.exe, APK) — hozircha o'chirilgan (blocker.js: DOWNLOADS_ON)
   function dlOn() { return !!(window.LUFocusgate && window.LUFocusgate.downloads); }
-  function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS() || isWin() || /Android/i.test(navigator.userAgent || '')); }
+  function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS() || isWin()); }
   function pwaPrompt() {
     if (!_installEvt) return false;
     _installEvt.prompt();
@@ -2637,18 +2637,6 @@
       var pb = document.getElementById('x-inst-pwa'); if (pb) pb.onclick = function () { pwaPrompt(); };
       var dl = document.getElementById('x-inst-win-dl'); if (dl) dl.onclick = function () { setTimeout(function () { toast('⬇️ ' + L('Yuklangan faylni oching', 'Open the downloaded file', 'Откройте скачанный файл')); }, 600); };
       return m;
-    }
-    if (/Android/i.test(navigator.userAgent || '') && window.LUFocusgate && window.LUFocusgate.androidGuide) {
-      // Android: haqiqiy ilova (APK) — ilovalarni bloklash va ekran vaqti bilan; yoki oddiy o'rnatish (PWA)
-      html += '<div class="x-inst-win"><div class="x-inst-win-h"><img src="icons/icon-192.png" alt=""><div><b>LevelUpDay ' + L('Android uchun', 'for Android', 'для Android') + '</b>' +
-        '<span>' + L('Ilovalarni bloklaydi, ekran vaqtini hisoblaydi — kompyuter bilan umumiy limitlar', 'Blocks apps, counts screen time — limits shared with your computer', 'Блокирует приложения, считает экранное время — лимиты общие с компьютером') + '</span></div></div>' +
-        '<a class="x-btn" id="x-inst-apk" href="' + window.LUFocusgate.apk + '" download="LevelUpDay.apk">⬇️ ' + L('APK yuklab olish', 'Download APK', 'Скачать APK') + ' (0.1 MB)</a>' +
-        '<div class="x-inst-alt"><button class="x-link" id="x-inst-guide">📖 ' + L('O\'rnatish bo\'yicha qo\'llanma', 'Step-by-step guide', 'Пошаговая инструкция') + '</button></div></div>' +
-        (_installEvt ? '<div class="x-inst-alt">' + L('Yoki faqat bosh ekranga (bloklashsiz):', 'Or just add to Home screen (no blocking):', 'Или просто на главный экран (без блокировки):') + ' <button class="x-link" id="x-inst-pwa">📲 ' + L('O\'rnatish', 'Install', 'Установить') + '</button></div>' : '');
-      var am = xModal(html, 'x-inst-box');
-      var gb = document.getElementById('x-inst-guide'); if (gb) gb.onclick = function () { if (am && am._close) am._close(); window.LUFocusgate.androidGuide(); };
-      var pb2 = document.getElementById('x-inst-pwa'); if (pb2) pb2.onclick = function () { pwaPrompt(); };
-      return am;
     }
     if (pwaPrompt()) return;
     if (isIOS()) {
@@ -2997,6 +2985,9 @@
       history.replaceState(null, '', location.pathname + location.hash);
       if (a === 'new-task') setTimeout(function () { showTab('tasks'); openModal(); }, 400);
       if (a === 'pomodoro') setTimeout(function () { pomoOpenModal(); }, 400);
+      if (a === 'tasks') setTimeout(function () { showTab('tasks'); }, 300);
+      if (a === 'focusgate') setTimeout(function () { if (window.xOpenBlocker) window.xOpenBlocker('today'); else showTab('blocker'); }, 400);
+      if (a === 'inbox') setTimeout(function () { showTab('hub'); if (window.xInbox) window.xInbox.open(); }, 400);
     } catch (e) {}
   }
 

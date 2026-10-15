@@ -59,9 +59,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Yangi vazifa",
-      "short_name": "Vazifa",
-      "url": "./?action=new-task",
+      "name": "Pomodoro",
+      "short_name": "Pomodoro",
+      "description": "Pomodoro taymerini ochish",
+      "url": "./?action=pomodoro",
       "icons": [
         {
           "src": "icons/icon-192.png",
@@ -70,8 +71,33 @@
       ]
     },
     {
-      "name": "Pomodoro",
-      "url": "./?action=pomodoro",
+      "name": "Vazifalar",
+      "short_name": "Vazifalar",
+      "description": "Bugungi vazifalar",
+      "url": "./?action=tasks",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Focusgate — ilova bloklovchi",
+      "short_name": "Focusgate",
+      "description": "Ekran vaqti va bloklash",
+      "url": "./?action=focusgate",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Yangi vazifa",
+      "short_name": "+ Vazifa",
+      "url": "./?action=new-task",
       "icons": [
         {
           "src": "icons/icon-192.png",

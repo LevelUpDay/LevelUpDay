@@ -10,7 +10,7 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v72';
+const CACHE_VERSION = 'v73';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 // Fon tovushlari (sounds/*.mp3, ~0.8 MB) — alohida, versiyalar o'rtasida o'chirilmaydigan kesh
 const SOUND_CACHE = 'lud-sounds-v1';
@@ -286,6 +286,17 @@ self.addEventListener('push', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
+  // 🍅 Pomodoro bildirishnomasi tugmalari: ⏸ / ▶ / ⏭ — ochiq sahifaga yuboriladi, sahifa yo'q bo'lsa ilova ochiladi
+  if (event.action && event.action.indexOf('pomo-') === 0) {
+    event.notification.close();
+    event.waitUntil((async () => {
+      const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const w = wins.find((c) => c.url.startsWith(self.registration.scope));
+      if (w) { w.postMessage({ type: 'pomo-action', action: event.action }); return; }
+      if (event.action !== 'pomo-close') await self.clients.openWindow(new URL('./?action=pomodoro&pa=' + event.action, self.registration.scope).href);
+    })());
+    return;
+  }
   event.notification.close();
   const target = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope).href;
   event.waitUntil((async () => {
