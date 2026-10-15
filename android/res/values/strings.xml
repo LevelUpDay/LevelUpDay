@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">LevelUpDay</string>
-    <string name="guard_name">LevelUpDay Focusgate</string>
-    <string name="guard_desc">Blocks apps and websites according to the limits you set in LevelUpDay (daily limits, schedules, focus sessions). Only the name of the open app and the website address are read — nothing you type.</string>
-</resources>

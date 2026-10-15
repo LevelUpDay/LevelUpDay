@@ -21,8 +21,6 @@
     return '<div class="fg-card fg-connect fg-soon"><div class="fg-connect-h"><span>⏳</span><div><b>' + E(L('Kompyuter va telefon ilovasi — tez kunda', 'Computer & phone apps — coming soon', 'Приложения для компьютера и телефона — скоро')) + '</b>' +
       '<small>' + E(L('Dasturlarni bloklash va ekran vaqti uchun ilovalar tayyorlanmoqda. Hozircha LevelUpDay\'ni brauzerda (Google Chrome) ishlating — pastda namuna statistikani ko\'rishingiz mumkin.', 'Apps for blocking programs and tracking screen time are on the way. For now, use LevelUpDay in your browser (Google Chrome) — below is sample data.', 'Приложения для блокировки и учёта экранного времени готовятся. Пока используйте LevelUpDay в браузере (Google Chrome) — ниже пример статистики.')) + '</small></div></div></div>';
   }
-  var ANDROID_VERSION = '0.1.0', APK_URL = 'downloads/LevelUpDay.apk?v=' + ANDROID_VERSION; // telefon/planshet (android/)
-  var IS_ANDROID = /Android/i.test(navigator.userAgent || ''); // ?v= — brauzer/CDN eski faylni bermasligi uchun
 
   // ---------- Namuna (DEMO) ma'lumotlar — kompyuter ulanmaganda ko'rsatiladi ----------
   var DEMO_APPS = [
@@ -338,10 +336,6 @@
     if (real()) return '';
     if (!DOWNLOADS_ON) return soonCard();
     var signed = sbOk();
-    if (IS_ANDROID) return '<div class="fg-card fg-connect"><div class="fg-connect-h"><span>📱</span><div><b>' + E(L('Telefoningizni ulang', 'Connect your phone', 'Подключите телефон')) + '</b><small>' + E(L('Android 7+ · bepul · v' + ANDROID_VERSION, 'Android 7+ · free · v' + ANDROID_VERSION, 'Android 7+ · бесплатно · v' + ANDROID_VERSION)) + '</small></div></div>' +
-      '<p class="fg-p">' + E(L('Ilovalarni bloklash va ekran vaqtini hisoblash uchun LevelUpDay Android ilovasini o\'rnating.', 'Install the LevelUpDay Android app to block apps and count screen time.', 'Установите Android-приложение LevelUpDay, чтобы блокировать приложения и считать экранное время.')) + '</p>' +
-      (signed ? '' : '<small class="red">' + E(L('Avval LevelUpDay akkauntingizga kiring (Profil → Sozlamalar).', 'Sign in to your LevelUpDay account first (Profile → Settings).', 'Сначала войдите в аккаунт LevelUpDay (Профиль → Настройки).')) + '</small>') +
-      '<button type="button" class="fg-btn big fg-dl" data-fg-android>📱 ' + E(L('Android uchun o\'rnatish', 'Install for Android', 'Установить для Android')) + '</button></div>';
     return '<div class="fg-card fg-connect"><div class="fg-connect-h"><span>💻</span><div><b>' + E(L('Kompyuteringizni ulang', 'Connect your computer', 'Подключите компьютер')) + '</b><small>' + E(L('Windows 10/11 · bepul · 7 MB · v' + AGENT_VERSION, 'Windows 10/11 · free · 7 MB · v' + AGENT_VERSION, 'Windows 10/11 · бесплатно · 7 МБ · v' + AGENT_VERSION)) + '</small></div></div>' +
       '<ol class="fg-steps">' +
       '<li><b>' + E(L('Focusgate.exe ni yuklab oling', 'Download Focusgate.exe', 'Скачайте Focusgate.exe')) + '</b></li>' +
@@ -500,8 +494,7 @@
     if (!DOWNLOADS_ON) return '';
     return '<div class="fg-get">' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🪟</span><b>' + E(L('Windows uchun Focusgate', 'Focusgate for Windows', 'Focusgate для Windows')) + '</b><span>' + E(L('Dasturlarni kuzatadi va bloklaydi. Soat yonida (tray) ishlaydi.', 'Tracks and blocks programs. Lives in the system tray.', 'Отслеживает и блокирует программы. Работает в трее.')) + '</span><a class="fg-btn" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Yuklab olish', 'Download', 'Скачать')) + '</a></div>' +
-      '<div class="fg-card fg-get-c"><span class="fg-get-ic">🧩</span><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><span>' + E(L('Shorts, Reels va sayt ichidagi bo\'limlarni bloklash.', 'Blocks Shorts, Reels and in-site sections.', 'Блокирует Shorts, Reels и разделы сайтов.')) + '</span><button type="button" class="fg-btn" data-fg-extinstall>⬇ ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div>' +
-      '<div class="fg-card fg-get-c"><span class="fg-get-ic">📱</span><b>' + E(L('Telefon va planshet (Android)', 'Phone & tablet (Android)', 'Телефон и планшет (Android)')) + '</b><span>' + E(L('Ilovalarni bloklaydi, ekran vaqtini hisoblaydi — limitlar kompyuter bilan umumiy.', 'Blocks apps and counts screen time — limits are shared with your computer.', 'Блокирует приложения и считает экранное время — лимиты общие с компьютером.')) + '</span><button type="button" class="fg-btn" data-fg-android>⬇ ' + E(L('Yuklab olish', 'Download', 'Скачать')) + '</button></div></div>';
+      '<div class="fg-card fg-get-c"><span class="fg-get-ic">🧩</span><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><span>' + E(L('Shorts, Reels va sayt ichidagi bo\'limlarni bloklash.', 'Blocks Shorts, Reels and in-site sections.', 'Блокирует Shorts, Reels и разделы сайтов.')) + '</span><button type="button" class="fg-btn" data-fg-extinstall>⬇ ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div></div>';
   }
   function pageSettings() {
     return '<div class="fg-card fg-set">' + settingsRows() + '</div>' + devicesHtml() + (real() ? '<div class="fg-card">' + codeFormHtml() + '</div>' : '') + getCards() +
@@ -704,32 +697,6 @@
     return h;
   }
   var EXT_URL = 'downloads/focusgate-extension.zip?v=' + AGENT_VERSION;
-  // 📱 Android ilovasi: o'rnatish qo'llanmasi
-  function openAndroidInstall() {
-    function step(n, title, body) { return '<div class="fg-gstep"><span class="fg-gnum">' + n + '</span><div class="fg-gbody"><b>' + title + '</b>' + (body ? '<small>' + body + '</small>' : '') + '</div></div>'; }
-    var url = location.origin + location.pathname.replace(/[^/]*$/, '') + 'downloads/LevelUpDay.apk';
-    openSheet('<h3>📱 ' + E(L('Telefon / planshetga o\'rnatish', 'Install on phone / tablet', 'Установка на телефон / планшет')) + '</h3>' +
-      '<p class="fg-p">' + E(L('Android 7 va undan yuqori. Ilovalarni bloklaydi, ekran vaqtini hisoblaydi va statistikaga qo\'shadi. Limitlar, jadval va fokus kompyuter bilan umumiy.', 'Android 7 or newer. Blocks apps, counts screen time and adds it to your stats. Limits, schedules and focus are shared with your computer.', 'Android 7 и новее. Блокирует приложения, считает экранное время и добавляет его в статистику. Лимиты, расписание и фокус — общие с компьютером.')) + '</p>' +
-      (IS_ANDROID ? '' : '<div class="fg-hint">💡 ' + E(L('Bu sahifani telefoningizda oching yoki havolani telefonga yuboring: ', 'Open this page on your phone, or send the link to it: ', 'Откройте эту страницу на телефоне или отправьте ссылку: ')) + '<code class="fg-code-in">' + E(url) + '</code></div>') +
-      '<div class="fg-guide">' +
-      step(1, E(L('APK faylni yuklab oling', 'Download the APK', 'Скачайте APK')), '<a class="fg-btn sm" href="' + APK_URL + '" download="LevelUpDay.apk">⬇ LevelUpDay.apk (0.1 MB)</a>') +
-      step(2, E(L('Faylni oching → O\'rnatish', 'Open the file → Install', 'Откройте файл → Установить')),
-        E(L('Telefon "Noma\'lum manbalardan o\'rnatish" desa: Sozlamalar → shu brauzerga ruxsat bering → orqaga → O\'rnatish. Play Protect ogohlantirsa: "Batafsil" → "Baribir o\'rnatish".', 'If the phone asks about "unknown apps": Settings → allow this browser → back → Install. If Play Protect warns: "More details" → "Install anyway".', 'Если телефон спросит про «неизвестные приложения»: Настройки → разрешить этому браузеру → назад → Установить. Если Play Защита предупредит: «Подробнее» → «Всё равно установить».'))) +
-      step(3, E(L('LevelUpDay ilovasini oching → "Ulash"', 'Open the LevelUpDay app → "Connect"', 'Откройте приложение LevelUpDay → «Подключить»')),
-        E(L('Brauzerda LevelUpDay ochiladi — "Ulash" ni tasdiqlang (bu brauzerda akkauntingizga kirgan bo\'lishingiz kerak).', 'LevelUpDay opens in the browser — confirm "Connect" (you must be signed in there).', 'В браузере откроется LevelUpDay — подтвердите «Подключить» (нужно войти в аккаунт).'))) +
-      step(4, E(L('"Ekran vaqtini hisoblash" ga ruxsat bering', 'Allow "Count screen time"', 'Разрешите «Учёт экранного времени»')),
-        E(L('Ro\'yxatdan LevelUpDay → "Ruxsat berish" ni yoqing.', 'Find LevelUpDay in the list → turn on "Permit usage access".', 'Найдите LevelUpDay в списке → включите «Доступ к истории использования».'))) +
-      step(5, E(L('"Bloklash" ni yoqing (Maxsus imkoniyatlar)', 'Turn on "Blocking" (Accessibility)', 'Включите «Блокировку» (Спец. возможности)')),
-        E(L('Maxsus imkoniyatlar → O\'rnatilgan ilovalar → LevelUpDay Focusgate → Yoqish. Kulrang bo\'lib "Cheklangan sozlama" desa: Sozlamalar → Ilovalar → LevelUpDay → ⋮ (yuqori o\'ng) → "Cheklangan sozlamalarga ruxsat berish", keyin qaytadan yoqing.', 'Accessibility → Installed apps → LevelUpDay Focusgate → On. If it\'s greyed out ("Restricted setting"): Settings → Apps → LevelUpDay → ⋮ (top right) → "Allow restricted settings", then turn it on again.', 'Спец. возможности → Установленные приложения → LevelUpDay Focusgate → Вкл. Если серое («Ограниченная настройка»): Настройки → Приложения → LevelUpDay → ⋮ (вверху справа) → «Разрешить ограниченные настройки», затем включите снова.'))) +
-      step('✓', E(L('Tayyor! Telefon statistikasi shu yerda ko\'rinadi', 'Done! Phone stats appear here', 'Готово! Статистика телефона появится здесь')),
-        E(L('Ilovada "Batareya cheklovini o\'chirish" ni ham bosing — shunda Android uni uxlatib qo\'ymaydi.', 'Also tap "Don\'t restrict battery" in the app so Android doesn\'t put it to sleep.', 'Также нажмите в приложении «Не ограничивать батарею», чтобы Android её не усыплял.'))) +
-      '</div>' +
-      '<details class="fg-trouble"><summary>❓ ' + E(L('Savollar', 'Questions', 'Вопросы')) + '</summary><ul>' +
-      '<li><b>Xiaomi / Redmi / POCO</b> — ' + E(L('Sozlamalar → Ilovalar → LevelUpDay → "Avtoishga tushirish" ni yoqing va batareyani "Cheklovsiz" qiling.', 'Settings → Apps → LevelUpDay → turn on "Autostart" and set battery to "No restrictions".', 'Настройки → Приложения → LevelUpDay → включите «Автозапуск» и батарею «Нет ограничений».')) + '</li>' +
-      '<li><b>' + E(L('Nimani o\'qiydi?', 'What does it read?', 'Что оно читает?')) + '</b> — ' + E(L('faqat qaysi ilova ochiqligini va brauzerdagi sayt manzilini. Yozgan matnlaringiz, xabarlaringiz o\'qilmaydi.', 'only which app is open and the website address in the browser. Your messages and typing are not read.', 'только какое приложение открыто и адрес сайта в браузере. Ваши сообщения и ввод не читаются.')) + '</li>' +
-      '<li><b>iPhone / iPad</b> — ' + E(L('Apple boshqa ilovalarni bloklashga faqat App Store orqali maxsus ruxsat bilan imkon beradi. Hozircha iPhone\'da LevelUpDay\'ni bosh ekranga qo\'shing (Ulashish → Bosh ekranga) va "Ekran vaqti" (Screen Time) limitlaridan foydalaning.', 'Apple only allows blocking other apps with a special App Store permission. For now, add LevelUpDay to your Home Screen (Share → Add to Home Screen) and use Screen Time limits.', 'Apple разрешает блокировать другие приложения только со спец. разрешением App Store. Пока добавьте LevelUpDay на экран «Домой» (Поделиться → На экран «Домой») и используйте лимиты «Экранного времени».')) + '</li>' +
-      '</ul></details>');
-  }
   function openExtInstall() {
     var edge = /Edg\//.test(navigator.userAgent);
     var page = edge ? 'edge://extensions' : 'chrome://extensions';
@@ -830,7 +797,7 @@
   }
   function needConnect() {
     if (!DOWNLOADS_ON) { openSheet(soonCard().replace('fg-card fg-connect', 'fg-connect in')); return; }
-    openSheet('<h3>' + (IS_ANDROID ? '📱 ' + E(L('Avval telefonni ulang', 'Connect your phone first', 'Сначала подключите телефон')) : '💻 ' + E(L('Avval kompyuterni ulang', 'Connect your computer first', 'Сначала подключите компьютер'))) + '</h3>' + connectCard().replace('fg-card fg-connect', 'fg-connect in'));
+    openSheet('<h3>' + '💻 ' + E(L('Avval kompyuterni ulang', 'Connect your computer first', 'Сначала подключите компьютер')) + '</h3>' + connectCard().replace('fg-card fg-connect', 'fg-connect in'));
   }
   // 🌐 Sayt qo'shish: katalog (guruhlar) yoki istalgan manzil → bloklash yoki kunlik limit
   function openSitePicker() {
@@ -1134,7 +1101,6 @@
     if ((b = t.closest('[data-fg-appopen]'))) { openApp(b.dataset.fgAppopen); return; }
     if ((b = t.closest('[data-fg-allapps]'))) { openAllApps(); return; }
     if ((b = t.closest('[data-fg-extinstall]'))) { if (DOWNLOADS_ON) openExtInstall(); return; }
-    if ((b = t.closest('[data-fg-android]'))) { if (DOWNLOADS_ON) openAndroidInstall(); return; }
     if ((b = t.closest('[data-fg-addsite]'))) { openSitePicker(); return; }
     if ((b = t.closest('[data-fg-codego]'))) { codeGo(b); return; }
     if ((b = t.closest('[data-fg-join]'))) { joinFocus(b.dataset.fgJoin, +b.dataset.min); return; }
@@ -1205,7 +1171,7 @@
 
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, version: AGENT_VERSION, androidGuide: DOWNLOADS_ON ? openAndroidInstall : null, apk: APK_URL, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();

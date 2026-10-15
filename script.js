@@ -29093,6 +29093,7 @@ try {
       pomoSaveActivities();
       pomoRenderActivityList();
       pomoUpdateFloatUI();
+      try { pomoShadeSync(); } catch (e) {}
       try { SFX.click(); } catch (e) {}
       if (typeof toast === 'function') toast(t('pomo_toast_reset'));
     }
@@ -29421,10 +29422,75 @@ try {
       else window.LUFocusBus.sync('pomo', 0);
       window.LUFocusBus.badge(document.getElementById('pomo-hero'), !!(act && act.running && act.phase !== 'break'));
     } catch (e) {}
+    try { pomoShadeSync(); } catch (e) {}
   }
+
+  // 📱 Telefon: Pomodoro bildirishnomalar pardasida (soat ko'rinadigan joyda) — ⏸ / ▶ / ⏭ tugmalari bilan.
+  // Musiqani to'xtatmaslik uchun media-pleyer emas, oddiy doimiy bildirishnoma (service worker). Faqat sensorli qurilmalarda.
+  var _pomoShadeKey = '';
+  function pomoShadeOn() {
+    try {
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) return false;
+      if (S && S.pomoShadeNotif === false) return false;
+      return window.matchMedia('(pointer: coarse)').matches;
+    } catch (e) { return false; }
+  }
+  function pomoHHMM(ms) { var d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  function pomoShadeSync() {
+    if (!pomoShadeOn()) return;
+    var act = pomoFindAct(pomoActiveId) || null;
+    var state = !act ? 'none' : act.running ? (act.phase === 'break' ? 'break' : 'work') : ((act.elapsedMs || 0) > 0 || act.phase === 'break' ? 'paused' : 'none');
+    var left = 0, endAt = 0;
+    if (state === 'work') { left = Math.max(0, pomoWorkMs() - (act.cycleMs || 0)); endAt = Date.now() + left; }
+    if (state === 'break') { left = Math.max(0, act.breakRemainingMs || 0); endAt = Date.now() + left; }
+    var key = state + '|' + (act ? act.id : '') + '|' + Math.ceil(left / 60000);
+    if (key === _pomoShadeKey) return;
+    _pomoShadeKey = key;
+    navigator.serviceWorker.ready.then(function (reg) {
+      if (state === 'none') { return reg.getNotifications({ tag: 'lud-pomo' }).then(function (ns) { ns.forEach(function (n) { n.close(); }); }); }
+      if (Notification.permission !== 'granted') return;
+      var mins = Math.ceil(left / 60000), name = (act.emoji || '🍅') + ' ' + (act.name || 'Pomodoro');
+      var title, body, actions;
+      if (state === 'work') {
+        title = name;
+        body = '⏱ ' + _cl(mins + ' daq qoldi · tugaydi ' + pomoHHMM(endAt), mins + ' min left · ends at ' + pomoHHMM(endAt), 'осталось ' + mins + ' мин · до ' + pomoHHMM(endAt));
+        actions = [{ action: 'pomo-pause', title: '⏸ ' + _cl('Pauza', 'Pause', 'Пауза') }];
+      } else if (state === 'break') {
+        title = '☕ ' + _cl('Tanaffus', 'Break', 'Перерыв') + ' · ' + (act.name || '');
+        body = _cl(mins + ' daq · ' + pomoHHMM(endAt) + ' gacha', mins + ' min · until ' + pomoHHMM(endAt), mins + ' мин · до ' + pomoHHMM(endAt));
+        actions = [{ action: 'pomo-skip', title: '⏭ ' + _cl('Tanaffusni o\'tkazish', 'Skip break', 'Пропустить') }, { action: 'pomo-pause', title: '⏸ ' + _cl('Pauza', 'Pause', 'Пауза') }];
+      } else {
+        title = '⏸ ' + name;
+        body = _cl('Pauzada · ' + pomoFormatHMS(act.elapsedMs || 0) + ' ishlandi', 'Paused · ' + pomoFormatHMS(act.elapsedMs || 0) + ' done', 'На паузе · ' + pomoFormatHMS(act.elapsedMs || 0));
+        actions = [{ action: 'pomo-resume', title: '▶ ' + _cl('Davom ettirish', 'Resume', 'Продолжить') }, { action: 'pomo-close', title: '✕ ' + _cl('Yopish', 'Close', 'Закрыть') }];
+      }
+      return reg.showNotification(title, { tag: 'lud-pomo', body: body, actions: actions, silent: true, renotify: false, requireInteraction: true,
+        icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png', data: { url: './?action=pomodoro', pomo: act.id } });
+    }).catch(function () {});
+  }
+  // Bildirishnoma tugmalari (service worker → sahifa)
+  function pomoShadeAction(a) {
+    var act = pomoFindAct(pomoActiveId);
+    if (a === 'pomo-close') { _pomoShadeKey = ''; return; }
+    if (!act) return;
+    if (a === 'pomo-pause' && act.running) window.pomoStopActivity();
+    else if (a === 'pomo-resume' && !act.running) window.pomoStartOrResume(act.id);
+    else if (a === 'pomo-skip' && act.phase === 'break') window.pomoSkipBreak();
+    _pomoShadeKey = ''; pomoShadeSync();
+  }
+  try {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'pomo-action') pomoShadeAction(e.data.action); });
+    var _pa = new URLSearchParams(location.search).get('pa');
+    if (_pa) setTimeout(function () { pomoShadeAction(_pa); try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} }, 1500);
+  } catch (e) {}
+  // Pomodoro boshlanganda (tugma bosilganda) bir marta ruxsat so'raladi
+  window.pomoAskShadePermission = function () {
+    try { if (pomoShadeOn() && Notification.permission === 'default') Notification.requestPermission().then(function () { _pomoShadeKey = ''; pomoShadeSync(); }); } catch (e) {}
+  };
   /* ---------------- Start / Stop / Resume ---------------- */
   window.pomoStartOrResume = function (id, ev) {
     if (ev) ev.stopPropagation();
+    try { window.pomoAskShadePermission(); } catch (e) {}
     if (pomoActiveId && pomoActiveId !== id) {
       var prev = pomoFindAct(pomoActiveId);
       if (prev) {
