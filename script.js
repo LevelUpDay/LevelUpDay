@@ -32025,6 +32025,8 @@ function updateFriendsBadges() {
   var n = (F.incoming || []).filter(function (r) { return !F.seenRequestIds[r.id]; }).length;
   var headerBadge = document.getElementById('friends-req-badge');
   if (headerBadge) { headerBadge.textContent = n; headerBadge.style.display = n ? 'flex' : 'none'; }
+  var hubBadge = document.getElementById('x-hub-fr-badge');
+  if (hubBadge) { hubBadge.textContent = n; hubBadge.style.display = n ? '' : 'none'; }
   var addBadge = document.getElementById('friends-add-badge');
   if (addBadge) { addBadge.textContent = n; addBadge.style.display = n ? 'inline-flex' : 'none'; }
   var cn = (F.challengesIncoming || []).filter(function (c) { return !F.seenChallengeIds[c.id]; }).length;

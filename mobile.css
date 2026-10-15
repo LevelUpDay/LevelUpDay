@@ -4,7 +4,10 @@
   html:not(.layout-desktop) .header { gap: 8px; align-items: flex-start; }
   html:not(.layout-desktop) .header-left { flex: 1 1 auto; min-width: 0; }
   html:not(.layout-desktop) #date-label { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0 4px; }
-  html:not(.layout-desktop) #user-title { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+  html:not(.layout-desktop) #user-title { max-width: none; min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+  /* Tepada faqat Spin, Qidiruv, Olmos va Tanga qoladi — Do'stlar va Shaxsiy nazorat Hub → Bo'limlar ichida */
+  html:not(.layout-desktop) #header-friends-btn, html:not(.layout-desktop) #header-secret-btn { display: none !important; }
+  html:not(.layout-desktop) .header-left > div:first-child { min-width: 0; }
   html:not(.layout-desktop) .sync-pill { font-size: 10px; padding: 2px 8px; }
   html:not(.layout-desktop) #header-actions-right { gap: 5px !important; }
   html:not(.layout-desktop) #header-spin-btn, html:not(.layout-desktop) #lub-cp-btn, html:not(.layout-desktop) #header-friends-btn { width: 32px !important; height: 32px !important; min-width: 32px; padding: 0 !important; justify-content: center; }
