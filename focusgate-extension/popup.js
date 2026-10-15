@@ -32,6 +32,14 @@ async function render() {
     list.slice(0, 6).forEach((x) => { h += '<div class="row"><b>' + esc(x.l) + '</b><em>' + fmt(x.s) + '</em><i><s style="width:' + (x.s / max * 100).toFixed(1) + '%"></s></i></div>'; });
     h += '<div class="btns"><a class="p" href="https://levelupday.github.io/LevelUpDay/#focusgate" target="_blank">📊 ' + esc(L('Limitlar', 'Limits', 'Лимиты')) + '</a><button class="g" id="sync">↻ ' + esc(L('Yangilash', 'Refresh', 'Обновить')) + '</button></div>';
   }
+  // Yangi versiya bormi? (qo'lda o'rnatilgan kengaytma o'zi yangilanmaydi)
+  try {
+    const v = await (await fetch('https://levelupday.github.io/LevelUpDay/downloads/version.json?t=' + Math.floor(Date.now() / 3600000), { cache: 'no-store' })).json();
+    const cur = chrome.runtime.getManifest().version, nv = v && v.ext;
+    const newer = nv && nv.split('.').map(Number).some((x, i, arr) => { const c = cur.split('.').map(Number); for (let j = 0; j < arr.length; j++) { if ((arr[j] || 0) !== (c[j] || 0)) return (arr[j] || 0) > (c[j] || 0); } return false; });
+    if (newer) h += '<div class="note upd">🆕 ' + esc(L('Yangi versiya: ', 'New version: ', 'Новая версия: ') + nv) + ' — ' + esc(L('ZIP ni yuklab, papkadagi fayllarni almashtiring va chrome://extensions da ↻ ni bosing.', 'download the ZIP, replace the folder\'s files and press ↻ in chrome://extensions.', 'скачайте ZIP, замените файлы в папке и нажмите ↻ в chrome://extensions.')) +
+      ' <a href="https://levelupday.github.io/LevelUpDay/downloads/focusgate-extension.zip" target="_blank">⬇ ZIP</a></div>';
+  } catch (e) {}
   $('body').innerHTML = h;
   const p = $('pair'); if (p) p.onclick = () => { p.textContent = '…'; chrome.runtime.sendMessage({ type: 'fg:pair' }, () => render()); };
   const s = $('sync'); if (s) s.onclick = () => { s.textContent = '…'; chrome.runtime.sendMessage({ type: 'fg:sync' }, () => render()); };

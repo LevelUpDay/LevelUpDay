@@ -487,7 +487,7 @@
       FG.devices.map(function (d) {
         var on = d.last_seen && Date.now() - new Date(d.last_seen).getTime() < 120000;
         var ext = /^ext-/.test(d.agent_version || ''), droid = /^android-/.test(d.agent_version || '');
-        return '<div class="fg-row"><span class="fg-tile" style="--tc:' + (ext ? '#f59e0b' : droid ? '#22c55e' : '#3b82f6') + '">' + (ext ? '🧩' : droid ? '📱' : '🪟') + '</span><span class="fg-row-m"><b>' + E(d.name || 'Windows') + '</b><small class="' + (on ? 'grn' : '') + '">' + (on ? '● ' : '') + E(ago(d.last_seen)) + (d.agent_version ? ' · v' + E(String(d.agent_version).replace(/^(ext|android)-/, '')) : '') + (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small></span>' +
+        return '<div class="fg-row"><span class="fg-tile" style="--tc:' + (ext ? '#f59e0b' : droid ? '#22c55e' : '#3b82f6') + '">' + (ext ? '🧩' : droid ? '📱' : '🪟') + '</span><span class="fg-row-m"><b>' + E(String(d.name || 'Windows').replace(/\((kengaytma|extension|расширение)\)/, '(' + L('kengaytma', 'extension', 'расширение') + ')')) + '</b><small class="' + (on ? 'grn' : '') + '">' + (on ? '● ' : '') + E(ago(d.last_seen)) + (d.agent_version ? ' · v' + E(String(d.agent_version).replace(/^(ext|android)-/, '')) : '') + (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small></span>' +
           '<button type="button" class="fg-btn sm ghost" data-fg-unpair="' + E(d.id) + '">' + E(L('Uzish', 'Remove', 'Отключить')) + '</button></div>';
       }).join('') + '</div>';
   }

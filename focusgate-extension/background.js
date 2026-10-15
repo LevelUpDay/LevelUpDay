@@ -36,7 +36,8 @@ function browserName() {
 async function startPair() {
   const p = await S.get('pair');
   if (p && Date.now() - p.at < 14 * 60 * 1000) { chrome.tabs.create({ url: APP + '#fgpair=' + p.code }); return p.code; }
-  const r = await api({ action: 'pair_start', name: browserName() + ' (kengaytma)' });
+  const nl = navigator.language || '', sfx = /^uz/.test(nl) ? 'kengaytma' : /^ru/.test(nl) ? 'расширение' : 'extension';
+  const r = await api({ action: 'pair_start', name: browserName() + ' (' + sfx + ')' });
   await S.set({ pair: { code: r.code, at: Date.now() } });
   chrome.tabs.create({ url: APP + '#fgpair=' + r.code });
   pollPair();
