@@ -35,6 +35,8 @@ var tr = map[string][3]string{
 	"hello_title":    {"LevelUpDay Focusgate ishlayapti ✅", "LevelUpDay Focusgate is running ✅", "LevelUpDay Focusgate работает ✅"},
 	"hello_body":     {"Soat yonidagi 🛡 belgisi orqali boshqaring.", "Control it from the 🛡 icon next to the clock.", "Управляйте через значок 🛡 возле часов."},
 	"inst_title":     {"LevelUpDay Focusgate o'rnatildi ✅", "LevelUpDay Focusgate installed ✅", "LevelUpDay Focusgate установлен ✅"},
+	"pair_title":     {"🔗 Ulash kodi: %s", "🔗 Pairing code: %s", "🔗 Код подключения: %s"},
+	"pair_body":      {"Brauzerda «Ulash» ni bosing. Ochilmasa: LevelUpDay → Focusgate → «Kod bilan ulash» ga shu kodni yozing.", "Press “Connect” in your browser. If it doesn't open: LevelUpDay → Focusgate → “Connect with code” and type this code.", "Нажмите «Подключить» в браузере. Если не открылось: LevelUpDay → Focusgate → «Подключить по коду» и введите этот код."},
 	"inst_body":      {"Brauzerda \"Ulash\" tugmasini bosing.", "Press \"Connect\" in your browser.", "Нажмите «Подключить» в браузере."},
 	"pause_title":    {"Focusgate pauzada", "Focusgate paused", "Focusgate на паузе"},
 	"pause_body":     {"15 daqiqa davomida limitlar ishlamaydi.", "Limits are off for 15 minutes.", "Лимиты не работают 15 минут."},

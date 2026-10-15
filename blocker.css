@@ -480,3 +480,8 @@ a.fg-btn { display: inline-flex; align-items: center; justify-content: center; g
 .fg-pick-new { margin-bottom: 10px; padding: 8px; border-radius: 14px; border: 1px dashed var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .fg-pick-new[hidden] { display: none !important; }
 .fg-sites .fg-pick.wrap { max-height: 260px; overflow-y: auto; }
+
+/* 🔢 Kod bilan ulash */
+.fg-codeform { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-muted); }
+.fg-codeform-r { display: flex; gap: 8px; }
+.fg-codeform-r .fg-in { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 2px; text-transform: uppercase; text-align: center; font-size: 16px; }

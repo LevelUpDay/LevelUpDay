@@ -238,9 +238,8 @@ func onReady() {
 			if st.Token != "" {
 				openApp("")
 				notify("!hello", Tr("hello_title"), Tr("hello_body"))
-			} else {
-				notify("!hello", Tr("inst_title"), Tr("inst_body"))
 			}
+			// Token yo'q — ulash kodi bilan bildirishnoma startPairing() da chiqadi
 		}
 	}
 }
@@ -255,7 +254,7 @@ func menuLoop() {
 			c := pairCode
 			pairMu.Unlock()
 			if c != "" {
-				openApp("#fgpair=" + c)
+				openURL(PairURL(c))
 			} else {
 				go startPairing()
 			}
@@ -317,7 +316,9 @@ func startPairing() {
 	pairMu.Unlock()
 	setStatus(Tr("pair_code", code))
 	mPair.SetTitle(Tr("pair_confirm", code))
-	openApp("#fgpair=" + code)
+	// Ulash — oddiy brauzer tabida (akkauntga kirilgan joy); ochilmasa, kodni saytda qo'lda yozish mumkin
+	openURL(PairURL(code))
+	notify("!pair", Tr("pair_title", code), Tr("pair_body"))
 	deadline := time.Now().Add(15 * time.Minute)
 	for time.Now().Before(deadline) {
 		time.Sleep(3 * time.Second)
