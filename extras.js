@@ -2834,12 +2834,14 @@
   // =========================================================
   function tzOfCountry() { var c = S.profile && S.profile.country; return (c && window.LUD_TZ_MAP && window.LUD_TZ_MAP[c]) || null; }
   function tzWanted() { return S.tzByCountry ? tzOfCountry() : null; }
-  function tzClock(zone) { try { return new Intl.DateTimeFormat(getLang ? getLang() : 'en', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()); } catch (e) { return ''; } }
+  function tzClock(zone) { try { return new Intl.DateTimeFormat(getLang ? getLang() : 'en', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(Date.now())); } catch (e) { return ''; } }
   // Kerakli holat amaldagidan farq qilsa — saqlab, bir marta qayta yuklaymiz (sessiyada tsikl bo'lmasin)
   function tzApply(force) {
     var want = tzWanted(), cur = null; try { cur = localStorage.getItem('ludTz'); } catch (e) {}
     if ((want || null) === (cur || null)) return false;
-    try { if (want) localStorage.setItem('ludTz', want); else localStorage.removeItem('ludTz'); } catch (e) { return false; }
+    try { if (want) localStorage.setItem('ludTz', want); else { localStorage.removeItem('ludTz'); localStorage.removeItem('ludSkew'); } } catch (e) { return false; }
+    // O'chirilganda vaqt qurilma soatiga qaytadi (orqaga ketishi mumkin) — soat-firibgarlik himoyasi noto'g'ri ishlamasin
+    if (!want && window.LUD_TZ && window.LUD_TZ.skew) { try { S.lastKnownTimestamp = Date.now() - window.LUD_TZ.skew; S.clockTamperDetected = false; save(); } catch (e) {} }
     var k = 'ludTzReload:' + (want || 'off');
     try { if (!force && sessionStorage.getItem(k)) return false; sessionStorage.setItem(k, '1'); } catch (e) {}
     toast('🕒 ' + L('Vaqt yangilanmoqda…', 'Updating time…', 'Обновляем время…'));
@@ -2859,6 +2861,7 @@
     var flag = cc && typeof countryFlagImg === 'function' ? countryFlagImg(cc, 14) + ' ' : '';
     var sub = on && cz
       ? flag + H(typeof countryName === 'function' ? countryName(cc) : cc) + ' · ' + H(cz.replace(/_/g, ' ')) + ' · <b>' + H(tzClock(cz)) + '</b>'
+        + (window.LUD_TZ && window.LUD_TZ.skew ? ' · ' + L('qurilma soati tuzatildi', 'device clock corrected', 'часы устройства исправлены') + ' (' + (window.LUD_TZ.skew > 0 ? '+' : '−') + Math.round(Math.abs(window.LUD_TZ.skew) / 60000) + ' ' + L('daq', 'min', 'мин') + ')' : '')
       : L('Qurilma vaqti', 'Device time', 'Время устройства') + ' · ' + H(dev.replace(/_/g, ' ')) + ' · <b>' + H(tzClock(dev || undefined)) + '</b>';
     card.innerHTML = '<div class="x-push-h"><span>🕒</span><div><b>' + L('Vaqt — davlat bo\'yicha', 'Time by country', 'Время по стране') + '</b><small>' + sub + '</small></div>' +
       '<button type="button" class="x-tg-sw' + (on ? ' on' : '') + '" id="x-tz-sw" role="switch" aria-checked="' + on + '"' + (!cz && !on ? ' disabled' : '') + '><i></i></button></div>' +
