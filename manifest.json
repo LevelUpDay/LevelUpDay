@@ -10,6 +10,12 @@
     "window-controls-overlay",
     "standalone"
   ],
+  "launch_handler": {
+    "client_mode": [
+      "navigate-existing",
+      "auto"
+    ]
+  },
   "orientation": "any",
   "background_color": "#0B0B12",
   "theme_color": "#7C5CFC",
