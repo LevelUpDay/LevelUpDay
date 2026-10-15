@@ -2649,8 +2649,9 @@
     if (isWin() && dlOn()) setTimeout(function () { doInstall(true); }, 900);
   });
   function isWin() { return /Windows NT/i.test(navigator.userAgent || ''); }
-  // Yuklab olinadigan fayllar (Focusgate.exe, APK) — hozircha o'chirilgan (blocker.js: DOWNLOADS_ON)
-  function dlOn() { return !!(window.LUFocusgate && window.LUFocusgate.downloads); }
+  // "Ilovani o'rnatish" oynasida Windows o'rnatuvchisi (Setup.exe) taklif qilinmaydi — faqat brauzer orqali o'rnatish.
+  // Focusgate kuzatuvchilari (exe + kengaytma) Focusgate bo'limida yuklab olinadi (blocker.js: DOWNLOADS_ON).
+  function dlOn() { return false; }
   function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS() || isWin()); }
   function pwaPrompt() {
     if (!_installEvt) return false;
