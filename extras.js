@@ -2603,7 +2603,11 @@
   }
   function isIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent || '')); }
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); _installEvt = e; renderInstallUI(); });
-  window.addEventListener('appinstalled', function () { _installEvt = null; toast('🎉 ' + L('LevelUpDay o\'rnatildi!', 'LevelUpDay installed!', 'LevelUpDay установлен!')); renderInstallUI(); });
+  window.addEventListener('appinstalled', function () {
+    _installEvt = null; toast('🎉 ' + L('LevelUpDay o\'rnatildi!', 'LevelUpDay installed!', 'LevelUpDay установлен!')); renderInstallUI();
+    // Brauzer orqali o'rnatilganda Focusgate (ilova bloklovchi) birga o'rnatilmaydi — darhol taklif qilamiz
+    if (isWin()) setTimeout(function () { doInstall(true); }, 900);
+  });
   function isWin() { return /Windows NT/i.test(navigator.userAgent || ''); }
   function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS() || isWin() || /Android/i.test(navigator.userAgent || '')); }
   function pwaPrompt() {
@@ -2612,8 +2616,10 @@
     _installEvt.userChoice.then(function (c) { if (c && c.outcome === 'accepted') { _installEvt = null; } renderInstallUI(); }).catch(function () {});
     return true;
   }
-  function doInstall() {
-    var html = '<h3 class="x-h">📲 ' + L('Ilovani o\'rnatish', 'Install the app', 'Установить приложение') + '</h3>';
+  function doInstall(afterPwa) {
+    var html = afterPwa === true
+      ? '<h3 class="x-h">✅ ' + L('Ilova o\'rnatildi — endi Focusgate', 'App installed — now add Focusgate', 'Приложение установлено — теперь Focusgate') + '</h3><p style="margin:0 0 4px;font-size:13.5px;color:var(--text-muted)">' + L('Brauzer orqali o\'rnatilganda ilova bloklovchi birga o\'rnatilmaydi. Dasturlarni bloklash va ekran vaqti uchun quyidagi faylni ham o\'rnating.', 'Installing from the browser doesn\'t include the app blocker. To block programs and track screen time, also install this file.', 'При установке из браузера блокировщик не ставится. Чтобы блокировать программы и считать экранное время, установите и этот файл.') + '</p>'
+      : '<h3 class="x-h">📲 ' + L('Ilovani o\'rnatish', 'Install the app', 'Установить приложение') + '</h3>';
     if (isWin()) {
       // Windows: bitta o'rnatuvchi — LevelUpDay oynasi (Ish stoli + Start menyusi) va Focusgate birga
       var ver = (window.LUFocusgate && window.LUFocusgate.version) || '';

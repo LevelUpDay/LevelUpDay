@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.5.1'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.5.2'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
   var ANDROID_VERSION = '0.1.0', APK_URL = 'downloads/LevelUpDay.apk?v=' + ANDROID_VERSION; // telefon/planshet (android/)
   var IS_ANDROID = /Android/i.test(navigator.userAgent || ''); // ?v= — brauzer/CDN eski faylni bermasligi uchun
@@ -314,6 +314,19 @@
       '<div class="' + (over ? 'warn' : 'ok') + '"><b>' + (over ? over : '✓') + '</b><span>' + (over ? '⚠️ ' + E(L('Limit oshdi', 'Over limit', 'Превышено')) : '🌿 ' + E(L('Limitdasiz', 'Within limits', 'В пределах'))) + '</span></div>' +
       '</div></div>';
   }
+  // 🔢 Kod bilan ulash — brauzer o'zi ochilmasa (Focusgate bildirishnomasidagi / tray menyusidagi kod)
+  function codeFormHtml() {
+    return '<div class="fg-codeform"><span>🔢 ' + E(L('Brauzer ochilmadimi? Focusgate ko\'rsatgan kodni yozing:', 'Browser didn\'t open? Type the code Focusgate shows:', 'Браузер не открылся? Введите код из Focusgate:')) + '</span>' +
+      '<div class="fg-codeform-r"><input class="fg-in" data-fg-codein maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-EF23">' +
+      '<button type="button" class="fg-btn" data-fg-codego>' + E(L('Ulash', 'Connect', 'Подключить')) + '</button></div></div>';
+  }
+  function codeGo(btn) {
+    var box = btn.closest('.fg-codeform'), inp = box && box.querySelector('[data-fg-codein]');
+    var v = String(inp && inp.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!/^[A-Z2-9]{8}$/.test(v)) { toast('⚠️ ' + L('Kod 8 belgidan iborat: ABCD-EF23', 'The code has 8 characters: ABCD-EF23', 'Код из 8 символов: ABCD-EF23')); if (inp) inp.focus(); return; }
+    _pairWait = 0; closeSheet();
+    location.hash = '#fgpair=' + v.slice(0, 4) + '-' + v.slice(4);
+  }
   function connectCard() {
     if (real()) return '';
     var signed = sbOk();
@@ -326,7 +339,7 @@
       '<li><b>' + E(L('Focusgate.exe ni yuklab oling', 'Download Focusgate.exe', 'Скачайте Focusgate.exe')) + '</b></li>' +
       '<li><b>' + E(L('Ishga tushiring', 'Run it', 'Запустите')) + '</b><small>' + E(L('Windows "Kompyuteringiz himoyalandi" desa: "Подробнее / More info" → "Run anyway".', 'If Windows says "Windows protected your PC": More info → Run anyway.', 'Если Windows пишет «Система защитила ваш ПК»: «Подробнее» → «Выполнить в любом случае».')) + '</small></li>' +
       '<li><b>' + E(L('Brauzer o\'zi ochiladi — "Ulash" ni bosing', 'Your browser opens — press "Connect"', 'Откроется браузер — нажмите «Подключить»')) + '</b>' + (signed ? '' : '<small class="red">' + E(L('Avval LevelUpDay akkauntingizga kiring (Profil → Sozlamalar).', 'Sign in to your LevelUpDay account first (Profile → Settings).', 'Сначала войдите в аккаунт LevelUpDay (Профиль → Настройки).')) + '</small>') + '</li></ol>' +
-      '<a class="fg-btn big fg-dl" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Windows uchun yuklab olish', 'Download for Windows', 'Скачать для Windows')) + '</a></div>';
+      '<a class="fg-btn big fg-dl" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Windows uchun yuklab olish', 'Download for Windows', 'Скачать для Windows')) + '</a>' + (signed ? codeFormHtml() : '') + '</div>';
   }
   function nav() {
     var tabs = [['today', '📊', ['Bugun', 'Today', 'Сегодня']], ['limits', '⏳', ['Limitlar', 'Limits', 'Лимиты']], ['block', '🚫', ['Bloklash', 'Block', 'Блокировка']], ['compete', '🏆', ['Reyting', 'Compete', 'Рейтинг']], ['settings', '⚙️', ['Sozlamalar', 'Settings', 'Настройки']]];
@@ -482,7 +495,7 @@
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">📱</span><b>' + E(L('Telefon va planshet (Android)', 'Phone & tablet (Android)', 'Телефон и планшет (Android)')) + '</b><span>' + E(L('Ilovalarni bloklaydi, ekran vaqtini hisoblaydi — limitlar kompyuter bilan umumiy.', 'Blocks apps and counts screen time — limits are shared with your computer.', 'Блокирует приложения и считает экранное время — лимиты общие с компьютером.')) + '</span><button type="button" class="fg-btn" data-fg-android>⬇ ' + E(L('Yuklab olish', 'Download', 'Скачать')) + '</button></div></div>';
   }
   function pageSettings() {
-    return '<div class="fg-card fg-set">' + settingsRows() + '</div>' + devicesHtml() + getCards() +
+    return '<div class="fg-card fg-set">' + settingsRows() + '</div>' + devicesHtml() + (real() ? '<div class="fg-card">' + codeFormHtml() + '</div>' : '') + getCards() +
       '<div class="fg-hint">⚙️ ' + E(L('Bu sozlamalar Profil → Sozlamalar → Focusgate bo\'limida ham bor.', 'These settings also live in Profile → Settings → Focusgate.', 'Эти настройки также есть в Профиль → Настройки → Focusgate.')) + '</div>';
   }
 
@@ -1060,6 +1073,7 @@
     };
   }
   window.addEventListener('hashchange', function () { _pairWait = 0; pairFromHash(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target && e.target.matches && e.target.matches('[data-fg-codein]')) { e.preventDefault(); codeGo(e.target); } });
 
   // ---------- Chizish ----------
   function render() {
@@ -1112,6 +1126,7 @@
     if ((b = t.closest('[data-fg-extinstall]'))) { openExtInstall(); return; }
     if ((b = t.closest('[data-fg-android]'))) { openAndroidInstall(); return; }
     if ((b = t.closest('[data-fg-addsite]'))) { openSitePicker(); return; }
+    if ((b = t.closest('[data-fg-codego]'))) { codeGo(b); return; }
     if ((b = t.closest('[data-fg-join]'))) { joinFocus(b.dataset.fgJoin, +b.dataset.min); return; }
     if ((b = t.closest('[data-fg-invite]'))) { try { if (typeof openFriendsModal === 'function') openFriendsModal(); } catch (e2) {} return; }
     if ((b = t.closest('[data-fg-board]'))) { UI.board = b.dataset.fgBoard; rerender(); return; }

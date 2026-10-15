@@ -1,6 +1,6 @@
 {
-  "version": "0.5.1",
-  "sha256": "b37cda19c68648b66ecac5510bea082e66c8554bcfea0fed115de9c242aa3069",
+  "version": "0.5.2",
+  "sha256": "f249589a50478435366ede42175524ab3c97e7dfe34c5d7a67bbcb7c06b76355",
   "url": "https://levelupday.github.io/LevelUpDay/downloads/Focusgate.exe",
-  "notes": "Saytlar nomi bo'yicha ham aniqlanadi (kun.uz, GitHub va h.k.)"
+  "notes": "Ulash yana brauzer tabida ochiladi; kod bildirishnomada ko'rinadi"
 }
