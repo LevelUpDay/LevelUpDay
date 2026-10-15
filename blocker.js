@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.5.2'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.5.3'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
   var ANDROID_VERSION = '0.1.0', APK_URL = 'downloads/LevelUpDay.apk?v=' + ANDROID_VERSION; // telefon/planshet (android/)
   var IS_ANDROID = /Android/i.test(navigator.userAgent || ''); // ?v= — brauzer/CDN eski faylni bermasligi uchun

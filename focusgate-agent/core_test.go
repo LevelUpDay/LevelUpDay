@@ -285,3 +285,16 @@ func TestSiteOfByLabel(t *testing.T) {
 		t.Fatalf("github: %v %v", s, ok)
 	}
 }
+
+func TestChromeAppID(t *testing.T) {
+	id := ChromeAppID("https://levelupday.github.io/LevelUpDay/")
+	if len(id) != 32 {
+		t.Fatal(id)
+	}
+	for _, c := range id {
+		if c < 'a' || c > 'p' {
+			t.Fatal(id)
+		}
+	}
+	t.Log("LevelUpDay app id:", id)
+}

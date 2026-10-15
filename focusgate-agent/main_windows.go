@@ -254,7 +254,7 @@ func menuLoop() {
 			c := pairCode
 			pairMu.Unlock()
 			if c != "" {
-				openURL(PairURL(c))
+				openPair(c)
 			} else {
 				go startPairing()
 			}
@@ -317,7 +317,7 @@ func startPairing() {
 	setStatus(Tr("pair_code", code))
 	mPair.SetTitle(Tr("pair_confirm", code))
 	// Ulash — oddiy brauzer tabida (akkauntga kirilgan joy); ochilmasa, kodni saytda qo'lda yozish mumkin
-	openURL(PairURL(code))
+	openPair(code)
 	notify("!pair", Tr("pair_title", code), Tr("pair_body"))
 	deadline := time.Now().Add(15 * time.Minute)
 	for time.Now().Before(deadline) {
