@@ -3829,3 +3829,69 @@ html.layout-desktop #ds-aside .lvp-path { max-height: none; overflow: visible; }
 @media (prefers-reduced-motion: reduce) {
   .pe-ov, .pe-box, .pe-banner, .pe-orb, .pe-av::after, .pe-field, .pe-btn.main::after { animation: none !important; }
 }
+
+/* ===== 🪙 COIN HISTORY (th) ===== */
+#view-tarix.th { padding: 4px 0 24px; }
+.th-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.th-back, .th-clear { width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 16px; transition: transform .15s, border-color .15s; }
+.th-back:hover { border-color: var(--accent); transform: translateX(-2px); }
+.th-clear { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); background: color-mix(in srgb, var(--red) 7%, var(--surface)); font-size: 15px; }
+.th-clear:hover { transform: scale(1.06); }
+.th-title { flex: 1; font-family: Syne, sans-serif; font-size: 18px; font-weight: 800; color: var(--text); }
+.th-hero { position: relative; overflow: hidden; padding: 18px 18px 16px; border-radius: 22px; margin-bottom: 14px;
+  background: radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--gold) 38%, transparent), transparent 55%),
+    linear-gradient(135deg, color-mix(in srgb, var(--gold) 22%, var(--surface)), var(--surface) 70%);
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, var(--border));
+  box-shadow: 0 16px 36px -20px color-mix(in srgb, var(--gold) 70%, transparent); animation: thIn .45s cubic-bezier(.2,.9,.3,1.15) both; }
+@keyframes thIn { from { opacity: 0; transform: translateY(10px) scale(.98); } }
+.th-coin { position: absolute; font-style: normal; opacity: .9; pointer-events: none; filter: drop-shadow(0 6px 10px rgba(0,0,0,.25)); animation: thFloat 4s ease-in-out infinite; }
+.th-coin.c1 { right: 18px; top: 14px; font-size: 38px; }
+.th-coin.c2 { right: 66px; top: 44px; font-size: 20px; animation-delay: -1.3s; opacity: .6; }
+.th-coin.c3 { right: 10px; top: 66px; font-size: 16px; animation-delay: -2.4s; opacity: .45; }
+@keyframes thFloat { 50% { transform: translateY(-6px) rotate(10deg); } }
+.th-bal-l { font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--gold) 80%, var(--text)); }
+.th-bal { font-family: Syne, sans-serif; font-size: 38px; font-weight: 800; line-height: 1.1; color: var(--text); margin: 4px 0 14px; font-variant-numeric: tabular-nums; }
+.th-bal small { font-size: 22px; }
+.th-split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.th-split > div { display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border-radius: 13px; background: color-mix(in srgb, var(--bg) 45%, transparent); backdrop-filter: blur(4px); }
+.th-split span { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.th-split b { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.th-in span, .th-in b { color: var(--green); } .th-out span, .th-out b { color: var(--red); }
+.th-ratio { height: 6px; margin-top: 12px; border-radius: 9px; overflow: hidden; background: color-mix(in srgb, var(--red) 55%, transparent); }
+.th-ratio s { display: block; height: 100%; background: var(--green); border-radius: 9px; transition: width .8s cubic-bezier(.3,.8,.3,1); text-decoration: none; }
+.th-search input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 14.5px; font-family: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
+.th-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
+.th-dates { display: flex; align-items: center; gap: 6px; margin: 8px 0; }
+.th-dates span { color: var(--text-muted); font-size: 13px; }
+.th-dates input { flex: 1; min-width: 0; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12.5px; font-family: inherit; color-scheme: dark; }
+body.light .th-dates input { color-scheme: light; }
+.th-quick { display: flex; gap: 6px; margin-bottom: 12px; }
+.th-quick button { flex: 1; padding: 8px; border-radius: 999px; cursor: pointer; font-size: 12.5px; font-weight: 700; font-family: inherit;
+  border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); transition: all .15s; }
+.th-quick button:hover { color: var(--text); }
+.th-quick button.on { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
+.th-tabs { display: flex; margin-bottom: 8px; }
+.th-day { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 10px 4px 6px; margin-top: 4px;
+  background: linear-gradient(var(--bg) 70%, transparent); font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim); }
+.th-day b { font-size: 12px; font-variant-numeric: tabular-nums; } .th-day b.pos { color: var(--green); } .th-day b.neg { color: var(--red); }
+.th-it { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 6px; border-radius: 15px; background: var(--surface); border: 1px solid var(--border);
+  transition: transform .15s, border-color .15s; animation: thRow .35s ease both; animation-delay: calc(var(--i, 0) * 25ms); }
+@keyframes thRow { from { opacity: 0; transform: translateY(6px); } }
+.th-it:hover { transform: translateX(2px); border-color: var(--border-hover); }
+.th-ic { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; border-radius: 13px; font-size: 19px; }
+.th-it.in .th-ic { background: color-mix(in srgb, var(--green) 14%, transparent); }
+.th-it.out .th-ic { background: color-mix(in srgb, var(--red) 14%, transparent); }
+.th-it.zero .th-ic { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.th-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.th-tx b { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.th-tx small { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.th-amt { flex: 0 0 auto; padding: 5px 10px; border-radius: 999px; font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+.th-amt::after { content: " 🪙"; font-size: 12px; }
+.th-it.in .th-amt { color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); }
+.th-it.out .th-amt { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
+.th-it.zero .th-amt { color: var(--text-muted); background: var(--surface2); }
+.th-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 16px; color: var(--text-muted); font-size: 14px; text-align: center; }
+.th-empty span { font-size: 44px; animation: thFloat 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .th-hero, .th-coin, .th-it, .th-empty span { animation: none !important; } }

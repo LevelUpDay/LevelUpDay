@@ -18019,6 +18019,7 @@ function onTarixDateChange() {
   var to = document.getElementById('tarix-date-to');
   _tarixDateFrom = f ? f.value : '';
   _tarixDateTo = to ? to.value : '';
+  ['week','month','all'].forEach(function(k){ var b=document.getElementById('tqr-'+k); if(b) b.classList.toggle('on', k==='all' && !_tarixDateFrom && !_tarixDateTo); });
   renderTarix();
 }
 function tarixQuickRange(range) {
@@ -18039,6 +18040,7 @@ function tarixQuickRange(range) {
   _tarixDateFrom = f; _tarixDateTo = tt;
   var fe = document.getElementById('tarix-date-from'); if(fe) fe.value = f;
   var te = document.getElementById('tarix-date-to'); if(te) te.value = tt;
+  ['week','month','all'].forEach(function(k){ var b=document.getElementById('tqr-'+k); if(b) b.classList.toggle('on', k===range); });
   renderTarix();
 }
 
@@ -18072,6 +18074,10 @@ function renderTarix() {
   var elOut = document.getElementById('tarix-total-out');
   if(elIn)  elIn.textContent  = (S.tarixTotalIn||0)  + ' 🪙';
   if(elOut) elOut.textContent = (S.tarixTotalOut||0) + ' 🪙';
+  var elBal = document.getElementById('tarix-balance'); if(elBal) elBal.textContent = (S.coins||0).toLocaleString('en-US').replace(/,/g,' ');
+  var elBl = document.getElementById('tarix-bal-label'); if(elBl) elBl.textContent = _cl('Joriy balans','Current balance','Текущий баланс');
+  var _ti=Math.abs(S.tarixTotalIn||0), _to=Math.abs(S.tarixTotalOut||0);
+  var elR = document.getElementById('tarix-ratio'); if(elR) elR.style.width = ((_ti+_to)? Math.round(_ti/(_ti+_to)*100) : 50) + '%';
 
   // Kirim/Chiqim/Hammasi tab filtri
   var items = all;
@@ -18091,25 +18097,40 @@ function renderTarix() {
     var emptyMsg = hasFilters
       ? t('tarix_no_match')
       : (_tarixTab==='in'?t('tarix_empty_in'):_tarixTab==='out'?t('tarix_empty_out'):t('tarix_empty_all'));
-    el.innerHTML='<div style="color:var(--text-muted);font-size:var(--fs-base);text-align:center;padding:32px 0">'+emptyMsg+'</div>';
+    el.innerHTML='<div class="th-empty"><span>'+(hasFilters?'🔎':'🪙')+'</span>'+emptyMsg+'</div>';
     return;
   }
-  var html="";
+  var lang='uz'; try { lang=getLang(); } catch(e) { lang=(S.profile&&S.profile.language)||'uz'; }
+  var loc=lang==='ru'?'ru-RU':'en-US';
+  var UZM=['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentabr','oktabr','noyabr','dekabr'], UZD=['Yak','Du','Se','Chor','Pay','Ju','Sha'];
+  var td=today(), yd=localDateStr(new Date(Date.now()-864e5));
+  function dayLabel(d){
+    if(d===td) return _cl('Bugun','Today','Сегодня');
+    if(d===yd) return _cl('Kecha','Yesterday','Вчера');
+    var dt=new Date(d+'T12:00:00'); if(isNaN(dt)) return d;
+    if(lang==='uz') return dt.getDate()+'-'+UZM[dt.getMonth()]+', '+UZD[dt.getDay()];
+    try { return dt.toLocaleDateString(loc,{weekday:'short',day:'numeric',month:'long'}); } catch(e){ return d; }
+  }
+  var emoRe=/^((?:\p{Extended_Pictographic}|\p{Regional_Indicator})️?(?:‍\p{Extended_Pictographic}️?)*)\s*/u;
+  var groups=[], gmap={};
   items.forEach(function(item){
-    var plus=item.amount>0;
-    var color=plus?"#34D399":"#F87171";
-    var sign=plus?"+":"";
-    var icon=plus?"⬆️":"⬇️";
-    var bg=plus?"rgba(52,211,153,0.15)":"rgba(248,113,113,0.15)";
-    var timeStr = formatTarixTime(item.ts);
-    html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px">'+
-      '<div style="width:36px;height:36px;border-radius:var(--radius-sm);background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:var(--fs-md);flex-shrink:0">'+icon+'</div>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div style="font-size:var(--fs-sm);color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(item.desc)+'</div>'+
-        '<div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-top:2px">'+item.date+(timeStr?' • '+timeStr:'')+'</div>'+
-      '</div>'+
-      '<div style="font-size:var(--fs-base);font-weight:700;color:'+color+';flex-shrink:0">'+sign+item.amount+' 🪙'+"</div>"+
-    "</div>";
+    var g=gmap[item.date]; if(!g){ g=gmap[item.date]={date:item.date,net:0,list:[]}; groups.push(g); }
+    g.net+=item.amount; g.list.push(item);
+  });
+  var html="", n=0;
+  groups.forEach(function(g){
+    html+='<div class="th-day"><span>'+esc(dayLabel(g.date))+'</span><b class="'+(g.net>=0?'pos':'neg')+'">'+(g.net>0?'+':'')+g.net+' 🪙</b></div>';
+    g.list.forEach(function(item){
+      var plus=item.amount>0, zero=item.amount===0;
+      var desc=String(item.desc||''), m=desc.match(emoRe), ic;
+      if(m && m[1]){ ic=m[1]; desc=desc.slice(m[0].length); } else ic=zero?'✨':plus?'🪙':'💸';
+      var timeStr = formatTarixTime(item.ts);
+      html+='<div class="th-it '+(zero?'zero':plus?'in':'out')+'" style="--i:'+Math.min(n++,14)+'">'+
+        '<span class="th-ic">'+ic+'</span>'+
+        '<span class="th-tx"><b>'+esc(desc||'—')+'</b><small>'+(timeStr||item.date)+'</small></span>'+
+        '<span class="th-amt">'+(plus?'+':'')+item.amount+'</span>'+
+      '</div>';
+    });
   });
   el.innerHTML=html;
 }
