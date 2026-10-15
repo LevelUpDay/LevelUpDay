@@ -1786,6 +1786,12 @@
         <input type="text" id="r-icon" placeholder="Yoki emoji kiriting..." data-i18n-ph="rstep5_ph" maxlength="4" style="max-width:100px" />
       </div>
 
+      <!-- 🔗 Focusgate: ilova/saytga bog'lash (ixtiyoriy, faqat vaqtli mukofot) -->
+      <div class="reward-step" id="rstep-6" style="display:none">
+        <div class="rstep-label"><span class="rstep-num"></span> <span data-i18n="rstep6_label">🔗 Ilovaga bog'lash (ixtiyoriy)</span></div>
+        <div id="r-links-box"></div>
+      </div>
+
       <button class="btn-add-reward" onclick="addReward()" style="margin-top:4px" data-i18n="add_reward_btn">🎁 Mukofot qo'shish</button>
       </div><!-- /add-reward-body -->
     </div>
@@ -2590,6 +2596,10 @@
         <button type="button" class="rtype-btn" id="er-rtype-time" onclick="selEditRewardType('time')" data-i18n="rtype_time">⏱️ Vaqt (daqiqa)</button>
         <button type="button" class="rtype-btn" id="er-rtype-count" onclick="selEditRewardType('count')" data-i18n="rtype_count">🔢 Miqdor (dona)</button>
       </div>
+    </div>
+    <div class="modal-field" id="er-links-field" style="display:none">
+      <label data-i18n="rstep6_label">🔗 Ilovaga bog'lash (ixtiyoriy)</label>
+      <div id="er-links-box"></div>
     </div>
     <div class="modal-field">
       <label id="er-amount-label" data-i18n="reward_time_label">Qancha vaqt? (daqiqada)</label>

@@ -202,6 +202,7 @@
       try { badgeFlags(); } catch (e) {}
       FG.at = Date.now();
       try { checkReward(); } catch (e) {}
+      try { rewardSync(); } catch (e) { console.warn('[fg rewards]', e); }
     } catch (e) { FG.err = (e && e.message) || String(e); }
     FG.loading = false; FG.loaded = true;
     rerender();
@@ -822,6 +823,119 @@
     o.querySelector('[data-fg-siteblock]').onclick = function () { pick('always'); };
     o.querySelector('[data-fg-sitelimit]').onclick = function () { pick('daily'); };
   }
+
+  // =========================================================
+  // 🎁 Mukofotlar ↔ Focusgate: vaqtli mukofot ilova/saytlarga bog'lanadi —
+  //   o'sha ilovada o'tirgan vaqt mukofot balansidan avtomatik ayriladi, tugasa (ixtiyoriy) bloklanadi.
+  //   Mukofot: r.links = [{app, label}], r.linkBlock (default true). Hisob: S.rwAuto[rid] = {day, min}
+  // =========================================================
+  function rwLinked() { try { return (S.rewards || []).filter(function (r) { return r && r.rtype === 'time' && Array.isArray(r.links) && r.links.length; }); } catch (e) { return []; } }
+  function rwUsedNow(r) { return r.links.reduce(function (n, l) { return n + usedMin(l.app, 0); }, 0); }
+  function rwBalance(r) {
+    var bought = (S.rewardClaims || {})[r.id] || 0;
+    var used = ((S.usageLog || {})[r.id] || []).reduce(function (a, u) { return a + (u.mins || 0); }, 0);
+    return bought - used;
+  }
+  function rewardLinked(rid) {
+    // Bog'langan paytdagi bugungi vaqt "boshlang'ich nuqta" — undan oldingi o'tirish hisoblanmaydi
+    var r = (S.rewards || []).find(function (x) { return x && x.id === rid; }); if (!r) return;
+    S.rwAuto = S.rwAuto || {};
+    S.rwAuto[rid] = { day: dayStr(0), min: real() && FG.at ? rwUsedNow(r) : -1 };
+    try { save(); } catch (e) {}
+    rewardSync();
+  }
+  function rewardSync() {
+    var list = rwLinked(), changed = false;
+    if (real() && FG.at) {
+      var day = dayStr(0);
+      S.rwAuto = S.rwAuto || {};
+      list.forEach(function (r) {
+        var used = rwUsedNow(r), st = S.rwAuto[r.id];
+        if (!st || st.day !== day) st = S.rwAuto[r.id] = { day: day, min: 0 };
+        if (st.min < 0) { st.min = used; changed = true; return; } // bog'langanda ma'lumot hali yo'q edi
+        var delta = Math.floor(used - st.min);
+        if (delta < 1) return;
+        var bal = rwBalance(r), take = Math.min(delta, Math.max(0, bal));
+        st.min += delta; changed = true;
+        if (take > 0) {
+          S.usageLog = S.usageLog || {}; (S.usageLog[r.id] = S.usageLog[r.id] || []).push({ mins: take, date: day, auto: true });
+          try { if (typeof recordUsage === 'function') recordUsage(r, take, 0); } catch (e) {}
+          var left = bal - take, name = (r.icon || '🎁') + ' ' + (typeof rwName === 'function' ? rwName(r) : r.name);
+          if (left <= 0) {
+            S.rewardClaims[r.id] = 0; S.usageLog[r.id] = [];
+            toast('⏳ ' + name + ' — ' + L('vaqt tugadi', 'time is up', 'время вышло') + (r.linkBlock === false ? '' : ' · 🔒 ' + L('bloklandi', 'blocked', 'заблокировано')));
+          } else if (left <= 5 && bal > 5) toast('⏳ ' + name + ': ' + L(left + ' daq qoldi', left + ' min left', 'осталось ' + left + ' мин'));
+        }
+      });
+    }
+    // Vaqt tugaganda bloklash: har bir bog'langan ilova uchun Focusgate qoidasi (rw: mukofot id)
+    if (real() && FG.cfg) {
+      var c = cfg(), want = {}, cfgChanged = false;
+      c.rules = c.rules || [];
+      list.forEach(function (r) {
+        if (r.linkBlock === false) return;
+        var block = rwBalance(r) <= 0;
+        r.links.forEach(function (l) { want[r.id + '|' + l.app] = { r: r, l: l, on: block }; });
+      });
+      c.rules = c.rules.filter(function (x) { if (!x.rw) return true; var k = x.rw + '|' + x.app; if (!want[k]) { cfgChanged = true; return false; } return true; });
+      Object.keys(want).forEach(function (k) {
+        var w = want[k], ex = c.rules.filter(function (x) { return x.rw && x.rw + '|' + x.app === k; })[0];
+        if (!ex) { c.rules.push({ id: 'rw' + w.r.id + '_' + Math.random().toString(36).slice(2, 7), app: w.l.app, label: '🎁 ' + (w.l.label || labelOf(w.l.app)), kind: 'always', on: w.on, rw: w.r.id }); cfgChanged = true; }
+        else if (ex.on !== w.on) { ex.on = w.on; cfgChanged = true; }
+      });
+      if (cfgChanged) { saveCfg(); rerender(); }
+    }
+    if (changed) { try { save(); } catch (e) {} try { if (typeof renderRewards === 'function') renderRewards(); } catch (e) {} }
+  }
+
+  // 🔗 Ilova/sayt tanlash oynasi (mukofotlar uchun): qidiruv + har birining yonida yoqish tugmasi
+  function pickApps(selected, done, opts) {
+    opts = opts || {};
+    var sel = {}; (selected || []).forEach(function (x) { sel[x.app] = x.label || labelOf(x.app); });
+    var apps = [], seen = {};
+    function addApp(id, n, grp) { if (!id || seen[id] || (/\.exe$/.test(id) && (JUNK_EXE.test(id) || id === 'explorer.exe'))) return; seen[id] = 1; apps.push([id, n || labelOf(id), grp]); }
+    knownApps().forEach(function (a) { if (!a.site) addApp(a.id, a.n, 'apps'); });
+    installed().forEach(function (a) { addApp(a.id, a.n, 'apps'); });
+    SITE_GROUPS.forEach(function (g) { g[4].forEach(function (x) { addApp(x[0], x[1], 'sites'); }); });
+    Object.keys(sel).forEach(function (k) { addApp(k, sel[k], k.indexOf('site:') === 0 ? 'sites' : 'apps'); });
+    function row(a) {
+      return '<div class="fg-opt fg-pk" data-q="' + E((a[1] + ' ' + a[0] + ' ' + (DOMAIN[a[0]] || '')).toLowerCase()) + '">' +
+        '<span class="fg-site-l">' + tileFor(a[0], 'sm') + '<span class="fg-site-n"><b>' + E(a[1]) + '</b><small>' + E(niceExe(a[0]) === a[0] ? a[0] : (DOMAIN[a[0]] || niceExe(a[0]))) + '</small></span></span>' +
+        sw(!!sel[a[0]], 'data-pk="' + E(a[0]) + '" data-pkl="' + E(a[1]) + '"') + '</div>';
+    }
+    var g1 = apps.filter(function (a) { return a[2] === 'apps'; }), g2 = apps.filter(function (a) { return a[2] === 'sites'; });
+    var o = openSheet('<h3>🔗 ' + E(L('Ilova yoki saytga bog\'lash', 'Link to apps or sites', 'Привязать к приложениям и сайтам')) + '</h3>' +
+      '<p class="fg-p">' + E(L('Tanlangan ilova/saytlarda o\'tirgan vaqt shu mukofot balansidan avtomatik ayriladi.', 'Time spent in the chosen apps/sites is taken from this reward\'s balance automatically.', 'Время в выбранных приложениях/сайтах автоматически списывается с баланса этой награды.')) + '</p>' +
+      (real() ? '' : '<div class="fg-hint">💻 ' + E(L('Vaqt avtomatik hisoblanishi uchun kompyuterda Focusgate ulangan bo\'lishi kerak. Hozircha tanlab qo\'yishingiz mumkin.', 'Automatic tracking needs Focusgate connected on your computer. You can choose now anyway.', 'Для автоучёта нужен подключённый Focusgate на компьютере. Выбрать можно уже сейчас.')) + '</div>') +
+      '<input class="fg-in fg-custom" maxlength="80" autocomplete="off" inputmode="url" placeholder="🔍 ' + E(L('Qidiring yoki sayt manzilini yozing: kun.uz', 'Search, or type a website: kun.uz', 'Поиск или адрес сайта: kun.uz')) + '">' +
+      '<div class="fg-pick-new" hidden></div>' +
+      '<div class="fg-pkbox">' + (g1.length ? '<div class="fg-pkg"><div class="fg-pick-t">💻 ' + E(L('Ilovalar', 'Apps', 'Приложения')) + ' <em>' + g1.length + '</em></div><div class="fg-card fg-pkl">' + g1.map(row).join('') + '</div></div>' : '') +
+      '<div class="fg-pkg"><div class="fg-pick-t">🌐 ' + E(L('Saytlar', 'Websites', 'Сайты')) + ' <em>' + g2.length + '</em></div><div class="fg-card fg-pkl">' + g2.map(row).join('') + '</div></div></div>' +
+      '<label class="fg-pk-block"><input type="checkbox" data-pk-block' + (opts.block === false ? '' : ' checked') + '> ' + E(L('Vaqt tugasa — bloklansin', 'Block when the time runs out', 'Блокировать, когда время закончится')) + '</label>' +
+      '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button><button type="button" class="fg-btn" data-pk-save>' + E(L('Saqlash', 'Save', 'Сохранить')) + ' <b data-pk-n></b></button></div>');
+    var inp = o.querySelector('.fg-custom'), nw = o.querySelector('.fg-pick-new');
+    function count() { var n = Object.keys(sel).length; o.querySelector('[data-pk-n]').textContent = n ? '(' + n + ')' : ''; }
+    function bindSw(root) {
+      root.querySelectorAll('[data-pk]').forEach(function (b) {
+        b.onclick = function () { var k = b.getAttribute('data-pk'), on = !sel[k]; if (on) sel[k] = b.getAttribute('data-pkl'); else delete sel[k];
+          o.querySelectorAll('[data-pk="' + k.replace(/"/g, '') + '"]').forEach(function (x) { x.classList.toggle('on', on); x.setAttribute('aria-checked', on); }); count(); };
+      });
+    }
+    bindSw(o); count();
+    inp.oninput = function () {
+      var q = inp.value.trim().toLowerCase();
+      o.querySelectorAll('.fg-pkbox .fg-pk').forEach(function (r) { r.hidden = !!q && r.getAttribute('data-q').indexOf(q) === -1; });
+      o.querySelectorAll('.fg-pkg').forEach(function (g) { g.hidden = !g.querySelector('.fg-pk:not([hidden])'); });
+      var site = q ? siteFromInput(q) : null;
+      if (site && !seen[site.app]) { nw.hidden = false; nw.innerHTML = '<div class="fg-pick-t">＋ ' + E(L('Yangi sayt', 'New website', 'Новый сайт')) + '</div>' + row([site.app, site.label]); bindSw(nw); }
+      else { nw.hidden = true; nw.innerHTML = ''; }
+    };
+    o.querySelector('[data-pk-save]').onclick = function () {
+      var out = Object.keys(sel).map(function (k) { return { app: k, label: sel[k] }; });
+      var block = !!o.querySelector('[data-pk-block]').checked;
+      closeSheet(); if (done) done(out, block);
+    };
+  }
   // Nishon tanlash: so'nggi 7 kunda ishlatilganlar + mashhur saytlar + qo'lda kiritish
   function pickerHtml(sel, onlySites) {
     var used = knownApps().filter(function (a) { return !a.site && !JUNK_EXE.test(a.id) && a.id !== 'explorer.exe'; }).slice(0, 10).map(function (a) { return [a.id, a.n]; });
@@ -1145,7 +1259,7 @@
     if ((b = t.closest('[data-fg-withfocus]'))) { try { window.xOpenFocus(null, true, UI.focusMin); } catch (e2) {} return; }
     if ((b = t.closest('[data-fg-withpomo]'))) { try { pomoOpenModal(); } catch (e2) {} return; }
     if ((b = t.closest('[data-fg-fadel]'))) { c.focusApps.splice(+b.dataset.fgFadel, 1); saveCfg(); rerender(); return; }
-    if ((b = t.closest('.fg-sw'))) {
+    if ((b = t.closest('.fg-sw')) && !b.hasAttribute('data-pk')) {
       if (!real()) { needConnect(); return; }
       var d = b.dataset;
       if (d.fgRule != null) { var r = c.rules[+d.fgRule]; if (c.strict && r.on) return; r.on = !r.on; }
@@ -1167,11 +1281,11 @@
     if (el) { var left = focusLeft(); if (left <= 0) rerender(); else el.textContent = mmss(left); }
     try { checkFocusDone(); } catch (e) {}
   }, 1000);
-  setInterval(function () { if (real() && (visible() || document.querySelector('#fg-stats-card'))) load(); }, 60000);
+  setInterval(function () { if (real() && (visible() || document.querySelector('#fg-stats-card') || rwLinked().length)) load(); }, 60000);
 
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, pickApps: pickApps, rewardLinked: rewardLinked, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();
