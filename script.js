@@ -14564,7 +14564,9 @@ function renderRewardStats() {
 
 function toggleLevelPanel() {
   const p = document.getElementById('level-panel');
-  p.style.display = p.style.display === 'none' ? '' : 'none';
+  var show = p.style.display === 'none';
+  p.style.display = show ? '' : 'none';
+  if (show) { p.classList.remove('lvp-in'); void p.offsetWidth; p.classList.add('lvp-in'); }
 }
 
 function renderLevel() {
@@ -14581,40 +14583,35 @@ function renderLevel() {
   // Panel details
   document.getElementById('lp-icon').textContent = lv.icon;
   document.getElementById('lp-name').textContent = levelName(lv);
-  document.getElementById('lp-num').textContent = t('level_word') + ' ' + lv.level + '  ' + total + ' XP';
-
+  document.getElementById('lp-num').textContent = total.toLocaleString('en-US').replace(/,/g, ' ') + ' XP' + (nextLv ? ' / ' + nextLv.min.toLocaleString('en-US').replace(/,/g, ' ') : '');
+  var lvEl = document.getElementById('lp-lv'); if (lvEl) lvEl.textContent = 'Lv ' + lv.level;
+  var pct = 100;
   if (nextLv) {
-    const progress = total - lv.min;
-    const needed = nextLv.min - lv.min;
-    const pct = Math.min(100, Math.round(progress / needed * 100));
-    document.getElementById('level-fill').style.width = pct + '%';
-    document.getElementById('level-sub').textContent = (nextLv.min - total) + ' ' + t('level_xp_left') + ' ➡️ ' + nextLv.icon + ' ' + levelName(nextLv);
+    pct = Math.max(0, Math.min(100, Math.round((total - lv.min) / (nextLv.min - lv.min) * 100)));
+    document.getElementById('level-sub').innerHTML = '<b>' + (nextLv.min - total) + '</b> ' + esc(t('level_xp_left')) + ' → ' + nextLv.icon + ' ' + esc(levelName(nextLv));
   } else {
-    document.getElementById('level-fill').style.width = '100%';
     document.getElementById('level-sub').textContent = t('level_max');
   }
+  document.getElementById('level-fill').style.width = pct + '%';
+  var pctEl = document.getElementById('lp-pct'); if (pctEl) pctEl.textContent = pct + '%';
+  // Halqa: aylana uzunligi 2πr (r=31)
+  var ring = document.getElementById('lp-ring');
+  if (ring) { var C = 2 * Math.PI * 31; ring.style.strokeDasharray = C.toFixed(1); ring.style.strokeDashoffset = (C * (1 - pct / 100)).toFixed(1); }
 
-  // All levels list
+  // Barcha darajalar — "yo'l": bajarilgan ✓, joriy (porlaydi + progress), yopiq 🔒
   const list = document.getElementById('all-levels-list');
-  list.innerHTML = '';
-  LEVELS.forEach(l => {
-    const isCur = l.level === lv.level;
-    const isDone = total >= l.min;
-    const el = document.createElement('div');
-    el.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;min-width:0;overflow:hidden;border-radius:var(--radius-sm);border:1px solid ' + (isCur ? 'rgba(245,166,35,0.5)' : 'var(--border)') + ';background:' + (isCur ? 'var(--gold-dim)' : 'transparent');
-    // O'ng tomondagi ma'lumotlar (XP, mukofot, holat) ikki qatorli ustunda — qator
-    // tor panelda ham kengayib tashqariga chiqib ketmaydi; nom kerak bo'lsa 2 qatorga o'raladi.
-    el.innerHTML = '<span style="font-size:var(--fs-lg);flex-shrink:0">' + l.icon + '</span>'
-      + '<span style="flex:1;min-width:0;line-height:1.2;overflow-wrap:anywhere;font-size:var(--fs-sm);color:' + (isCur ? 'var(--gold)' : isDone ? 'var(--text)' : 'var(--text-dim)') + '">' + levelName(l) + '</span>'
-      + '<div class="lv-meta" style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;white-space:nowrap;text-align:right">'
-      +   '<span class="lv-xp" style="font-size:var(--fs-2xs);color:var(--text-dim)">' + l.min + ' XP</span>'
-      +   '<span class="lv-sub" style="display:flex;align-items:center;gap:5px;font-size:var(--fs-2xs)">'
-      +     (l.reward > 0 ? '<span style="color:var(--gold)">+' + l.reward + '🪙</span>' : '')
-      +     (isCur ? '<span style="font-size:var(--fs-3xs);color:var(--gold);font-weight:700">✦ ' + t('level_you') + '</span>' : isDone ? '<span style="font-size:var(--fs-xs);color:var(--green)">✓</span>' : '')
-      +   '</span>'
-      + '</div>';
-    list.appendChild(el);
-  });
+  list.innerHTML = LEVELS.map(function (l, i) {
+    var isCur = l.level === lv.level, isDone = total >= l.min && !isCur;
+    var cls = isCur ? 'cur' : isDone ? 'done' : 'lock';
+    var right = isCur ? '<span class="lvp-you">✦ ' + esc(t('level_you')) + '</span>'
+      : isDone ? '<span class="lvp-ok">✓</span>'
+      : '<span class="lvp-need">🔒 ' + (l.min - total).toLocaleString('en-US').replace(/,/g, ' ') + ' XP</span>';
+    return '<div class="lvp-step ' + cls + '" style="--i:' + i + '">' +
+      '<span class="lvp-node">' + l.icon + '</span>' +
+      '<span class="lvp-info"><b>' + esc(levelName(l)) + '</b><small>' + l.min.toLocaleString('en-US').replace(/,/g, ' ') + ' XP' + (l.reward > 0 ? ' · <em>+' + l.reward + ' 🪙</em>' : '') + '</small>' +
+        (isCur && nextLv ? '<i class="lvp-mini"><s style="width:' + pct + '%"></s></i>' : '') + '</span>' +
+      right + '</div>';
+  }).join('');
 }
 
 
@@ -16584,6 +16581,11 @@ function renderProfileGoalWidget() {
   box.innerHTML = boxesHtml;
 }
 
+function peAvatarHtml(photo, name) {
+  return photo
+    ? '<img class="pe-av-img" src="'+photo+'" alt="" />'
+    : '<span class="pe-av-ph">'+esc((name||'').charAt(0).toUpperCase()||'?')+'</span>';
+}
 function showProfileEdit() {
   var ov=document.getElementById('profile-edit-modal'); if(ov) ov.remove();
   var name=(S.profile&&S.profile.name)||'';
@@ -16598,91 +16600,89 @@ function showProfileEdit() {
   var pendingCountry=country; // Country picker modal orqali tanlangan (Save bosilguncha vaqtinchalik)
   var overlay=document.createElement('div');
   overlay.id='profile-edit-modal';
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.className='pe-ov';
   var box=document.createElement('div');
-  box.style.cssText='position:relative;background:#1C1C25;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-xl);padding:16px;width:100%;max-width:340px';
+  box.className='pe-box';
 
-  // Avatar preview area
-  var avatarHtml = photo
-    ? '<img src="'+photo+'" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)" />'
-    : '<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xl);font-weight:700;color:#fff;font-family:Syne,sans-serif">'+(name.charAt(0).toUpperCase()||'?')+'</div>';
-
-  var fieldStyle = 'width:100%;box-sizing:border-box;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-sm);outline:none';
-  var labelStyle = 'font-size:var(--fs-2xs);color:var(--text-muted);display:block;margin-bottom:4px';
+  var langs=[['uz','🇺🇿','O\'zbekcha'],['en','🇬🇧','English'],['ru','🇷🇺','Русский']];
+  var countryHtml=function(code){
+    return code ? ('<span class="pe-row-val">'+countryFlagImg(code,18)+' '+esc(countryName(code))+'</span>') : ('<span class="pe-row-val pe-dim">'+t('pe_country_none')+'</span>');
+  };
 
   box.innerHTML=
-    '<button id="pe-guide-btn" title="'+t('guide_info_tooltip')+'" style="position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:var(--fs-xs);font-weight:700;font-family:Georgia,serif;font-style:italic;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0">i</button>'+
-    '<h3 style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:12px;text-align:center">' + _cl("Profilni tahrirlash", "Edit profile", "Редактировать профиль") + '</h3>'+
-    // Photo + Name row
-    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'+
-      '<div style="flex-shrink:0;text-align:center">'+
-        '<div id="pe-avatar-preview" style="margin:0 auto 6px;width:56px;height:56px;border-radius:50%;overflow:hidden">'+avatarHtml+'</div>'+
-        '<label style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:var(--radius-full);border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:var(--fs-2xs);cursor:pointer">'+
-          '📷'+
+    '<div class="pe-body">'+
+    '<div class="pe-banner">'+
+      '<i class="pe-orb a"></i><i class="pe-orb b"></i>'+
+      '<h3>' + _cl("Profilni tahrirlash", "Edit profile", "Редактировать профиль") + '</h3>'+
+      '<button id="pe-guide-btn" class="pe-ibtn" title="'+t('guide_info_tooltip')+'">i</button>'+
+      '<button type="button" class="pe-ibtn pe-x" aria-label="close">✕</button>'+
+    '</div>'+
+      '<div class="pe-avwrap">'+
+        '<label class="pe-av" title="📷">'+
+          '<span id="pe-avatar-preview">'+peAvatarHtml(photo,name)+'</span>'+
+          '<span class="pe-cam">📷</span>'+
           '<input type="file" id="pe-photo-inp" accept="image/*" style="display:none" />'+
         '</label>'+
-        (photo?'<br><button id="pe-remove-photo" style="margin-top:4px;background:none;border:none;color:#F87171;font-size:var(--fs-2xs);cursor:pointer">🗑️</button>':'<span id="pe-remove-photo-wrap"></span>')+
+        (photo?'<button type="button" id="pe-remove-photo" class="pe-rm">🗑 '+_cl('Rasmni olib tashlash','Remove photo','Удалить фото')+'</button>':'<span id="pe-remove-photo-wrap"></span>')+
       '</div>'+
-      '<div style="flex:1">'+
-        '<label style="'+labelStyle+'">'+t('pe_name_label')+'</label>'+
-        '<input id="pe-name" value="'+esc(name)+'" maxlength="'+USERNAME_MAX_LEN+'" style="'+fieldStyle+'"/>'+
-        '<div id="pe-name-feedback" style="font-size:var(--fs-3xs);margin-top:4px;min-height:12px"></div>'+
+      '<div class="pe-field">'+
+        '<label class="pe-lbl" for="pe-name">👤 '+t('pe_name_label')+'</label>'+
+        '<div class="pe-inp-wrap"><span class="pe-at">@</span><input id="pe-name" class="pe-inp" value="'+esc(name)+'" maxlength="'+USERNAME_MAX_LEN+'" autocomplete="off" spellcheck="false"/></div>'+
+        '<div id="pe-name-feedback" class="pe-fb"></div>'+
       '</div>'+
-    '</div>'+
-    // Til (Language)
-    '<div style="margin-bottom:10px">'+
-      '<label style="'+labelStyle+'">'+t('pe_lang_label')+'</label>'+
-      '<select id="pe-lang" style="'+fieldStyle+'">'+
-        '<option value="uz"'+(lang==='uz'?' selected':'')+'>🇺🇿 O\'zbekcha</option>'+
-        '<option value="en"'+(lang==='en'?' selected':'')+'>🇬🇧 English</option>'+
-        '<option value="ru"'+(lang==='ru'?' selected':'')+'>🇷🇺 Русский</option>'+
-      '</select>'+
-    '</div>'+
-    // Davlat (Country)
-    '<div style="margin-bottom:10px">'+
-      '<label style="'+labelStyle+'">'+t('pe_country_label')+'</label>'+
-      '<button type="button" id="pe-country-btn" style="'+fieldStyle+';text-align:left;cursor:pointer;display:flex;align-items:center;gap:6px">'+
-        (country ? (countryFlagImg(country,16)+' '+esc(countryName(country))) : ('<span style="color:var(--text-dim)">'+t('pe_country_none')+'</span>'))+
-      '</button>'+
-    '</div>'+
-    // Preparing for — Ko'p variantli tanlov (Multi-select Chips/Pills)
-    '<div style="margin-bottom:12px">'+
-      '<label style="'+labelStyle+'">'+t('pe_prep_label')+'</label>'+
-      '<div id="pe-prep-pills" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px">'+
-        ['ielts','sat','cefr','other'].map(function(code){
-          var m = targetSubjectMeta(code);
-          var isSel = targetSubjects.indexOf(code) !== -1;
-          return '<button type="button" class="pe-prep-pill'+(isSel?' sel':'')+'" data-subject="'+code+'">'+
-            '<span class="pe-prep-check">✅</span>'+m.icon+' '+esc(m.label)+
-          '</button>';
-        }).join('')+
-      '</div>'+
-      '<input id="pe-prep-other-input" type="text" maxlength="15" placeholder="'+t('ws_goal_other_ph')+'" value="'+esc((S.profile && S.profile.appGoalOther)||'')+'" style="'+fieldStyle+';margin-top:8px;display:'+(targetSubjects.indexOf('other')!==-1?'block':'none')+'" />'+
-    '</div>'+
-    // Akkaunt bo'limi — guest bo'lsa "Akkaunt yaratish", akkauntga
-    // kirilgan bo'lsa "Chiqish" (logout) tugmasi ko'rsatiladi.
-    '<div style="margin-bottom:12px;padding:9px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:space-between;gap:8px">'+
-      '<div style="min-width:0">'+
-        '<div style="'+labelStyle+';margin-bottom:2px">'+t('pe_account_label')+'</div>'+
-        '<div style="font-size:var(--fs-3xs);color:var(--text-dim);line-height:1.3">'+
-          (isGuestAccount ? t('pe_account_guest_note') : t('pe_account_status_account')) +
+      '<div class="pe-field">'+
+        '<label class="pe-lbl">🌐 '+t('pe_lang_label')+'</label>'+
+        '<input type="hidden" id="pe-lang" value="'+esc(lang)+'" />'+
+        '<div class="pe-seg" id="pe-lang-seg">'+
+          langs.map(function(L){ return '<button type="button" data-lang="'+L[0]+'" class="'+(lang===L[0]?'on':'')+'"><span>'+L[1]+'</span>'+L[2]+'</button>'; }).join('')+
         '</div>'+
       '</div>'+
-      '<button type="button" id="pe-account-btn" style="flex-shrink:0;padding:8px 12px;border-radius:var(--radius-sm);border:'+(isGuestAccount?'none':'1px solid rgba(248,113,113,0.4)')+';background:'+(isGuestAccount?'var(--accent)':'rgba(248,113,113,0.08)')+';color:'+(isGuestAccount?'#fff':'#F87171')+';font-size:var(--fs-xs);font-weight:600;cursor:pointer;white-space:nowrap;font-family:\'DM Sans\',sans-serif">'+
-        (isGuestAccount ? t('pe_account_create_btn') : t('pe_account_logout_btn')) +
-      '</button>'+
+      '<div class="pe-field">'+
+        '<label class="pe-lbl">📍 '+t('pe_country_label')+'</label>'+
+        '<button type="button" id="pe-country-btn" class="pe-row">'+countryHtml(country)+'</button>'+
+      '</div>'+
+      '<div class="pe-field">'+
+        '<label class="pe-lbl">🎯 '+t('pe_prep_label')+'</label>'+
+        '<div id="pe-prep-pills" class="pe-chips">'+
+          ['ielts','sat','cefr','other'].map(function(code){
+            var m = targetSubjectMeta(code);
+            var isSel = targetSubjects.indexOf(code) !== -1;
+            return '<button type="button" class="pe-prep-pill'+(isSel?' sel':'')+'" data-subject="'+code+'">'+
+              '<span class="pe-prep-check">✅</span>'+m.icon+' '+esc(m.label)+
+            '</button>';
+          }).join('')+
+        '</div>'+
+        '<input id="pe-prep-other-input" class="pe-inp pe-inp-solo" type="text" maxlength="15" placeholder="'+t('ws_goal_other_ph')+'" value="'+esc((S.profile && S.profile.appGoalOther)||'')+'" style="display:'+(targetSubjects.indexOf('other')!==-1?'block':'none')+'" />'+
+      '</div>'+
+      // Akkaunt bo'limi — guest bo'lsa "Akkaunt yaratish", akkauntga
+      // kirilgan bo'lsa "Chiqish" (logout) tugmasi ko'rsatiladi.
+      '<div class="pe-acct'+(isGuestAccount?' guest':'')+'">'+
+        '<div class="pe-acct-top">'+
+          '<span class="pe-acct-ic">'+(isGuestAccount?'👻':'🛡️')+'</span>'+
+          '<div class="pe-acct-txt"><b>'+t('pe_account_label')+'</b><small>'+(isGuestAccount ? t('pe_account_guest_note') : t('pe_account_status_account'))+'</small></div>'+
+          '<button type="button" id="pe-account-btn" class="pe-acct-btn">'+(isGuestAccount ? t('pe_account_create_btn') : t('pe_account_logout_btn'))+'</button>'+
+        '</div>'+
+        (isGuestAccount ? '' :
+          '<div class="pe-acct-row">'+
+            '<button type="button" onclick="cloudShowNewPasswordModal()">🔑 '+_cl('Parolni o\'zgartirish','Change password','Сменить пароль')+'</button>'+
+            '<button type="button" class="danger" onclick="cloudDeleteAccount()">🗑 '+_cl('Akkauntni o\'chirish','Delete account','Удалить аккаунт')+'</button>'+
+          '</div>')+
+      '</div>'+
     '</div>'+
-    (isGuestAccount ? '' :
-      '<div style="margin-bottom:12px;display:flex;gap:8px">'+
-        '<button type="button" onclick="cloudShowNewPasswordModal()" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-xs);cursor:pointer">🔑 '+_cl('Parolni o\'zgartirish','Change password','Сменить пароль')+'</button>'+
-        '<button type="button" onclick="cloudDeleteAccount()" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1px solid rgba(248,113,113,0.4);background:rgba(248,113,113,0.08);color:#F87171;font-size:var(--fs-xs);cursor:pointer">🗑 '+_cl('Akkauntni o\'chirish','Delete account','Удалить аккаунт')+'</button>'+
-      '</div>')+
-    '<div style="display:flex;gap:10px">'+
-      '<button id="pe-cancel" style="flex:1;padding:9px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer">'+t('btn_cancel')+'</button>'+
-      '<button id="pe-save" style="flex:2;padding:9px;border-radius:var(--radius-md);border:none;background:var(--accent);color:#fff;font-size:var(--fs-sm);font-weight:600;cursor:pointer">'+t('btn_save')+'</button>'+
+    '<div class="pe-foot">'+
+      '<button id="pe-cancel" class="pe-btn ghost">'+t('btn_cancel')+'</button>'+
+      '<button id="pe-save" class="pe-btn main"><span>'+t('btn_save')+'</span></button>'+
     '</div>';
   overlay.appendChild(box);
   document.body.appendChild(overlay);
+  box.querySelector('.pe-x').onclick=function(){ overlay.remove(); };
+  box.querySelectorAll('#pe-lang-seg button').forEach(function(b){
+    b.onclick=function(){
+      try { SFX.click(); } catch(e) {}
+      box.querySelectorAll('#pe-lang-seg button').forEach(function(x){ x.classList.toggle('on', x===b); });
+      document.getElementById('pe-lang').value=b.getAttribute('data-lang');
+    };
+  });
 
   document.getElementById('pe-guide-btn').onclick=function(e){
     e.stopPropagation();
@@ -16704,7 +16704,7 @@ function showProfileEdit() {
       openPhotoCropModal(ev.target.result, function(croppedDataUrl){
         newPhotoData = croppedDataUrl;
         var prev = document.getElementById('pe-avatar-preview');
-        prev.innerHTML = '<img src="'+newPhotoData+'" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)" />';
+        prev.innerHTML = peAvatarHtml(newPhotoData, '');
       });
       e.target.value = ''; // xuddi shu faylni qayta tanlasa ham change ishga tushsin
     };
@@ -16713,7 +16713,7 @@ function showProfileEdit() {
   var removeBtn = document.getElementById('pe-remove-photo');
   if(removeBtn) removeBtn.onclick = function(){
     newPhotoData = null;
-    document.getElementById('pe-avatar-preview').innerHTML = '<div style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xl);font-weight:700;color:#fff;font-family:Syne,sans-serif">'+document.getElementById('pe-name').value.charAt(0).toUpperCase()+'</div>';
+    document.getElementById('pe-avatar-preview').innerHTML = peAvatarHtml('', document.getElementById('pe-name').value);
     removeBtn.remove();
   };
 
@@ -16721,7 +16721,7 @@ function showProfileEdit() {
     openCountryPickerModal(pendingCountry, function(code){
       pendingCountry = code;
       var btn = document.getElementById('pe-country-btn');
-      if (btn) btn.innerHTML = code ? (countryFlagImg(code,16)+' '+esc(countryName(code))) : ('<span style="color:var(--text-dim)">'+t('pe_country_none')+'</span>');
+      if (btn) btn.innerHTML = countryHtml(code);
     });
   };
 
