@@ -2606,9 +2606,11 @@
   window.addEventListener('appinstalled', function () {
     _installEvt = null; toast('🎉 ' + L('LevelUpDay o\'rnatildi!', 'LevelUpDay installed!', 'LevelUpDay установлен!')); renderInstallUI();
     // Brauzer orqali o'rnatilganda Focusgate (ilova bloklovchi) birga o'rnatilmaydi — darhol taklif qilamiz
-    if (isWin()) setTimeout(function () { doInstall(true); }, 900);
+    if (isWin() && dlOn()) setTimeout(function () { doInstall(true); }, 900);
   });
   function isWin() { return /Windows NT/i.test(navigator.userAgent || ''); }
+  // Yuklab olinadigan fayllar (Focusgate.exe, APK) — hozircha o'chirilgan (blocker.js: DOWNLOADS_ON)
+  function dlOn() { return !!(window.LUFocusgate && window.LUFocusgate.downloads); }
   function canOfferInstall() { return !isStandalone() && (!!_installEvt || isIOS() || isWin() || /Android/i.test(navigator.userAgent || '')); }
   function pwaPrompt() {
     if (!_installEvt) return false;
@@ -2620,7 +2622,7 @@
     var html = afterPwa === true
       ? '<h3 class="x-h">✅ ' + L('Ilova o\'rnatildi — endi Focusgate', 'App installed — now add Focusgate', 'Приложение установлено — теперь Focusgate') + '</h3><p style="margin:0 0 4px;font-size:13.5px;color:var(--text-muted)">' + L('Brauzer orqali o\'rnatilganda ilova bloklovchi birga o\'rnatilmaydi. Dasturlarni bloklash va ekran vaqti uchun quyidagi faylni ham o\'rnating.', 'Installing from the browser doesn\'t include the app blocker. To block programs and track screen time, also install this file.', 'При установке из браузера блокировщик не ставится. Чтобы блокировать программы и считать экранное время, установите и этот файл.') + '</p>'
       : '<h3 class="x-h">📲 ' + L('Ilovani o\'rnatish', 'Install the app', 'Установить приложение') + '</h3>';
-    if (isWin()) {
+    if (isWin() && dlOn()) {
       // Windows: bitta o'rnatuvchi — LevelUpDay oynasi (Ish stoli + Start menyusi) va Focusgate birga
       var ver = (window.LUFocusgate && window.LUFocusgate.version) || '';
       html += '<div class="x-inst-win"><div class="x-inst-win-h"><img src="icons/icon-192.png" alt=""><div><b>LevelUpDay ' + L('Windows uchun', 'for Windows', 'для Windows') + '</b>' +
