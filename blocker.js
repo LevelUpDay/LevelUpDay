@@ -14,6 +14,13 @@
   function T(a) { return L(a[0], a[1], a[2]); }
   var AGENT_VERSION = '0.5.3'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
+  // ⏸ Yuklab olinadigan fayllar (Windows dasturi, Android APK, kengaytma ZIP) hozircha saytda taklif qilinmaydi —
+  // o'z serverga ko'chirilgach yoqiladi. Fayllar joyida qoladi: o'rnatilgan Focusgate'lar avtoyangilanishda davom etadi.
+  var DOWNLOADS_ON = false;
+  function soonCard() {
+    return '<div class="fg-card fg-connect fg-soon"><div class="fg-connect-h"><span>⏳</span><div><b>' + E(L('Kompyuter va telefon ilovasi — tez kunda', 'Computer & phone apps — coming soon', 'Приложения для компьютера и телефона — скоро')) + '</b>' +
+      '<small>' + E(L('Dasturlarni bloklash va ekran vaqti uchun ilovalar tayyorlanmoqda. Hozircha LevelUpDay\'ni brauzerda (Google Chrome) ishlating — pastda namuna statistikani ko\'rishingiz mumkin.', 'Apps for blocking programs and tracking screen time are on the way. For now, use LevelUpDay in your browser (Google Chrome) — below is sample data.', 'Приложения для блокировки и учёта экранного времени готовятся. Пока используйте LevelUpDay в браузере (Google Chrome) — ниже пример статистики.')) + '</small></div></div></div>';
+  }
   var ANDROID_VERSION = '0.1.0', APK_URL = 'downloads/LevelUpDay.apk?v=' + ANDROID_VERSION; // telefon/planshet (android/)
   var IS_ANDROID = /Android/i.test(navigator.userAgent || ''); // ?v= — brauzer/CDN eski faylni bermasligi uchun
 
@@ -329,6 +336,7 @@
   }
   function connectCard() {
     if (real()) return '';
+    if (!DOWNLOADS_ON) return soonCard();
     var signed = sbOk();
     if (IS_ANDROID) return '<div class="fg-card fg-connect"><div class="fg-connect-h"><span>📱</span><div><b>' + E(L('Telefoningizni ulang', 'Connect your phone', 'Подключите телефон')) + '</b><small>' + E(L('Android 7+ · bepul · v' + ANDROID_VERSION, 'Android 7+ · free · v' + ANDROID_VERSION, 'Android 7+ · бесплатно · v' + ANDROID_VERSION)) + '</small></div></div>' +
       '<p class="fg-p">' + E(L('Ilovalarni bloklash va ekran vaqtini hisoblash uchun LevelUpDay Android ilovasini o\'rnating.', 'Install the LevelUpDay Android app to block apps and count screen time.', 'Установите Android-приложение LevelUpDay, чтобы блокировать приложения и считать экранное время.')) + '</p>' +
@@ -489,6 +497,7 @@
       }).join('') + '</div>';
   }
   function getCards() {
+    if (!DOWNLOADS_ON) return '';
     return '<div class="fg-get">' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🪟</span><b>' + E(L('Windows uchun Focusgate', 'Focusgate for Windows', 'Focusgate для Windows')) + '</b><span>' + E(L('Dasturlarni kuzatadi va bloklaydi. Soat yonida (tray) ishlaydi.', 'Tracks and blocks programs. Lives in the system tray.', 'Отслеживает и блокирует программы. Работает в трее.')) + '</span><a class="fg-btn" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Yuklab olish', 'Download', 'Скачать')) + '</a></div>' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🧩</span><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><span>' + E(L('Shorts, Reels va sayt ichidagi bo\'limlarni bloklash.', 'Blocks Shorts, Reels and in-site sections.', 'Блокирует Shorts, Reels и разделы сайтов.')) + '</span><button type="button" class="fg-btn" data-fg-extinstall>⬇ ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div>' +
@@ -686,7 +695,7 @@
   function hasExt() { return FG.devices.some(function (d) { return /^ext-/.test(d.agent_version || ''); }); }
   function inSiteHtml() {
     var c = cfg(), o = c.inSite || {}, h = '<div class="fg-group-t">🧩 ' + E(L('Sayt ichida bloklash', 'Inside websites', 'Внутри сайтов')) + ' <small>· ' + E(L('brauzer kengaytmasi', 'browser extension', 'расширение браузера')) + '</small></div>';
-    if (real() && !hasExt()) h += '<div class="fg-extnote"><span>🧩</span><div><b>' + E(L('Kengaytma o\'rnatilmagan', 'Extension not installed', 'Расширение не установлено')) + '</b><small>' + E(L('Bu sozlamalar Chrome/Edge kengaytmasi orqali ishlaydi.', 'These settings work through the Chrome/Edge extension.', 'Эти настройки работают через расширение Chrome/Edge.')) + '</small></div><button type="button" class="fg-btn sm" data-fg-extinstall>⬇ ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div>';
+    if (real() && !hasExt() && DOWNLOADS_ON) h += '<div class="fg-extnote"><span>🧩</span><div><b>' + E(L('Kengaytma o\'rnatilmagan', 'Extension not installed', 'Расширение не установлено')) + '</b><small>' + E(L('Bu sozlamalar Chrome/Edge kengaytmasi orqali ishlaydi.', 'These settings work through the Chrome/Edge extension.', 'Эти настройки работают через расширение Chrome/Edge.')) + '</small></div><button type="button" class="fg-btn sm" data-fg-extinstall>⬇ ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div>';
     INSITE.forEach(function (s) {
       var n = s[3].filter(function (x) { return o[x[0]]; }).length;
       h += '<div class="fg-card fg-acc' + (UI.openSite === s[0] ? ' open' : '') + '"><button type="button" class="fg-acc-h" data-fg-acc="' + s[0] + '"><span class="fg-tile" style="--tc:' + s[2] + '">' + E(s[1].charAt(0)) + '</span><b>' + E(s[1]) + '</b>' + (n ? '<em class="fg-tag">' + n + ' ' + E(L('yoqilgan', 'on', 'вкл.')) + '</em>' : '') + '<span class="fg-chev">⌄</span></button><div class="fg-acc-b">' +
@@ -785,13 +794,13 @@
         (bd.length > 1 ? '<span>👥 #' + rank + ' / ' + bd.length + '</span>' : '') + '<i>›</i></button>';
     } else if (sbOk() && real()) loadSocial();
     if (over.length) h += '<button type="button" class="fg-emb-warn" data-fg-go="limits">⛔ ' + E(over.map(function (x) { return x.label || labelOf(x.app); }).join(', ')) + ' — ' + E(L('limit tugadi', 'limit reached', 'лимит исчерпан')) + ' ›</button>';
-    if (!real()) h += '<a class="fg-emb-cta" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">💻 ' + E(L('Haqiqiy statistika uchun kompyuterni ulang — Focusgate.exe', 'Connect your PC for real stats — Focusgate.exe', 'Подключите ПК для реальной статистики — Focusgate.exe')) + ' ⬇</a>';
+    if (!real() && DOWNLOADS_ON) h += '<a class="fg-emb-cta" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">💻 ' + E(L('Haqiqiy statistika uchun kompyuterni ulang — Focusgate.exe', 'Connect your PC for real stats — Focusgate.exe', 'Подключите ПК для реальной статистики — Focusgate.exe')) + ' ⬇</a>';
     return h;
   }
   function settingsCardHtml() {
     var c = cfg();
     var nL = (c.rules || []).filter(function (x) { return x.on; }).length, nF = (c.focusApps || []).filter(function (x) { return x.on; }).length;
-    return (real() ? '' : '<div class="fg-emb-note">💻 ' + E(L('Kompyuter hali ulanmagan — quyidan Focusgate.exe ni yuklab oling.', 'No computer connected yet — download Focusgate.exe below.', 'Компьютер ещё не подключён — скачайте Focusgate.exe ниже.')) + '</div>') +
+    return (real() || !DOWNLOADS_ON ? '' : '<div class="fg-emb-note">💻 ' + E(L('Kompyuter hali ulanmagan — quyidan Focusgate.exe ni yuklab oling.', 'No computer connected yet — download Focusgate.exe below.', 'Компьютер ещё не подключён — скачайте Focusgate.exe ниже.')) + '</div>') +
       '<div class="fg-emb-set">' + settingsRows() + '</div>' + devicesHtml() +
       '<div class="fg-emb-links">' +
       '<button type="button" data-fg-go="limits"><span>⏳</span><b>' + E(L('Limitlar', 'Limits', 'Лимиты')) + '</b><small>' + nL + ' ' + E(L('faol', 'active', 'активно')) + '</small><i>›</i></button>' +
@@ -820,6 +829,7 @@
     return o;
   }
   function needConnect() {
+    if (!DOWNLOADS_ON) { openSheet(soonCard().replace('fg-card fg-connect', 'fg-connect in')); return; }
     openSheet('<h3>' + (IS_ANDROID ? '📱 ' + E(L('Avval telefonni ulang', 'Connect your phone first', 'Сначала подключите телефон')) : '💻 ' + E(L('Avval kompyuterni ulang', 'Connect your computer first', 'Сначала подключите компьютер'))) + '</h3>' + connectCard().replace('fg-card fg-connect', 'fg-connect in'));
   }
   // 🌐 Sayt qo'shish: katalog (guruhlar) yoki istalgan manzil → bloklash yoki kunlik limit
@@ -1123,8 +1133,8 @@
     if ((b = t.closest('[data-fg-go]'))) { window.xOpenBlocker(b.dataset.fgGo); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e2) {} return; }
     if ((b = t.closest('[data-fg-appopen]'))) { openApp(b.dataset.fgAppopen); return; }
     if ((b = t.closest('[data-fg-allapps]'))) { openAllApps(); return; }
-    if ((b = t.closest('[data-fg-extinstall]'))) { openExtInstall(); return; }
-    if ((b = t.closest('[data-fg-android]'))) { openAndroidInstall(); return; }
+    if ((b = t.closest('[data-fg-extinstall]'))) { if (DOWNLOADS_ON) openExtInstall(); return; }
+    if ((b = t.closest('[data-fg-android]'))) { if (DOWNLOADS_ON) openAndroidInstall(); return; }
     if ((b = t.closest('[data-fg-addsite]'))) { openSitePicker(); return; }
     if ((b = t.closest('[data-fg-codego]'))) { codeGo(b); return; }
     if ((b = t.closest('[data-fg-join]'))) { joinFocus(b.dataset.fgJoin, +b.dataset.min); return; }
@@ -1195,7 +1205,7 @@
 
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, version: AGENT_VERSION, androidGuide: openAndroidInstall, apk: APK_URL, _state: FG, _soc: SOC };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, version: AGENT_VERSION, androidGuide: DOWNLOADS_ON ? openAndroidInstall : null, apk: APK_URL, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();
