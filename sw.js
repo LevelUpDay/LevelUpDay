@@ -10,10 +10,10 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v73';
+const CACHE_VERSION = 'v74';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 // Fon tovushlari (sounds/*.mp3, ~0.8 MB) — alohida, versiyalar o'rtasida o'chirilmaydigan kesh
-const SOUND_CACHE = 'lud-sounds-v1';
+const SOUND_CACHE = 'lud-sounds-v2';
 
 // Pre-cache qilinadigan asosiy fayllar
 const PRECACHE_URLS = [
