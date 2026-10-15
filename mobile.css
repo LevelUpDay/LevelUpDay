@@ -1,0 +1,41 @@
+/* 📱 Telefon (≤ 640px) uchun ixchamlashtirish — kompyuter dizayniga (html.layout-desktop) tegmaydi */
+@media (max-width: 640px) {
+  /* --- Sarlavha: sana bitta qatorda, tugmalar ixchamroq --- */
+  html:not(.layout-desktop) .header { gap: 8px; align-items: flex-start; }
+  html:not(.layout-desktop) .header-left { flex: 1 1 auto; min-width: 0; }
+  html:not(.layout-desktop) #date-label { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0 4px; }
+  html:not(.layout-desktop) #user-title { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+  html:not(.layout-desktop) .sync-pill { font-size: 10px; padding: 2px 8px; }
+  html:not(.layout-desktop) #header-actions-right { gap: 5px !important; }
+  html:not(.layout-desktop) #header-spin-btn, html:not(.layout-desktop) #lub-cp-btn, html:not(.layout-desktop) #header-friends-btn { width: 32px !important; height: 32px !important; min-width: 32px; padding: 0 !important; justify-content: center; }
+  html:not(.layout-desktop) .gems-pill, html:not(.layout-desktop) .coins-pill { height: 30px !important; padding: 0 8px !important; gap: 4px !important; }
+
+  /* --- Vazifa kartasi: nom uchun ko'proq joy, tugmalar kichikroq --- */
+  html:not(.layout-desktop) .task-card { padding: 12px 10px 12px 12px; }
+  html:not(.layout-desktop) .task-card-top { gap: 8px; }
+  html:not(.layout-desktop) .task-card-top .task-info { flex: 1 1 auto; min-width: 0; }
+  html:not(.layout-desktop) .task-card .tk-pomo-btn, html:not(.layout-desktop) .task-card .tk-more { width: 30px; height: 30px; min-width: 30px; font-size: 14px; border-radius: 9px; padding: 0; }
+  html:not(.layout-desktop) .task-card .task-name { font-size: 15px; line-height: 1.3; }
+  html:not(.layout-desktop) .task-card .task-note { font-size: 12.5px; }
+
+  /* --- Maqsadlar: filtr tugmalari bitta qatorda, gorizontal aylantiriladi --- */
+  html:not(.layout-desktop) #goals-filter-bar { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+  html:not(.layout-desktop) #goals-filter-bar::-webkit-scrollbar { display: none; }
+  html:not(.layout-desktop) #goals-filter-bar > * { flex: none; white-space: nowrap; }
+
+  /* --- Hub: Matrix / Statistika plitkalari bo'limlar bilan bir xil o'lchamda --- */
+  html:not(.layout-desktop) .x-hub-tools { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+  html:not(.layout-desktop) .x-hub-tools button { padding: 14px 6px; font-size: 12.5px; }
+
+  /* --- Mukofotlar: ixchamroq karta --- */
+  html:not(.layout-desktop) .rw-card { padding: 12px; }
+  html:not(.layout-desktop) .rw-card-top { gap: 10px; }
+  html:not(.layout-desktop) .rw-icon { width: 42px; height: 42px; font-size: 22px; }
+  html:not(.layout-desktop) .rw-actions { margin-top: 10px; gap: 6px; }
+  html:not(.layout-desktop) .rw-btn { padding: 9px 8px; font-size: 13px; min-height: 0; }
+  html:not(.layout-desktop) .rw-icon-btn { width: 32px; height: 32px; }
+
+  /* --- Umumiy: KPI kartalari va modal oynalar --- */
+  html:not(.layout-desktop) .stats { gap: 8px; }
+  html:not(.layout-desktop) .modal { max-height: 90vh; overflow-y: auto; }
+}

@@ -2804,14 +2804,22 @@
     var pf = link.prefs || {};
     var opts = [['tasks', L('⏰ Vazifa eslatmalari', '⏰ Task reminders', '⏰ Напоминания о задачах')], ['start', L('▶️ Vazifa boshlanish vaqti', '▶️ Task start time', '▶️ Время начала задачи')],
       ['morning', L('🌅 08:00 — bugungi reja', '🌅 08:00 — today\'s plan', '🌅 08:00 — план на день')], ['streak', L('🔥 20:00 — streak eslatmasi', '🔥 20:00 — streak reminder', '🔥 20:00 — напоминание о серии')],
-      ['evening', L('🌙 21:30 — kun yakuni', '🌙 21:30 — day summary', '🌙 21:30 — итоги дня')]];
-    card.innerHTML = head(H((link.username ? '@' + link.username + ' · ' : '') + (link.enabled ? L('yoqilgan', 'on', 'включено') : L('to\'xtatilgan', 'paused', 'на паузе'))),
-      '<button class="x-btn sm' + (link.enabled ? ' ghost' : '') + '" id="x-tg-en">' + (link.enabled ? L('To\'xtatish', 'Pause', 'Пауза') : L('Yoqish', 'Turn on', 'Включить')) + '</button>') +
-      (link.enabled ? opts.map(function (o) { return '<label class="x-chk"><input type="checkbox" data-tgp="' + o[0] + '"' + (pf[o[0]] !== false ? ' checked' : '') + '> ' + H(o[1]) + '</label>'; }).join('') : '') +
+      ['evening', L('🌙 21:30 — kun yakuni', '🌙 21:30 — day summary', '🌙 21:30 — итоги дня')],
+      ['fg', L('🛡 Focusgate — bloklash va limitlar', '🛡 Focusgate — blocks and limits', '🛡 Focusgate — блокировки и лимиты')]];
+    card.innerHTML = head(H((link.username ? '@' + link.username + ' · ' : '') + (link.enabled ? L('xabarlar yoqilgan', 'messages on', 'сообщения включены') : L('xabarlar o\'chirilgan — hech narsa kelmaydi', 'messages off — nothing will be sent', 'сообщения выключены — ничего не придёт'))),
+      '<button type="button" class="x-tg-sw' + (link.enabled ? ' on' : '') + '" id="x-tg-en" role="switch" aria-checked="' + !!link.enabled + '" title="' + H(link.enabled ? L('O\'chirish', 'Turn off', 'Выключить') : L('Yoqish', 'Turn on', 'Включить')) + '"><i></i></button>') +
+      (link.enabled ? '<div class="x-tg-sub">' + L('Qaysi xabarlar kelsin:', 'Which messages to send:', 'Какие сообщения присылать:') + '</div>' + opts.map(function (o) { return '<label class="x-chk"><input type="checkbox" data-tgp="' + o[0] + '"' + (pf[o[0]] !== false ? ' checked' : '') + '> ' + H(o[1]) + '</label>'; }).join('') : '') +
+      '<div class="x-tg-hint">' + L('Botda ham boshqarish mumkin: /stop — o\'chirish, /start — yoqish.', 'You can also control it in the bot: /stop — off, /start — on.', 'Можно и в боте: /stop — выключить, /start — включить.') + '</div>' +
       '<div class="x-tg-act"><button class="x-btn ghost sm" id="x-tg-test">🧪 ' + L('Sinov xabari', 'Send test', 'Тест') + '</button>' +
       '<button class="x-btn ghost sm" id="x-tg-open">💬 @' + TG_BOT + '</button>' +
       '<button class="x-btn ghost sm x-tg-un" id="x-tg-unlink">' + L('Uzish', 'Disconnect', 'Отключить') + '</button></div>';
-    card.querySelector('#x-tg-en').onclick = async function () { this.disabled = true; await supabase.from('telegram_links').update({ enabled: !link.enabled }).eq('chat_id', link.chat_id); renderTgSettings(); };
+    card.querySelector('#x-tg-en').onclick = async function () {
+      this.disabled = true; this.classList.toggle('on');
+      var r2 = await supabase.from('telegram_links').update({ enabled: !link.enabled }).eq('chat_id', link.chat_id);
+      if (r2 && r2.error) toast('⚠️ ' + r2.error.message);
+      else toast(!link.enabled ? '🔔 ' + L('Telegram xabarlari yoqildi', 'Telegram messages on', 'Сообщения Telegram включены') : '🔕 ' + L('Telegram xabarlari o\'chirildi', 'Telegram messages off', 'Сообщения Telegram выключены'));
+      renderTgSettings();
+    };
     card.querySelectorAll('[data-tgp]').forEach(function (c) {
       c.onchange = async function () { pf[c.dataset.tgp] = c.checked; await supabase.from('telegram_links').update({ prefs: pf }).eq('chat_id', link.chat_id); };
     });
@@ -3914,7 +3922,24 @@
         '<span class="ib-meta">' + ch.join('') + '</span></button>' +
       (x.canToday ? '<button type="button" class="ib-today" data-act="today" title="' + H(L('Bugunga olish', 'Do it today', 'Сделать сегодня')) + '">⤵ ' + H(L('Bugun', 'Today', 'Сегодня')) + '</button>' : '') +
       '<button type="button" class="ib-more" data-act="more" aria-label="' + H(L('Menyu', 'Menu', 'Меню')) + '">⋯</button>' +
+      subsHtml(t, x, td) +
     '</div>';
+  }
+  // ↳ Sub-tasklar — vazifa ostida, bugun navbatdagi vazifada belgilash mumkin
+  function subsHtml(t, x, td) {
+    var subs = []; try { subs = ensureSubtasks(t) || []; } catch (e) {}
+    if (!subs.length) return '';
+    var live = x.canCheck && !t.done;
+    return '<div class="ib-sts">' + subs.map(function (sb) {
+      if (!sb) return '';
+      var dn = !!sb.done; try { dn = dn || subtaskDoneOnDate(t.id, sb.id, td); } catch (e) {}
+      var box = live
+        ? '<button type="button" class="ib-st-chk' + (dn ? ' on' : '') + '" data-act="sub" data-sid="' + H(sb.id) + '" aria-pressed="' + dn + '" aria-label="' + H(dn ? L('Qaytarish', 'Undo', 'Отменить') : L('Bajarildi', 'Done', 'Готово')) + '">' + (dn ? CHECK_SVG : '') + '</button>'
+        : '<span class="ib-st-chk static' + (dn ? ' on' : '') + '" aria-hidden="true">' + (dn ? CHECK_SVG : '') + '</span>';
+      return '<div class="ib-st' + (dn ? ' done' : '') + (sb.skipped && !dn ? ' skipped' : '') + '">' + box +
+        (sb.label ? '<i class="ib-st-dot" style="background:' + H(sb.label) + '"></i>' : '') +
+        '<span class="ib-st-n">' + H(sb.name) + '</span>' + (sb.skipped && !dn ? '<span class="ib-st-tag">⏭</span>' : '') + '</div>';
+    }).join('') + '</div>';
   }
   function goalHtml(x) {
     var g = x.o, ch = [], c = goalCoins(g);
@@ -4044,6 +4069,11 @@
     if (k === 't') {
       var x = taskInfo(o, td0());
       if (act === 'chk') { if (x.canCheck) toggleTask(id); else renderList(); }
+      else if (act === 'sub') {
+        var sid = b.dataset.sid, sub = (o.subtasks || []).find(function (q) { return q && String(q.id) === String(sid); });
+        if (sub && x.canCheck) { try { toggleSubtask(o.id, sub.id, td0()); } catch (er) { console.warn('[inbox] sub', er); } }
+        renderList();
+      }
       else if (act === 'fut') { toast('⏳ ' + L("Hali muddati kelmagan — o'sha kunida belgilanadi", 'Not due yet — mark it on its day', 'Срок ещё не наступил — отметьте в свой день')); try { openTaskSheet(id, true, b); } catch (er) {} }
       else if (act === 'today') doToday(o);
       else if (act === 'more') { try { openTaskSheet(id, x.future, b); } catch (er) {} }
