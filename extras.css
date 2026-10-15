@@ -1326,3 +1326,72 @@ html.design-fx .xs-foot { background: #15141c; }
 .fd-skel i { display: block; height: 110px; border-radius: 18px; background: linear-gradient(100deg, var(--surface) 30%, var(--surface2) 50%, var(--surface) 70%); background-size: 200% 100%; animation: fdSk 1.2s linear infinite; }
 @keyframes fdSk { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .fd-card, .fd-card .x-feed-h em, .fd-empty span, .fd-skel i, .fd-ref.spin { animation: none !important; } }
+
+/* ============================================================
+   🧩 Interfeys uslublari (do'kon: S.shop.uistyle → html[data-x-ui])
+   ============================================================ */
+/* Glass — xira shisha */
+html[data-x-ui="glass"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn, .x-tchip, #level-panel) {
+  background: color-mix(in srgb, var(--surface) 50%, transparent) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
+  border-color: rgba(255,255,255,.14) !important; }
+html[data-x-ui="glass"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it) { box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 8px 24px -14px rgba(0,0,0,.55); }
+html[data-x-ui="glass"] .task-card.has-label { box-shadow: inset 4px 0 0 var(--tk-label), inset 0 1px 0 rgba(255,255,255,.10), 0 8px 24px -14px rgba(0,0,0,.55); }
+html[data-x-ui="glass"] body.light :is(.task-card, .stat, .x-card, .x-sec) { border-color: rgba(0,0,0,.08) !important; }
+
+/* Soft — yumshoq soya, yumaloq */
+html[data-x-ui="soft"] { --radius-md: 18px; --radius-lg: 22px; --radius-sm: 12px; }
+html[data-x-ui="soft"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn) {
+  border-color: transparent !important; border-radius: 18px !important;
+  box-shadow: 7px 7px 16px rgba(0,0,0,.45), -5px -5px 14px rgba(255,255,255,.035); }
+html[data-x-ui="soft"] .task-card.has-label { box-shadow: inset 4px 0 0 var(--tk-label), 7px 7px 16px rgba(0,0,0,.45), -5px -5px 14px rgba(255,255,255,.035); }
+html[data-x-ui="soft"] body.light :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn) { box-shadow: 6px 6px 14px rgba(80,70,140,.16), -6px -6px 14px rgba(255,255,255,.9); }
+html[data-x-ui="soft"] .x-btn, html[data-x-ui="soft"] .tab { border-radius: 14px; }
+
+/* Minimal — to'g'ri burchak, tekis */
+html[data-x-ui="sharp"] { --radius-2xs: 1px; --radius-sm: 3px; --radius-md: 4px; --radius-lg: 5px; --radius-xl: 6px; }
+html[data-x-ui="sharp"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn, .x-btn, .x-tchip, .tab, .fd-auto, .th-hero, #level-panel, .lvp-step) {
+  border-radius: 3px !important; }
+html[data-x-ui="sharp"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it) { box-shadow: none; }
+html[data-x-ui="sharp"] .task-card.has-label { box-shadow: inset 3px 0 0 var(--tk-label); }
+
+/* Bubbly — juda yumaloq */
+html[data-x-ui="bubble"] { --radius-sm: 16px; --radius-md: 24px; --radius-lg: 28px; --radius-xl: 32px; }
+html[data-x-ui="bubble"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn) { border-radius: 26px !important; border-width: 2px !important; }
+html[data-x-ui="bubble"] :is(.x-btn, .tab, .x-tchip, .th-back, .th-clear, .fd-ref) { border-radius: 999px !important; }
+html[data-x-ui="bubble"] .task-card { padding-left: 18px; }
+
+/* Neon — porlovchi chegara */
+html[data-x-ui="neon"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it) {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 16px -3px color-mix(in srgb, var(--accent) 50%, transparent), inset 0 0 18px -10px color-mix(in srgb, var(--accent) 70%, transparent); }
+html[data-x-ui="neon"] .task-card.has-label { box-shadow: inset 4px 0 0 var(--tk-label), 0 0 16px -3px color-mix(in srgb, var(--accent) 50%, transparent), inset 0 0 18px -10px color-mix(in srgb, var(--accent) 70%, transparent); }
+html[data-x-ui="neon"] .add-task-btn { border: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent) !important; color: var(--accent) !important; text-shadow: 0 0 8px var(--accent-glow); }
+html[data-x-ui="neon"] :is(.stat-val, .lvp-name) { text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent); }
+
+/* Retro — qalin chegara, qattiq soya */
+html[data-x-ui="retro"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn) {
+  border: 2px solid color-mix(in srgb, var(--text) 75%, transparent) !important; border-radius: 6px !important;
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--accent) 85%, #000); }
+html[data-x-ui="retro"] .task-card.has-label { box-shadow: inset 5px 0 0 var(--tk-label), 4px 4px 0 color-mix(in srgb, var(--accent) 85%, #000); }
+html[data-x-ui="retro"] :is(.x-btn, .tab.active, .btn-save) { border: 2px solid color-mix(in srgb, var(--text) 75%, transparent) !important; border-radius: 6px !important; box-shadow: 3px 3px 0 #000; }
+html[data-x-ui="retro"] :is(.task-card, .x-card, .x-sec, .x-shop-it):active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 color-mix(in srgb, var(--accent) 85%, #000); }
+html[data-x-ui="retro"] :is(.stat-label, .x-sec-t, .th-day, .lvp-t) { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: .1em; }
+
+/* Gradient — yumshoq rangli gradient */
+html[data-x-ui="aurora"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it) {
+  background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 16%, var(--surface)) 0%, var(--surface) 50%, color-mix(in srgb, var(--gold) 9%, var(--surface)) 100%) !important;
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border)) !important; }
+html[data-x-ui="aurora"] .add-task-btn { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), color-mix(in srgb, var(--gold) 10%, var(--surface))) !important; }
+
+/* Do'kon preview'lari */
+.x-shop-ui.uip-glass { background: linear-gradient(120deg, #7c5cfc55, #f5a62344); border-radius: 10px; }
+.x-shop-ui.uip-glass i { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.35); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.x-shop-ui.uip-soft i { border-color: transparent; border-radius: 10px; height: 14px; box-shadow: 3px 3px 6px rgba(0,0,0,.45), -2px -2px 5px rgba(255,255,255,.06); }
+.x-shop-ui.uip-sharp i { border-radius: 1px; height: 10px; }
+.x-shop-ui.uip-bubble i { height: 16px; border-radius: 99px; border-width: 2px; }
+.x-shop-ui.uip-neon i { border-color: var(--accent); box-shadow: 0 0 8px var(--accent); background: transparent; }
+.x-shop-ui.uip-neon i:nth-child(2) { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.x-shop-ui.uip-retro i { border: 2px solid var(--text); border-radius: 3px; height: 12px; box-shadow: 3px 3px 0 var(--accent); }
+.x-shop-ui.uip-aurora i { background: linear-gradient(90deg, var(--accent), var(--gold)); border-color: transparent; }
+.x-shop-ui.uip-aurora i:nth-child(odd) { opacity: .55; }

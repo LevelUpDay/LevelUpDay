@@ -11,6 +11,11 @@
 //   chroma   — Chroma Current  (nuqtalar to'ri bo'ylab yorug'lik oqimlari)
 //   astral   — Astral Shell    (bog'langan yulduzlardan aylanuvchi globus)
 //   orbits   — Binary Orbits   (qiya spiral galaktika)
+//   aurora   — Aurora          (yulduzli osmonda shimol shafag'i pardalari)
+//   ocean    — Deep Ocean      (suv ostidagi kaustika nurlari + pufakchalar)
+//   lava     — Lava Lamp       (birlashib-ajraladigan lava pufaklari)
+//   synth    — Synthwave       (retro quyosh + oldinga yuguruvchi neon to'r)
+//   silk     — Liquid Silk     (oqib turuvchi ipak burmalari)
 // Har bir animatsion dizayn: bitta fixed <canvas id="design-bg"> (UI ortida,
 // pointer-events:none) + xom WebGL fragment shader. WebGL bo'lmasa — statik
 // CSS gradient. Tanlov localStorage 'appTheme' da, animatsiya — 'designAnim'.
@@ -22,7 +27,7 @@
 (function () {
   'use strict';
 
-  var IDS = ['galaxy', 'default', 'rings', 'blinds', 'grid', 'prism', 'hex', 'slats', 'chroma', 'astral', 'orbits'];
+  var IDS = ['galaxy', 'default', 'rings', 'blinds', 'grid', 'prism', 'hex', 'slats', 'chroma', 'astral', 'orbits', 'aurora', 'ocean', 'lava', 'synth', 'silk'];
   var LS_KEY = 'appTheme', ANIM_KEY = 'designAnim';
   var root = document.documentElement;
 
@@ -46,7 +51,12 @@
     slats: { n: ['Prismatic Slats', 'Prismatic Slats', 'Prismatic Slats'], d: ['Qovurg\'ali shisha orqali rangli suyuqlik', 'Colored liquid refracted through fluted glass', 'Цветная жидкость сквозь рифлёное стекло'], base: '#05030b', meta: '#140a26', scale: 0.5, idleHover: 0.6, price: { coins: 350 } },
     chroma: { n: ['Chroma Current', 'Chroma Current', 'Chroma Current'], d: ['Porlovchi nuqtalar bo\'ylab yorug\'lik oqimi', 'Currents of light flowing across a grid of glowing dots', 'Потоки света по сетке светящихся точек'], base: '#05030c', meta: '#120a26', scale: 0.75, idleHover: 0.5, price: { gems: 30 } },
     astral: { n: ['Astral Shell', 'Astral Shell', 'Astral Shell'], d: ['Bog\'langan yulduzlardan aylanuvchi globus', 'A slowly turning globe of connected stars', 'Медленно вращающийся шар из связанных звёзд'], base: '#04030a', meta: '#0c0a1f', scale: 0.55, idleHover: 0.4, price: { gems: 35 } },
-    orbits: { n: ['Binary Orbits', 'Binary Orbits', 'Binary Orbits'], d: ['Qo\'llari bo\'ylab yulduzlar oqadigan spiral galaktika', 'A tilted spiral galaxy of stars streaming through its arms', 'Спиральная галактика со звёздными рукавами'], base: '#04030a', meta: '#0e0820', scale: 0.55, idleHover: 0.3, price: { gems: 40 } }
+    orbits: { n: ['Binary Orbits', 'Binary Orbits', 'Binary Orbits'], d: ['Qo\'llari bo\'ylab yulduzlar oqadigan spiral galaktika', 'A tilted spiral galaxy of stars streaming through its arms', 'Спиральная галактика со звёздными рукавами'], base: '#04030a', meta: '#0e0820', scale: 0.55, idleHover: 0.3, price: { gems: 40 } },
+    aurora: { n: ['Aurora', 'Aurora', 'Аврора'], d: ['Yulduzli osmonda raqsga tushuvchi shimol shafag\'i', 'Northern lights dancing over a starry sky', 'Северное сияние над звёздным небом'], base: '#02040c', meta: '#041016', scale: 0.55, idleHover: 0.4, price: { coins: 350 } },
+    ocean: { n: ['Deep Ocean', 'Deep Ocean', 'Глубокий океан'], d: ['Suv ostida o\'ynoqi nurlar va pufakchalar', 'Dancing underwater light and rising bubbles', 'Подводные блики и пузырьки'], base: '#010812', meta: '#03182a', scale: 0.5, idleHover: 0.4, price: { coins: 400 } },
+    lava: { n: ['Lava Lamp', 'Lava Lamp', 'Лава-лампа'], d: ['Sekin birlashib-ajraladigan issiq lava pufaklari', 'Warm blobs that slowly merge and split', 'Тёплые капли, что сливаются и делятся'], base: '#0c0206', meta: '#1e0510', scale: 0.5, idleHover: 0.5, price: { gems: 35 } },
+    synth: { n: ['Synthwave', 'Synthwave', 'Синтвейв'], d: ['Retro quyosh va oldinga yuguruvchi neon yo\'l', 'Retro sun over an endless neon grid', 'Ретро-солнце над бесконечной неоновой сеткой'], base: '#0a0216', meta: '#1a0630', scale: 0.6, idleHover: 0.3, price: { gems: 45 } },
+    silk: { n: ['Liquid Silk', 'Liquid Silk', 'Жидкий шёлк'], d: ['Oqib turuvchi binafsha-oltin ipak burmalari', 'Flowing folds of violet and gold silk', 'Струящиеся складки фиолетово-золотого шёлка'], base: '#07030f', meta: '#160a2a', scale: 0.5, idleHover: 0.5, price: { gems: 40 } }
   };
   // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6): tanga 5 ga yaxlitlanadi, olmos kamida 1
   Object.keys(D).forEach(function (k) {
@@ -636,7 +646,175 @@
     '}'
   ].join('\n');
 
-  var SHADERS = { rings: FS_RINGS, blinds: FS_BLINDS, grid: FS_GRID, prism: FS_PRISM, hex: FS_HEX, slats: FS_SLATS, chroma: FS_CHROMA, astral: FS_ASTRAL, orbits: FS_ORBITS };
+
+  // ============================================================
+  // ➕ Yana 5 ta jonli fon: aurora, ocean, lava, synth, silk
+  // ============================================================
+  var EXTRA2 = [
+    'vec3 burstRing(vec2 uv,vec3 c){vec3 o=vec3(0.0);for(int j=0;j<4;j++){vec4 b=uBursts[j];',
+    '  if(b.z>=0.0&&b.z<1.8){float bd=length(uv-toUv(b.xy));o+=c*exp(-pow((bd-b.z*0.6)/0.035,2.0))*exp(-b.z*2.0)*b.w;}}return o;}',
+    'float stars(vec2 uv,float dens){vec2 g=uv*dens;vec2 c=floor(g);float h=hash(c);if(h<0.985)return 0.0;',
+    '  vec2 f=fract(g)-0.5-0.3*(h22(c)-0.5);float tw=0.55+0.45*sin(uTime*(1.5+h*3.0)+h*80.0);return (1.0-smoothstep(0.0,0.22,length(f)))*tw;}',
+    ''
+  ].join('\n');
+
+  // --- 10) Aurora: yulduzli osmonda shimol shafag'i pardalari
+  var FS_AURORA = HEAD + EXTRA + EXTRA2 + [
+    'const vec3 A1=vec3(0.16,0.95,0.60);const vec3 A2=vec3(0.20,0.62,1.00);const vec3 A3=vec3(0.78,0.36,1.00);',
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy); float t=uTime*0.32;',
+    '  vec3 col=mix(vec3(0.004,0.010,0.028),vec3(0.010,0.022,0.060),smoothstep(-0.7,0.7,uv.y));',
+    '  col+=vec3(0.75,0.85,1.0)*stars(uv,90.0)*0.85;',
+    '  vec2 m=toUv(uMouse);',
+    '  for(int i=0;i<4;i++){',
+    '    float fi=float(i);',
+    '    float x=uv.x*(1.1+fi*0.22)+fi*1.9;',
+    '    float wave=0.17*sin(x*1.25+t*(0.8+fi*0.21))+0.07*sin(x*3.2-t*1.3+fi)+0.03*sin(x*7.0+t*2.1);',
+    '    float base=-0.08+fi*0.09+wave;',
+    '    float d=uv.y-base;',
+    '    float curtain=exp(-max(d,0.0)*(4.2+fi*1.3))*smoothstep(-0.015,0.05,d);',
+    '    float rays=0.5+0.5*sin(x*16.0+t*2.6+sin(x*4.0+t)*2.2);',
+    '    rays=0.35+0.65*rays*rays;',
+    '    vec3 c=mix(A1,mix(A2,A3,fi/3.0),clamp(smoothstep(0.0,0.32,d)+fi*0.18,0.0,1.0));',
+    '    float lit=1.0+0.9*uHover*exp(-pow(length(uv-m)*2.4,2.0));',
+    '    col+=c*curtain*rays*(0.42-fi*0.06)*lit;',
+    '  }',
+    '  col+=burstRing(uv,A1*0.8);',
+    '  col*=vign(uv);',
+    '  col=1.0-exp(-col*1.5);',
+    '  gl_FragColor=vec4(col,1.0);',
+    '}'
+  ].join('\n');
+
+  // --- 11) Deep Ocean: kaustika nurlari, quyosh ustunlari, pufakchalar
+  var FS_OCEAN = HEAD + EXTRA + EXTRA2 + [
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy); float T=uTime*0.45;',
+    '  vec2 m=toUv(uMouse);',
+    '  vec2 p=uv*6.0+vec2(13.0,7.0)+(m-uv)*0.25*uHover; vec2 i=p; float c=1.0; float inten=0.006;',
+    '  for(int n=0;n<4;n++){',
+    '    float tt=T*(1.0-(3.5/float(n+1)));',
+    '    i=p+vec2(cos(tt-i.x)+sin(tt+i.y),sin(tt-i.y)+cos(tt+i.x));',
+    '    c+=1.0/length(vec2(p.x/(sin(i.x+tt)/inten),p.y/(cos(i.y+tt)/inten)));',
+    '  }',
+    '  c/=4.0; c=1.17-pow(c,1.4); float v=clamp(pow(abs(c),7.0),0.0,1.0);',
+    '  float depth=smoothstep(-0.8,0.7,uv.y);',
+    '  vec3 col=mix(vec3(0.000,0.020,0.060),vec3(0.000,0.100,0.190),depth);',
+    '  col+=vec3(0.22,0.78,0.95)*v*(0.25+0.45*depth);',
+    '  float ray=pow(0.5+0.5*sin(uv.x*5.0+sin(uv.x*1.7+T*0.6)*1.6+uv.y*1.8),10.0)*smoothstep(-0.4,0.8,uv.y);',
+    '  col+=vec3(0.35,0.75,0.95)*ray*0.16;',
+    '  for(int k=0;k<9;k++){',
+    '    float fk=float(k);',
+    '    float bx=(hash(vec2(fk,3.1))-0.5)*1.7;',
+    '    float sp=0.06+hash(vec2(fk,7.7))*0.10;',
+    '    float by=mod(uTime*sp+hash(vec2(fk,1.3))*1.6,1.6)-0.8;',
+    '    vec2 bp=vec2(bx+0.025*sin(uTime*1.3+fk*2.0),by);',
+    '    float r=0.006+0.012*hash(vec2(fk,9.9));',
+    '    float d=length(uv-bp);',
+    '    col+=vec3(0.55,0.88,1.0)*((1.0-smoothstep(r*0.5,r,d))*0.10+(1.0-smoothstep(0.0,0.0035,abs(d-r)))*0.55+(1.0-smoothstep(0.0,r*0.35,length(uv-bp-vec2(-r*0.35,r*0.35))))*0.5);',
+    '  }',
+    '  col+=vec3(0.3,0.8,1.0)*0.18*exp(-pow(length(uv-m)*3.0,2.0))*uHover;',
+    '  col+=burstRing(uv,vec3(0.4,0.9,1.0));',
+    '  col*=vign(uv);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
+  // --- 12) Lava Lamp: metaball pufaklar
+  var FS_LAVA = HEAD + EXTRA + EXTRA2 + [
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy); float t=uTime*0.22;',
+    '  float f=0.0;',
+    '  for(int i=0;i<7;i++){',
+    '    float fi=float(i);',
+    '    vec2 c=vec2(0.62*sin(t*(0.55+fi*0.13)+fi*1.7),0.46*sin(t*(0.45+fi*0.11)+fi*2.9)+0.08*cos(t*1.3+fi));',
+    '    float r=0.10+0.045*sin(fi*3.3+t*1.4);',
+    '    vec2 d=uv-c; f+=r*r/(dot(d,d)+0.0005);',
+    '  }',
+    '  vec2 md=uv-toUv(uMouse); f+=uHover*0.0055/(dot(md,md)+0.002);',
+    '  for(int j=0;j<4;j++){ vec4 b=uBursts[j]; if(b.z>=0.0&&b.z<2.0){ vec2 bd=uv-toUv(b.xy); float rr=0.12*sin(min(b.z,1.57))*b.w; f+=rr*rr/(dot(bd,bd)+0.0005)*exp(-b.z); } }',
+    '  float edge=smoothstep(0.92,1.08,f);',
+    '  vec3 bg=mix(vec3(0.035,0.006,0.020),vec3(0.10,0.015,0.065),smoothstep(-0.7,0.7,uv.y));',
+    '  vec3 hot=mix(vec3(1.00,0.32,0.08),vec3(0.95,0.12,0.45),0.5+0.5*sin(uv.y*2.6+uv.x*1.3+t*2.0));',
+    '  vec3 core=vec3(1.0,0.78,0.30);',
+    '  vec3 col=bg+hot*smoothstep(0.35,1.0,f)*(1.0-edge)*0.28;',
+    '  col=mix(col,hot*0.62,edge);',
+    '  col+=core*smoothstep(1.6,4.0,f)*0.30;',
+    '  float rim=exp(-pow((f-1.0)*5.0,2.0));',
+    '  col+=vec3(1.0,0.6,0.4)*rim*0.18;',
+    '  col*=vign(uv);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
+  // --- 13) Synthwave: retro quyosh + oldinga yuguruvchi neon to'r
+  var FS_SYNTH = HEAD + EXTRA + EXTRA2 + [
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy); float t=uTime;',
+    '  vec2 m=toUv(uMouse);',
+    '  float hz=-0.10;',
+    '  vec3 col;',
+    '  if(uv.y>hz){',
+    '    float h=uv.y-hz;',
+    '    col=mix(vec3(0.42,0.06,0.36),vec3(0.03,0.01,0.10),smoothstep(0.0,0.62,h));',
+    '    col+=vec3(0.9,0.9,1.0)*stars(uv,70.0)*smoothstep(0.15,0.5,h)*0.8;',
+    '    vec2 sp=uv-vec2(0.0+0.05*(m.x)*uHover,hz+0.24); float sd=length(sp); float R=0.25;',
+    '    float sun=1.0-smoothstep(R-0.004,R+0.004,sd);',
+    '    float k=clamp((-sp.y+0.02)/R,0.0,1.0);',
+    '    float bars=smoothstep(0.0,0.02,sin(sp.y*70.0+t*1.6)+1.0-k*1.6);',
+    '    float cut=sp.y>0.02?1.0:bars;',
+    '    vec3 sunc=mix(vec3(1.0,0.16,0.52),vec3(1.0,0.86,0.30),smoothstep(-R,R*0.8,sp.y));',
+    '    col=mix(col,sunc,sun*cut);',
+    '    col+=vec3(1.0,0.25,0.55)*exp(-max(sd-R,0.0)*7.0)*0.32;',
+    '    col+=vec3(1.0,0.3,0.7)*exp(-h*22.0)*0.5;',
+    '  } else {',
+    '    float d=hz-uv.y; float z=0.32/d; float x=uv.x*z;',
+    '    float gz=abs(fract(z-t*0.9+0.5)-0.5);',
+    '    float gx=abs(fract(x+0.5)-0.5);',
+    '    float lz=1.0-smoothstep(0.0,0.012*z*z+0.02,gz);',
+    '    float lx=1.0-smoothstep(0.0,0.010*z+0.01,gx);',
+    '    float fog=exp(-z*0.10);',
+    '    col=mix(vec3(0.05,0.0,0.10),vec3(0.18,0.02,0.22),fog);',
+    '    vec3 lc=mix(vec3(0.95,0.20,0.85),vec3(0.30,0.70,1.0),0.5+0.5*sin(t*0.3));',
+    '    col+=lc*max(lx,lz)*fog*1.1;',
+    '    col+=vec3(1.0,0.3,0.7)*exp(-d*14.0)*0.55;',
+    '    col+=lc*0.25*exp(-pow(length(uv-m)*3.0,2.0))*uHover*fog;',
+    '  }',
+    '  col+=burstRing(uv,vec3(1.0,0.35,0.8));',
+    '  col*=vign(uv);',
+    '  col=1.0-exp(-col*1.3);',
+    '  gl_FragColor=vec4(col,1.0);',
+    '}'
+  ].join('\n');
+
+  // --- 14) Liquid Silk: oqib turuvchi ipak burmalari
+  var FS_SILK = HEAD + EXTRA + EXTRA2 + [
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy); float t=uTime*0.22;',
+    '  vec2 m=toUv(uMouse);',
+    '  vec2 p=uv*1.7+(uv-m)*0.18*uHover*exp(-length(uv-m)*2.0);',
+    '  for(int i=1;i<6;i++){',
+    '    float fi=float(i);',
+    '    p.x+=0.38/fi*sin(fi*2.1*p.y+t*1.2+fi*0.7);',
+    '    p.y+=0.32/fi*cos(fi*1.8*p.x+t*0.95-fi);',
+    '  }',
+    '  float v=0.5+0.5*sin(p.x*2.2+p.y*1.5);',
+    '  float fold=0.5+0.5*sin(p.x*5.0-p.y*3.4+t*1.6);',
+    '  float sheen=pow(fold,14.0);',
+    '  vec3 a=vec3(0.06,0.02,0.15),b=vec3(0.50,0.18,0.82),c=vec3(1.0,0.72,0.42);',
+    '  vec3 col=mix(a,b,smoothstep(0.08,0.95,v)*0.85);',
+    '  col*=0.55+0.45*fold;',
+    '  col+=c*sheen*0.45;',
+    '  col*=0.72;',
+    '  col+=b*0.22*exp(-pow(length(uv-m)*2.6,2.0))*uHover;',
+    '  col+=burstRing(uv,c*0.8);',
+    '  col*=vign(uv);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
+  var SHADERS = { rings: FS_RINGS, blinds: FS_BLINDS, grid: FS_GRID, prism: FS_PRISM, hex: FS_HEX, slats: FS_SLATS, chroma: FS_CHROMA, astral: FS_ASTRAL, orbits: FS_ORBITS,
+    aurora: FS_AURORA, ocean: FS_OCEAN, lava: FS_LAVA, synth: FS_SYNTH, silk: FS_SILK };
 
   var R = {
     canvas: null, gl: null, kind: null, gl2: false, prog: null, progId: null, buf: null, u: null, failed: false, lost: false,

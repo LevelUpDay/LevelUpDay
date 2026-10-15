@@ -588,7 +588,37 @@
     // 🧩 Interfeys uslubi: yangi komponentlar (widgets.js) — standart va bepul;
     // eski (klassik) toast/slayder/oynalar — do'kondan sotib olinadi. S.shop.uistyle
     { id: 'ui_classic', kind: 'uistyle', v: 'classic', icon: '🗂', n: ['Klassik interfeys', 'Classic UI', 'Классический интерфейс'], coins: 150,
-      d: ['Eski toast, slayder va tasdiqlash oynalari', 'The old toasts, sliders and confirm dialogs', 'Старые уведомления, слайдеры и окна'] }
+      d: ['Eski toast, slayder va tasdiqlash oynalari', 'The old toasts, sliders and confirm dialogs', 'Старые уведомления, слайдеры и окна'] },
+    // ➕ Yangi interfeys uslublari — kartalar/tugmalar ko'rinishi (html[data-x-ui])
+    { id: 'ui_glass', kind: 'uistyle', v: 'glass', icon: '🪟', n: ['Shisha', 'Glass', 'Стекло'], coins: 250,
+      d: ['Shaffof, xira shishadek kartalar', 'Frosted, see-through glass cards', 'Матовые прозрачные карточки'] },
+    { id: 'ui_soft', kind: 'uistyle', v: 'soft', icon: '☁️', n: ['Yumshoq', 'Soft', 'Мягкий'], coins: 250,
+      d: ['Yumaloq, yumshoq soyali kartalar', 'Rounded cards with soft shadows', 'Округлые карточки с мягкой тенью'] },
+    { id: 'ui_sharp', kind: 'uistyle', v: 'sharp', icon: '📐', n: ['Minimal', 'Minimal', 'Минимал'], coins: 200,
+      d: ['To\'g\'ri burchakli, toza va ixcham', 'Sharp corners, clean and flat', 'Острые углы, чисто и плоско'] },
+    { id: 'ui_bubble', kind: 'uistyle', v: 'bubble', icon: '🫧', n: ['Pufakcha', 'Bubbly', 'Пузырьки'], coins: 300,
+      d: ['Juda yumaloq, quvnoq ko\'rinish', 'Extra-round, playful look', 'Очень круглый, игривый вид'] },
+    { id: 'ui_neon', kind: 'uistyle', v: 'neon', icon: '🔮', n: ['Neon', 'Neon', 'Неон'], gems: 25,
+      d: ['Kartalar chegarasi neon bilan porlaydi', 'Card edges glow with neon light', 'Края карточек светятся неоном'] },
+    { id: 'ui_retro', kind: 'uistyle', v: 'retro', icon: '🕹', n: ['Retro', 'Retro', 'Ретро'], gems: 30,
+      d: ['Qalin chegara va qattiq soya — 90-yillar uslubi', 'Bold outlines and hard shadows, 90s style', 'Жирные рамки и жёсткие тени в стиле 90-х'] },
+    { id: 'ui_aurora', kind: 'uistyle', v: 'aurora', icon: '🌈', n: ['Gradient', 'Gradient', 'Градиент'], gems: 35,
+      d: ['Kartalarda yumshoq rangli gradient', 'Soft colorful gradients on cards', 'Мягкие цветные градиенты на карточках'] },
+    // ➕ yangi nishon
+    { id: 'b_dragon', kind: 'badge', v: '🐉', icon: '🐉', n: ['Ajdar nishon', 'Dragon badge', 'Значок дракон'], gems: 35 },
+    // ➕ yangi unvonlar
+    { id: 't_unstop', kind: 'title', v: 'unstop', icon: '🔥', n: ['Unvon: To\'xtovsiz', 'Title: Unstoppable', 'Титул: Неудержимый'], coins: 180, tv: ['🔥 To\'xtovsiz', '🔥 Unstoppable', '🔥 Неудержимый'] },
+    { id: 't_summit', kind: 'title', v: 'summit', icon: '🏔', n: ['Unvon: Cho\'qqi zabtkori', 'Title: Summit seeker', 'Титул: Покоритель вершин'], coins: 200, tv: ['🏔 Cho\'qqi zabtkori', '🏔 Summit seeker', '🏔 Покоритель вершин'] },
+    { id: 't_strat', kind: 'title', v: 'strat', icon: '♟', n: ['Unvon: Strateg', 'Title: Strategist', 'Титул: Стратег'], coins: 220, tv: ['♟ Strateg', '♟ Strategist', '♟ Стратег'] },
+    { id: 't_star', kind: 'title', v: 'star', icon: '🌟', n: ['Unvon: Yangi yulduz', 'Title: Rising star', 'Титул: Восходящая звезда'], coins: 160, tv: ['🌟 Yangi yulduz', '🌟 Rising star', '🌟 Восходящая звезда'] },
+    { id: 't_wolf', kind: 'title', v: 'wolf', icon: '🐺', n: ['Unvon: Yolg\'iz bo\'ri', 'Title: Lone wolf', 'Титул: Одинокий волк'], gems: 25, tv: ['🐺 Yolg\'iz bo\'ri', '🐺 Lone wolf', '🐺 Одинокий волк'] },
+    { id: 't_diamond', kind: 'title', v: 'diamond', icon: '💎', n: ['Unvon: Olmos aql', 'Title: Diamond mind', 'Титул: Алмазный ум'], gems: 45, tv: ['💎 Olmos aql', '💎 Diamond mind', '💎 Алмазный ум'] },
+    // ➕ yangi ilova ranglari
+    { id: 'c_teal', kind: 'theme', v: '#14b8a6', icon: '🦚', n: ['Firuza rang', 'Teal theme', 'Бирюзовая тема'], coins: 220 },
+    { id: 'c_lime', kind: 'theme', v: '#84cc16', icon: '🍋', n: ['Laym rang', 'Lime theme', 'Лаймовая тема'], gems: 15 },
+    // ➕ yangi bajarilganda effektlar
+    { id: 'e_space', kind: 'effect', v: '🚀🪐💫', icon: '🚀', n: ['Koinot', 'Space launch', 'Космос'], coins: 220 },
+    { id: 'e_magic', kind: 'effect', v: '🦄🌈✨', icon: '🦄', n: ['Sehr', 'Magic', 'Магия'], gems: 20 }
   ];
   // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6). Dizayn va effekt narxlari o'z fayllarida xuddi shunday kamaytirilgan
   SHOP.forEach(function (it) {
@@ -899,7 +929,7 @@
       if (it.kind === 'effect') return '<span class="xs-it-pv xs-it-fx">' + it.v + '</span>';
       if (it.kind === 'badge') return '<span class="xs-it-pv"><span class="x-shop-nk">' + n + ' ' + it.v + '</span></span>';
       if (it.kind === 'title') return '<span class="xs-it-pv"><span class="x-shop-tt">' + H(L(it.tv[0], it.tv[1], it.tv[2])) + '</span></span>';
-      if (it.kind === 'uistyle') return '<span class="xs-it-pv"><span class="x-shop-ui"><i></i><i></i><i></i></span></span>';
+      if (it.kind === 'uistyle') return '<span class="xs-it-pv"><span class="x-shop-ui uip-' + it.v + '"><i></i><i></i><i></i></span></span>';
       if (it.kind === 'ufx') return '<span class="xs-it-pv">' + (hasFx ? window.LUFx.previewHtml(it.v) : it.icon) + '</span>';
       return '<span class="xs-it-pv">' + (it.icon || '') + '</span>';
     }
@@ -918,10 +948,10 @@
           }).join('') + '</div>';
       } else {
         var list = SHOP.filter(function (x) { return x.kind === tab && !x.hidden; });
-        h = '<div class="xs-grid">' + (tab === 'uistyle' ? '' : noneCard(tab)) + list.map(function (it) {
+        h = '<div class="xs-grid">' + noneCard(tab) + list.map(function (it) {
           return cardHtml(it.id, prevOf(it), nm(it), pr(it), sel[tab] === it.id, tab === 'uistyle' ? L(it.d[0], it.d[1], it.d[2]) : '');
         }).join('') + '</div>';
-        if (tab === 'uistyle') h = '<div class="xs-hint">' + H(L('Standart — yangi interfeys (bepul). Klassik — eski ko\'rinish.', 'Default — the new UI (free). Classic — the old look.', 'По умолчанию — новый интерфейс. Классика — старый вид.')) + '</div>' + h;
+        if (tab === 'uistyle') h = '<div class="xs-hint">' + H(L('"Yo\'q" — standart interfeys (bepul). Boshqalari kartalar va tugmalar ko\'rinishini o\'zgartiradi.', '"None" — the default UI (free). Others restyle cards and buttons.', '«Нет» — стандартный интерфейс. Остальные меняют вид карточек и кнопок.')) + '</div>' + h;
       }
       $('.xs-body').innerHTML = h;
       if (tab === 'colors') bindColors();
@@ -1209,6 +1239,8 @@
     var th = SHOP.find(function (x) { return x.id === st.theme; });
     if (th) { root.style.setProperty('--accent', th.v); root.style.setProperty('--accent-glow', th.v + '33'); root.setAttribute('data-x-theme', th.id); }
     else if (root.getAttribute('data-x-theme')) { root.style.removeProperty('--accent'); root.style.removeProperty('--accent-glow'); root.removeAttribute('data-x-theme'); }
+    var ui = SHOP.find(function (x) { return x.id === st.uistyle && x.kind === 'uistyle'; });
+    if (ui && ui.v !== 'classic' && st.owned.indexOf(ui.id) !== -1) root.setAttribute('data-x-ui', ui.v); else root.removeAttribute('data-x-ui');
     var bd = SHOP.find(function (x) { return x.id === st.badge; });
     if (bd) root.setAttribute('data-x-badge', bd.v); else root.removeAttribute('data-x-badge');
     ['user-title', 'profile-name-big'].forEach(function (id) {
@@ -1272,7 +1304,7 @@
           : it.kind === 'theme' ? '<div class="x-shop-th" style="--tc:' + it.v + '"><i></i><i></i><i></i></div>'
           : it.kind === 'effect' ? '<div class="x-shop-fx" data-fx="' + it.id + '">' + it.v + '</div>'
           : it.kind === 'badge' ? '<div class="x-shop-nk">' + H(getDisplayUsername() || 'Nick') + ' ' + it.v + '</div>'
-          : it.kind === 'uistyle' ? '<div class="x-shop-ui"><i></i><i></i><i></i></div>'
+          : it.kind === 'uistyle' ? '<div class="x-shop-ui uip-' + it.v + '"><i></i><i></i><i></i></div>'
           : '<div class="x-shop-tt">' + L(it.tv[0], it.tv[1], it.tv[2]) + '</div>';
         h += '<button class="x-shop-it ' + (on ? 'on' : own ? 'own' : '') + '" data-shop="' + it.id + '" data-shop-item="' + it.id + '">' + prev +
           '<div class="x-shop-n">' + L(it.n[0], it.n[1], it.n[2]).replace(/^[^:]+:\s*/, '') + '</div>' +

@@ -8,6 +8,14 @@
 //   u_wave   — Shockwave  : har bosishda kengayuvchi ikki halqa to'lqini (canvas, telefonda ham)
 //   u_trail  — Glow Trail : kursor/barmoq ortidan porlab so'nuvchi iz (canvas)
 //   u_spot   — Spotlight  : kartalar ustida kursor ortidan yurgan yorug'lik + chegara nuri (faqat sichqoncha)
+//   u_confetti — Konfetti   : har bosishda rangli konfetti sachraydi va tushadi (canvas)
+//   u_ripple — Ripple     : tugmalarda bosilgan joydan yoyiluvchi "siyoh" to'lqini
+//   u_tilt   — 3D Tilt    : kartalar kursor tomonga 3D egiladi (faqat sichqoncha)
+//   u_bubble — Pufakchalar: bosilgan joydan pufakchalar ko'tariladi (canvas)
+//   u_emoji  — Emoji Pop  : bosishda yuraklar/yulduzlar uchib chiqadi (canvas)
+//   u_snow   — Qor        : ekranda sekin qor yog'adi (canvas, fon)
+//   u_neon   — Neon tugmalar: asosiy tugmalar neon nur bilan "nafas oladi" (CSS)
+//   u_fly    — Yoqut qo'ng'izlar: ekranda yumshoq porlovchi nuqtalar suzadi (canvas, fon)
 // Egalik: S.shop.owned (id), yoqilganlar: S.shop.ufx = [id...] — app_state orqali sinxronlanadi.
 // Hech bir effekt bosishlarni to'smaydi (pointer-events: none), "harakatni kamaytirish" va
 // dizayn animatsiyasi toggle'iga (LUDesign.anim) bo'ysunadi. script.js dan KEYIN, extras.js dan OLDIN yuklanadi.
@@ -35,7 +43,23 @@
     { id: 'u_trail', key: 'trail', icon: '☄️', gems: 15, n: ['Nurli iz (Glow Trail)', 'Glow Trail', 'Светящийся след (Glow Trail)'],
       d: ['Kursor yoki barmoq ortidan porlovchi iz', 'A glowing trail follows your cursor or finger', 'Светящийся след за курсором или пальцем'] },
     { id: 'u_spot', key: 'spot', icon: '🔦', coins: 180, desktop: true, n: ['Projektor kartalar (Spotlight)', 'Spotlight Cards', 'Прожектор (Spotlight)'],
-      d: ['Kartalar ustida kursor ortidan yorug\'lik yuradi', 'Light follows the cursor across cards', 'Свет следует за курсором по карточкам'] }
+      d: ['Kartalar ustida kursor ortidan yorug\'lik yuradi', 'Light follows the cursor across cards', 'Свет следует за курсором по карточкам'] },
+    { id: 'u_confetti', key: 'confetti', icon: '🎊', coins: 150, n: ['Konfetti', 'Confetti Pop', 'Конфетти'],
+      d: ['Har bosishda rangli konfetti sachraydi', 'Colorful confetti bursts on every tap', 'Конфетти при каждом нажатии'] },
+    { id: 'u_ripple', key: 'ripple', icon: '🌀', coins: 120, n: ['Ripple tugmalar', 'Ripple buttons', 'Волна на кнопках'],
+      d: ['Tugma bosilgan joydan to\'lqin yoyiladi', 'An ink ripple spreads from where you tap', 'Волна расходится от места нажатия'] },
+    { id: 'u_tilt', key: 'tilt', icon: '🧊', gems: 20, desktop: true, n: ['3D egiluvchi kartalar', '3D Tilt cards', '3D-наклон карточек'],
+      d: ['Kartalar kursor tomonga 3D egiladi', 'Cards tilt in 3D toward the cursor', 'Карточки наклоняются к курсору'] },
+    { id: 'u_bubble', key: 'bubble', icon: '🫧', coins: 130, n: ['Pufakchalar', 'Bubbles', 'Пузырьки'],
+      d: ['Bosilgan joydan pufakchalar ko\'tariladi', 'Bubbles float up from every tap', 'Пузырьки поднимаются от нажатия'] },
+    { id: 'u_emoji', key: 'emoji', icon: '💖', coins: 140, n: ['Emoji portlash', 'Emoji Pop', 'Эмодзи-взрыв'],
+      d: ['Bosishda yuraklar va yulduzlar uchadi', 'Hearts and stars fly out when you tap', 'Сердечки и звёзды при нажатии'] },
+    { id: 'u_snow', key: 'snow', icon: '❄️', gems: 15, n: ['Qor yog\'ishi', 'Snowfall', 'Снегопад'],
+      d: ['Ekranda sekin qor yog\'adi', 'Gentle snow falls across the screen', 'Мягкий снег падает по экрану'] },
+    { id: 'u_neon', key: 'neon', icon: '💡', coins: 160, n: ['Neon tugmalar', 'Neon buttons', 'Неоновые кнопки'],
+      d: ['Asosiy tugmalar neon nur bilan nafas oladi', 'Main buttons breathe with a neon glow', 'Кнопки «дышат» неоновым светом'] },
+    { id: 'u_fly', key: 'fly', icon: '🌟', gems: 25, n: ['Yaltiroq qo\'ng\'izlar', 'Fireflies', 'Светлячки'],
+      d: ['Ekranda porlovchi qo\'ng\'izlar suzib yuradi', 'Glowing fireflies drift around the screen', 'По экрану плывут светлячки'] }
   ];
   // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6)
   CAT.forEach(function (it) {
@@ -441,6 +465,159 @@
   document.addEventListener('mouseout', function (e) { if (!e.relatedTarget) slHide(); }, { passive: true });
   window.addEventListener('blur', slHide);
 
+
+  // =========================================================
+  // 9-16) Yangi effektlar: konfetti, ripple, 3D tilt, pufakchalar, emoji, qor, neon, qo'ng'izlar
+  // Zarrachalar bitta canvas'da (P2): bosishdagi portlashlar + fon (qor, qo'ng'izlar)
+  // =========================================================
+  var P2 = { cv: null, ctx: null, dpr: 1, parts: [], amb: [], raf: 0, last: 0, on: {} };
+  function p2Canvas() {
+    if (P2.cv) return P2.cv;
+    var c = document.createElement('canvas');
+    c.id = 'lu-fx-p2'; c.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(c);
+    P2.cv = c; P2.ctx = c.getContext('2d'); p2Resize();
+    return c;
+  }
+  function p2Resize() {
+    if (!P2.cv) return;
+    P2.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    P2.cv.width = Math.round(window.innerWidth * P2.dpr); P2.cv.height = Math.round(window.innerHeight * P2.dpr);
+  }
+  function p2Ambient() { return (P2.on.snow || P2.on.fly) && motionOK() && !document.hidden; }
+  function p2Kick() { if (!P2.raf && (P2.parts.length || p2Ambient())) { p2Canvas(); P2.last = 0; P2.raf = requestAnimationFrame(p2Frame); } }
+  var CONF_COL = ['#F472B6', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA', '#F87171'];
+  function p2Seed() {
+    var W = window.innerWidth, H = window.innerHeight, small = Math.min(W, H) < 700, want = [];
+    if (P2.on.snow) want.push(['snow', small ? 36 : 70]);
+    if (P2.on.fly) want.push(['fly', small ? 14 : 24]);
+    P2.amb = P2.amb.filter(function (a) { return (a.k === 'snow' && P2.on.snow) || (a.k === 'fly' && P2.on.fly); });
+    want.forEach(function (w) {
+      var have = P2.amb.filter(function (a) { return a.k === w[0]; }).length;
+      for (var i = have; i < w[1]; i++) P2.amb.push(w[0] === 'snow'
+        ? { k: 'snow', x: Math.random() * W, y: Math.random() * H, r: 1 + Math.random() * 2.4, v: 18 + Math.random() * 40, ph: Math.random() * 6.28, o: .35 + Math.random() * .5 }
+        : { k: 'fly', x: Math.random() * W, y: Math.random() * H, r: 1.4 + Math.random() * 1.6, a: Math.random() * 6.28, v: 10 + Math.random() * 18, ph: Math.random() * 6.28 });
+    });
+  }
+  function p2Frame(now) {
+    P2.raf = 0;
+    var ctx = P2.ctx, W = window.innerWidth, H = window.innerHeight;
+    var dt = P2.last ? Math.min(0.05, (now - P2.last) / 1000) : 0.016; P2.last = now;
+    ctx.setTransform(P2.dpr, 0, 0, P2.dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    var amb = p2Ambient(), light = isLight();
+    if (amb) {
+      for (var i = 0; i < P2.amb.length; i++) {
+        var a = P2.amb[i];
+        if (a.k === 'snow') {
+          a.ph += dt; a.y += a.v * dt; a.x += Math.sin(a.ph * 0.9) * 14 * dt;
+          if (a.y > H + 5) { a.y = -5; a.x = Math.random() * W; }
+          ctx.globalAlpha = a.o; ctx.fillStyle = light ? '#9db4d8' : '#ffffff';
+          ctx.beginPath(); ctx.arc(a.x, a.y, a.r, 0, 6.2832); ctx.fill();
+        } else {
+          a.ph += dt; a.a += (Math.sin(a.ph * 0.7) * 0.9) * dt;
+          a.x += Math.cos(a.a) * a.v * dt; a.y += Math.sin(a.a) * a.v * dt;
+          if (a.x < -10) a.x = W + 10; if (a.x > W + 10) a.x = -10; if (a.y < -10) a.y = H + 10; if (a.y > H + 10) a.y = -10;
+          var gl = 0.35 + 0.65 * Math.max(0, Math.sin(a.ph * 1.6));
+          var g = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, a.r * 6);
+          g.addColorStop(0, light ? 'rgba(217,119,6,.55)' : 'rgba(255,230,120,.75)'); g.addColorStop(1, 'rgba(255,220,100,0)');
+          ctx.globalAlpha = gl; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(a.x, a.y, a.r * 6, 0, 6.2832); ctx.fill();
+          ctx.fillStyle = light ? '#b45309' : '#fff7c2'; ctx.beginPath(); ctx.arc(a.x, a.y, a.r, 0, 6.2832); ctx.fill();
+        }
+      }
+    }
+    P2.parts = P2.parts.filter(function (p) {
+      p.t += dt; if (p.t >= p.life) return false;
+      var k = p.t / p.life;
+      if (p.k === 'conf') {
+        p.vy += 900 * dt; p.vx *= (1 - 1.6 * dt); p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, Math.abs(Math.cos(p.rot * 1.7)) * .8 + .2);
+        ctx.globalAlpha = 1 - Math.max(0, (k - .7) / .3); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
+      } else if (p.k === 'bub') {
+        p.vy -= 40 * dt; p.y += p.vy * dt; p.x += Math.sin(p.t * 5 + p.ph) * 30 * dt;
+        ctx.globalAlpha = (1 - k) * .9; ctx.strokeStyle = p.c; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.6 + k * 0.6), 0, 6.2832); ctx.stroke();
+        ctx.globalAlpha = (1 - k) * .55; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p.x - p.r * .3, p.y - p.r * .3, p.r * .18, 0, 6.2832); ctx.fill();
+      } else if (p.k === 'emo') {
+        p.vy += 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+        var sc = k < .2 ? k / .2 : 1;
+        ctx.globalAlpha = 1 - Math.max(0, (k - .55) / .45); ctx.font = Math.round(p.s * sc) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.e, p.x, p.y);
+      }
+      return true;
+    });
+    ctx.globalAlpha = 1;
+    if (P2.parts.length || amb) P2.raf = requestAnimationFrame(p2Frame);
+    else { P2.last = 0; ctx.clearRect(0, 0, W, H); }
+  }
+  function confBurst(x, y) {
+    for (var i = 0; i < 26; i++) {
+      var ang = -Math.PI / 2 + (Math.random() - .5) * 2.2, sp = 220 + Math.random() * 320;
+      P2.parts.push({ k: 'conf', x: x, y: y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, rot: Math.random() * 6, vr: (Math.random() - .5) * 14, s: 6 + Math.random() * 6, c: CONF_COL[i % CONF_COL.length], t: 0, life: 1.3 + Math.random() * .5 });
+    }
+  }
+  function bubBurst(x, y) {
+    var col = accent();
+    for (var i = 0; i < 9; i++) P2.parts.push({ k: 'bub', x: x + (Math.random() - .5) * 30, y: y + (Math.random() - .5) * 16, vy: -40 - Math.random() * 70, r: 4 + Math.random() * 9, ph: Math.random() * 6, c: i % 2 ? col : '#7dd3fc', t: 0, life: 1.2 + Math.random() * .7 });
+  }
+  var EMO = ['💖', '✨', '⭐', '💜', '🌟', '💫'];
+  function emoBurst(x, y) {
+    for (var i = 0; i < 7; i++) {
+      var ang = -Math.PI / 2 + (Math.random() - .5) * 1.8, sp = 160 + Math.random() * 160;
+      P2.parts.push({ k: 'emo', e: EMO[(Math.random() * EMO.length) | 0], x: x, y: y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 60, s: 14 + Math.random() * 12, t: 0, life: 1.1 + Math.random() * .4 });
+    }
+  }
+  document.addEventListener('pointerdown', function (e) {
+    if (e.button > 0 || !motionOK()) return;
+    var any = false;
+    if (P2.on.confetti) { confBurst(e.clientX, e.clientY); any = true; }
+    if (P2.on.bubble) { bubBurst(e.clientX, e.clientY); any = true; }
+    if (P2.on.emoji) { emoBurst(e.clientX, e.clientY); any = true; }
+    if (any) { if (P2.parts.length > 400) P2.parts.splice(0, P2.parts.length - 400); p2Kick(); }
+  }, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) p2Kick(); });
+
+  // --- Ripple: tugma ustida "siyoh" to'lqini (alohida fixed qatlam — tugma ichiga hech narsa qo'shilmaydi)
+  var RP_SEL = 'button, .tab, [role="button"], .x-sec, .task-card, .x-shop-it, .x-tchip';
+  var RP = { on: false };
+  document.addEventListener('pointerdown', function (e) {
+    if (!RP.on || e.button > 0 || !motionOK()) return;
+    var b = e.target && e.target.closest ? e.target.closest(RP_SEL) : null; if (!b) return;
+    var r = b.getBoundingClientRect(); if (!r.width || r.width > 900) return;
+    var cs = getComputedStyle(b);
+    var w = document.createElement('div'); w.className = 'lu-rp';
+    w.style.cssText = 'left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px;border-radius:' + cs.borderRadius;
+    var d = Math.sqrt(r.width * r.width + r.height * r.height) * 2;
+    var s = document.createElement('i');
+    s.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - r.left - d / 2) + 'px;top:' + (e.clientY - r.top - d / 2) + 'px';
+    w.appendChild(s); document.body.appendChild(w);
+    setTimeout(function () { w.remove(); }, 650);
+  }, { capture: true, passive: true });
+
+  // --- 3D Tilt: kartalar kursor tomonga egiladi (faqat sichqoncha)
+  var TILT_SEL = '.task-card, .x-card, .x-sec, .stat, .x-shop-it, .fd-card, .th-it, .dz-card, .badge-card';
+  var TL = { on: false, el: null, raf: 0, x: 0, y: 0 };
+  function tlReset(el) { if (!el) return; el.classList.remove('lu-tilt'); el.style.removeProperty('--tx'); el.style.removeProperty('--ty'); el.style.removeProperty('--tgx'); el.style.removeProperty('--tgy'); }
+  function tlTick() {
+    TL.raf = 0; var el = TL.el; if (!el) return;
+    var r = el.getBoundingClientRect(); if (!r.width) return;
+    var px = (TL.x - r.left) / r.width - .5, py = (TL.y - r.top) / r.height - .5;
+    var k = r.width > 500 ? 3 : 8;
+    el.style.setProperty('--tx', (-py * k).toFixed(2) + 'deg'); el.style.setProperty('--ty', (px * k).toFixed(2) + 'deg');
+    el.style.setProperty('--tgx', ((px + .5) * 100).toFixed(1) + '%'); el.style.setProperty('--tgy', ((py + .5) * 100).toFixed(1) + '%');
+    el.classList.add('lu-tilt');
+  }
+  document.addEventListener('pointermove', function (e) {
+    if (!TL.on || e.pointerType !== 'mouse' || !finePointer() || !motionOK()) { if (TL.el) { tlReset(TL.el); TL.el = null; } return; }
+    var t = e.target && e.target.closest ? e.target.closest(TILT_SEL) : null;
+    if (t && t.closest('.modal-overlay, [role="dialog"], .x-ov')) t = null;
+    if (t !== TL.el) { tlReset(TL.el); TL.el = t; }
+    if (!t) return;
+    TL.x = e.clientX; TL.y = e.clientY;
+    if (!TL.raf) TL.raf = requestAnimationFrame(tlTick);
+  }, { passive: true });
+  document.addEventListener('mouseout', function (e) { if (!e.relatedTarget && TL.el) { tlReset(TL.el); TL.el = null; } }, { passive: true });
+
   // =========================================================
   // Holatni qo'llash
   // =========================================================
@@ -460,6 +637,14 @@
     if (!TR.on) TR.pts = [];
     SL.on = enabled('u_spot');
     if (!SL.on) slHide();
+    P2.on = { confetti: enabled('u_confetti'), bubble: enabled('u_bubble'), emoji: enabled('u_emoji'), snow: enabled('u_snow'), fly: enabled('u_fly') };
+    if (!P2.on.confetti && !P2.on.bubble && !P2.on.emoji) P2.parts = [];
+    p2Seed(); p2Kick();
+    RP.on = enabled('u_ripple');
+    TL.on = enabled('u_tilt');
+    if (!TL.on && TL.el) { tlReset(TL.el); TL.el = null; }
+    root.classList.toggle('lu-fx-neon', enabled('u_neon'));
+    root.classList.toggle('lu-fx-tilt', TL.on && finePointer());
   }
 
   function toggle(id) {
@@ -485,12 +670,23 @@
     if (key === 'wave') return '<div class="fxp fxp-wave" data-fxdemo="wave"><i></i><i></i><b></b></div>';
     if (key === 'trail') return '<div class="fxp fxp-trail" data-fxdemo="trail"><svg viewBox="0 0 120 56" preserveAspectRatio="none"><path d="M8 40 C 30 6, 52 6, 62 28 S 96 50, 112 14"/></svg><i></i></div>';
     if (key === 'spot') return '<div class="fxp fxp-spot"><span class="fxp-card"><b></b><b></b></span><i></i></div>';
+    if (key === 'confetti') return '<div class="fxp fxp-conf" data-fxdemo="confetti">' + new Array(13).join('<i></i>') + '</div>';
+    if (key === 'ripple') return '<div class="fxp fxp-rip"><span class="fxp-btn">+ Add<i></i></span></div>';
+    if (key === 'tilt') return '<div class="fxp fxp-tilt"><span class="fxp-card"><b></b><b></b></span></div>';
+    if (key === 'bubble') return '<div class="fxp fxp-bub" data-fxdemo="bubble">' + new Array(7).join('<i></i>') + '</div>';
+    if (key === 'emoji') return '<div class="fxp fxp-emo" data-fxdemo="emoji"><i>💖</i><i>✨</i><i>⭐</i><i>💜</i><i>🌟</i></div>';
+    if (key === 'snow') return '<div class="fxp fxp-snow">' + new Array(15).join('<i></i>') + '</div>';
+    if (key === 'neon') return '<div class="fxp fxp-neon"><span class="fxp-btn">+ Add</span></div>';
+    if (key === 'fly') return '<div class="fxp fxp-fly">' + new Array(8).join('<i></i>') + '</div>';
     return '';
   }
   function demo(key, x, y) {
     if (!motionOK()) return;
     if (key === 'spark') spBurst(x, y);
     else if (key === 'wave') wvBurst(x, y);
+    else if (key === 'confetti') { confBurst(x, y); p2Kick(); }
+    else if (key === 'bubble') { bubBurst(x, y); p2Kick(); }
+    else if (key === 'emoji') { emoBurst(x, y); p2Kick(); }
   }
   document.addEventListener('mouseover', function (e) {
     var d = e.target && e.target.closest ? e.target.closest('[data-fxdemo]') : null;
@@ -527,7 +723,7 @@
     if ((e.key === 'Enter' || e.key === ' ') && t && t.hasAttribute && t.hasAttribute('data-fx-toggle')) { e.preventDefault(); toggle(t.getAttribute('data-fx-toggle')); }
   });
 
-  window.addEventListener('resize', function () { spResize(); wvResize(); trResize(); MG.listT = 0; }, { passive: true });
+  window.addEventListener('resize', function () { spResize(); wvResize(); trResize(); p2Resize(); MG.listT = 0; }, { passive: true });
   window.addEventListener('lu:design', function () { sync(); });
   function onMQ() { sync(); try { if (window.LUDesign) window.LUDesign.renderPicker(); } catch (e) {} }
   [reduceMQ, fineMQ].forEach(function (mq) { if (!mq) return; if (mq.addEventListener) mq.addEventListener('change', onMQ); else if (mq.addListener) mq.addListener(onMQ); });
