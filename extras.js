@@ -2560,6 +2560,7 @@
     return '<div class="x-secs-t">🧩 ' + L('Bo\'limlar', 'Sections', 'Разделы') + '</div><div class="x-secs">' + items.map(function (x) {
       return '<button type="button" class="x-sec" data-sec-go="' + x[0] + '"><span>' + x[1] + '</span>' + x[2] +
         (x[0] === 'pomo' ? '<em class="x-pomo-live" aria-hidden="true"></em>' : '') +
+        (x[0] === 'friends' ? (function () { var n = 0; try { var F = S.friends || {}, seen = F.seenRequestIds || {}; n = (F.incoming || []).filter(function (r) { return !seen[r.id]; }).length; } catch (e) {} return '<em class="x-sec-badge" id="x-hub-fr-badge"' + (n ? '' : ' style="display:none"') + '>' + n + '</em>'; })() : '') +
         (x[0] === 'inbox' ? (function () { var n = 0; try { n = window.xInbox.openCount(); } catch (e) {} return n ? '<em class="x-sec-badge" aria-label="' + n + '">' + (n > 99 ? '99+' : n) + '</em>' : ''; })() : '') + '</button>';
     }).join('') + '</div>';
   }

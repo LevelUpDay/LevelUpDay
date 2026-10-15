@@ -643,7 +643,7 @@ html.x-pomo-running #x-bnav button[data-bn="hub"] .x-pomo-live:not(:empty) {
 html.x-pomo-running #x-bnav button[data-bn="hub"] .x-pomo-live:not(:empty)::before { width: 4px; height: 4px; }
 
 /* Hub → Bo'limlar: Pomodoro plitkasi */
-.x-sec[data-sec-go="pomo"] { position: relative; }
+.x-sec[data-sec-go="pomo"], .x-sec[data-sec-go="friends"] { position: relative; }
 html.x-pomo-running .x-sec[data-sec-go="pomo"] {
   border-color: var(--x-pomo); color: var(--x-pomo);
   background: color-mix(in srgb, var(--x-pomo) 13%, var(--surface));
