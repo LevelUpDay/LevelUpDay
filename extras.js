@@ -2571,12 +2571,23 @@
     var t = document.getElementById('tab-' + id);
     return !!(t && t.style.display !== 'none');
   }
-  function markMovedTabs() {
-    MOVED_TABS.forEach(function (id) { var t = document.getElementById('tab-' + id); if (t) t.classList.add('x-moved'); });
-  }
-  function sectionsGrid() {
-    var items = [
-      ['inbox', '📥', 'Inbox', function () { if (window.xInbox) window.xInbox.open(); }],
+  // =========================================================
+  // 🧲 Bo'limlar va asosiy menyu — ushlab turib suring (drag & swap):
+  //   • Hub → "Bo'limlar" ichida joylarini almashtirish
+  //   • bo'limni asosiy menyuga (chap panel / pastki panel) qo'yish va u yerdan qaytarib olish
+  //   • Vazifalar, Profil va Hub doim asosiy menyuda qoladi
+  // Holat: S.xNav = { nav: [id...], secs: [id...] } — bulut orqali sinxronlanadi
+  // =========================================================
+  var NAV_LOCK = ['tasks', 'profile', 'hub'];
+  var NAV_MAX = 7;
+  function navItems() {
+    var all = [
+      ['tasks', '📋', L('Vazifalar', 'Tasks', 'Задачи'), function () { showTab('tasks'); }],
+      ['goals', '🎯', L('Maqsadlar', 'Goals', 'Цели'), function () { showTab('goals'); }],
+      ['hub', '🚀', 'Hub', function () { if (window.xInbox) window.xInbox.close(true); showTab('hub'); }],
+      ['rewards', '🎁', L('Mukofot', 'Rewards', 'Награды'), function () { showTab('rewards'); }],
+      ['profile', '👤', L('Profil', 'Profile', 'Профиль'), function () { showTab('profile'); }],
+      ['inbox', '📥', 'Inbox', function () { showTab('hub'); if (window.xInbox) window.xInbox.open(); }],
       ['blocker', '🔒', 'Focusgate', function () { showTab('blocker'); }],
       ['pomo', '🍅', L('Pomodoro', 'Pomodoro', 'Pomodoro'), function () { pomoOpenModal(); }],
       ['reyting', '🏆', L('Reyting', 'Leaderboard', 'Рейтинг'), function () { showTab('reyting'); }],
@@ -2589,22 +2600,77 @@
       ['sat', '📐', 'SAT', function () { showTab('sat'); }],
       ['cefr', '📘', 'CEFR', function () { showTab('cefr'); }],
       ['secret', '🕵️', L('Shaxsiy nazorat', 'Personal check', 'Личный контроль'), function () { showTab('secret'); }]
-    ].filter(function (x) {
+    ];
+    var ok = all.filter(function (x) {
+      if (['tasks', 'goals', 'hub', 'rewards', 'profile', 'friends', 'spin', 'invite', 'clans'].indexOf(x[0]) !== -1) return true;
       if (x[0] === 'inbox') return !!window.xInbox;
-      if (x[0] === 'friends' || x[0] === 'spin' || x[0] === 'invite' || x[0] === 'clans') return true;
       if (x[0] === 'secret') return !!S.personalCheckEnabled;
       return tabAvailable(x[0]);
     });
-    window._xSecActions = {}; items.forEach(function (x) { window._xSecActions[x[0]] = x[3]; });
-    return '<div class="x-secs-t">🧩 ' + L('Bo\'limlar', 'Sections', 'Разделы') + '</div><div class="x-secs">' + items.map(function (x) {
-      return '<button type="button" class="x-sec" data-sec-go="' + x[0] + '"><span>' + x[1] + '</span>' + x[2] +
-        (x[0] === 'pomo' ? '<em class="x-pomo-live" aria-hidden="true"></em>' : '') +
-        (x[0] === 'friends' ? (function () { var n = 0; try { var F = S.friends || {}, seen = F.seenRequestIds || {}; n = (F.incoming || []).filter(function (r) { return !seen[r.id]; }).length; } catch (e) {} return '<em class="x-sec-badge" id="x-hub-fr-badge"' + (n ? '' : ' style="display:none"') + '>' + n + '</em>'; })() : '') +
-        (x[0] === 'inbox' ? (function () { var n = 0; try { n = window.xInbox.openCount(); } catch (e) {} return n ? '<em class="x-sec-badge" aria-label="' + n + '">' + (n > 99 ? '99+' : n) + '</em>' : ''; })() : '') + '</button>';
+    var map = {}; ok.forEach(function (x) { map[x[0]] = { id: x[0], icon: x[1], label: x[2], act: x[3] }; });
+    return { list: ok.map(function (x) { return x[0]; }), map: map };
+  }
+  function navState() { var x = S.xNav && typeof S.xNav === 'object' ? S.xNav : {}; return { nav: Array.isArray(x.nav) ? x.nav.slice() : null, secs: Array.isArray(x.secs) ? x.secs.slice() : [] }; }
+  // Asosiy menyu ro'yxati (tartib bilan)
+  function navList() {
+    var it = navItems(), st = navState();
+    var def = document.documentElement.classList.contains('layout-desktop') ? ['profile', 'tasks', 'rewards', 'goals', 'hub'] : MAIN_TABS.slice();
+    var l = (st.nav || def).filter(function (id, i, a) { return it.map[id] && a.indexOf(id) === i; });
+    NAV_LOCK.forEach(function (k) { if (l.indexOf(k) === -1) l.push(k); });
+    return l;
+  }
+  // Hub → "Bo'limlar" ro'yxati (menyuda bo'lmaganlar, foydalanuvchi tartibida)
+  function secList() {
+    var it = navItems(), nav = navList(), st = navState();
+    var rest = it.list.filter(function (id) { return nav.indexOf(id) === -1; });
+    var ordered = st.secs.filter(function (id) { return rest.indexOf(id) !== -1; });
+    rest.forEach(function (id) { if (ordered.indexOf(id) === -1) ordered.push(id); });
+    return ordered;
+  }
+  function navSave(nav, secs) {
+    S.xNav = { nav: nav, secs: secs };
+    try { save(); } catch (e) {}
+    applyNav();
+    try { if (document.documentElement.getAttribute('data-tab') === 'hub' && !(window.xInbox && window.xInbox.isOpen())) renderHub(); } catch (e) {}
+  }
+  // Chap panel (#tabs-bar) va pastki panelni ro'yxatga moslaymiz
+  function applyNav() {
+    var nav = navList(), it = navItems(), bar = document.getElementById('tabs-bar');
+    if (bar) {
+      bar.querySelectorAll('.tab.x-navpin').forEach(function (b) { if (nav.indexOf(b.dataset.xnav) === -1) b.remove(); });
+      Array.prototype.forEach.call(bar.querySelectorAll('.tab[id^="tab-"]:not(.x-navpin)'), function (t) {
+        var id = t.id.slice(4); t.setAttribute('data-xnav', id);
+        t.classList.toggle('x-moved', nav.indexOf(id) === -1);
+      });
+      nav.forEach(function (id) {
+        var el = document.getElementById('tab-' + id);
+        if (!el || !bar.contains(el)) {
+          el = bar.querySelector('.x-navpin[data-xnav="' + id + '"]');
+          if (!el) {
+            var m = it.map[id]; if (!m) return;
+            el = document.createElement('button'); el.type = 'button'; el.className = 'tab x-navpin'; el.setAttribute('data-xnav', id);
+            el.textContent = m.icon + ' ' + m.label;
+            el.onclick = function () { var x = navItems().map[id]; if (x) x.act(); };
+          }
+        }
+        bar.appendChild(el); // tartib bo'yicha
+      });
+    }
+    renderBottomNav();
+  }
+  function markMovedTabs() { applyNav(); }
+  function sectionsGrid() {
+    var it = navItems(), items = secList().map(function (id) { return it.map[id]; });
+    window._xSecActions = {}; items.forEach(function (x) { window._xSecActions[x.id] = x.act; });
+    return '<div class="x-secs-t">🧩 ' + L('Bo\'limlar', 'Sections', 'Разделы') + '<small class="x-secs-hint">✋ ' + L('Ushlab turib suring: joyini almashtiring yoki menyuga qo\'ying', 'Hold & drag: swap places or drop into the menu', 'Удерживайте и тяните: меняйте местами или перенесите в меню') + '</small></div><div class="x-secs" data-xdz="secs">' + items.map(function (x) {
+      return '<button type="button" class="x-sec" data-sec-go="' + x.id + '" data-xdrag="sec"><span>' + x.icon + '</span>' + x.label +
+        (x.id === 'pomo' ? '<em class="x-pomo-live" aria-hidden="true"></em>' : '') +
+        (x.id === 'friends' ? (function () { var n = 0; try { var F = S.friends || {}, seen = F.seenRequestIds || {}; n = (F.incoming || []).filter(function (r) { return !seen[r.id]; }).length; } catch (e) {} return '<em class="x-sec-badge" id="x-hub-fr-badge"' + (n ? '' : ' style="display:none"') + '>' + n + '</em>'; })() : '') +
+        (x.id === 'inbox' ? (function () { var n = 0; try { n = window.xInbox.openCount(); } catch (e) {} return n ? '<em class="x-sec-badge" aria-label="' + n + '">' + (n > 99 ? '99+' : n) + '</em>' : ''; })() : '') + '</button>';
     }).join('') + '</div>';
   }
   function bindSections(root) {
-    root.querySelectorAll('[data-sec-go]').forEach(function (b) { b.onclick = function () { var f = (window._xSecActions || {})[b.dataset.secGo]; if (f) f(); }; });
+    root.querySelectorAll('[data-sec-go]').forEach(function (b) { b.onclick = function () { if (DG.justDropped) return; var f = (window._xSecActions || {})[b.dataset.secGo]; if (f) f(); }; });
     try { if (window.pomoSyncRunIndicator) window.pomoSyncRunIndicator(); } catch (e) {}
   }
   // 📱 Telefonda pastki navigatsiya paneli
@@ -2616,20 +2682,132 @@
   }
   function renderBottomNav() {
     var nav = document.getElementById('x-bnav'); if (!nav) return;
+    var list = navList(), it = navItems();
     var cur = document.documentElement.getAttribute('data-tab') || 'tasks';
-    if (MAIN_TABS.indexOf(cur) === -1 && cur !== 'secret') cur = 'hub';
-    if (cur === 'secret') cur = 'profile';
-    var it = [['tasks', '📋', L('Vazifalar', 'Tasks', 'Задачи')], ['goals', '🎯', L('Maqsadlar', 'Goals', 'Цели')], ['hub', '🚀', 'Hub'],
-      ['rewards', '🎁', L('Mukofot', 'Rewards', 'Награды')], ['profile', '👤', L('Profil', 'Profile', 'Профиль')]];
-    nav.innerHTML = it.map(function (x) {
-      return '<button type="button" class="' + (x[0] === cur ? 'on' : '') + '" data-bn="' + x[0] + '"><span class="x-bn-i">' + x[1] + '</span><span class="x-bn-l">' + x[2] + '</span>' +
-        (x[0] === 'hub' ? '<span class="x-pomo-live" aria-hidden="true"></span>' : '') + '</button>';
+    if (cur === 'secret' && list.indexOf('secret') === -1) cur = 'profile';
+    if (list.indexOf(cur) === -1) cur = 'hub';
+    nav.setAttribute('data-xdz', 'nav');
+    nav.classList.toggle('many', list.length > 5);
+    nav.innerHTML = list.map(function (id) {
+      var x = it.map[id]; if (!x) return '';
+      var lbl = id === 'rewards' ? L('Mukofot', 'Rewards', 'Награды') : x.label;
+      return '<button type="button" class="' + (id === cur ? 'on' : '') + '" data-bn="' + id + '" data-xdrag="nav"><span class="x-bn-i">' + x.icon + '</span><span class="x-bn-l">' + H(lbl) + '</span>' +
+        (id === 'hub' ? '<span class="x-pomo-live" aria-hidden="true"></span>' : '') + '</button>';
     }).join('');
     try { if (window.pomoSyncRunIndicator) window.pomoSyncRunIndicator(); } catch (e) {}
     nav.querySelectorAll('[data-bn]').forEach(function (b) {
-      b.onclick = function () { if (b.dataset.bn === 'hub' && window.xInbox) window.xInbox.close(true); showTab(b.dataset.bn); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); } };
+      b.onclick = function () {
+        if (DG.justDropped) return;
+        var x = navItems().map[b.dataset.bn]; if (x) x.act();
+        try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+      };
     });
   }
+
+  // ---------- Drag & drop (sichqoncha va barmoq: ushlab turish) ----------
+  var DG = { el: null, id: null, from: null, ghost: null, timer: 0, sx: 0, sy: 0, on: false, pid: null, target: null, justDropped: false };
+  function dgNavBox() { return document.documentElement.classList.contains('layout-desktop') ? document.getElementById('tabs-bar') : document.getElementById('x-bnav'); }
+  function dgItemFromEl(el) {
+    if (!el) return null;
+    var sec = el.closest('[data-xdrag="sec"]'); if (sec) return { el: sec, id: sec.dataset.secGo, from: 'secs' };
+    var bn = el.closest('#x-bnav [data-bn]'); if (bn) return { el: bn, id: bn.dataset.bn, from: 'nav' };
+    var tb = el.closest('#tabs-bar .tab[data-xnav]'); if (tb && document.documentElement.classList.contains('layout-desktop')) return { el: tb, id: tb.dataset.xnav, from: 'nav' };
+    return null;
+  }
+  function dgStart() {
+    DG.on = true;
+    var r = DG.el.getBoundingClientRect();
+    var g = DG.el.cloneNode(true); g.classList.add('x-dg-ghost'); g.removeAttribute('id');
+    g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+    g.style.left = '0px'; g.style.top = '0px';
+    DG.ox = DG.sx - r.left; DG.oy = DG.sy - r.top;
+    document.body.appendChild(g); DG.ghost = g;
+    DG.el.classList.add('x-dg-src');
+    document.documentElement.classList.add('x-dragging');
+    try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+    dgMove(DG.sx, DG.sy);
+  }
+  function dgMove(x, y) {
+    if (!DG.ghost) return;
+    DG.ghost.style.transform = 'translate(' + (x - DG.ox) + 'px,' + (y - DG.oy) + 'px) scale(1.06) rotate(-2deg)';
+    var under = document.elementFromPoint(x, y);
+    document.querySelectorAll('.x-dg-over').forEach(function (e) { e.classList.remove('x-dg-over'); });
+    var navBox = dgNavBox(), t = null;
+    var it = dgItemFromEl(under);
+    if (it && it.el !== DG.el) t = it;
+    else if (under && navBox && navBox.contains(under)) t = { el: navBox, id: null, from: 'nav' };
+    else if (under && under.closest('[data-xdz="secs"]')) t = { el: under.closest('[data-xdz="secs"]'), id: null, from: 'secs' };
+    DG.target = t;
+    if (t) t.el.classList.add('x-dg-over');
+  }
+  function dgEnd(cancel) {
+    clearTimeout(DG.timer);
+    var was = DG.on, t = DG.target, id = DG.id, from = DG.from;
+    if (DG.ghost) DG.ghost.remove();
+    if (DG.el) DG.el.classList.remove('x-dg-src');
+    document.querySelectorAll('.x-dg-over').forEach(function (e) { e.classList.remove('x-dg-over'); });
+    document.documentElement.classList.remove('x-dragging');
+    DG.el = DG.ghost = DG.target = null; DG.on = false; DG.pid = null;
+    if (!was) return;
+    DG.justDropped = true; setTimeout(function () { DG.justDropped = false; }, 350);
+    if (cancel || !t) return;
+    dgDrop(id, from, t);
+  }
+  function dgDrop(id, from, t) {
+    var nav = navList(), secs = secList();
+    var toNav = t.from === 'nav', tid = t.id;
+    if (from === 'nav' && !toNav && NAV_LOCK.indexOf(id) !== -1) {
+      toast('🔒 ' + L('Vazifalar, Profil va Hub doim asosiy menyuda turadi', 'Tasks, Profile and Hub always stay in the main menu', 'Задачи, Профиль и Hub всегда остаются в меню'));
+      return;
+    }
+    if (from === 'secs' && toNav && nav.length >= NAV_MAX) {
+      toast('⚠️ ' + L('Menyuda ko\'pi bilan ' + NAV_MAX + ' ta bo\'lim bo\'ladi', 'The menu holds up to ' + NAV_MAX + ' items', 'В меню максимум ' + NAV_MAX + ' пунктов'));
+      return;
+    }
+    var src = from === 'nav' ? nav : secs, dst = toNav ? nav : secs;
+    var si = src.indexOf(id);
+    if (src === dst && tid && tid !== id) {
+      // bir ro'yxat ichida — almashtirish (swap)
+      var ti = dst.indexOf(tid); if (ti === -1 || si === -1) return;
+      dst[si] = tid; dst[ti] = id;
+    } else if (src !== dst) {
+      if (si !== -1) src.splice(si, 1);
+      var at = tid ? dst.indexOf(tid) : -1;
+      if (at === -1) dst.push(id); else dst.splice(at, 0, id);
+      // menyudan chiqqan bo'lim joriy bo'lsa — Hub ga o'tamiz
+      if (!toNav && document.documentElement.getAttribute('data-tab') === id) { try { showTab('hub'); } catch (e) {} }
+    } else return;
+    try { SFX.click(); } catch (e) {}
+    navSave(nav, secs);
+    if (toNav && from === 'secs') toast('📌 ' + (navItems().map[id] || {}).label + ' — ' + L('menyuga qo\'shildi', 'added to the menu', 'добавлено в меню'));
+    else if (!toNav && from === 'nav') toast('🧩 ' + (navItems().map[id] || {}).label + ' — ' + L('Bo\'limlarga qaytdi', 'moved back to Sections', 'перемещено в Разделы'));
+  }
+  document.addEventListener('pointerdown', function (e) {
+    if (e.button > 0 || DG.el) return;
+    var it = dgItemFromEl(e.target); if (!it) return;
+    DG.el = it.el; DG.id = it.id; DG.from = it.from; DG.sx = e.clientX; DG.sy = e.clientY; DG.pid = e.pointerId; DG.touch = e.pointerType !== 'mouse';
+    clearTimeout(DG.timer);
+    DG.timer = setTimeout(function () { if (DG.el && !DG.on) dgStart(); }, DG.touch ? 380 : 260);
+  }, true);
+  document.addEventListener('pointermove', function (e) {
+    if (!DG.el || e.pointerId !== DG.pid) return;
+    if (!DG.on) {
+      var dx = e.clientX - DG.sx, dy = e.clientY - DG.sy, d = Math.sqrt(dx * dx + dy * dy);
+      if (DG.touch) { if (d > 10) { clearTimeout(DG.timer); DG.el = null; } return; } // barmoq: avval ushlab turish kerak, aks holda bu aylantirish
+      if (d > 7) { clearTimeout(DG.timer); dgStart(); }
+      return;
+    }
+    dgMove(e.clientX, e.clientY);
+  }, true);
+  document.addEventListener('pointerup', function (e) { if (DG.el && e.pointerId === DG.pid) dgEnd(false); }, true);
+  document.addEventListener('pointercancel', function (e) { if (DG.el && e.pointerId === DG.pid && !DG.on) { clearTimeout(DG.timer); DG.el = null; } }, true);
+  // Sudrash paytida sahifa aylanmasin (telefon)
+  document.addEventListener('touchmove', function (e) { if (DG.on) { e.preventDefault(); var t = e.touches[0]; if (t) dgMove(t.clientX, t.clientY); } }, { passive: false });
+  document.addEventListener('touchend', function (e) { if (DG.on) { var t = e.changedTouches[0]; if (t) dgMove(t.clientX, t.clientY); dgEnd(false); } }, true);
+  document.addEventListener('click', function (e) { if (DG.justDropped && dgItemFromEl(e.target)) { e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener('contextmenu', function (e) { if (DG.el && dgItemFromEl(e.target)) e.preventDefault(); }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && DG.on) dgEnd(true); });
+  window.xApplyNav = safe(applyNav);
 
   // =========================================================
   // 📲 ILOVANI O'RNATISH (kompyuter / telefon)
