@@ -1,0 +1,72 @@
+/* ===== 🎬 Pomodoro jonli foni (pomo-scene.js) ===== */
+#pomo-scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; display: block; }
+#pomo-scene-shade { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(ellipse 70% 60% at 50% 42%, rgba(0,0,0,.05), rgba(0,0,0,.42) 100%), linear-gradient(180deg, rgba(0,0,0,.28), transparent 30%, transparent 70%, rgba(0,0,0,.35)); }
+#pomo-hero > *:not(#pomo-scene):not(#pomo-scene-shade):not(#pomo-ambient-bubble):not(#pomo-fullscreen-btn):not(#pomo-scene-chip) { position: relative; z-index: 1; }
+#pomo-scene-chip { position: absolute; z-index: 2; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(10,10,20,.45); color: #fff; font: 600 12.5px 'DM Sans', sans-serif; white-space: nowrap;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: background .15s, transform .15s; }
+#pomo-scene-chip:hover { background: rgba(10,10,20,.7); transform: translateX(-50%) translateY(-1px); }
+@media (max-width: 640px) { #pomo-scene-chip { bottom: auto; top: 70px; font-size: 11.5px; padding: 5px 11px; } }
+
+/* ---------- ⏱ Taymer uslublari (#pomo-hero[data-pt]) ---------- */
+#pomo-hero[data-pt] #pomo-hero-clock { transition: all .3s; }
+#pomo-hero[data-pt="glass"] #pomo-hero-clock { display: inline-block; padding: 18px 34px 20px; border-radius: 28px; background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.22); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 20px 60px -20px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.25); text-shadow: none; }
+#pomo-hero[data-pt="glass"] .pomo-hero-start-btn { background: rgba(255,255,255,.92); }
+#pomo-hero[data-pt="glass"] .pomo-hero-round-btn { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+#pomo-hero[data-pt="neon"] #pomo-hero-clock { color: #fff; text-shadow: 0 0 6px #fff, 0 0 18px var(--accent), 0 0 42px var(--accent), 0 0 80px var(--accent); animation: psNeon 3s ease-in-out infinite; }
+#pomo-hero[data-pt="neon"] .pomo-hero-start-btn { background: transparent; color: #fff; border: 2px solid var(--accent); box-shadow: 0 0 14px var(--accent), inset 0 0 12px color-mix(in srgb, var(--accent) 50%, transparent); }
+@keyframes psNeon { 50% { text-shadow: 0 0 4px #fff, 0 0 12px var(--accent), 0 0 28px var(--accent), 0 0 50px var(--accent); } }
+#pomo-hero[data-pt="minimal"] #pomo-hero-clock { font-family: 'DM Sans', system-ui, sans-serif; font-weight: 200; letter-spacing: .06em; text-shadow: 0 2px 20px rgba(0,0,0,.35); }
+#pomo-hero[data-pt="minimal"] #pomo-hero-phase { text-transform: uppercase; letter-spacing: .3em; font-weight: 600; font-size: 11px; }
+#pomo-hero[data-pt="minimal"] .pomo-hero-start-btn { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.7); box-shadow: none; letter-spacing: .2em; text-transform: uppercase; font-weight: 600; }
+#pomo-hero[data-pt="gradient"] #pomo-hero-clock { background: linear-gradient(120deg, #ffe27a, #ff7eb3 45%, #8b7bff 75%, #5ee7df); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; filter: drop-shadow(0 6px 24px rgba(0,0,0,.4)); animation: psGrad 6s ease-in-out infinite; }
+#pomo-hero[data-pt="gradient"] .pomo-hero-start-btn { background: linear-gradient(120deg, #ff7eb3, #8b7bff); color: #fff; }
+@keyframes psGrad { 50% { background-position: 100% 0; } }
+#pomo-hero #pomo-hero-clock.break { -webkit-text-fill-color: initial; }
+@media (prefers-reduced-motion: reduce) { #pomo-hero[data-pt] #pomo-hero-clock { animation: none; } }
+
+/* ---------- 🖼 Fon tanlash (sozlamalar bo'limi + tezkor oyna) ---------- */
+.ps-sec { padding: 12px 14px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--border); margin-bottom: 14px; }
+.ps-row { display: flex; align-items: center; gap: 12px; }
+.ps-row > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ps-row b { font-size: 13.5px; color: var(--text); } .ps-row small { font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+.ps-sw { position: relative; width: 42px; height: 24px; flex: 0 0 42px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; padding: 0; }
+.ps-sw i { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-dim); transition: transform .25s cubic-bezier(.3,1.4,.5,1), background .2s; }
+.ps-sw.on { background: var(--accent); border-color: var(--accent); } .ps-sw.on i { transform: translateX(18px); background: #fff; }
+.ps-t { margin: 16px 2px 8px; font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+.ps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.ps-grid.sm { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+.ps-it { position: relative; display: flex; flex-direction: column; padding: 0; border-radius: 12px; overflow: hidden; cursor: pointer; text-align: left;
+  border: 2px solid transparent; background: var(--surface2); color: var(--text); font-family: inherit; transition: transform .15s, border-color .15s, box-shadow .15s; }
+.ps-it:hover { transform: translateY(-2px); }
+.ps-it.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.ps-it img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.ps-it span { padding: 6px 8px; font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-it.ps-up em { display: grid; place-items: center; aspect-ratio: 16 / 10; font-style: normal; font-size: 28px; color: var(--text-muted); border-bottom: 1px dashed var(--border-hover); }
+.ps-link { margin-top: 8px; border: none; background: none; color: var(--red); font-weight: 600; font-size: 12px; font-family: inherit; cursor: pointer; padding: 4px 2px; }
+.ps-note { margin-top: 6px; font-size: 11px; color: var(--text-dim); }
+.ps-styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.ps-st { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px 8px; border-radius: 12px; border: 2px solid transparent; cursor: pointer;
+  background: linear-gradient(160deg, #2a2048, #100d1e); color: #fff; font-family: inherit; transition: transform .15s, border-color .15s; }
+.ps-st:hover { transform: translateY(-2px); } .ps-st.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.ps-st small { font-size: 11px; font-weight: 600; color: rgba(255,255,255,.75); }
+.ps-st-pv { font: 800 22px Syne, sans-serif; line-height: 1; }
+.ps-st-glass .ps-st-pv { padding: 5px 9px; border-radius: 10px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); }
+.ps-st-neon .ps-st-pv { text-shadow: 0 0 4px #fff, 0 0 12px var(--accent), 0 0 24px var(--accent); }
+.ps-st-minimal .ps-st-pv { font-family: 'DM Sans', sans-serif; font-weight: 200; letter-spacing: .06em; }
+.ps-st-gradient .ps-st-pv { background: linear-gradient(120deg, #ffe27a, #ff7eb3, #8b7bff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.ps-quick { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(5,5,12,.55);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: psFade .2s ease both; }
+@keyframes psFade { from { opacity: 0; } }
+.ps-quick-box { width: 100%; max-width: 620px; max-height: min(86vh, 760px); display: flex; flex-direction: column; border-radius: 22px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border-hover); box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); animation: psUp .3s cubic-bezier(.2,.9,.3,1.15) both; }
+@keyframes psUp { from { opacity: 0; transform: translateY(16px) scale(.97); } }
+.ps-quick-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.ps-quick-h b { font-size: 15px; color: var(--text); }
+.ps-x { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; }
+.ps-quick-body { padding: 14px 16px 18px; overflow-y: auto; }
+@media (max-width: 640px) { .ps-quick { align-items: flex-end; padding: 0; } .ps-quick-box { max-width: none; border-radius: 22px 22px 0 0; max-height: 88vh; } }
