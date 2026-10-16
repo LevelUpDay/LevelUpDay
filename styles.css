@@ -3906,3 +3906,6 @@ html.lud-boot::after { content: ""; position: fixed; left: 50%; top: 50%; width:
   animation: ludBootBar 1s linear infinite; }
 @keyframes ludBootPulse { 50% { transform: scale(.9); opacity: .7; } }
 @keyframes ludBootBar { from { background-position: -100% 0, 0 0; } to { background-position: 200% 0, 0 0; } }
+.lvp-gift { display: block; margin-top: 3px; font-size: 10.5px; font-weight: 600; line-height: 1.35; color: color-mix(in srgb, var(--accent) 75%, var(--text)); }
+.lvp-gift.got { color: var(--green); }
+.lvp-step.lock .lvp-gift { color: var(--text-muted); }
