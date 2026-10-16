@@ -26980,7 +26980,10 @@ var wsCheckSupabaseSession = async function() {
     var session = res.data && res.data.session;
     if (session && session.user) await cloudBoot(session);
   } catch (e) { console.warn('[Supabase session] tekshirishda xatolik:', e); }
+  _ludBootReveal();
 };
+// ⏳ index.html'dagi "yuklanmoqda" pardasini ochadi (bulutdan birinchi sinxron tugagach)
+function _ludBootReveal() { try { if (typeof window.ludBootDone === 'function') requestAnimationFrame(window.ludBootDone); } catch (e) {} }
 
 var cloudLogout = async function() {
   window._cloudManualLogout = true;
@@ -34170,7 +34173,7 @@ var _cloudCleanLoginIfExisting = async function(uid) {
 
 var cloudBoot = async function(session, isOAuthReturn) {
   window._cloudBootBusy = true;
-  try { return await _cloudBootInner(session, isOAuthReturn); } finally { window._cloudBootBusy = false; }
+  try { return await _cloudBootInner(session, isOAuthReturn); } finally { window._cloudBootBusy = false; _ludBootReveal(); }
 };
 var _cloudBootInner = async function(session, isOAuthReturn) {
   await _cloudWaitBooted();

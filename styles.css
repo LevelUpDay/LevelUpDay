@@ -3895,3 +3895,14 @@ body.light .th-dates input { color-scheme: light; }
 .th-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 16px; color: var(--text-muted); font-size: 14px; text-align: center; }
 .th-empty span { font-size: 44px; animation: thFloat 3s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .th-hero, .th-coin, .th-it, .th-empty span { animation: none !important; } }
+
+/* ===== ⏳ Ochilishda bulut sinxroni kutilayotganda — eski ma'lumot ko'rinmasin ===== */
+html.lud-boot body { visibility: hidden; }
+html.lud-boot { background: var(--bg, #0E0E12); }
+html.lud-boot::before { content: ""; position: fixed; left: 50%; top: 50%; width: 64px; height: 64px; margin: -52px 0 0 -32px; z-index: 2147483647;
+  background: url("icons/logo.svg") center / contain no-repeat; animation: ludBootPulse 1.1s ease-in-out infinite; }
+html.lud-boot::after { content: ""; position: fixed; left: 50%; top: 50%; width: 120px; height: 4px; margin: 28px 0 0 -60px; border-radius: 4px; z-index: 2147483647;
+  background: linear-gradient(90deg, transparent, var(--accent, #7C5CFC), transparent) 0 0 / 50% 100% no-repeat, color-mix(in srgb, var(--accent, #7C5CFC) 18%, transparent);
+  animation: ludBootBar 1s linear infinite; }
+@keyframes ludBootPulse { 50% { transform: scale(.9); opacity: .7; } }
+@keyframes ludBootBar { from { background-position: -100% 0, 0 0; } to { background-position: 200% 0, 0 0; } }
