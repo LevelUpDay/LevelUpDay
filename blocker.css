@@ -520,3 +520,18 @@ a.fg-btn { display: inline-flex; align-items: center; justify-content: center; g
 .fg-perdev-r > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fg-perdev-r b { font-variant-numeric: tabular-nums; }
 .fg-hint { font-size: 12px; color: var(--text-muted); margin: -2px 2px 8px; line-height: 1.4; }
+
+/* ===== 🎁 Mukofot ↔ qurilmalar va tarix ===== */
+.fg-pkdevs { padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.fg-pkdev { display: flex; align-items: center; gap: 10px; padding: 8px 2px; font-size: 13.5px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.fg-pkdev:last-of-type { border-bottom: none; }
+.fg-pkdev input { width: 18px; height: 18px; accent-color: var(--accent); }
+.fg-pkdev-n { font-size: 11.5px; color: var(--text-muted); padding: 4px 2px 2px; }
+.fg-rwh-meta { font-size: 12px; color: var(--text-muted); margin: -4px 0 10px; line-height: 1.5; }
+.fg-rwh-day { margin: 12px 2px 6px; font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-dim); }
+.fg-rwh-it { padding: 10px 12px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--border); margin-bottom: 8px; }
+.fg-rwh-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.fg-rwh-top b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.fg-rwh-top em { font-style: normal; font-weight: 800; color: var(--red); font-variant-numeric: tabular-nums; }
+.fg-rwh-why { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 3px 0; }
+.fg-rwh-it small { display: block; margin-top: 6px; font-size: 11.5px; color: var(--text-muted); }

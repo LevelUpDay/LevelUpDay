@@ -557,6 +557,21 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
   }
   window.LUPomoScene = { apply: apply, openPicker: openPicker, scenes: Object.keys(SCENES), backgrounds: Object.keys(BGS) };
-  function boot() { injectSettingsTab(); apply(true); }
+  // 📱 Bildirishnoma ko'rinishi (Umumiy bo'limga): media-pleyer yoki oddiy
+  function injectShadeStyle() {
+    var g = document.getElementById('pomo-settings-panel-general'); if (!g || document.getElementById('ps-shade-row')) return;
+    var row = document.createElement('div'); row.id = 'ps-shade-row'; row.className = 'ps-shade';
+    var draw = function () {
+      var cur = (S && S.pomoShadeStyle) === 'simple' ? 'simple' : 'media';
+      row.innerHTML = '<div class="ps-shade-t"><b>📱 ' + E(L('Telefondagi bildirishnoma', 'Phone notification', 'Уведомление на телефоне')) + '</b><small>' +
+        E(L('Pomodoro ishlayotganda bildirishnomalar pardasida ko\'rinadi: pauza / davom ettirish tugmalari bilan.', 'Shows in the notification shade while Pomodoro runs, with pause / resume buttons.', 'Показывается в шторке уведомлений во время Pomodoro, с кнопками пауза / продолжить.')) + '</small></div>' +
+        '<div class="ps-shade-opts"><button type="button" data-ps-shade="media" class="' + (cur === 'media' ? 'on' : '') + '">🎵 ' + E(L('Media-pleyer', 'Media player', 'Медиаплеер')) + '<small>' + E(L('musiqa pleyeri kabi, progress bilan', 'like a music player, with progress', 'как музыкальный плеер, с прогрессом')) + '</small></button>' +
+        '<button type="button" data-ps-shade="simple" class="' + (cur === 'simple' ? 'on' : '') + '">🔔 ' + E(L('Oddiy', 'Simple', 'Обычное')) + '<small>' + E(L('boshqa musiqani to\'xtatmaydi', 'won\'t pause your music', 'не останавливает музыку')) + '</small></button></div>';
+      row.querySelectorAll('[data-ps-shade]').forEach(function (b) { b.onclick = function () { try { S.pomoShadeStyle = b.dataset.psShade; if (typeof save === 'function') save(); } catch (e) {} draw(); }; });
+    };
+    draw();
+    g.appendChild(row);
+  }
+  function boot() { injectSettingsTab(); injectShadeStyle(); apply(true); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();

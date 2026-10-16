@@ -91,7 +91,9 @@
 
   function sbOk() { try { return !!(typeof S !== 'undefined' && S && S.cloudLinked && S.cloudUserId && typeof supabase !== 'undefined' && supabase && supabase.from); } catch (e) { return false; } }
   function real() { return sbOk() && FG.devices.length > 0; }
-  function cfg() { return real() ? (FG.cfg || (FG.cfg = { track: true, notif: true, strict: false, rules: [], focusApps: [], focusUntil: 0 })) : DEMO_CFG; }
+  // Qurilma ulanmagan bo'lsa — namuna (soxta) ma'lumot ko'rsatilmaydi: hammasi bo'sh, faqat ulash taklifi
+  var EMPTY_CFG = { track: true, notif: true, strict: false, rules: [], focusApps: [], focusUntil: 0 };
+  function cfg() { return real() ? (FG.cfg || (FG.cfg = { track: true, notif: true, strict: false, rules: [], focusApps: [], focusUntil: 0 })) : EMPTY_CFG; }
   function loadLocal() { try { var x = S && S.focusgate && S.focusgate.settings; if (x && typeof x.reward === 'boolean') LOCAL.reward = x.reward; } catch (e) {} }
   function saveLocal() { try { if (!S.focusgate || typeof S.focusgate !== 'object') S.focusgate = {}; S.focusgate.settings = Object.assign({}, S.focusgate.settings || {}, LOCAL); save(); } catch (e) {} }
   function dayStr(off) { var d = new Date(); d.setDate(d.getDate() + off); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -130,7 +132,7 @@
   // Bir ilovaning soatlar bo'yicha vaqti (daqiqa) — tanlangan kun va qurilma uchun
   function appHours(id, off, dev) {
     var d = dayStr(off), out = new Array(24).fill(0), best = null, site = id.indexOf('site:') === 0;
-    if (!real()) { var a0 = DEMO_APPS.filter(function (x) { return x.id === id; })[0]; var tot = a0 ? a0.m : 0, sum = DEMO_HOURS.reduce(function (s, v) { return s + v; }, 0) || 1; return DEMO_HOURS.map(function (v) { return v / sum * tot; }); }
+    if (!real()) return out;
     FG.rows.forEach(function (r) {
       if (r.day !== d || r.app !== id || (dev && dev !== 'all' && r.device_id !== dev)) return;
       if (site && (!dev || dev === 'all')) { if (!best || (r.seconds || 0) > (best.seconds || 0)) best = r; return; }
@@ -151,10 +153,7 @@
   }
   function dayModel(off, dev) {
     if (dev === undefined) dev = 'all';
-    if (!real()) {
-      if (off !== 0) return { apps: DEMO_APPS.map(function (a) { return mkApp(a.id, a.n, Math.round(a.m * (0.6 + ((a.id.length * 7 + -off * 13) % 9) / 10))); }), hours: DEMO_HOURS.map(function (v, i) { return v * (0.5 + ((i * 5 - off * 3) % 7) / 10); }) };
-      return { apps: DEMO_APPS.map(function (a) { return mkApp(a.id, a.n, a.m); }), hours: DEMO_HOURS.slice() };
-    }
+    if (!real()) return { apps: [], hours: new Array(24).fill(0) };
     var d = dayStr(off), by = {}, hours = new Array(24).fill(0);
     // Saytlarni Windows agenti ham, kengaytma ham hisoblaydi — sayt uchun eng katta qiymat olinadi, dasturlar qo'shiladi
     var siteBest = {};
@@ -196,7 +195,7 @@
   var JUNK_NAME = /(uninstall|check for updates|update checker|scheduler|troubleshoot|reset preferences|\bservice\b|user process|co-authoring|decoder config|about java)/i;
   function installed() {
     var seen = {}, out = [];
-    var src = real() ? FG.devices.reduce(function (a, d) { return a.concat(Array.isArray(d.apps) ? d.apps.map(function (x) { return [x.exe, x.name]; }) : []); }, []) : DEMO_INSTALLED;
+    var src = real() ? FG.devices.reduce(function (a, d) { return a.concat(Array.isArray(d.apps) ? d.apps.map(function (x) { return [x.exe, x.name]; }) : []); }, []) : [];
     src.forEach(function (x) {
       if (!x[0] || seen[x[0]] || JUNK_EXE.test(x[0]) || JUNK_NAME.test(x[1] || '')) return;
       seen[x[0]] = 1; out.push({ id: x[0], n: String(x[1] || x[0]).replace(/^Запустить\s+/, '') });
@@ -329,7 +328,7 @@
     return '';
   }
   function demoNote() {
-    return '<div class="fg-demo">🧪 ' + E(L('Bu namuna ma\'lumotlar. Kompyuteringizni ulasangiz — haqiqiy statistika va bloklash shu yerda.', 'This is sample data. Connect your computer to see real stats and blocking here.', 'Это пример. Подключите компьютер — здесь будут реальные данные и блокировка.')) + '</div>';
+    return '<div class="fg-demo fg-nodev">💻 ' + E(L('Hali hech qanday qurilma ulanmagan — shuning uchun statistika bo\'sh. Kompyuterga Focusgate.exe ni yoki brauzerga kengaytmani o\'rnating: haqiqiy vaqtlaringiz shu yerda paydo bo\'ladi.', 'No device is connected yet, so there are no stats. Install Focusgate.exe on your computer or the browser extension — your real time will show up here.', 'Ни одно устройство не подключено, поэтому статистики нет. Установите Focusgate.exe на компьютер или расширение в браузер — здесь появится ваше реальное время.')) + '</div>';
   }
 
   // ---------- Shapka ----------
@@ -775,6 +774,9 @@
 
   // ---------- 🧩 Ilova ichidagi kartalar: Profil → Statistika va Profil → Sozlamalar ----------
   function statsCardHtml() {
+    if (!real()) return '<div class="fg-emb-h"><span class="fg-emb-ic">' + SHIELD.replace(/26/g, '18') + '</span><div><b>' + E(L('Ekran vaqti', 'Screen time', 'Экранное время')) + '</b><small>Focusgate · ' + E(L('ulanmagan', 'not connected', 'не подключено')) + '</small></div>' +
+      '<button type="button" class="fg-emb-more" data-fg-go="today">' + E(L('Ulash', 'Connect', 'Подключить')) + ' ›</button></div>' +
+      '<div class="fg-empty sm">💻 ' + E(L('Statistika uchun kompyuterga Focusgate.exe yoki brauzerga kengaytmani o\'rnating.', 'Install Focusgate.exe on your PC or the browser extension to see stats.', 'Установите Focusgate.exe на ПК или расширение браузера, чтобы видеть статистику.')) + '</div>';
     var dm = dayModel(0), total = dm.apps.reduce(function (s, a) { return s + a.m; }, 0), max = Math.max.apply(null, dm.hours.concat([0.0001]));
     var week = weekOf(null), prev = week.slice(0, 6).filter(function (x) { return x > 0; });
     var avg = prev.length ? prev.reduce(function (s, x) { return s + x; }, 0) / prev.length : 0;
@@ -872,7 +874,55 @@
   //   Mukofot: r.links = [{app, label}], r.linkBlock (default true). Hisob: S.rwAuto[rid] = {day, min}
   // =========================================================
   function rwLinked() { try { return (S.rewards || []).filter(function (r) { return r && r.rtype === 'time' && Array.isArray(r.links) && r.links.length; }); } catch (e) { return []; } }
-  function rwUsedNow(r) { return r.links.reduce(function (n, l) { return n + usedMin(l.app, 0); }, 0); }
+  // Mukofot uchun tanlangan qurilmalar (r.linkDevs; bo'sh/yo'q — hammasi). O'chirilgan qurilmalar e'tiborsiz.
+  function rwDevs(r) { var ids = Array.isArray(r.linkDevs) ? r.linkDevs.filter(function (id) { return !!devById(id); }) : []; return ids.length ? ids : null; }
+  // Bir ilovaning bugungi vaqti — faqat tanlangan qurilmalarda (sayt: eng kattasi, dastur: yig'indi)
+  function usedOn(app, devs) {
+    if (!devs) return usedMin(app, 0);
+    var site = app.indexOf('site:') === 0, best = 0, sum = 0;
+    devs.forEach(function (d) {
+      var apps = dayModel(0, d).apps, m;
+      if (app.indexOf('cat:') === 0) { var k = app.slice(4); m = apps.filter(function (x) { return x.cat === k; }).reduce(function (a, x) { return a + x.m; }, 0); }
+      else { var a = apps.filter(function (x) { return x.id === app; })[0]; m = a ? a.m : 0; }
+      sum += m; if (m > best) best = m;
+    });
+    return site ? best : sum;
+  }
+  function rwUsedNow(r) { var dv = rwDevs(r); return r.links.reduce(function (n, l) { return n + usedOn(l.app, dv); }, 0); }
+  // Har bir (ilova, qurilma) bo'yicha bugungi daqiqalar — tarixda "nima uchun ayirildi" ni ko'rsatish uchun
+  function rwBreakdown(r) {
+    var out = {}, devs = rwDevs(r) || FG.devices.map(function (d) { return d.id; });
+    r.links.forEach(function (l) { devs.forEach(function (d) { var m = usedOn(l.app, [d]); if (m > 0) out[l.app + '|' + d] = m; out['h:' + l.app + '|' + d] = appHours(l.app, 0, d); }); });
+    return out;
+  }
+  function rwHistAdd(r, take, before, after, fromTs) {
+    S.rwHist = S.rwHist || {};
+    var arr = S.rwHist[r.id] = S.rwHist[r.id] || [], now = Date.now(), items = [], firstH = 24;
+    var siteBest = {};
+    Object.keys(after).forEach(function (k) {
+      if (k.indexOf('h:') === 0) {
+        var a = after[k] || [], b = before[k] || [];
+        for (var i = 0; i < 24; i++) if ((a[i] || 0) - (b[i] || 0) >= 0.5 && i < firstH) firstH = i;
+        return;
+      }
+      var d = Math.round((after[k] || 0) - (before[k] || 0)); if (d < 1) return;
+      // Sayt: kompyuter va kengaytma bir xil vaqtni ikkalasi ham sanaydi — faqat eng ko'p sanagan qurilma ko'rsatiladi
+      var app0 = k.split('|')[0];
+      if (app0.indexOf('site:') === 0) { if (siteBest[app0] && siteBest[app0].d >= d) return; siteBest[app0] = { d: d, k: k }; }
+      var p = k.split('|'), app = p[0], dv = devById(p[1]), ln = r.links.filter(function (l) { return l.app === app; })[0];
+      items = items.filter(function (x) { return !(app.indexOf('site:') === 0 && x.app === app); });
+      items.push({ app: app, label: (ln && ln.label) || labelOf(app), dev: dv ? devName(dv) : '', di: dv ? devIcon(dv) : '', min: d });
+    });
+    // Boshlanish: o'tirish boshlangan soat (soatlik ma'lumotdan) yoki oxirgi tekshiruv vaqti
+    if (firstH < 24) { var hs = new Date(); hs.setHours(firstH, 0, 0, 0); fromTs = Math.max(fromTs || 0, hs.getTime()); }
+    if (!items.length) items.push({ app: r.links[0].app, label: r.links[0].label || labelOf(r.links[0].app), dev: '', di: '', min: take });
+    var last = arr[arr.length - 1];
+    // Ketma-ket (10 daqiqa ichida) bir xil ilovalar — bitta yozuvga qo'shiladi
+    if (last && now - last.to < 10 * 60000 && last.items.map(function (x) { return x.app + x.dev; }).join() === items.map(function (x) { return x.app + x.dev; }).join()) {
+      last.to = now; last.mins += take; last.items.forEach(function (x, i) { x.min += items[i].min; }); last.left = rwBalance(r);
+    } else arr.push({ from: Math.min(fromTs || now, now - take * 60000), to: now, mins: take, items: items, left: rwBalance(r) });
+    if (arr.length > 120) arr.splice(0, arr.length - 120);
+  }
   function rwBalance(r) {
     var bought = (S.rewardClaims || {})[r.id] || 0;
     var used = ((S.usageLog || {})[r.id] || []).reduce(function (a, u) { return a + (u.mins || 0); }, 0);
@@ -882,7 +932,7 @@
     // Bog'langan paytdagi bugungi vaqt "boshlang'ich nuqta" — undan oldingi o'tirish hisoblanmaydi
     var r = (S.rewards || []).find(function (x) { return x && x.id === rid; }); if (!r) return;
     S.rwAuto = S.rwAuto || {};
-    S.rwAuto[rid] = { day: dayStr(0), min: real() && FG.at ? rwUsedNow(r) : -1 };
+    S.rwAuto[rid] = { day: dayStr(0), min: real() && FG.at ? rwUsedNow(r) : -1, bd: real() && FG.at ? rwBreakdown(r) : {}, at: Date.now() };
     try { save(); } catch (e) {}
     rewardSync();
   }
@@ -892,15 +942,17 @@
       var day = dayStr(0);
       S.rwAuto = S.rwAuto || {};
       list.forEach(function (r) {
-        var used = rwUsedNow(r), st = S.rwAuto[r.id];
-        if (!st || st.day !== day) st = S.rwAuto[r.id] = { day: day, min: 0 };
-        if (st.min < 0) { st.min = used; changed = true; return; } // bog'langanda ma'lumot hali yo'q edi
+        var used = rwUsedNow(r), st = S.rwAuto[r.id], bd = rwBreakdown(r);
+        if (!st || st.day !== day) st = S.rwAuto[r.id] = { day: day, min: 0, bd: {}, at: Date.now() };
+        if (st.min < 0) { st.min = used; st.bd = bd; st.at = Date.now(); changed = true; return; } // bog'langanda ma'lumot hali yo'q edi
         var delta = Math.floor(used - st.min);
         if (delta < 1) return;
         var bal = rwBalance(r), take = Math.min(delta, Math.max(0, bal));
-        st.min += delta; changed = true;
+        var prevBd = st.bd || {}, prevAt = st.at;
+        st.min += delta; st.bd = bd; st.at = Date.now(); changed = true;
         if (take > 0) {
           S.usageLog = S.usageLog || {}; (S.usageLog[r.id] = S.usageLog[r.id] || []).push({ mins: take, date: day, auto: true });
+          try { rwHistAdd(r, take, prevBd, bd, prevAt); } catch (e) {}
           try { if (typeof recordUsage === 'function') recordUsage(r, take, 0); } catch (e) {}
           var left = bal - take, name = (r.icon || '🎁') + ' ' + (typeof rwName === 'function' ? rwName(r) : r.name);
           if (left <= 0) {
@@ -953,6 +1005,10 @@
       '<div class="fg-pick-new" hidden></div>' +
       '<div class="fg-pkbox">' + (g1.length ? '<div class="fg-pkg"><div class="fg-pick-t">💻 ' + E(L('Ilovalar', 'Apps', 'Приложения')) + ' <em>' + g1.length + '</em></div><div class="fg-card fg-pkl">' + g1.map(row).join('') + '</div></div>' : '') +
       '<div class="fg-pkg"><div class="fg-pick-t">🌐 ' + E(L('Saytlar', 'Websites', 'Сайты')) + ' <em>' + g2.length + '</em></div><div class="fg-card fg-pkl">' + g2.map(row).join('') + '</div></div></div>' +
+      (FG.devices.length > 1 ? '<div class="fg-pick-t">🔗 ' + E(L('Qaysi qurilmalarda hisoblansin', 'Count on which devices', 'На каких устройствах считать')) + '</div><div class="fg-card fg-pkdevs">' + FG.devices.map(function (d, i) {
+        var on = !Array.isArray(opts.devs) || !opts.devs.length || opts.devs.indexOf(d.id) !== -1;
+        return '<label class="fg-pkdev"><input type="checkbox" data-pk-dev="' + E(d.id) + '"' + (on ? ' checked' : '') + '><span>' + devIcon(d) + ' ' + (i + 1) + ' · ' + E(devName(d)) + '</span></label>';
+      }).join('') + '<small class="fg-pkdev-n">' + E(L('Bloklash (vaqt tugaganda) barcha qurilmalarda ishlaydi.', 'Blocking (when time runs out) applies on all devices.', 'Блокировка (когда время кончится) действует на всех устройствах.')) + '</small></div>' : '') +
       '<label class="fg-pk-block"><input type="checkbox" data-pk-block' + (opts.block === false ? '' : ' checked') + '> ' + E(L('Vaqt tugasa — bloklansin', 'Block when the time runs out', 'Блокировать, когда время закончится')) + '</label>' +
       '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button><button type="button" class="fg-btn" data-pk-save>' + E(L('Saqlash', 'Save', 'Сохранить')) + ' <b data-pk-n></b></button></div>');
     var inp = o.querySelector('.fg-custom'), nw = o.querySelector('.fg-pick-new');
@@ -975,8 +1031,32 @@
     o.querySelector('[data-pk-save]').onclick = function () {
       var out = Object.keys(sel).map(function (k) { return { app: k, label: sel[k] }; });
       var block = !!o.querySelector('[data-pk-block]').checked;
-      closeSheet(); if (done) done(out, block);
+      var dvs = Array.prototype.slice.call(o.querySelectorAll('[data-pk-dev]')), devs = dvs.filter(function (x) { return x.checked; }).map(function (x) { return x.getAttribute('data-pk-dev'); });
+      if (dvs.length && !devs.length) { try { toast('⚠️ ' + L('Kamida bitta qurilmani tanlang', 'Pick at least one device', 'Выберите хотя бы одно устройство')); } catch (e) {} return; }
+      if (devs.length === dvs.length) devs = []; // hammasi = cheklovsiz (yangi qurilmalar ham hisoblanadi)
+      closeSheet(); if (done) done(out, block, devs);
     };
+  }
+  // 📜 Mukofot tarixi: qachon, qaysi ilovada, qaysi qurilmada o'tirgani uchun vaqt ayirildi
+  function rewardHistory(rid) {
+    var r = (S.rewards || []).find(function (x) { return x && x.id === rid; }); if (!r) return;
+    var arr = ((S.rwHist || {})[rid] || []).slice().reverse();
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    var hm = function (ts) { var d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+    var dl = function (ts) { var d = new Date(ts), t0 = new Date(); t0.setHours(0, 0, 0, 0); var k = Math.round((t0 - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5); return k === 0 ? L('Bugun', 'Today', 'Сегодня') : k === 1 ? L('Kecha', 'Yesterday', 'Вчера') : d.toLocaleDateString(); };
+    var dv = rwDevs(r);
+    var h = '<h3>📜 ' + E((r.icon || '🎁') + ' ' + (typeof rwName === 'function' ? rwName(r) : r.name)) + '</h3>' +
+      '<p class="fg-p">' + E(L('Bog\'langan ilovalarda o\'tirgan vaqtingiz uchun mukofotdan ayirilgan daqiqalar.', 'Minutes taken from this reward for the time you spent in the linked apps.', 'Минуты, списанные с награды за время в привязанных приложениях.')) + '</p>' +
+      '<div class="fg-rwh-meta">🔗 ' + r.links.map(function (l) { return E(l.label || labelOf(l.app)); }).join(', ') + ' · ' + (dv ? dv.map(function (id) { var d = devById(id); return d ? devIcon(d) + ' ' + E(devName(d)) : ''; }).join(', ') : E(L('barcha qurilmalar', 'all devices', 'все устройства'))) + '</div>';
+    if (!arr.length) h += '<div class="fg-empty">' + E(L('Hali hech narsa ayirilmagan.', 'Nothing has been taken yet.', 'Пока ничего не списано.')) + '</div>';
+    var lastDay = '';
+    arr.forEach(function (e) {
+      var day = dl(e.to); if (day !== lastDay) { h += '<div class="fg-rwh-day">' + E(day) + '</div>'; lastDay = day; }
+      h += '<div class="fg-rwh-it"><div class="fg-rwh-top"><b>' + hm(e.from) + '–' + hm(e.to) + '</b><em>−' + e.mins + ' ' + E(L('daq', 'min', 'мин')) + '</em></div>' +
+        '<div class="fg-rwh-why">' + e.items.map(function (x) { return tileFor(x.app, 'sm') + '<span>' + E(L(x.label + (x.dev ? ' (' + x.dev + ')' : '') + ' da ' + x.min + ' daq o\'tirdingiz', 'You spent ' + x.min + ' min in ' + x.label + (x.dev ? ' (' + x.dev + ')' : ''), x.min + ' мин в ' + x.label + (x.dev ? ' (' + x.dev + ')' : ''))) + '</span>'; }).join('</div><div class="fg-rwh-why">') + '</div>' +
+        '<small>' + E(L('Shuning uchun mukofotingizdan ' + e.mins + ' daq ishlatildi', 'So ' + e.mins + ' min of your reward was used', 'Поэтому списано ' + e.mins + ' мин награды')) + (e.left != null ? ' · ' + E(L('qoldi: ', 'left: ', 'осталось: ') + Math.max(0, e.left) + ' ' + L('daq', 'min', 'мин')) : '') + '</small></div>';
+    });
+    openSheet(h + '<div class="fg-acts"><button type="button" class="fg-btn" data-fg-close>' + E(L('Yopish', 'Close', 'Закрыть')) + '</button></div>');
   }
   // Nishon tanlash: so'nggi 7 kunda ishlatilganlar + mashhur saytlar + qo'lda kiritish
   function pickerHtml(sel, onlySites) {
@@ -1352,7 +1432,7 @@
 
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, pickApps: pickApps, rewardLinked: rewardLinked, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, pickApps: pickApps, rewardLinked: rewardLinked, rewardHistory: rewardHistory, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();
