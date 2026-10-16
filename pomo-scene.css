@@ -77,3 +77,10 @@
 .ps-shade-opts button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--border); background: var(--surface2); color: var(--text); font-weight: 700; font-size: 13px; font-family: inherit; cursor: pointer; text-align: left; }
 .ps-shade-opts button small { font-weight: 500; font-size: 11px; color: var(--text-muted); }
 .ps-shade-opts button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface2)); }
+
+/* Pomodoro sozlamalari oynasi: ekranga sig'adi, ichi aylantiriladi (pastki tugmalar doim ko'rinadi) */
+#pomo-settings-modal-box { display: flex; flex-direction: column; max-height: min(92vh, 860px); }
+#pomo-settings-modal-box .pomo-set-layout { flex: 1 1 auto; min-height: 0 !important; }
+#pomo-settings-modal-box .pomo-set-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+#pomo-settings-modal-box .pomo-set-footer { flex: 0 0 auto; }
+@media (max-width: 640px) { #pomo-settings-modal-box .pomo-set-content { max-height: none; } }
