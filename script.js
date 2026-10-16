@@ -14610,9 +14610,12 @@ function renderLevel() {
     return '<div class="lvp-step ' + cls + '" style="--i:' + i + '">' +
       '<span class="lvp-node">' + l.icon + '</span>' +
       '<span class="lvp-info"><b>' + esc(levelName(l)) + '</b><small>' + l.min.toLocaleString('en-US').replace(/,/g, ' ') + ' XP' + (l.reward > 0 ? ' · <em>+' + l.reward + ' 🪙</em>' : '') + '</small>' +
+        (typeof window.xLevelGiftHtml === 'function' ? window.xLevelGiftHtml(l.level, total >= l.min) : '') +
         (isCur && nextLv ? '<i class="lvp-mini"><s style="width:' + pct + '%"></s></i>' : '') + '</span>' +
       right + '</div>';
   }).join('');
+  // 🎁 Daraja sovg'alari (extras.js): yetib kelingan darajalarnikini beradi
+  try { if (typeof window.xLevelGifts === 'function') window.xLevelGifts(lv.level); } catch (e) {}
 }
 
 

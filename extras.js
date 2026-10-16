@@ -647,6 +647,45 @@
   })();
   function isHex(v) { return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v); }
   function shopState() { S.shop = S.shop || { owned: [], frame: null, nick: null, title: null, theme: null, effect: null, badge: null }; if (!Array.isArray(S.shop.owned)) S.shop.owned = []; return S.shop; }
+  // 🎁 Har bir darajada bepul sovg'alar (fonlar, effektlar, uslublar...). Daraja olinganda S.shop.owned ga qo'shiladi.
+  var LEVEL_GIFTS = {
+    1: ['n_mint'],
+    2: ['d_rings', 'e_stars'],
+    3: ['d_aurora', 'u_spark'],
+    4: ['d_ocean', 'ui_glass', 'f_neon'],
+    5: ['d_lava', 'u_confetti', 't_star'],
+    6: ['d_synth', 'u_fly', 'b_dragon'],
+    7: ['d_silk', 'ui_neon', 't_legend', 'f_rainbow']
+  };
+  function giftLevelOf(id) { for (var k in LEVEL_GIFTS) if (LEVEL_GIFTS[k].indexOf(id) !== -1) return +k; return 0; }
+  function giftName(id) {
+    var it = SHOP.find(function (x) { return x.id === id; });
+    if (it) return (it.icon && it.kind !== 'design' ? it.icon + ' ' : it.kind === 'design' ? '🌌 ' : '') + L(it.n[0], it.n[1], it.n[2]).replace(/^[^:]+:\s*/, '');
+    try { if (id.indexOf('d_') === 0 && window.LUDesign) { var d = window.LUDesign.catalog().filter(function (x) { return x.id === id.slice(2); })[0]; if (d) return '🌌 ' + L(d.n[0], d.n[1], d.n[2]); } } catch (e) {}
+    return id;
+  }
+  window.xLevelGiftHtml = function (level, done) {
+    var g = LEVEL_GIFTS[level]; if (!g || !g.length) return '';
+    return '<span class="lvp-gift' + (done ? ' got' : '') + '">🎁 ' + g.map(function (id) { return H(giftName(id)); }).join(' · ') + '</span>';
+  };
+  window.xLevelGifts = safe(function (level) {
+    if (!level || typeof S === 'undefined') return;
+    if (S.cloudLinked && !window._cloudPullDone) return; // bulutdagi holat kelguncha kutamiz (ikki marta berilmasin)
+    var st = shopState(); if (!Array.isArray(st.lvGifts)) st.lvGifts = [];
+    var fresh = [], nLv = 0, first = !st.lvGifts.length && level > 1;
+    for (var lv = 1; lv <= level; lv++) {
+      if (st.lvGifts.indexOf(lv) !== -1) continue;
+      st.lvGifts.push(lv); nLv++;
+      (LEVEL_GIFTS[lv] || []).forEach(function (id) { if (st.owned.indexOf(id) === -1) { st.owned.push(id); fresh.push(id); } });
+    }
+    if (!fresh.length) { return; }
+    try { save(); } catch (e) {}
+    try { if (window.LUDesign) window.LUDesign.renderPicker(); } catch (e) {}
+    try { renderHubSection('shop'); } catch (e) {}
+    var msg = '🎁 ' + (first || nLv > 1 ? L('Darajangiz uchun sovg\'alar', 'Gifts for your level', 'Подарки за ваш уровень') : L('Lv ' + level + ' sovg\'asi', 'Lv ' + level + ' gift', 'Подарок за ур. ' + level)) + ': ' +
+      fresh.slice(0, 4).map(giftName).join(', ') + (fresh.length > 4 ? ' +' + (fresh.length - 4) : '') + ' — ' + L('Do\'konda qo\'llang', 'apply them in the Shop', 'примените в магазине');
+    setTimeout(function () { try { toast(msg); } catch (e) {} }, first ? 1500 : 600);
+  });
   function shopBuy(id) {
     var it = SHOP.find(function (x) { return x.id === id; }); if (!it) return;
     if (it.hidden) { window.xOpenStudio(); return; } // studiya qismlari faqat studiya orqali
@@ -1277,7 +1316,7 @@
     (window.LUDesign ? window.LUDesign.catalog() : []).forEach(function (d) {
       var own = window.LUDesign.isOwned(d.id), on = curD === d.id, sid = 'd_' + d.id;
       var lbl = on ? '✅ ' + L('Qo\'llangan', 'Applied', 'Применён') : own ? (d.price ? '' : L('Bepul', 'Free', 'Бесплатно') + ' · ') + L('Qo\'llash', 'Apply', 'Применить')
-        : (d.price.gems ? d.price.gems + ' 💎' : d.price.coins + ' 🪙');
+        : (giftLevelOf(sid) ? '🎁 Lv ' + giftLevelOf(sid) + ' · ' : '') + (d.price.gems ? d.price.gems + ' 💎' : d.price.coins + ' 🪙');
       h += '<button class="x-shop-it x-shop-dz ' + (on ? 'on' : own ? 'own' : '') + '" ' + (own ? 'data-dz-apply="' + d.id + '"' : 'data-shop="' + sid + '"') + ' data-shop-item="' + sid + '">' +
         '<span class="dz-prev dz-prev-' + d.id + '"><span class="dz-prev-in"></span>' + (own ? '' : '<span class="dz-lock">🔒</span>') + '</span>' +
         '<div class="x-shop-n">' + H(L(d.n[0], d.n[1], d.n[2])) + '</div><div class="x-shop-p">' + lbl + '</div></button>';
@@ -1292,7 +1331,7 @@
         (window.LUFx ? window.LUFx.previewHtml(it.v) : '') +
         '<div class="x-shop-n">' + H(L(it.n[0], it.n[1], it.n[2])) + '</div>' +
         (it.desktop ? '<div class="x-shop-note">🖱 ' + L('Faqat kompyuterda', 'Desktop only', 'Только ПК') + '</div>' : '') +
-        '<div class="x-shop-p">' + (on ? '✅ ' + L('Yoqilgan', 'On', 'Вкл') : own ? L('Yoqish', 'Turn on', 'Включить') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙')) + '</div></button>';
+        '<div class="x-shop-p">' + (on ? '✅ ' + L('Yoqilgan', 'On', 'Вкл') : own ? L('Yoqish', 'Turn on', 'Включить') : (giftLevelOf(it.id) ? '🎁 Lv ' + giftLevelOf(it.id) + ' · ' : '') + (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙')) + '</div></button>';
     });
     h += '</div>';
     groups.forEach(function (g) {
@@ -1311,7 +1350,7 @@
           (it.d ? '<div class="x-shop-note">' + H(L(it.d[0], it.d[1], it.d[2])) + '</div>' : '') +
           '<div class="x-shop-p">' + (it.kind === 'uistyle'
             ? (on ? '✅ ' + L('Yoqilgan', 'On', 'Вкл') : own ? L('Yoqish', 'Turn on', 'Включить') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))
-            : (on ? '✅ ' + L('Kiyilgan', 'Equipped', 'Надето') : own ? L('Kiyish', 'Equip', 'Надеть') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))) + '</div></button>';
+            : (on ? '✅ ' + L('Kiyilgan', 'Equipped', 'Надето') : own ? L('Kiyish', 'Equip', 'Надеть') : (giftLevelOf(it.id) ? '🎁 Lv ' + giftLevelOf(it.id) + ' · ' : '') + (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))) + '</div></button>';
       });
       h += '</div>';
     });
