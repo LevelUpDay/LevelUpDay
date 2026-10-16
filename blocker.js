@@ -86,7 +86,7 @@
 
   // ---------- Holat ----------
   var FG = { loaded: false, loading: false, devices: [], cfg: null, rows: [], err: '', at: 0 };
-  var UI = { tab: 'today', day: 0, cat: 'all', kind: 'all', chart: 'bar', setupOpen: false, focusMin: 25 };
+  var UI = { tab: 'today', day: 0, cat: 'all', kind: 'all', dev: 'all', chart: 'bar', setupOpen: false, focusMin: 25 };
   var LOCAL = { reward: true };
 
   function sbOk() { try { return !!(typeof S !== 'undefined' && S && S.cloudLinked && S.cloudUserId && typeof supabase !== 'undefined' && supabase && supabase.from); } catch (e) { return false; } }
@@ -122,7 +122,35 @@
     return dom ? 'https://www.google.com/s2/favicons?sz=64&domain_url=' + encodeURIComponent('https://' + dom) : '';
   }
   // Bir kunlik ilovalar (minut) va soatlar
-  function dayModel(off) {
+  // 📱💻🧩 Ulangan qurilmalar: turi va tartib raqami (statistikada "1 · parking24" kabi)
+  function devKind(d) { var v = (d && d.agent_version) || ''; return /^ext-/.test(v) ? 'ext' : /^android-/.test(v) ? 'phone' : 'pc'; }
+  function devIcon(d) { var k = devKind(d); return k === 'ext' ? '🧩' : k === 'phone' ? '📱' : '💻'; }
+  function devName(d) { return String((d && d.name) || 'Windows').replace(/\((kengaytma|extension|расширение)\)/, '(' + L('kengaytma', 'extension', 'расширение') + ')'); }
+  function devById(id) { for (var i = 0; i < FG.devices.length; i++) if (FG.devices[i].id === id) return FG.devices[i]; return null; }
+  // Bir ilovaning soatlar bo'yicha vaqti (daqiqa) — tanlangan kun va qurilma uchun
+  function appHours(id, off, dev) {
+    var d = dayStr(off), out = new Array(24).fill(0), best = null, site = id.indexOf('site:') === 0;
+    if (!real()) { var a0 = DEMO_APPS.filter(function (x) { return x.id === id; })[0]; var tot = a0 ? a0.m : 0, sum = DEMO_HOURS.reduce(function (s, v) { return s + v; }, 0) || 1; return DEMO_HOURS.map(function (v) { return v / sum * tot; }); }
+    FG.rows.forEach(function (r) {
+      if (r.day !== d || r.app !== id || (dev && dev !== 'all' && r.device_id !== dev)) return;
+      if (site && (!dev || dev === 'all')) { if (!best || (r.seconds || 0) > (best.seconds || 0)) best = r; return; }
+      (r.hours || []).forEach(function (v, i) { if (i < 24) out[i] += (v || 0) / 60; });
+    });
+    if (best) (best.hours || []).forEach(function (v, i) { if (i < 24) out[i] += (v || 0) / 60; });
+    return out;
+  }
+  // Soatlarni "09:00–11:00, 20:00–21:00" kabi oraliqlarga yig'adi
+  function hourRanges(h) {
+    var out = [], st = -1;
+    for (var i = 0; i <= 24; i++) {
+      var on = i < 24 && h[i] >= 0.5;
+      if (on && st === -1) st = i;
+      if (!on && st !== -1) { out.push([st, i]); st = -1; }
+    }
+    return out.map(function (r) { var m = 0; for (var k = r[0]; k < r[1]; k++) m += h[k]; return { a: r[0], b: r[1], m: m }; });
+  }
+  function dayModel(off, dev) {
+    if (dev === undefined) dev = 'all';
     if (!real()) {
       if (off !== 0) return { apps: DEMO_APPS.map(function (a) { return mkApp(a.id, a.n, Math.round(a.m * (0.6 + ((a.id.length * 7 + -off * 13) % 9) / 10))); }), hours: DEMO_HOURS.map(function (v, i) { return v * (0.5 + ((i * 5 - off * 3) % 7) / 10); }) };
       return { apps: DEMO_APPS.map(function (a) { return mkApp(a.id, a.n, a.m); }), hours: DEMO_HOURS.slice() };
@@ -132,6 +160,7 @@
     var siteBest = {};
     FG.rows.forEach(function (r) {
       if (r.day !== d) return;
+      if (dev !== 'all' && r.device_id !== dev) return;
       var site = r.app.indexOf('site:') === 0;
       var x = by[r.app] || (by[r.app] = { label: r.label, s: 0 });
       if (r.label) x.label = r.label;
@@ -352,8 +381,21 @@
   }
 
   // ---------- 📊 Bugun ----------
+  // Qurilmalar bo'yicha filtr: Hammasi · 1 💻 parking24 · 2 📱 Redmi · 3 🧩 Chrome…
+  function devBar() {
+    if (!real() || !FG.devices.length) return '';
+    if (UI.dev !== 'all' && !devById(UI.dev)) UI.dev = 'all';
+    var all = dayModel(UI.day, 'all').apps.reduce(function (s, a) { return s + a.m; }, 0);
+    return '<div class="fg-card fg-devs"><div class="fg-devs-t">' + E(L('Qurilmalar', 'Devices', 'Устройства')) + ' <em>' + FG.devices.length + '</em></div><div class="fg-devs-l">' +
+      '<button type="button" class="fg-dev' + (UI.dev === 'all' ? ' on' : '') + '" data-fg-dev="all"><span class="fg-dev-i">🌐</span><span class="fg-dev-n"><b>' + E(L('Hammasi', 'All', 'Все')) + '</b><small>' + E(fmt(all)) + '</small></span></button>' +
+      FG.devices.map(function (d, i) {
+        var m = dayModel(UI.day, d.id).apps.reduce(function (s, a) { return s + a.m; }, 0);
+        var on = d.last_seen && Date.now() - new Date(d.last_seen).getTime() < 120000;
+        return '<button type="button" class="fg-dev' + (UI.dev === d.id ? ' on' : '') + '" data-fg-dev="' + E(d.id) + '"><span class="fg-dev-i">' + devIcon(d) + (on ? '<i class="fg-dev-live"></i>' : '') + '</span><span class="fg-dev-n"><b>' + (i + 1) + ' · ' + E(devName(d)) + '</b><small>' + E(fmt(m)) + (all ? ' · ' + Math.round(m / all * 100) + '%' : '') + '</small></span></button>';
+      }).join('') + '</div></div>';
+  }
   function pageToday() {
-    var dm = dayModel(UI.day);
+    var dm = dayModel(UI.day, UI.dev);
     var list = dm.apps.filter(function (a) { return (UI.cat === 'all' || a.cat === UI.cat) && (UI.kind === 'all' || (UI.kind === 'sites') === !!a.site); });
     var total = list.reduce(function (s, a) { return s + a.m; }, 0) || 1;
     var max = Math.max.apply(null, dm.hours.concat([0.0001]));
@@ -363,7 +405,7 @@
       '<div class="fg-chips">' + [['all', ['Hammasi', 'All', 'Все']], ['apps', ['Dasturlar', 'Apps', 'Приложения']], ['sites', ['Saytlar', 'Sites', 'Сайты']]].map(function (k) {
         return '<button type="button" class="' + (UI.kind === k[0] ? 'on' : '') + '" data-fg-kind="' + k[0] + '">' + E(T(k[1])) + '</button>';
       }).join('') + '</div>' +
-      '</div>' + catBar(dm.apps);
+      '</div>' + devBar() + catBar(dm.apps);
 
     h += '<div class="fg-card fg-chart-card"><div class="fg-card-h"><b>' + E(L('Soatlar bo\'yicha', 'By hour', 'По часам')) + '</b>' +
       '<div class="fg-seg"><button type="button" class="' + (UI.chart === 'bar' ? 'on' : '') + '" data-fg-chart="bar" aria-label="bar">▮▮</button><button type="button" class="' + (UI.chart === 'line' ? 'on' : '') + '" data-fg-chart="line" aria-label="line">〰</button></div></div>';
@@ -483,7 +525,7 @@
   }
   function devicesHtml() {
     if (!real()) return '';
-    return '<div class="fg-group-t">💻 ' + E(L('Ulangan kompyuterlar', 'Connected computers', 'Подключённые компьютеры')) + ' <em>' + FG.devices.length + '</em></div><div class="fg-list">' +
+    return '<div class="fg-group-t">🔗 ' + E(L('Ulangan qurilmalar', 'Connected devices', 'Подключённые устройства')) + ' <em>' + FG.devices.length + '</em></div><div class="fg-hint">' + E(L('Xohlagancha kompyuter, telefon, planshet va brauzer kengaytmasini ulashingiz mumkin — statistikada hammasi qo\'shib hisoblanadi.', 'Connect as many computers, phones, tablets and browser extensions as you like — stats add them all up.', 'Подключайте сколько угодно компьютеров, телефонов, планшетов и расширений — статистика суммирует всё.')) + '</div><div class="fg-list">' +
       FG.devices.map(function (d) {
         var on = d.last_seen && Date.now() - new Date(d.last_seen).getTime() < 120000;
         var ext = /^ext-/.test(d.agent_version || ''), droid = /^android-/.test(d.agent_version || '');
@@ -1074,6 +1116,29 @@
       saveCfg(); closeSheet(); rerender();
     };
   }
+  // 🕒 Ilova qaysi vaqtlarda ishlatilgan (tanlangan kun) + qurilmalar bo'yicha
+  function appWhenHtml(id) {
+    var hrs = appHours(id, UI.day, UI.dev), max = Math.max.apply(null, hrs.concat([0.0001]));
+    var rg = hourRanges(hrs), pad = function (n) { return String(n).padStart(2, '0') + ':00'; };
+    var dayLbl = UI.day === 0 ? L('Bugun', 'Today', 'Сегодня') : UI.day === -1 ? L('Kecha', 'Yesterday', 'Вчера') : (-UI.day) + ' ' + L('kun oldin', 'days ago', 'дн. назад');
+    var dv = UI.dev !== 'all' ? devById(UI.dev) : null;
+    var h = '<div class="fg-lbl">🕒 ' + E(L('Qaysi vaqtlarda', 'When it was used', 'Когда использовалось')) + ' · ' + E(dayLbl) + (dv ? ' · ' + devIcon(dv) + ' ' + E(devName(dv)) : '') + '</div>' +
+      '<div class="fg-card fg-when"><div class="fg-chart sm">' + hrs.map(function (v, i) {
+        return '<div class="fg-col' + (v >= 0.05 ? '' : ' z') + '" title="' + pad(i) + ' — ' + E(fmt(v)) + '"><i style="height:' + Math.max(v / max * 100, v >= 0.05 ? 4 : 0) + '%"></i><span>' + (i % 3 === 0 ? i : '') + '</span></div>';
+      }).join('') + '</div>' +
+      (rg.length ? '<div class="fg-ranges">' + rg.map(function (r) { return '<span>' + pad(r.a) + '–' + pad(r.b % 24 === 0 && r.b ? 24 : r.b).replace('24:00', '00:00') + ' <b>' + E(fmt(r.m)) + '</b></span>'; }).join('') + '</div>'
+        : '<div class="fg-empty sm">' + E(L('Bu kunda ishlatilmagan', 'Not used on this day', 'В этот день не использовалось')) + '</div>') + '</div>';
+    if (real() && FG.devices.length > 1) {
+      var per = FG.devices.map(function (d, i) { var m = appHours(id, UI.day, d.id).reduce(function (s, v) { return s + v; }, 0); return { d: d, i: i, m: m }; }).filter(function (x) { return x.m >= 0.5; });
+      if (per.length) {
+        var pm = Math.max.apply(null, per.map(function (x) { return x.m; }));
+        h += '<div class="fg-lbl">' + E(L('Qurilmalar bo\'yicha', 'By device', 'По устройствам')) + '</div><div class="fg-card fg-perdev">' + per.map(function (x) {
+          return '<div class="fg-perdev-r"><span>' + devIcon(x.d) + ' ' + (x.i + 1) + ' · ' + E(devName(x.d)) + '</span><span class="fg-prog"><i style="width:' + (x.m / pm * 100).toFixed(1) + '%"></i></span><b>' + E(fmt(x.m)) + '</b></div>';
+        }).join('') + '</div>';
+      }
+    }
+    return h;
+  }
   function openApp(id) {
     var a = knownApps().filter(function (x) { return x.id === id; })[0] || mkApp(id, labelOf(id), 0);
     var today = usedMin(id, 0), week = weekOf(id), wmax = Math.max.apply(null, week.concat([0.0001]));
@@ -1084,6 +1149,7 @@
     var o = openSheet('<div class="fg-appd">' + tile(a, 'lg') + '<div><h3>' + E(a.n) + '</h3><small>' + E(a.exe) + ' · ' + E(T(CATS[a.cat] || CATS.other)) + '</small></div></div>' +
       '<div class="fg-kpis in"><div><b>' + E(fmt(today)) + '</b><span>' + E(L('Bugun', 'Today', 'Сегодня')) + '</span></div><div><b>' + E(fmt(nonzero.length ? nonzero.reduce(function (s, x) { return s + x; }, 0) / nonzero.length : 0)) + '</b><span>' + E(L('O\'rtacha', 'Daily avg', 'В среднем')) + '</span></div><div><b>' + E(fmt(week.reduce(function (s, x) { return s + x; }, 0))) + '</b><span>' + E(L('7 kunda', '7 days', 'За 7 дней')) + '</span></div></div>' +
       '<div class="fg-lbl">' + E(L('Oxirgi 7 kun', 'Last 7 days', 'Последние 7 дней')) + '</div><div class="fg-week">' + week.map(function (v, i) { return '<div class="' + (i === 6 ? 'now' : '') + '" title="' + E(fmt(v)) + '"><i style="height:' + Math.max(v ? 4 : 0, v / wmax * 100) + '%"></i><span>' + labels[i] + '</span></div>'; }).join('') + '</div>' +
+      appWhenHtml(id) +
       (lim ? '<div class="fg-note">⏳ ' + E(lim.kind === 'daily' ? L('Kunlik limit', 'Daily limit', 'Дневной лимит') + ': ' + fmt(lim.minutes) : ruleDesc(lim)) + '</div>' : '') +
       '<div class="fg-lbl">' + E(L('Kategoriya', 'Category', 'Категория')) + '</div><div class="fg-catpick">' + CAT_LIST.map(function (c) { return '<button type="button" class="' + (a.cat === c[0] ? 'on' : '') + '" data-fg-setcat="' + c[0] + '" style="--cc:' + c[3] + '">' + c[1] + ' ' + E(T(c[2])) + '</button>'; }).join('') + '</div>' +
       '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-blocknow>🚫 ' + E(L('Doimiy bloklash', 'Always block', 'Всегда блокировать')) + '</button><button type="button" class="fg-btn" data-fg-limitnow>⏳ ' + E(lim ? L('Limitni o\'zgartirish', 'Edit limit', 'Изменить лимит') : L('Limit qo\'yish', 'Set a limit', 'Поставить лимит')) + '</button></div>');
@@ -1243,6 +1309,7 @@
     if ((b = t.closest('[data-fg-catf]'))) { UI.cat = b.dataset.fgCatf; render(); return; }
     if ((b = t.closest('[data-fg-day]'))) { UI.day = Math.max(-6, Math.min(0, UI.day + (+b.dataset.fgDay))); render(); return; }
     if ((b = t.closest('[data-fg-kind]'))) { UI.kind = b.dataset.fgKind; render(); return; }
+    if ((b = t.closest('[data-fg-dev]'))) { UI.dev = b.dataset.fgDev; render(); return; }
     if ((b = t.closest('[data-fg-chart]'))) { UI.chart = b.dataset.fgChart; render(); return; }
     if ((b = t.closest('[data-fg-min]'))) { UI.focusMin = +b.dataset.fgMin; render(); return; }
     if ((b = t.closest('[data-fg-addlimit]'))) { openRuleSheet(null); return; }
