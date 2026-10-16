@@ -3,6 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <script src="tz.js"></script>
+<script>
+/* ⏳ Akkauntga ulangan qurilmada: bulutdan yangi ma'lumot kelguncha eski (qurilmadagi) nusxani ko'rsatmaymiz —
+   aks holda 1 soniya eski tanga/XP/vazifalar ko'rinib, keyin almashardi. Oflayn bo'lsa yoki 3.5 s o'tsa — baribir ochiladi. */
+(function () {
+  try {
+    var st = localStorage.getItem('todolist_app_state') || '';
+    var hasSess = false;
+    for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('sb-') === 0 && k.indexOf('auth-token') !== -1) { hasSess = true; break; } }
+    if (st.indexOf('"cloudLinked":true') === -1 || !hasSess || navigator.onLine === false) return;
+    var root = document.documentElement;
+    root.classList.add('lud-boot');
+    window.ludBootDone = function () { root.classList.remove('lud-boot'); };
+    setTimeout(window.ludBootDone, 3500);
+  } catch (e) {}
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LevelUpDay</title>
 <meta name="mobile-web-app-capable" content="yes">
