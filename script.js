@@ -11359,6 +11359,7 @@ function showTab(tab) {
   if(tab==='blocker' && typeof window.xRenderBlocker==='function') window.xRenderBlocker();
   if(tab==='stats') { showTab('profile'); return; }
   if(tab==='calendar') { showTab('profile'); return; }
+  try { if (typeof window._ludRoute === 'function') window._ludRoute(tab); } catch (e) {} // 🧭 manzil: /LevelUpDay/<bo'lim>
 }
 
 var toastTimer;
