@@ -1,6 +1,17 @@
 <!doctype html>
 <html lang="uz">
 <head>
+<script>
+/* 🧭 Ilova bo'limi manzili (masalan /LevelUpDay/profile) — bosh sahifaga ?r= bilan qaytaramiz, ilova o'zi o'sha bo'limni ochadi */
+(function () {
+  var SL = ['tasks','profile','rewards','goals','hub','focusgate','spin','coins','chest','ielts','sat','cefr','leaderboard','pomodoro','stats','shop','boss','feed','inbox','matrix'];
+  var m = location.pathname.match(/^(.*\/)([A-Za-z-]+)\/?$/);
+  if (m && SL.indexOf(m[2].toLowerCase()) !== -1) {
+    var q = location.search ? '&' + location.search.slice(1) : '';
+    location.replace(m[1] + '?r=' + m[2].toLowerCase() + q + location.hash);
+  }
+})();
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0E0E12">

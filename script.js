@@ -11359,6 +11359,7 @@ function showTab(tab) {
   if(tab==='blocker' && typeof window.xRenderBlocker==='function') window.xRenderBlocker();
   if(tab==='stats') { showTab('profile'); return; }
   if(tab==='calendar') { showTab('profile'); return; }
+  try { if (typeof window._ludRoute === 'function') window._ludRoute(tab); } catch (e) {} // 🧭 manzil: /LevelUpDay/<bo'lim>
 }
 
 var toastTimer;
@@ -27981,9 +27982,11 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
 // osilib qolmasligi uchun.
 // ============================================================
 var _realtimeChannel = null;
+var _rtRetry = 0, _rtRetryTimer = null, _rtWasDown = false, _rtGen = 0;
 
 function startRealtimeSync() {
   if (!S.cloudLinked || !S.cloudUserId || _realtimeChannel) return;
+  var myGen = ++_rtGen; // eski (almashtirilgan) kanalning holat xabarlari e'tiborsiz qolsin
 
   _realtimeChannel = supabase.channel('user-sync-' + S.cloudUserId)
     // --- Umumiy holat (vaqt jadvali eslatmalari, bo'limlar, sozlamalar...): boshqa qurilmada o'zgarsa ---
@@ -27992,8 +27995,8 @@ function startRealtimeSync() {
       filter: 'user_id=eq.' + S.cloudUserId
     }, function (payload) {
       var row = payload.new;
-      if (!row || !row.updated_at) return;
-      if ((Date.parse(row.updated_at) || 0) <= (S._cloudSyncedAt || 0) + 5) return; // o'zimiz yozganmiz
+      // Katta yozuvlarda realtime ustunlarni yubormasligi mumkin — unda baribir bulutdan tekshiramiz
+      if (row && row.updated_at && (Date.parse(row.updated_at) || 0) <= (S._cloudSyncedAt || 0) + 5) return; // o'zimiz yozganmiz
       _cloudRefreshAppState(false);
     })
     // --- Tasklar: shu akkaunt boshqa qurilmada o'zgartirsa ---
@@ -28011,6 +28014,7 @@ function startRealtimeSync() {
       } else {
         var row = payload.new;
         if (!row) return;
+        if (!row.task_data || row.task_id == null) { _cloudRefreshTodos(); return; } // to'liq bo'lmagan payload — bulutdan o'qiymiz
         var json = JSON.stringify(row.task_data);
         if (_lastSyncedTasks[row.task_id] === json) return; // o'zimiz yuborgan yozuv, qayta ishlamaymiz
         // O'zimiz avvalroq yuborgan (kechikib qaytgan "aks-sado") yoki hali yuborilmagan mahalliy o'zgarish bor — e'tiborsiz
@@ -28095,7 +28099,24 @@ function startRealtimeSync() {
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'pomo_break_stats', filter: 'user_id=eq.' + S.cloudUserId
     }, function () { if (typeof window.pomoSyncFromCloud === 'function') window.pomoSyncFromCloud(); })
-    .subscribe();
+    .subscribe(function (status) {
+      if (myGen !== _rtGen) return;
+      // 🔌 Ulanish uzilsa (telefon uxlab qolgan, internet almashgan, token yangilangan) — qayta ulanamiz
+      // va uzilgan vaqtda o'tkazib yuborilgan o'zgarishlarni bulutdan tortib olamiz
+      if (status === 'SUBSCRIBED') { _rtRetry = 0; if (_rtWasDown) { _rtWasDown = false; _cloudCatchUp(true); } return; }
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        _rtWasDown = true;
+        if (_rtRetryTimer || !S.cloudLinked) return;
+        var wait = Math.min(30000, 2000 * Math.pow(2, _rtRetry++));
+        _rtRetryTimer = setTimeout(function () {
+          _rtRetryTimer = null;
+          if (!S.cloudLinked || !S.cloudUserId) return;
+          var old = _realtimeChannel; _realtimeChannel = null; _rtGen++;
+          try { if (old) supabase.removeChannel(old); } catch (e) {}
+          startRealtimeSync();
+        }, wait);
+      }
+    });
 
   friendsSyncFromCloud();
   partySyncFromCloud();
@@ -28106,6 +28127,8 @@ function startRealtimeSync() {
 }
 
 function stopRealtimeSync() {
+  _rtGen++;
+  if (_rtRetryTimer) { clearTimeout(_rtRetryTimer); _rtRetryTimer = null; }
   if (_realtimeChannel) {
     supabase.removeChannel(_realtimeChannel);
     _realtimeChannel = null;
@@ -34477,8 +34500,10 @@ async function _cloudRefreshTodos() {
 
 // ☁️ Bulutdagi umumiy holat yangiroq bo'lsa — tortib, ekranni yangilaymiz (realtime / ilova qayta ochilganda)
 var _cloudRefreshBusy = false;
+var _cloudRefreshAgain = false;
 function _cloudRefreshAppState(showToast) {
-  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _cloudRefreshBusy) return;
+  if (_cloudRefreshBusy) { _cloudRefreshAgain = true; return; }
+  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone) return;
   _cloudRefreshBusy = true;
   // Mahalliy, hali yuborilmagan o'zgarish bo'lsa — avval uni yuboramiz (aks holda yo'qolardi)
   if (_appStateTimer) { _cloudRefreshBusy = false; scheduleAppStateSync(true); return; }
@@ -34489,11 +34514,49 @@ function _cloudRefreshAppState(showToast) {
       try { if (typeof renderTimeline === 'function') renderTimeline(); } catch (e) {}
       if (showToast) { try { toast(t('realtime_updated_toast')); } catch (e) {} }
     }
-  }).catch(function () {}).then(function () { _cloudRefreshBusy = false; });
+  }).catch(function () {}).then(function () {
+    _cloudRefreshBusy = false;
+    if (_cloudRefreshAgain) { _cloudRefreshAgain = false; setTimeout(function () { _cloudRefreshAppState(false); }, 300); }
+  });
+}
+// 🔄 Boshqa qurilmadagi o'zgarishlarni "ushlab olish": ilova qayta ko'ringanda, oynaga qaytilganda,
+// internet qaytganda va har 20 soniyada (realtime ishlamay qolgan holatlar uchun zaxira).
+// Yengil tekshiruv: faqat updated_at o'qiladi, o'zgargan bo'lsa to'liq tortiladi.
+var _catchUpAt = 0, _catchTodosAt = '', _catchBusy = false;
+async function _cloudCatchUp(force) {
+  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _catchBusy) return;
+  if (!force && Date.now() - _catchUpAt < 4000) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  _catchBusy = true; _catchUpAt = Date.now();
+  try {
+    var a = await supabase.from('app_state').select('updated_at').eq('user_id', S.cloudUserId).maybeSingle();
+    var ams = a && a.data && Date.parse(a.data.updated_at) || 0;
+    if (ams > (S._cloudSyncedAt || 0) + 5) _cloudRefreshAppState(false);
+    var t = await supabase.from('todos').select('updated_at').eq('user_id', S.cloudUserId).order('updated_at', { ascending: false }).limit(1);
+    var tl = (t && t.data && t.data[0] && t.data[0].updated_at) || '';
+    var cnt = await supabase.from('todos').select('task_id', { count: 'exact', head: true }).eq('user_id', S.cloudUserId);
+    var sig = tl + '|' + ((cnt && cnt.count) || 0);
+    if (force || sig !== _catchTodosAt) { _catchTodosAt = sig; await _cloudRefreshTodos(); }
+    // Tanga/XP/streak (profiles) — realtime o'tkazib yuborgan bo'lsa
+    if (!_cloudSyncTimer) {
+      var p = await supabase.from('profiles').select('coins,total_coins,xp,streak,best_streak').eq('id', S.cloudUserId).maybeSingle();
+      var pd = p && p.data;
+      if (pd && !_profileEchoSeen(pd) && ((pd.coins || 0) !== (S.coins || 0) || (pd.xp || 0) !== (S.xp || 0) || (pd.streak || 0) !== (S.streak || 0))) {
+        S.coins = pd.coins || 0; S.totalCoins = pd.total_coins || 0; S.xp = pd.xp || 0; S.streak = pd.streak || 0; S.bestStreak = pd.best_streak || S.streak || 0;
+        try { saveToLocalStorage(S); } catch (e) {}
+        _rtRenderSoon();
+      }
+    }
+    if (!_realtimeChannel) { try { startRealtimeSync(); } catch (e) {} }
+  } catch (e) {} finally { _catchBusy = false; }
 }
 document.addEventListener('visibilitychange', function () {
-  if (document.visibilityState === 'visible') setTimeout(function () { _cloudRefreshAppState(false); _cloudRefreshTodos(); }, 600);
+  if (document.visibilityState === 'visible') setTimeout(function () { _cloudCatchUp(true); }, 600);
 });
+window.addEventListener('focus', function () { setTimeout(function () { _cloudCatchUp(false); }, 300); });
+window.addEventListener('online', function () { setTimeout(function () { _cloudCatchUp(true); }, 800); });
+window.addEventListener('pageshow', function (e) { if (e.persisted) _cloudCatchUp(true); });
+setInterval(function () { if (document.visibilityState === 'visible') _cloudCatchUp(false); }, 20000);
 
 function scheduleAppStateSync(immediate) {
   if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone) return;

@@ -10,10 +10,13 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v84';
+const CACHE_VERSION = 'v86';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 // Fon tovushlari (sounds/*.mp3, ~0.8 MB) — alohida, versiyalar o'rtasida o'chirilmaydigan kesh
 const SOUND_CACHE = 'lud-sounds-v2';
+
+// 🧭 Ilova bo'limlari manzillari (router.js bilan bir xil)
+const ROUTE_SLUGS = ['tasks', 'profile', 'rewards', 'goals', 'hub', 'focusgate', 'spin', 'coins', 'chest', 'ielts', 'sat', 'cefr', 'leaderboard', 'pomodoro', 'stats', 'shop', 'boss', 'feed', 'inbox', 'matrix'];
 
 // Pre-cache qilinadigan asosiy fayllar
 const PRECACHE_URLS = [
@@ -40,6 +43,7 @@ const PRECACHE_URLS = [
   './effects.css',
   './exam-prep.js',
   './exam-prep.css',
+  './router.js',
   './manifest.json',
   './icons/logo.svg',
   './icons/favicon-32.png',
@@ -170,6 +174,12 @@ self.addEventListener('fetch', (event) => {
     (request.headers.get('accept') && request.headers.get('accept').includes('text/html'));
 
   if (isNavigation) {
+    // 🧭 Bo'lim manzillari (/LevelUpDay/profile ...) — aslida bitta sahifa: index.html qaytaramiz
+    var seg = url.pathname.replace(/\/$/, '').split('/').pop().toLowerCase();
+    if (url.origin === self.location.origin && ROUTE_SLUGS.indexOf(seg) !== -1) {
+      event.respondWith(networkFirstFallingBackToCache(new Request(new URL('./', self.registration.scope).href)));
+      return;
+    }
     event.respondWith(networkFirstFallingBackToCache(request));
     return;
   }

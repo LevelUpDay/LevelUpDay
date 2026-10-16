@@ -1395,3 +1395,18 @@ html[data-x-ui="aurora"] .add-task-btn { background: linear-gradient(90deg, colo
 .x-shop-ui.uip-retro i { border: 2px solid var(--text); border-radius: 3px; height: 12px; box-shadow: 3px 3px 0 var(--accent); }
 .x-shop-ui.uip-aurora i { background: linear-gradient(90deg, var(--accent), var(--gold)); border-color: transparent; }
 .x-shop-ui.uip-aurora i:nth-child(odd) { opacity: .55; }
+
+/* ===== 🧲 Bo'limlar / menyu: ushlab turib surish ===== */
+.x-secs-t { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.x-secs-hint { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--text-dim); opacity: .8; }
+[data-xdrag], #tabs-bar .tab[data-xnav] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.x-dg-ghost { position: fixed !important; left: 0; top: 0; z-index: 2147483600; pointer-events: none; margin: 0 !important; opacity: .95;
+  box-shadow: 0 18px 40px -10px rgba(0,0,0,.6), 0 0 0 2px var(--accent) !important; border-radius: 14px; background: var(--surface) !important; transition: none !important; }
+.x-dg-src { opacity: .35; transform: scale(.96); }
+html.x-dragging, html.x-dragging * { cursor: grabbing !important; }
+html.x-dragging [data-xdz="secs"], html.x-dragging #tabs-bar, html.x-dragging #x-bnav { outline: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 4px; border-radius: 16px; }
+.x-dg-over:not([data-xdz]):not(#tabs-bar) { box-shadow: 0 0 0 2px var(--accent), 0 0 18px var(--accent-glow) !important; transform: scale(1.04); }
+[data-xdz].x-dg-over, #tabs-bar.x-dg-over { background: color-mix(in srgb, var(--accent) 10%, transparent) !important; outline-style: solid !important; }
+.x-sec, #x-bnav button, #tabs-bar .tab { transition: transform .15s, box-shadow .15s, opacity .15s; }
+#x-bnav.many button .x-bn-l { font-size: 9.5px; }
+#x-bnav.many .x-bn-i { font-size: 19px; }
