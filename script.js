@@ -28517,6 +28517,21 @@ try {
       else localStorage.removeItem(POMO_ACTIVE_KEY);
     } catch (e) {}
   }
+  // 🛟 "Ishlab turibdi" deb belgilangan, lekin faol (pomoActiveId) emas amaliylik — masalan boshqa qurilmadan
+  // sinxronlangan holat. Shunday bo'lsa uni faol qilib olamiz (aks holda taymer qotib, Stop ishlamas edi).
+  function pomoAdoptRunning() {
+    var cur = pomoActiveId ? pomoFindAct(pomoActiveId) : null;
+    var running = pomoActivities.filter(function (a) { return a && a.running; });
+    if (cur && cur.running) { running.forEach(function (a) { if (a !== cur) a.running = false; }); return cur; }
+    if (!running.length) return null;
+    running.sort(function (a, b) { return (b.lastTickAt || 0) - (a.lastTickAt || 0); });
+    var act = running[0];
+    running.slice(1).forEach(function (a) { a.running = false; });
+    pomoActiveId = act.id;
+    if (!(act.lastTickAt > 0) || act.lastTickAt > Date.now()) act.lastTickAt = Date.now();
+    return act;
+  }
+  window.pomoAdoptRunning = function () { var a = pomoAdoptRunning(); if (a) { try { pomoSaveActivities(); pomoStartTicking(); } catch (e) {} } return a; };
   function pomoFindAct(id) {
     for (var i = 0; i < pomoActivities.length; i++) {
       if (pomoActivities[i].id === id) return pomoActivities[i];
@@ -29183,7 +29198,7 @@ try {
     var id = pomoHeroActId();
     if (!id) { pomoToggleNewForm(true); return; }
     var act = pomoFindAct(id);
-    if (act && act.running) { window.pomoStopActivity(); }
+    if (act && act.running) { if (pomoActiveId !== act.id) { pomoActiveId = act.id; } window.pomoStopActivity(); }
     else { window.pomoStartOrResume(id); }
   };
   window.pomoHeroReset = function () {
@@ -29756,6 +29771,7 @@ try {
   window.pomoStopActivity = function (ev) {
     if (ev) ev.stopPropagation();
     var act = pomoFindAct(pomoActiveId);
+    if (!act || !act.running) act = pomoAdoptRunning() || act;
     if (!act) return;
     pomoSyncActTime(act);
     act.running = false;
@@ -29840,6 +29856,7 @@ try {
 
   function pomoTick() {
     var act = pomoFindAct(pomoActiveId);
+    if (!act || !act.running) act = pomoAdoptRunning();
     if (!act || !act.running) { pomoMaybeStopTicking(); return; }
     if (pomoEditTimeActId === act.id) { return; }
     if (!((Date.now() - (act.lastTickAt || Date.now())) > 0)) act.lastTickAt = Date.now() - 1000;
@@ -31000,6 +31017,7 @@ try {
     try { pomoActiveId = localStorage.getItem(POMO_ACTIVE_KEY) || null; } catch (e) { pomoActiveId = null; }
 
     var act = pomoActiveId ? pomoFindAct(pomoActiveId) : null;
+    if (!act || !act.running) { var _ad = pomoAdoptRunning(); if (_ad) act = _ad; }
     if (!act) { pomoActiveId = null; }
     else if (act.running) {
       var delta = Date.now() - (act.lastTickAt || Date.now());
