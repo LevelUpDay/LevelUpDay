@@ -70,3 +70,10 @@
 .ps-x { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; }
 .ps-quick-body { padding: 14px 16px 18px; overflow-y: auto; }
 @media (max-width: 640px) { .ps-quick { align-items: flex-end; padding: 0; } .ps-quick-box { max-width: none; border-radius: 22px 22px 0 0; max-height: 88vh; } }
+.ps-shade { padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--border); }
+.ps-shade-t { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.ps-shade-t b { font-size: var(--fs-sm, 13.5px); color: var(--text); } .ps-shade-t small { font-size: var(--fs-2xs, 11.5px); color: var(--text-muted); line-height: 1.5; }
+.ps-shade-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ps-shade-opts button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--border); background: var(--surface2); color: var(--text); font-weight: 700; font-size: 13px; font-family: inherit; cursor: pointer; text-align: left; }
+.ps-shade-opts button small { font-weight: 500; font-size: 11px; color: var(--text-muted); }
+.ps-shade-opts button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface2)); }

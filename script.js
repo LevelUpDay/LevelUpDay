@@ -11045,20 +11045,22 @@ function parseIntSafe(str) {
 }
 
 // 🔗 Mukofot ↔ Focusgate: vaqtli mukofotni ilova/saytlarga bog'lash (blocker.js: LUFocusgate.pickApps)
-var _rewardLinks = [], _rewardLinkBlock = true, _editRewardLinks = [], _editRewardLinkBlock = true;
+var _rewardLinks = [], _rewardLinkBlock = true, _editRewardLinks = [], _editRewardLinkBlock = true, _rewardLinkDevs = [], _editRewardLinkDevs = [];
 function renderRewardLinksBox(boxId, isEdit) {
   var box = document.getElementById(boxId); if (!box) return;
-  var arr = isEdit ? _editRewardLinks : _rewardLinks, blk = isEdit ? _editRewardLinkBlock : _rewardLinkBlock;
+  var arr = isEdit ? _editRewardLinks : _rewardLinks, blk = isEdit ? _editRewardLinkBlock : _rewardLinkBlock, devs = isEdit ? _editRewardLinkDevs : _rewardLinkDevs;
   var chips = arr.map(function (l) { return '<span class="rw-link-chip">' + esc(l.label || l.app.replace(/^site:/, '')) + '</span>'; }).join('');
   box.innerHTML = '<div class="rw-links">' + (chips || '<span class="rw-links-hint">' + _cl("Masalan: Instagram mukofoti → Instagram'da o'tirgan vaqt balansdan avtomatik ayriladi.", 'E.g. an Instagram reward → time spent on Instagram is taken from the balance automatically.', 'Например: награда Instagram → время в Instagram списывается с баланса автоматически.') + '</span>') + '</div>' +
     '<button type="button" class="rw-links-btn">' + (arr.length ? '✏️ ' + _cl("O'zgartirish", 'Change', 'Изменить') : '＋ ' + _cl('Ilova yoki sayt tanlash', 'Choose apps or sites', 'Выбрать приложения или сайты')) + '</button>' +
-    (arr.length ? '<small class="rw-links-note">' + (blk ? '🔒 ' + _cl('Vaqt tugasa bloklanadi', 'Blocked when time runs out', 'Блокируется, когда время закончится') : '⏱ ' + _cl('Faqat vaqt hisoblanadi', 'Time is only counted', 'Только учёт времени')) + '</small>' : '');
+    (arr.length ? '<small class="rw-links-note">' + (blk ? '🔒 ' + _cl('Vaqt tugasa bloklanadi', 'Blocked when time runs out', 'Блокируется, когда время закончится') : '⏱ ' + _cl('Faqat vaqt hisoblanadi', 'Time is only counted', 'Только учёт времени')) +
+      ' · 🔗 ' + (devs && devs.length ? devs.length + ' ' + _cl('ta qurilmada', 'devices', 'устр.') : _cl('barcha qurilmalarda', 'all devices', 'все устройства')) + '</small>' : '');
   box.querySelector('.rw-links-btn').onclick = function () {
     if (!window.LUFocusgate || !window.LUFocusgate.pickApps) { toast('⚠️ Focusgate'); return; }
-    window.LUFocusgate.pickApps(arr, function (list, block) {
-      if (isEdit) { _editRewardLinks = list; _editRewardLinkBlock = block; } else { _rewardLinks = list; _rewardLinkBlock = block; }
+    window.LUFocusgate.pickApps(arr, function (list, block, dv) {
+      dv = Array.isArray(dv) ? dv : [];
+      if (isEdit) { _editRewardLinks = list; _editRewardLinkBlock = block; _editRewardLinkDevs = dv; } else { _rewardLinks = list; _rewardLinkBlock = block; _rewardLinkDevs = dv; }
       renderRewardLinksBox(boxId, isEdit);
-    }, { block: blk });
+    }, { block: blk, devs: devs });
   };
 }
 
@@ -11201,10 +11203,10 @@ function addReward() {
       amount: amount,          // 'time' bo'lsa — daqiqa, 'count' bo'lsa — dona
       baseName: name
     };
-    if (_rewardType === 'time' && _rewardLinks.length) { newReward.links = _rewardLinks.slice(); newReward.linkBlock = _rewardLinkBlock; }
+    if (_rewardType === 'time' && _rewardLinks.length) { newReward.links = _rewardLinks.slice(); newReward.linkBlock = _rewardLinkBlock; if (_rewardLinkDevs.length) newReward.linkDevs = _rewardLinkDevs.slice(); }
     S.rewards.push(newReward);
     var _linkedNew = !!newReward.links;
-    _rewardLinks = []; _rewardLinkBlock = true;
+    _rewardLinks = []; _rewardLinkBlock = true; _rewardLinkDevs = [];
     var _s6 = document.getElementById('rstep-6'); if (_s6) _s6.style.display = 'none';
 
     document.getElementById('r-name').value='';
@@ -11554,7 +11556,7 @@ function openRewardEditModal(id) {
   document.getElementById('er-cost').value = r.cost;
   document.getElementById('er-icon').value = r.icon;
   document.getElementById('er-amount').value = r.amount || '';
-  _editRewardLinks = Array.isArray(r.links) ? r.links.slice() : []; _editRewardLinkBlock = r.linkBlock !== false;
+  _editRewardLinks = Array.isArray(r.links) ? r.links.slice() : []; _editRewardLinkBlock = r.linkBlock !== false; _editRewardLinkDevs = Array.isArray(r.linkDevs) ? r.linkDevs.slice() : [];
   selEditRewardType(r.rtype === 'time' ? 'time' : 'count');
   document.getElementById('reward-modal-overlay').classList.add('open');
   setTimeout(()=>document.getElementById('er-name').focus(),150);
@@ -11579,9 +11581,9 @@ function saveRewardEdit() {
   if(!(amount>0)){ document.getElementById('er-amount').focus(); toast(_editRewardType==='time'?t('reward_minutes_required_toast'):t('reward_amount_required_toast')); return; }
   const newRtype = _editRewardType || r.rtype || 'count';
   // 🔗 Focusgate bog'lanishi
-  var _oldLinks = JSON.stringify(r.links || []), _newLinks = newRtype === 'time' ? _editRewardLinks.slice() : [];
-  if (_newLinks.length) { r.links = _newLinks; r.linkBlock = _editRewardLinkBlock; } else { delete r.links; delete r.linkBlock; }
-  if (JSON.stringify(_newLinks) !== _oldLinks || newRtype !== r.rtype) setTimeout(function () { try { window.LUFocusgate.rewardLinked(r.id); } catch (e) {} try { window.LUFocusgate.rewardSync(); } catch (e) {} }, 50);
+  var _oldLinks = JSON.stringify(r.links || []) + JSON.stringify(r.linkDevs || []), _newLinks = newRtype === 'time' ? _editRewardLinks.slice() : [];
+  if (_newLinks.length) { r.links = _newLinks; r.linkBlock = _editRewardLinkBlock; if (_editRewardLinkDevs.length) r.linkDevs = _editRewardLinkDevs.slice(); else delete r.linkDevs; } else { delete r.links; delete r.linkBlock; delete r.linkDevs; }
+  if (JSON.stringify(_newLinks) + JSON.stringify(r.linkDevs || []) !== _oldLinks || newRtype !== r.rtype) setTimeout(function () { try { window.LUFocusgate.rewardLinked(r.id); } catch (e) {} try { window.LUFocusgate.rewardSync(); } catch (e) {} }, 50);
 
   if (newRtype !== r.rtype) {
     var hadClaims = (S.rewardClaims && S.rewardClaims[r.id]) ? true : false;
@@ -14025,6 +14027,8 @@ function renderRewards() {
     }
     if (r.rtype === 'time' && Array.isArray(r.links) && r.links.length) {
       chips += '<span class="rw-chip rw-chip-link" title="' + esc(r.links.map(function (l) { return l.label || l.app; }).join(', ')) + '">🔗 ' + esc(r.links.slice(0, 2).map(function (l) { return l.label || l.app.replace(/^site:/, ''); }).join(', ')) + (r.links.length > 2 ? ' +' + (r.links.length - 2) : '') + ' · ' + _cl('avto', 'auto', 'авто') + '</span>';
+      var _hn = ((S.rwHist || {})[r.id] || []).length;
+      chips += '<button type="button" class="rw-chip rw-chip-hist" onclick="event.stopPropagation();try{LUFocusgate.rewardHistory(' + JSON.stringify(r.id).replace(/"/g, '&quot;') + ')}catch(e){}">📜 ' + _cl('Tarix', 'History', 'История') + (_hn ? ' · ' + _hn : '') + '</button>';
     }
     if (claims > 0) {
       chips += '<span class="rw-chip rw-chip-muted">' + t('reward_bought_label') + ' ' + (isTimeReward ? formatMinutes(claims) : claims + ' ' + t('reward_unit_count')) + '</span>';
@@ -29539,13 +29543,84 @@ try {
     } catch (e) { return false; }
   }
   function pomoHHMM(ms) { var d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  // 🎵 Media-pleyer ko'rinishi (musiqa pleyeri kabi): ⏸ / ▶ / ⏭ tugmalari va progress chizig'i — Media Session API.
+  // Brauzer media-bildirishnomani faqat audio ijro etilayotganda ko'rsatadi, shuning uchun deyarli eshitilmaydigan
+  // "jim" audio aylanadi. Eslatma: telefonda boshqa ilovada musiqa ijro etilsa, u to'xtashi mumkin — sozlamada "Oddiy" ni tanlash mumkin.
+  var _pomoMedia = { el: null, state: '', metaKey: '', canPlay: false };
+  function pomoMediaOn() {
+    try { return 'mediaSession' in navigator && S && S.pomoShadeStyle !== 'simple' && S.pomoShadeNotif !== false && window.matchMedia('(pointer: coarse)').matches; } catch (e) { return false; }
+  }
+  function pomoSilentUrl() {
+    // 10 soniyalik deyarli jim WAV (8 kHz, 8-bit) — ±1 dither, aks holda ayrim brauzerlar "ovozsiz" deb hisoblaydi
+    var n = 8000 * 10, buf = new ArrayBuffer(44 + n), v = new DataView(buf), w = function (o, str) { for (var i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
+    for (var i = 0; i < n; i++) v.setUint8(44 + i, 128 + ((i % 2) ? 1 : -1));
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  }
+  function pomoMediaEl() {
+    if (_pomoMedia.el) return _pomoMedia.el;
+    var a = new Audio(); a.loop = true; a.volume = 0.01; a.setAttribute('playsinline', ''); a.preload = 'auto';
+    try { a.src = pomoSilentUrl(); } catch (e) { return null; }
+    _pomoMedia.el = a;
+    try {
+      var ms = navigator.mediaSession;
+      ms.setActionHandler('play', function () { pomoShadeAction('pomo-resume'); });
+      ms.setActionHandler('pause', function () { pomoShadeAction('pomo-pause'); });
+      try { ms.setActionHandler('stop', function () { pomoShadeAction('pomo-pause'); }); } catch (e) {}
+      try { ms.setActionHandler('nexttrack', function () { pomoShadeAction('pomo-skip'); }); } catch (e) {}
+      try { ms.setActionHandler('previoustrack', function () { try { window.pomoOpenModal(); } catch (e) {} }); } catch (e) {}
+      try { ms.setActionHandler('seekto', null); ms.setActionHandler('seekbackward', null); ms.setActionHandler('seekforward', null); } catch (e) {}
+    } catch (e) {}
+    return a;
+  }
+  // Foydalanuvchi bosgan paytda (Start) chaqiriladi — brauzer audio'ni faqat shunda ruxsat beradi
+  window.pomoMediaPrime = function () {
+    if (!pomoMediaOn()) return;
+    var a = pomoMediaEl(); if (!a) return;
+    try { var p = a.play(); if (p && p.then) p.then(function () { _pomoMedia.canPlay = true; }).catch(function () {}); } catch (e) {}
+  };
+  function pomoMediaSync(state, act, left, endAt) {
+    if (!pomoMediaOn()) { if (_pomoMedia.el && !_pomoMedia.el.paused) { try { _pomoMedia.el.pause(); } catch (e) {} } return false; }
+    var ms = navigator.mediaSession, a = pomoMediaEl(); if (!a) return false;
+    if (state === 'none') {
+      try { a.pause(); } catch (e) {}
+      try { ms.metadata = null; ms.playbackState = 'none'; } catch (e) {}
+      _pomoMedia.state = 'none'; return true;
+    }
+    var total = state === 'work' ? pomoWorkMs() : state === 'break' ? Math.max(left, act.lastBreakIsLong ? pomoLongBreakMs() : pomoShortBreakMs()) : pomoWorkMs();
+    var pos = state === 'work' ? (act.cycleMs || 0) : state === 'break' ? Math.max(0, total - left) : Math.min(total, act.cycleMs || 0);
+    var mm = Math.ceil(left / 60000), name = (act.emoji || '🍅') + ' ' + (act.name || 'Pomodoro');
+    var title = state === 'work' ? name : state === 'break' ? '☕ ' + _cl('Tanaffus', 'Break', 'Перерыв') + ' · ' + (act.name || '') : '⏸ ' + name;
+    var artist = state === 'work' ? '🎯 ' + _cl(mm + ' daq qoldi · ' + pomoHHMM(endAt) + ' da tugaydi', mm + ' min left · ends ' + pomoHHMM(endAt), 'осталось ' + mm + ' мин · до ' + pomoHHMM(endAt))
+      : state === 'break' ? _cl(mm + ' daq · ' + pomoHHMM(endAt) + ' gacha dam oling', mm + ' min · rest until ' + pomoHHMM(endAt), mm + ' мин · отдых до ' + pomoHHMM(endAt))
+      : _cl('Pauzada · ' + pomoFormatHMS(act.elapsedMs || 0) + ' ishlandi', 'Paused · ' + pomoFormatHMS(act.elapsedMs || 0) + ' done', 'На паузе · ' + pomoFormatHMS(act.elapsedMs || 0));
+    var mk = title + '|' + artist;
+    try {
+      if (mk !== _pomoMedia.metaKey) {
+        _pomoMedia.metaKey = mk;
+        ms.metadata = new MediaMetadata({ title: title, artist: artist, album: 'LevelUpDay · Pomodoro',
+          artwork: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }] });
+      }
+      ms.playbackState = state === 'paused' ? 'paused' : 'playing';
+      if (ms.setPositionState) ms.setPositionState({ duration: Math.max(1, total / 1000), position: Math.max(0, Math.min(total, pos)) / 1000, playbackRate: state === 'paused' ? 1 : 1 });
+    } catch (e) {}
+    try { if (state === 'paused') { if (!a.paused) a.pause(); } else if (a.paused) { var p = a.play(); if (p && p.catch) p.catch(function () {}); } } catch (e) {}
+    _pomoMedia.state = state;
+    return true;
+  }
   function pomoShadeSync() {
-    if (!pomoShadeOn()) return;
     var act = pomoFindAct(pomoActiveId) || null;
     var state = !act ? 'none' : act.running ? (act.phase === 'break' ? 'break' : 'work') : ((act.elapsedMs || 0) > 0 || act.phase === 'break' ? 'paused' : 'none');
     var left = 0, endAt = 0;
     if (state === 'work') { left = Math.max(0, pomoWorkMs() - (act.cycleMs || 0)); endAt = Date.now() + left; }
     if (state === 'break') { left = Math.max(0, act.breakRemainingMs || 0); endAt = Date.now() + left; }
+    // Media-pleyer rejimi: oddiy bildirishnoma o'rniga (ikkalasi birga chiqmasin)
+    if (pomoMediaSync(state, act, left, endAt)) {
+      if (_pomoShadeKey !== 'media') { _pomoShadeKey = 'media'; try { navigator.serviceWorker.ready.then(function (reg) { return reg.getNotifications({ tag: 'lud-pomo' }); }).then(function (ns) { (ns || []).forEach(function (n) { n.close(); }); }).catch(function () {}); } catch (e) {} }
+      return;
+    }
+    if (!pomoShadeOn()) return;
     var key = state + '|' + (act ? act.id : '') + '|' + Math.ceil(left / 60000);
     if (key === _pomoShadeKey) return;
     _pomoShadeKey = key;
@@ -29586,6 +29661,8 @@ try {
     var _pa = new URLSearchParams(location.search).get('pa');
     if (_pa) setTimeout(function () { pomoShadeAction(_pa); try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} }, 1500);
   } catch (e) {}
+  // Media-pleyer matni har daqiqada yangilansin ("24 daq qoldi" ...)
+  setInterval(function () { try { var a = pomoFindAct(pomoActiveId); if (a && (a.running || _pomoMedia.state === 'paused')) pomoShadeSync(); } catch (e) {} }, 15000);
   // Pomodoro boshlanganda (tugma bosilganda) bir marta ruxsat so'raladi
   window.pomoAskShadePermission = function () {
     try { if (pomoShadeOn() && Notification.permission === 'default') Notification.requestPermission().then(function () { _pomoShadeKey = ''; pomoShadeSync(); }); } catch (e) {}
@@ -29594,6 +29671,7 @@ try {
   window.pomoStartOrResume = function (id, ev) {
     if (ev) ev.stopPropagation();
     try { window.pomoAskShadePermission(); } catch (e) {}
+    try { window.pomoMediaPrime(); } catch (e) {}
     if (pomoActiveId && pomoActiveId !== id) {
       var prev = pomoFindAct(pomoActiveId);
       if (prev) {
