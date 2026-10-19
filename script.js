@@ -8678,9 +8678,11 @@ var _todosCloudSyncTimer = null;
 // batch so'rov sifatida Supabase'ga yuboradi.
 function scheduleTodosCloudSync(immediate) {
   if (!S.cloudLinked || !S.cloudUserId) return;
+  if (!_cloudOwnerOk()) return; // bulut hali o'qilmagan / boshqa akkaunt holati — tasklarni yozmaymiz (navbat saqlanadi)
   if (_todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
   var run = async function () {
     _todosCloudSyncTimer = null; // ishlab bo'ldi — "band" deb qolmasin (aks holda bulutdan yangilash to'xtab qolardi)
+    if (!_cloudOwnerOk()) return;
     var uid = S.cloudUserId;
     var upserts = Object.keys(_pendingTodoUpserts).map(function (idStr) {
       var e = _pendingTodoUpserts[idStr];
@@ -18449,7 +18451,7 @@ function _rstExamsWithData() {
 // 💥 "Hammasi": S'ni ilovaning toza holatiga qaytaradi (yangi qo'shilgan bo'limlar ham qolib ketmaydi).
 // Faqat akkaunt/qurilma sozlamalari saqlanadi.
 function _rstFullReset() {
-  var KEEP = ['profile', 'cloudLinked', 'cloudUserId', 'cloudEmail', 'lastCloudUserId', '_cloudSyncedAt', '_localUpdatedAt', '_serverSavedAt',
+  var KEEP = ['profile', 'cloudLinked', 'cloudUserId', 'cloudEmail', 'lastCloudUserId', '_stateOwner', '_cloudSyncedAt', '_localUpdatedAt', '_serverSavedAt',
     'themeMode', 'kbMap', 'welcomeSurveyDone', 'language', 'lang', 'difficulty', 'ambientFocusEnabled', 'ambientFocusSound', 'ambientFocusVolume', 'friends'];
   var kept = {};
   KEEP.forEach(function (k) { if (k in S) kept[k] = S[k]; });
@@ -26896,6 +26898,7 @@ var wsCompleteRegistration = function(user, emailVal, nameVal) {
     S.cloudUserId = user ? user.id : null;
     S.cloudEmail = emailVal;
     S.lastCloudUserId = S.cloudUserId;
+    S._stateOwner = S.cloudUserId; // yangi akkaunt — shu qurilmadagi holat uniki
     window._cloudPullDone = true; // yangi akkaunt: bulutda hali hech narsa yo'q, mahalliy holat yoziladi
     wsState.name = nameVal;
     wsFinish('register', 'ws_reg_success_toast');
@@ -26983,7 +26986,13 @@ var wsSubmitLogin = async function() {
     // Bulutdan hamma narsani tiklaymiz: app_state → profil → tasklar
     window._cloudBootBusy = true;
     var pulled;
-    try { pulled = await cloudPullAll(uid); } finally { setTimeout(function () { window._cloudBootBusy = false; }, 300); }
+    try { pulled = await cloudPullAll(uid); } catch (e) { pulled = { ok: false }; } finally { setTimeout(function () { window._cloudBootBusy = false; }, 300); }
+    if (!pulled.ok) {
+      // Bulut o'qilmadi — so'rovnoma javoblari/mehmon holati akkauntga yozilmaydi; qayta urinamiz
+      wsState.name = ''; wsState.goal = null; wsState.ref = null;
+      _cloudPullFailToast();
+      _cloudRetryPull(uid);
+    }
     if (pulled.profile && pulled.profile.name) wsState.name = pulled.profile.name;
     if (pulled.hadProfile || pulled.hadAppState) {
       // wsFinish so'rovnoma javoblari bilan bulutdagi sozlamalarni bosib yubormasin
@@ -27019,6 +27028,7 @@ var cloudLogout = async function() {
   S.cloudLinked = false;
   S.cloudUserId = null;
   S.cloudEmail = null;
+  S._stateOwner = null;
   // Navbatda kutayotgan (hali yuborilmagan) task sinxronlashlarini bekor
   // qilamiz — boshqa akkaunt bilan aralashib ketmasligi uchun.
   if (_todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
@@ -27859,11 +27869,11 @@ function scheduleCloudSync(immediate) {
   if (!S.cloudLinked || !S.cloudUserId) return;
   // Bulutdan holat tiklanmaguncha profilni yozmaymiz (tasks_completed/coins
   // yangi qurilmada nol bo'lib bulutni bosib yubormasligi uchun).
-  if (!window._cloudPullDone) return;
+  if (!window._cloudPullDone || !_cloudOwnerOk()) return;
   if (_cloudSyncTimer) clearTimeout(_cloudSyncTimer);
   var run = async function () {
     _cloudSyncTimer = null;
-    if (!S.cloudLinked || !S.cloudUserId) return;
+    if (!S.cloudLinked || !S.cloudUserId || !_cloudOwnerOk()) return;
     var photoUrl = (S.profile && S.profile.photo) || null;
     try { if (typeof cloudResolveAvatarUrl === 'function') photoUrl = await cloudResolveAvatarUrl(); } catch (e) {}
     var stamp = new Date().toISOString();
@@ -34186,7 +34196,8 @@ var cloudPullAppState = async function(force) {
 var _cloudPullTodos = async function(uid) {
   var todosRes = await supabase.from('todos').select('task_id,task_data,order_index')
     .eq('user_id', uid).order('order_index', { ascending: true });
-  if (!todosRes.error && todosRes.data && todosRes.data.length) {
+  if (todosRes.error) return null; // o'qib bo'lmadi (tarmoq/server) — "tasklar yo'q" degani emas
+  if (todosRes.data && todosRes.data.length) {
     // Mehmon rejimida (hech qachon akkauntga ulanmagan) yozilgan tasklar
     // yo'qolmasin: bulutdagilarga qo'shib olamiz, id to'qnashsa yangi id beramiz.
     var guestTasks = (!S.lastCloudUserId && S.tasks && S.tasks.length) ? S.tasks.filter(function (t) { return !t.sample; }) : []; // misol vazifalar mavjud akkauntga qo'shilmaydi
@@ -34214,16 +34225,55 @@ var _cloudPullTodos = async function(uid) {
 };
 
 var cloudPullAll = async function(uid) {
-  var as = await cloudPullAppState(true);
-  var profRes = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
-  var hadProfile = !!profRes.data;
+  var as = { ok: false }, profRes = { error: true }, todosOk = false, hadTodos = false;
+  try { as = await cloudPullAppState(true); } catch (e) { as = { ok: false }; }
+  try { profRes = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle(); } catch (e) { profRes = { error: e }; }
+  // ⚠️ Tarmoq/server xatosi "profil yo'q" degani EMAS: aks holda qurilmadagi bo'sh holat (user1, 0 tanga)
+  // yangi akkaunt deb bulutga yozilib, haqiqiy tangalar yo'qolardi.
+  var profOk = !profRes.error;
+  var hadProfile = profOk && !!profRes.data;
   if (hadProfile) _cloudApplyProfileRow(profRes.data);
-  var hadTodos = await _cloudPullTodos(uid);
-  // app_state o'qilmagan bo'lsa (xato) — bulutni ustidan yozib yubormaslik uchun yozuvni ochmaymiz
-  window._cloudPullDone = !!as.ok;
+  try { var tr = await _cloudPullTodos(uid); hadTodos = tr === true; todosOk = tr !== null; } catch (e) { todosOk = false; }
+  var ok = !!as.ok && profOk && todosOk;
+  // Hamma narsa o'qilgandagina yozish ochiladi va holat shu akkauntniki deb belgilanadi
+  window._cloudPullDone = ok;
+  if (ok) {
+    S._stateOwner = uid;
+    // Bulut ustun: o'qishdan oldin navbatga tushgan (mehmon/eski) task yozuvlari yuborilmaydi
+    try { _pendingTodoUpserts = {}; _pendingTodoDeletes = {}; } catch (e) {}
+  }
   S.lastCloudUserId = uid;
-  return { hadProfile: hadProfile, hadTodos: hadTodos, hadAppState: !!as.had, profile: profRes.data || null };
+  return { ok: ok, hadProfile: hadProfile, hadTodos: hadTodos, hadAppState: !!as.had, profile: (profOk && profRes.data) || null };
 };
+
+// 🔁 Bulutdan o'qib bo'lmadi — yozmasdan, kutib qayta urinamiz (3, 6, 12 … soniya; internet qaytsa darhol)
+var _cloudRetryT = null, _cloudRetryN = 0;
+var _cloudRetryPull = function(uid, onDone) {
+  if (_cloudRetryT) return;
+  var delay = Math.min(60000, 3000 * Math.pow(2, Math.min(_cloudRetryN, 5)));
+  _cloudRetryN++;
+  _cloudRetryT = setTimeout(async function () {
+    _cloudRetryT = null;
+    if (!S.cloudLinked || S.cloudUserId !== uid) return;
+    var res = null;
+    try { res = await cloudPullAll(uid); } catch (e) { res = null; }
+    if (!res || !res.ok) { _cloudRetryPull(uid, onDone); return; }
+    _cloudRetryN = 0;
+    try { applyLanguage(); } catch (e) {}
+    try { updateHeaderUserTitle(); renderProfile(); } catch (e) {}
+    try { render(); } catch (e) {}
+    try { startRealtimeSync(); } catch (e) {}
+    try { scheduleAppStateSync(true); } catch (e) {}
+    _cloudToast('✅ ' + _cl('Bulut bilan ulandi — ma\'lumotlaringiz tiklandi', 'Connected to the cloud — your data is restored', 'Связь с облаком восстановлена — данные загружены'));
+    if (onDone) { try { onDone(res); } catch (e) {} }
+  }, delay);
+};
+window.addEventListener('online', function () {
+  if (_cloudRetryT && S.cloudLinked && S.cloudUserId) { clearTimeout(_cloudRetryT); _cloudRetryT = null; _cloudRetryN = 0; _cloudRetryPull(S.cloudUserId); }
+});
+function _cloudPullFailToast() {
+  _cloudToast('⚠️ ' + _cl('Bulutdan ma\'lumot olinmadi — qayta urinilmoqda. Shu paytda hech narsa bulutga yozilmaydi, tangalaringiz xavfsiz.', 'Could not load your cloud data — retrying. Nothing is written to the cloud meanwhile, your coins are safe.', 'Не удалось загрузить данные из облака — повторяем. Пока ничего не записывается, монеты в безопасности.'));
+}
 
 // 🧹 Qurilmadagi akkaunt ma'lumotlarini tozalab sahifani qayta yuklaydi (mavzu/ovoz va, keepAuth
 // bo'lsa, kirish sessiyasi saqlanadi). Akkaunt almashganda, chiqishda va o'chirishda ishlatiladi —
@@ -34341,6 +34391,17 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
     if (await _cloudCleanLoginIfExisting(S.cloudUserId)) return;
     // Google bilan yangi qurilmada/yangi akkaunt: bulutni to'liq tiklaymiz
     var res = await cloudPullAll(S.cloudUserId);
+    if (!res.ok) {
+      // Bulut o'qilmadi: mehmon holatini akkauntga yozmaymiz, kutib qayta urinamiz
+      if (!S.profile) S.profile = {};
+      S.profile.loginMethod = hasGoogle ? 'google' : 'email';
+      S.welcomeSurveyDone = true; S.showWelcomeSurveyPending = false;
+      try { closeWelcomeSurvey(); } catch (e) {}
+      try { save(); } catch (e) {}
+      _cloudPullFailToast();
+      _cloudRetryPull(S.cloudUserId);
+      return;
+    }
     if (res.hadAppState && !res.hadTodos) S.tasks = (S.tasks || []).filter(function (t) { return !t.sample; });
     if (!S.profile) S.profile = {};
     S.profile.loginMethod = hasGoogle ? 'google' : 'email';
@@ -34374,9 +34435,19 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
     return;
   }
 
-  var as = await cloudPullAppState(false);
+  var as = { ok: false };
+  try { as = await cloudPullAppState(false); } catch (e) {}
+  // Shu qurilmada shu akkaunt bilan avvaldan ishlab kelingan holat (yangilanishdan oldingi sessiyalar)
+  if (as.ok && !S._stateOwner && S.lastCloudUserId === S.cloudUserId) S._stateOwner = S.cloudUserId;
+  if (as.ok && S._stateOwner !== S.cloudUserId) {
+    // Holat boshqa akkaunt/mehmonniki — bulutdan to'liq tiklaymiz, yozishdan oldin
+    var full = null; try { full = await cloudPullAll(S.cloudUserId); } catch (e) {}
+    if (!full || !full.ok) { _cloudPullFailToast(); _cloudRetryPull(S.cloudUserId); return; }
+    try { applyLanguage(); render(); } catch (e) {}
+  }
   window._cloudPullDone = !!as.ok;
   startRealtimeSync();
+  if (!as.ok) { _cloudRetryPull(S.cloudUserId); return; }
   if (as.ok) {
     if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
     try { await _cloudRefreshTodos(); } catch (e) {}
@@ -34485,6 +34556,9 @@ function _cl(uz, en, ru) {
   return l === 'ru' ? (ru || en) : (l === 'en' ? en : uz);
 }
 function _cloudToast(m) { try { toast(m); } catch (e) { console.log(m); } }
+// 🛡 Qurilmadagi holat aynan shu akkauntniki ekani tasdiqlanganmi (bulutdan muvaffaqiyatli o'qilgan / yangi akkaunt).
+// Tasdiqlanmagan holat (mehmon "user1", boshqa akkaunt, o'qishda xato) hech qachon bulutga yozilmaydi.
+function _cloudOwnerOk() { return !!(S && S.cloudUserId && S._stateOwner === S.cloudUserId); }
 function _cloudWaitBooted() {
   return new Promise(function (resolve) {
     var n = 0;
@@ -34497,7 +34571,7 @@ function _cloudWaitBooted() {
 
 // ---------- 1) app_state ----------
 var _CLOUD_LOCAL_ONLY = ['tasks', 'cloudLinked', 'cloudUserId', 'cloudEmail', '_serverSavedAt',
-  '_localUpdatedAt', '_cloudSyncedAt', 'lastCloudUserId', 'friends', 'showWelcomeSurveyPending', '_activityPingDate'];
+  '_localUpdatedAt', '_cloudSyncedAt', 'lastCloudUserId', 'friends', 'showWelcomeSurveyPending', '_activityPingDate', '_stateOwner'];
 var _CLOUD_LS_KEYS = ['pomoActivities', 'pomoSettings', 'appTheme', 'sfxVolume'];
 var _appStateTimer = null, _appStateLastCmp = '';
 
@@ -34682,11 +34756,11 @@ window.addEventListener('pageshow', function (e) { if (e.persisted) _cloudCatchU
 setInterval(function () { if (document.visibilityState === 'visible') _cloudCatchUp(false); }, 20000);
 
 function scheduleAppStateSync(immediate) {
-  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone) return;
+  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || !_cloudOwnerOk()) return;
   if (_appStateTimer) clearTimeout(_appStateTimer);
   var run = async function () {
     _appStateTimer = null;
-    if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone) return;
+    if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || !_cloudOwnerOk()) return;
     try {
       var payload = _appStatePayload();
       var cmp = JSON.stringify(Object.assign({}, payload, { _savedAt: 0 }));
