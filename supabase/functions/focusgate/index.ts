@@ -9,6 +9,7 @@
 //              → {config, device, now}   (usage — shu qurilmaning kunlik umumiy qiymatlari, ustiga yoziladi)
 //  Statistikani tozalash: {action:'reset_stats'} + foydalanuvchi JWT → fg_usage/fg_events/fg_sessions (faqat o'ziniki)
 //      va config.statsResetAt — agent/kengaytma (reset_seen < statsResetAt) mahalliy hisobni ham nolga tushiradi.
+//  Yangi qurilma: {action:'notify_new_device', device_id} + foydalanuvchi JWT → account_devices.notified, Telegram xabari (prefs.newDevice).
 //  Haftalik hisobot: {action:'weekly_report'} — faqat pg_cron (x-cron-secret), yakshanba kechqurun Telegram'ga.
 // JWT tekshiruvi o'chirilgan: agent qurilma tokeni bilan, sayt esa foydalanuvchi JWT bilan tekshiriladi.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -290,6 +291,41 @@ Deno.serve(async (req) => {
     const conf = Object.assign({}, c?.config || {}, { statsResetAt: at });
     await sb.from("fg_config").upsert({ user_id: uid, config: conf, updated_at: new Date().toISOString() });
     return json({ ok: true, at, deleted: out });
+  }
+
+  // ---------- 📱 Yangi qurilmadan kirildi (sayt, foydalanuvchi JWT) → Telegram ----------
+  if (action === "notify_new_device") {
+    const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    const { data: u } = await sb.auth.getUser(jwt);
+    const uid = u?.user?.id;
+    if (!uid) return json({ error: "unauthorized" }, 401);
+    const id = String(body.device_id || "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "bad_device" }, 400);
+    const { data: dev } = await sb.from("account_devices").select("id,name,kind,created_at,notified").eq("id", id).eq("user_id", uid).maybeSingle();
+    if (!dev || dev.notified) return json({ ok: true, sent: false });
+    await sb.from("account_devices").update({ notified: true }).eq("id", id).eq("user_id", uid);
+    // Birinchi qurilma (ro'yxatdan o'tish) yoki eski yozuv — xabar kerak emas
+    if (Date.now() - new Date(dev.created_at).getTime() > 15 * 60 * 1000) return json({ ok: true, sent: false });
+    const { count } = await sb.from("account_devices").select("id", { count: "exact", head: true }).eq("user_id", uid).neq("id", id);
+    if (!count) return json({ ok: true, sent: false });
+    if (!BOT_TOKEN) return json({ ok: true, sent: false });
+    const { data: link } = await sb.from("telegram_links").select("chat_id,enabled,prefs,lang").eq("user_id", uid).maybeSingle();
+    if (!link || !link.enabled || (link.prefs && link.prefs.newDevice === false)) return json({ ok: true, sent: false });
+    const lang = ["ru", "en"].includes(String(link.lang)) ? String(link.lang) : "uz";
+    const ND: Record<string, string[]> = {
+      uz: ["🔔 <b>LevelUpDay</b> — akkauntingizga yangi qurilmadan kirildi", "Agar bu siz bo'lmasangiz: Sinxronlash → Qurilmalar bo'limida uni chiqaring va parolni almashtiring.", "📱 Qurilmalarni ko'rish"],
+      en: ["🔔 <b>LevelUpDay</b> — a new device signed in to your account", "If this wasn't you: sign it out in Sync → Devices and change your password.", "📱 View devices"],
+      ru: ["🔔 <b>LevelUpDay</b> — в аккаунт вошли с нового устройства", "Если это не вы: выйдите с него в Синхронизация → Устройства и смените пароль.", "📱 Устройства"],
+    };
+    const t = ND[lang];
+    const when = new Date(dev.created_at).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+    const text = `${t[0]}\n\n📱 <b>${esc(String(dev.name || "?").slice(0, 80))}</b>\n🕒 ${when}\n\n${t[1]}`;
+    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: link.chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: [[{ text: t[2], url: APP_URL.replace(/focusgate$/, "") }]] } }),
+    }).catch(() => null);
+    if (r && r.status === 403) await sb.from("telegram_links").update({ enabled: false }).eq("user_id", uid);
+    return json({ ok: true, sent: !!(r && r.ok) });
   }
 
   // ---------- 📊 Haftalik hisobot (faqat cron: x-cron-secret) ----------
