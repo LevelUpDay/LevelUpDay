@@ -31,11 +31,19 @@ Edge function: `functions/send-reminders` (verify_jwt o'chiq — o'rniga Vault'd
 
 `fix_delete_account.sql` — "Delete account" ishlashi uchun **shart** (ichida `DELETE` bor,
 avtomatik qo'llanmadi). Supabase → SQL Editor'da bir marta ishga tushiring.
+Yangilangan: endi `coin_ledger`, `app_backups`, `account_devices` ham tozalanadi — qayta ishga tushiring.
 
 `friends_remove_block.sql` — ichida `DELETE` bor, shuning uchun avtomatik qo'llanmadi.
 Supabase → SQL Editor'da bir marta ishga tushiring. Bo'lmasa ham ilova ishlaydi
 (eski `remove_friend` / `block_user` / `unblock_user` ishlatiladi), faqat admin
 panelida fikrni o'chirish ishlamaydi.
+
+## ☁️ Sinxronlash va akkaunt markazi (`account.js`)
+
+- SQL: `supabase/account_sync.sql` (qo'llangan). Jadvallar: `coin_ledger` (tanga/XP tarixi, `restore_lost_coins`),
+  `app_backups` (kunlik zaxira, 30 kun), `account_devices` (qurilmalar, uzoqdan chiqarish).
+- Yangi qurilma xabari: `focusgate` edge funksiyasi, `{action:'notify_new_device', device_id}` + foydalanuvchi JWT;
+  `telegram_links.prefs.newDevice = false` bo'lsa yuborilmaydi.
 
 ## Dashboard'da qilinadigan sozlamalar
 - **Authentication → URL Configuration**: Site URL va Redirect URLs ga

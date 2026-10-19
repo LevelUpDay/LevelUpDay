@@ -48,6 +48,7 @@ var fetchServerTimeSafe = async function() {
 var upsertTodoRow = async function(task, orderIndex) {
   // LocalStorage'da alohida qatorlar yo'q — faqat ichki keshni yangilaymiz,
   // haqiqiy yozish syncTasksToLocalStorage() ichida bitta martada bajariladi.
+  try { _cloudQueueLoad(); } catch (e) {}
   const json = JSON.stringify(task);
   const changed = _lastSyncedTasks[task.id] !== json;
   _lastSyncedTasks[task.id] = json;
@@ -55,6 +56,7 @@ var upsertTodoRow = async function(task, orderIndex) {
   if (changed) {
     _pendingTodoUpserts[task.id] = { task: task, orderIndex: orderIndex };
     delete _pendingTodoDeletes[task.id];
+    _cloudQueueSave();
     scheduleTodosCloudSync();
   } else if (_pendingTodoUpserts[task.id]) {
     _pendingTodoUpserts[task.id].orderIndex = orderIndex;
@@ -66,6 +68,7 @@ var deleteTodoRow = async function(id) {
   if (!S.cloudLinked || !S.cloudUserId) return;
   delete _pendingTodoUpserts[id];
   _pendingTodoDeletes[id] = true;
+  _cloudQueueSave();
   scheduleTodosCloudSync();
 };
 
@@ -77,6 +80,7 @@ var loadAllTodos = async function() {
 };
 
 var syncTasksToLocalStorage = async function() {
+  try { _cloudQueueLoad(); } catch (e) {}
   const currentIds = {};
   (S.tasks || []).forEach(function(task, idx) {
     currentIds[task.id] = true;
@@ -8287,18 +8291,25 @@ function restoreAutoSnapshot(day) {
 function renderSyncPill() {
   var el = document.getElementById('sync-pill');
   if (!el || typeof S === 'undefined' || !S) return;
-  var state, txt;
-  if (!navigator.onLine) { state = 'offline'; txt = '📴 ' + _cl('Oflayn — keyin saqlanadi', 'Offline — will sync later', 'Офлайн — синхронизируем позже'); }
-  else if (!S.cloudLinked) { state = 'local'; txt = '💾 ' + _cl('Qurilmada saqlangan', 'Saved on device', 'Сохранено на устройстве'); }
-  else if ((typeof _cloudSyncTimer !== 'undefined' && _cloudSyncTimer) || (typeof _pendingTodoUpserts !== 'undefined' && Object.keys(_pendingTodoUpserts).length)) { state = 'pending'; txt = '⏳ ' + _cl('Saqlanmoqda…', 'Syncing…', 'Синхронизация…'); }
+  var state, txt, n = 0;
+  try { n = cloudPendingCount(); } catch (e) {}
+  var nTxt = n ? ' (' + n + ')' : '';
+  if (!S.cloudLinked) { state = navigator.onLine ? 'local' : 'offline'; txt = (navigator.onLine ? '💾 ' : '📴 ') + _cl('Qurilmada saqlangan', 'Saved on device', 'Сохранено на устройстве'); }
+  else if (!_cloudOwnerOk()) { state = 'loading'; txt = '⏳ ' + _cl('Akkaunt yuklanmoqda…', 'Loading account…', 'Загрузка аккаунта…'); }
+  else if (!navigator.onLine) { state = 'offline'; txt = '📴 ' + _cl('Oflayn — keyin yuboriladi', 'Offline — will sync later', 'Офлайн — отправим позже') + nTxt; }
+  else if (window._cloudLastErr && n) { state = 'error'; txt = '⚠️ ' + _cl('Yuborilmadi — qayta urinilmoqda', 'Not synced — retrying', 'Не отправлено — повторяем') + nTxt; }
+  else if (n) { state = 'pending'; txt = '⏳ ' + _cl('Yuborilmoqda…', 'Syncing…', 'Синхронизация…') + nTxt; }
   else { state = 'ok'; txt = '✓ ' + _cl('Bulutda saqlandi', 'Synced', 'Синхронизировано'); }
   el.className = 'sync-pill sync-' + state;
-  el.textContent = txt;
-  // Bosilganda: hisob/sinxronlash sozlamalari (kirish, bulutga saqlash)
+  if (el.textContent !== txt) el.textContent = txt;
+  el.title = window._cloudLastOkAt ? _cl('Oxirgi sinxron: ', 'Last synced: ', 'Последняя синхронизация: ') + new Date(window._cloudLastOkAt).toLocaleTimeString() : _cl('Sinxronlash markazi', 'Sync center', 'Центр синхронизации');
+  // Bosilganda: Sinxronlash markazi (holat, zaxiralar, tanga tarixi, qurilmalar, akkauntlar)
   if (!el._fgClick) {
     el._fgClick = true; el.setAttribute('role', 'button'); el.tabIndex = 0;
-    el.title = _cl('Hisob va saqlash sozlamalari', 'Account & sync settings', 'Аккаунт и синхронизация');
-    el.onclick = function () { try { showTab('profile'); } catch (e) {} try { if (typeof showProfileSubtab === 'function') showProfileSubtab('settings'); } catch (e) {} };
+    el.onclick = function () {
+      if (window.LUAccount && window.LUAccount.open) { window.LUAccount.open(); return; }
+      try { showTab('profile'); } catch (e) {} try { if (typeof showProfileSubtab === 'function') showProfileSubtab('settings'); } catch (e) {}
+    };
   }
 }
 setInterval(renderSyncPill, 2000);
@@ -8667,6 +8678,32 @@ function writeLocalTasks(tasksArr) {
 var _pendingTodoUpserts = {};   // task_id -> {task, orderIndex} — hali bulutga yuborilmagan
 var _pendingTodoDeletes = {};   // task_id -> true — hali bulutdan o'chirilmagan
 var _todosCloudSyncTimer = null;
+// 💾 Yuborilmagan task o'zgarishlari va oxirgi sinxron nusxa ("asos") qurilmada akkaunt bo'yicha saqlanadi:
+// internetsiz qilingan o'zgarish ilova yopilsa ham yo'qolmaydi, qayta ochilganda faqat haqiqiy o'zgarishlar yuboriladi
+// (boshqa qurilmadagi yangiroq tasklar eski nusxa bilan bosib yuborilmaydi).
+var _cloudQueueUid = null, _cloudQueueSaveT = null;
+function _cloudQueueKey(uid) { return 'cloudQueue_' + uid; }
+function _cloudQueueLoad() {
+  var uid = S && S.cloudUserId;
+  if (!uid || _cloudQueueUid === uid) return;
+  _cloudQueueUid = uid;
+  try {
+    var q = JSON.parse(localStorage.getItem(_cloudQueueKey(uid)) || 'null');
+    if (!q || typeof q !== 'object') return;
+    if (q.base && typeof q.base === 'object') Object.keys(q.base).forEach(function (k) { if (!(k in _lastSyncedTasks)) _lastSyncedTasks[k] = q.base[k]; });
+    if (q.ups && typeof q.ups === 'object') Object.keys(q.ups).forEach(function (k) { if (!_pendingTodoUpserts[k] && !_pendingTodoDeletes[k]) _pendingTodoUpserts[k] = q.ups[k]; });
+    if (q.dels && typeof q.dels === 'object') Object.keys(q.dels).forEach(function (k) { if (!_pendingTodoUpserts[k]) _pendingTodoDeletes[k] = true; });
+  } catch (e) {}
+}
+function _cloudQueueSave() {
+  if (_cloudQueueSaveT) return;
+  _cloudQueueSaveT = setTimeout(function () {
+    _cloudQueueSaveT = null;
+    var uid = S && S.cloudUserId; if (!uid || _cloudQueueUid !== uid) return;
+    try { localStorage.setItem(_cloudQueueKey(uid), JSON.stringify({ base: _lastSyncedTasks, ups: _pendingTodoUpserts, dels: _pendingTodoDeletes, at: Date.now() })); } catch (e) {}
+  }, 400);
+}
+function cloudPendingCount() { return Object.keys(_pendingTodoUpserts).length + Object.keys(_pendingTodoDeletes).length + (typeof _appStateTimer !== 'undefined' && _appStateTimer ? 1 : 0) + (typeof _cloudSyncTimer !== 'undefined' && _cloudSyncTimer ? 1 : 0); }
 
 /* upsertTodoRow: blok boshiga (global var sifatida) ko'chirildi */
 
@@ -8703,9 +8740,11 @@ function scheduleTodosCloudSync(immediate) {
     var requeue = function (ups, dels) {
       Object.keys(ups).forEach(function (k) { if (!_pendingTodoUpserts[k] && !_pendingTodoDeletes[k]) _pendingTodoUpserts[k] = ups[k]; });
       Object.keys(dels).forEach(function (k) { if (!_pendingTodoUpserts[k]) _pendingTodoDeletes[k] = true; });
+      _cloudQueueSave();
       if (_todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
       _todosCloudSyncTimer = setTimeout(function () { _todosCloudSyncTimer = null; scheduleTodosCloudSync(true); }, 15000);
     };
+    _cloudQueueSave();
     try {
       if (upserts.length) {
         var r1 = await supabase.from('todos').upsert(upserts, { onConflict: 'user_id,task_id' });
@@ -8717,7 +8756,9 @@ function scheduleTodosCloudSync(immediate) {
         if (r2.error) { console.warn('[Todos sync] o\'chirishda xatolik:', r2.error.message); requeue({}, sentDel); }
         else deleteIds.forEach(function (id) { _cloudTaskIdsSet(id, false); });
       }
-    } catch (e) { console.warn('[Todos sync] tarmoq xatoligi:', e); requeue(sentUp, sentDel); }
+      if (!Object.keys(_pendingTodoUpserts).length && !Object.keys(_pendingTodoDeletes).length) { window._cloudLastOkAt = Date.now(); window._cloudLastErr = null; }
+    } catch (e) { console.warn('[Todos sync] tarmoq xatoligi:', e); window._cloudLastErr = String(e && e.message || e); requeue(sentUp, sentDel); }
+    _cloudQueueSave();
   };
   if (immediate) run(); else _todosCloudSyncTimer = setTimeout(run, 1500);
 }
@@ -26993,6 +27034,7 @@ var wsSubmitLogin = async function() {
       _cloudPullFailToast();
       _cloudRetryPull(uid);
     }
+    if (pulled.ok) { try { if (window.LUAccount && window.LUAccount.afterPull) window.LUAccount.afterPull(uid); } catch (e) {} }
     if (pulled.profile && pulled.profile.name) wsState.name = pulled.profile.name;
     if (pulled.hadProfile || pulled.hadAppState) {
       // wsFinish so'rovnoma javoblari bilan bulutdagi sozlamalarni bosib yubormasin
@@ -27899,6 +27941,8 @@ function scheduleCloudSync(immediate) {
       tasks_completed: _cloudTasksCompletedCount(),
       updated_at: stamp
     };
+    // 🪙 Tanga tarixida "nima uchun" ko'rinsin — oxirgi tarix yozuvi
+    if (!window._noLastReasonColumn) { try { var lr = (S.tarix || [])[0]; row.last_reason = lr ? String(lr.desc || '').slice(0, 120) : null; } catch (e) {} }
     // 📊 Admin analitikasi: qayerdan bilgani va qurilma turi
     if (!window._noAnalyticsColumns) {
       row.referral_source = (S.profile && S.profile.referralSource) ? String(S.profile.referralSource).slice(0, 20) : null;
@@ -27940,6 +27984,11 @@ function scheduleCloudSync(immediate) {
         window._noAnalyticsColumns = true; delete row.referral_source; delete row.referral_other; delete row.device_type;
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
       }
+      if (r.error && row.last_reason !== undefined && /last_reason/i.test(r.error.message || '')) {
+        window._noLastReasonColumn = true; delete row.last_reason;
+        return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
+      }
+      if (!r.error) { window._cloudLastOkAt = Date.now(); window._cloudLastErr = null; }
       if (r.error && row.gems !== undefined && /gems/i.test(r.error.message || '')) {
         window._noGemsColumn = true; delete row.gems;
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
@@ -28052,7 +28101,13 @@ function startRealtimeSync() {
         var json = JSON.stringify(row.task_data);
         if (_lastSyncedTasks[row.task_id] === json) return; // o'zimiz yuborgan yozuv, qayta ishlamaymiz
         // O'zimiz avvalroq yuborgan (kechikib qaytgan "aks-sado") yoki hali yuborilmagan mahalliy o'zgarish bor — e'tiborsiz
-        if (_todoEchoSeen(row.task_id, json) || _pendingTodoUpserts[row.task_id] || _pendingTodoDeletes[row.task_id]) return;
+        if (_todoEchoSeen(row.task_id, json)) return;
+        if (_pendingTodoUpserts[row.task_id] || _pendingTodoDeletes[row.task_id]) {
+          // ⚔️ Ziddiyat: shu vazifa bu yerda ham, boshqa qurilmada ham o'zgartirilgan. Bu yerdagisi yuboriladi,
+          // boshqa qurilmadagi nusxa yo'qolmasin — Sinxronlash markazida "u nusxani olish" mumkin.
+          try { if (window.LUAccount && window.LUAccount.addConflict) window.LUAccount.addConflict(row.task_id, row.task_data); } catch (e) {}
+          return;
+        }
         _lastSyncedTasks[row.task_id] = json;
         _cloudTaskIdsSet(row.task_id, true);
         var idx = (S.tasks || []).findIndex(function (tk) { return tk.id === row.task_id; });
@@ -28069,11 +28124,12 @@ function startRealtimeSync() {
       var p = payload.new;
       if (!p) return;
       if (p.updated_at && window._lastProfilePushAt && Date.parse(p.updated_at) === Date.parse(window._lastProfilePushAt)) return; // o'zimiz yuborgan yozuv
-      if ((p.coins || 0) === (S.coins || 0) && (p.xp || 0) === (S.xp || 0) && (p.streak || 0) === (S.streak || 0) && (p.total_coins || 0) === (S.totalCoins || 0)) return;
+      if ((p.coins || 0) === (S.coins || 0) && (p.xp || 0) === (S.xp || 0) && (p.streak || 0) === (S.streak || 0) && (p.total_coins || 0) === (S.totalCoins || 0) && (p.gems == null || (p.gems || 0) === (S.gems || 0))) return;
       // Kechikib qaytgan o'z yozuvimiz yoki hali yuborilmagan mahalliy o'zgarish bo'lsa — tangani ustidan yozmaymiz
-      if (_cloudSyncTimer || _profileEchoSeen(p)) return;
+      if (_cloudSyncTimer || _profileEchoSeen(p) || !_cloudOwnerOk()) return;
       S.coins = p.coins || 0;
       S.totalCoins = p.total_coins || 0;
+      if (p.gems != null) S.gems = p.gems || 0;
       S.xp = p.xp || 0;
       S.streak = p.streak || 0;
       S.bestStreak = p.best_streak || S.streak || 0;
@@ -34157,7 +34213,7 @@ var cloudPullAppState = async function(force) {
   var cd = r.data.data || {};
   var keepProfile = S.profile || {};
   Object.keys(cd).forEach(function (k) {
-    if (k === '_ls' || k === 'profile' || _CLOUD_LOCAL_ONLY.indexOf(k) !== -1) return;
+    if (k === '_ls' || k === 'profile' || _CLOUD_LOCAL_ONLY.indexOf(k) !== -1 || _CLOUD_ECON.indexOf(k) !== -1) return;
     S[k] = cd[k];
   });
   S.profile = Object.assign({}, keepProfile, cd.profile || {}, {
@@ -34271,6 +34327,36 @@ var _cloudRetryPull = function(uid, onDone) {
 window.addEventListener('online', function () {
   if (_cloudRetryT && S.cloudLinked && S.cloudUserId) { clearTimeout(_cloudRetryT); _cloudRetryT = null; _cloudRetryN = 0; _cloudRetryPull(S.cloudUserId); }
 });
+// Oddiy qayta ochilishda bulut o'qilmasa: holat allaqachon shu akkauntniki — majburan ustidan yozmasdan,
+// faqat yangiroq bulut holatini olishga qayta urinamiz (yuborilmagan mahalliy o'zgarishlar saqlanadi)
+var _cloudRetryBootT = null, _cloudRetryBootN = 0;
+var _cloudRetryBoot = function(uid) {
+  if (_cloudRetryBootT) return;
+  var delay = Math.min(60000, 3000 * Math.pow(2, Math.min(_cloudRetryBootN, 5)));
+  _cloudRetryBootN++;
+  _cloudRetryBootT = setTimeout(async function () {
+    _cloudRetryBootT = null;
+    if (!S.cloudLinked || S.cloudUserId !== uid || window._cloudPullDone) return;
+    var as = { ok: false };
+    try { as = await cloudPullAppState(false); } catch (e) {}
+    if (!as.ok) { _cloudRetryBoot(uid); return; }
+    _cloudRetryBootN = 0;
+    window._cloudPullDone = true;
+    if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
+    try { await _cloudRefreshTodos(); } catch (e) {}
+    try { scheduleCloudSync(true); scheduleTodosCloudSync(true); scheduleAppStateSync(true); } catch (e) {}
+  }, delay);
+};
+window.addEventListener('online', function () {
+  if (_cloudRetryBootT && S.cloudLinked && S.cloudUserId) { clearTimeout(_cloudRetryBootT); _cloudRetryBootT = null; _cloudRetryBootN = 0; _cloudRetryBoot(S.cloudUserId); }
+});
+// Sinxronlash markazi / yuklanish oynasidagi "Qayta urinish" tugmasi uchun
+window.cloudRetryNow = function () {
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (_cloudRetryT) { clearTimeout(_cloudRetryT); _cloudRetryT = null; _cloudRetryN = 0; _cloudRetryPull(S.cloudUserId); }
+  if (_cloudRetryBootT) { clearTimeout(_cloudRetryBootT); _cloudRetryBootT = null; _cloudRetryBootN = 0; _cloudRetryBoot(S.cloudUserId); }
+  if (!_cloudRetryT && !_cloudRetryBootT && !_cloudOwnerOk()) _cloudRetryPull(S.cloudUserId);
+};
 function _cloudPullFailToast() {
   _cloudToast('⚠️ ' + _cl('Bulutdan ma\'lumot olinmadi — qayta urinilmoqda. Shu paytda hech narsa bulutga yozilmaydi, tangalaringiz xavfsiz.', 'Could not load your cloud data — retrying. Nothing is written to the cloud meanwhile, your coins are safe.', 'Не удалось загрузить данные из облака — повторяем. Пока ничего не записывается, монеты в безопасности.'));
 }
@@ -34278,8 +34364,16 @@ function _cloudPullFailToast() {
 // 🧹 Qurilmadagi akkaunt ma'lumotlarini tozalab sahifani qayta yuklaydi (mavzu/ovoz va, keepAuth
 // bo'lsa, kirish sessiyasi saqlanadi). Akkaunt almashganda, chiqishda va o'chirishda ishlatiladi —
 // ma'lumotlar bulutda qoladi va qayta kirilganda tiklanadi.
-var _cloudWipeLocalAndReload = function(msg, keepAuth) {
-  var KEEP = ['appTheme', 'designAnim', 'appLayout', 'sfxVolume', 'soundEnabled', 'dsSidebarW', 'dsAsideW', 'settingsPanelOpen'];
+var _cloudWipeLocalAndReload = function(msg, keepAuth, opts) {
+  var KEEP = ['appTheme', 'designAnim', 'appLayout', 'sfxVolume', 'soundEnabled', 'dsSidebarW', 'dsAsideW', 'settingsPanelOpen', 'ludAccounts', 'ludPinLock', 'ludDeviceId'];
+  opts = opts || {};
+  // 👥 Akkaunt almashganda: oldingi akkauntning qurilmadagi holati (yuborilmagan o'zgarishlari bilan) saqlab qo'yiladi —
+  // keyin "Akkauntlar"dan qaytsangiz, hech narsa yo'qolmaydi
+  if (!opts.noStash && window.LUAccount && typeof window.LUAccount.stashBeforeWipe === 'function') {
+    var stashed = false;
+    try { stashed = window.LUAccount.stashBeforeWipe(keepAuth, function () { _cloudWipeLocalAndReload(msg, keepAuth, { noStash: true }); }); } catch (e) { stashed = false; }
+    if (stashed) return; // nusxa olinib, so'ng shu funksiya qayta chaqiriladi
+  }
   try {
     window._cloudPullDone = false;
     if (typeof _appStateTimer !== 'undefined' && _appStateTimer) { clearTimeout(_appStateTimer); _appStateTimer = null; }
@@ -34293,7 +34387,7 @@ var _cloudWipeLocalAndReload = function(msg, keepAuth) {
     var del = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      if (k && KEEP.indexOf(k) === -1 && !(keepAuth && k.indexOf('sb-') === 0)) del.push(k);
+      if (k && KEEP.indexOf(k) === -1 && !(keepAuth && k.indexOf('sb-') === 0) && k.indexOf('cloudQueue_') !== 0) del.push(k);
     }
     del.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
     try { sessionStorage.removeItem('cloudPomoReloaded'); } catch (e) {}
@@ -34362,6 +34456,8 @@ var _cloudCleanLoginIfExisting = async function(uid) {
     }
   } catch (e) { return false; }
   if (!has) return false;
+  // 🤝 Mehmon sifatida qilingan ish bor bo'lsa — akkauntga qo'shishni taklif qilamiz
+  try { if (window.LUAccount && window.LUAccount.askGuestMerge) await window.LUAccount.askGuestMerge(uid); } catch (e) {}
   try { sessionStorage.setItem('cloudCleanLogin', uid); } catch (e) {}
   _cloudWipeLocalAndReload(_cl('Akkaunt ma\'lumotlari yuklanmoqda…', 'Loading your account data…', 'Загружаем данные аккаунта…'), true);
   return true;
@@ -34403,6 +34499,7 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
       return;
     }
     if (res.hadAppState && !res.hadTodos) S.tasks = (S.tasks || []).filter(function (t) { return !t.sample; });
+    try { if (window.LUAccount && window.LUAccount.afterPull) window.LUAccount.afterPull(S.cloudUserId); } catch (e) {}
     if (!S.profile) S.profile = {};
     S.profile.loginMethod = hasGoogle ? 'google' : 'email';
     S.welcomeSurveyDone = true;
@@ -34447,7 +34544,7 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
   }
   window._cloudPullDone = !!as.ok;
   startRealtimeSync();
-  if (!as.ok) { _cloudRetryPull(S.cloudUserId); return; }
+  if (!as.ok) { _cloudRetryBoot(S.cloudUserId); return; }
   if (as.ok) {
     if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
     try { await _cloudRefreshTodos(); } catch (e) {}
@@ -34573,6 +34670,9 @@ function _cloudWaitBooted() {
 var _CLOUD_LOCAL_ONLY = ['tasks', 'cloudLinked', 'cloudUserId', 'cloudEmail', '_serverSavedAt',
   '_localUpdatedAt', '_cloudSyncedAt', 'lastCloudUserId', 'friends', 'showWelcomeSurveyPending', '_activityPingDate', '_stateOwner'];
 var _CLOUD_LS_KEYS = ['pomoActivities', 'pomoSettings', 'appTheme', 'sfxVolume'];
+// 🪙 Tanga, XP, olmos va streak'ning yagona manbai — profiles qatori (serverda tarixi yoziladi: coin_ledger).
+// app_state'dagi nusxasi o'qishda hisobga olinmaydi, aks holda ikki manba bir-biriga zid kelib qolardi.
+var _CLOUD_ECON = ['coins', 'totalCoins', 'xp', 'gems', 'streak', 'bestStreak', 'reytingSeasonCoinsBase'];
 var _appStateTimer = null, _appStateLastCmp = '';
 
 function _appStatePayload() {
@@ -34678,6 +34778,7 @@ async function _cloudRefreshTodos() {
       if (S.tasks.length !== before) changed = true;
     }
     _cloudTaskIdsSave(cloudIds);
+    try { _cloudQueueLoad(); } catch (e) {}
     r.data.forEach(function (row) {
       if (!row || !row.task_data) return;
       var json = JSON.stringify(row.task_data);
@@ -34686,6 +34787,7 @@ async function _cloudRefreshTodos() {
       else if (JSON.stringify(S.tasks[idx]) !== json) { S.tasks[idx] = row.task_data; changed = true; }
       _lastSyncedTasks[row.task_id] = json;
     });
+    _cloudQueueSave();
     if (changed) {
       try { ensureFullTaskOrder(); } catch (e) {}
       try { writeLocalTasks(S.tasks); } catch (e) {}
@@ -34736,10 +34838,11 @@ async function _cloudCatchUp(force) {
     if (force || sig !== _catchTodosAt) { _catchTodosAt = sig; await _cloudRefreshTodos(); }
     // Tanga/XP/streak (profiles) — realtime o'tkazib yuborgan bo'lsa
     if (!_cloudSyncTimer) {
-      var p = await supabase.from('profiles').select('coins,total_coins,xp,streak,best_streak').eq('id', S.cloudUserId).maybeSingle();
+      var p = await supabase.from('profiles').select('coins,total_coins,xp,streak,best_streak,gems').eq('id', S.cloudUserId).maybeSingle();
       var pd = p && p.data;
-      if (pd && !_profileEchoSeen(pd) && ((pd.coins || 0) !== (S.coins || 0) || (pd.xp || 0) !== (S.xp || 0) || (pd.streak || 0) !== (S.streak || 0))) {
+      if (pd && _cloudOwnerOk() && !_profileEchoSeen(pd) && ((pd.coins || 0) !== (S.coins || 0) || (pd.xp || 0) !== (S.xp || 0) || (pd.streak || 0) !== (S.streak || 0) || (pd.gems != null && (pd.gems || 0) !== (S.gems || 0)))) {
         S.coins = pd.coins || 0; S.totalCoins = pd.total_coins || 0; S.xp = pd.xp || 0; S.streak = pd.streak || 0; S.bestStreak = pd.best_streak || S.streak || 0;
+        if (pd.gems != null) S.gems = pd.gems || 0;
         try { saveToLocalStorage(S); } catch (e) {}
         _rtRenderSoon();
       }
@@ -34778,6 +34881,7 @@ function scheduleAppStateSync(immediate) {
           // masalan ikkala qurilmada bajarilgan vazifalar (taskDoneLog) ham saqlanib qoladi.
           Object.keys(mine).forEach(function (k) {
             if (k === '_ls' || k === '_savedAt' || _CLOUD_LOCAL_ONLY.indexOf(k) !== -1) return;
+            if (_CLOUD_ECON.indexOf(k) !== -1) { S[k] = mine[k]; return; } // tanga/XP — profiles orqali, mahalliy qiymat saqlanadi
             if (JSON.stringify(mine[k]) !== JSON.stringify(base[k])) S[k] = _cloudMerge3(base[k], mine[k], S[k]);
           });
           try { saveToLocalStorage(S); render(); } catch (e) {}
@@ -34790,7 +34894,8 @@ function scheduleAppStateSync(immediate) {
       var r = await supabase.from('app_state').upsert({
         user_id: S.cloudUserId, data: payload, updated_at: new Date(nowMs).toISOString()
       }, { onConflict: 'user_id' }).select('updated_at').maybeSingle();
-      if (r.error) { console.warn('[app_state] yozishda xatolik:', r.error.message); return; }
+      if (r.error) { console.warn('[app_state] yozishda xatolik:', r.error.message); window._cloudLastErr = r.error.message; return; }
+      window._cloudLastOkAt = Date.now(); window._cloudLastErr = null;
       _appStateLastCmp = cmp;
       S._cloudSyncedAt = (r.data && Date.parse(r.data.updated_at)) || nowMs;
     } catch (e) { console.warn('[app_state] tarmoq xatoligi:', e); }
@@ -34811,6 +34916,7 @@ function _cloudApplyProfileRow(p) {
   S.totalCoins = p.total_coins || 0;
   S.reytingSeasonCoinsBase = Math.max(0, (p.coins || 0) - (p.season_coins || 0));
   S.xp = p.xp || 0;
+  if (p.gems != null) S.gems = p.gems || 0;
   S.streak = p.streak || 0;
   S.bestStreak = p.best_streak || p.streak || 0;
   S.profile.photo = p.photo || S.profile.photo || null;

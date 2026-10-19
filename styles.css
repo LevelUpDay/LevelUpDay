@@ -3911,3 +3911,5 @@ html.lud-boot::after { content: ""; position: fixed; left: 50%; top: 50%; width:
 .lvp-step.lock .lvp-gift { color: var(--text-muted); }
 .rw-chip-hist { border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); background: transparent; color: var(--accent); cursor: pointer; font-family: inherit; }
 .rw-chip-hist:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sync-loading { color: var(--gold); border-color: rgba(245,166,35,0.35); }
+.sync-error { color: var(--red); border-color: rgba(248,113,113,0.5); }
