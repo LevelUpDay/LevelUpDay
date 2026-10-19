@@ -3,7 +3,7 @@
 //  • Bloklangan saytni (doimiy / jadval / kunlik limit / fokus) "bloklandi" sahifasiga yo'naltiradi
 //  • Har daqiqada LevelUpDay bilan sinxronlanadi: foydalanish → server, sozlamalar ← server (Windows agenti bilan bir xil)
 //  • Ulash: LevelUpDay'da "Ulash" tasdiqlanadi (#fgpair=KOD)
-import { siteOf, check, dayKey, catOf } from './rules.js';
+import { siteOf, check, dayKey, catOf, isSection, mindfulSite, ruleMinutes } from './rules.js';
 
 const FN = 'https://zzcvpenkevxlurgpjltz.supabase.co/functions/v1/focusgate';
 const APP = 'https://levelupday.github.io/LevelUpDay/';
@@ -75,12 +75,19 @@ async function flush(next) {
   }
   await chrome.storage.session.set({ cur: next === undefined ? (cur && cur.key ? { ...cur, since: now } : null) : next });
 }
-async function addUsage(key, label, sec, at) {
+// Yozuvlar ketma-ket (navbat bilan) — bir vaqtda kelgan bo'lim xabarlari bir-birini o'chirib yubormasin
+let usageQ = Promise.resolve();
+function addUsage(key, label, sec, at, open) {
+  usageQ = usageQ.then(() => addUsageNow(key, label, sec, at, open)).catch(() => {});
+  return usageQ;
+}
+async function addUsageNow(key, label, sec, at, open) {
   const usage = (await S.get('usage')) || {};
   const d = dayKey(at);
   const day = usage[d] || (usage[d] = {});
   const u = day[key] || (day[key] = { label, s: 0, h: new Array(24).fill(0) });
   u.label = label || u.label; u.s += sec; u.h[at.getHours()] += sec;
+  if (open) { u.o = (u.o || 0) + 1; (u.oh || (u.oh = new Array(24).fill(0)))[at.getHours()]++; }
   // 4 kundan eskilari o'chiriladi
   const keep = new Set([0, 1, 2, 3].map((i) => dayKey(new Date(Date.now() - i * 86400000))));
   Object.keys(usage).forEach((k) => { if (!keep.has(k)) delete usage[k]; });
@@ -96,6 +103,13 @@ async function refreshCurrent() {
   const site = tab && tab.url ? siteOf(tab.url, cfg.rules) : null;
   const { cur } = await chrome.storage.session.get('cur');
   if (site && cur && cur.key === site.key && cur.tabId === tab.id) { await flush(); return; }
+  // Ochilishlar soni: boshqa saytdan o'tilganda (shu saytda oxirgi bo'lganiga 30 soniyadan ko'p bo'lsa)
+  if (site && (!cur || cur.key !== site.key)) {
+    const { seen } = await chrome.storage.session.get('seen');
+    const m = seen || {};
+    if (!m[site.key] || Date.now() - m[site.key] > 30000) await addUsage(site.key, site.label, 0, new Date(), true);
+  }
+  if (cur && cur.key) { const { seen } = await chrome.storage.session.get('seen'); const m = seen || {}; m[cur.key] = Date.now(); await chrome.storage.session.set({ seen: m }); }
   await flush(site ? { key: site.key, label: site.label, tabId: tab.id, since: Date.now() } : null);
 }
 
@@ -113,22 +127,51 @@ async function enforce(tabId, url) {
   if (!(await S.get('token'))) return;
   const site = siteOf(url, cfg.rules);
   if (!site) return;
+  // 🌬 Ongli ochish: avval "nafas oling" sahifasi; "Ha" desa — N daqiqa ruxsat
+  if (mindfulSite(cfg, site.key) && !check(cfg, site.key, 0)) {
+    const { grants } = await chrome.storage.session.get('grants');
+    if (!grants || !(grants[site.key] > Date.now())) {
+      const q = new URLSearchParams({ mode: 'mindful', k: site.key, l: site.label, u: url, s: String(cfg.mindfulSec || 10), m: String(cfg.mindfulMin || 15) });
+      chrome.tabs.update(tabId, { url: BLOCKED + '?' + q.toString() }).catch(() => {});
+      return;
+    }
+  }
   // Kategoriya limiti uchun: shu kategoriyadagi barcha saytlar yig'indisi
   const usage = (await S.get('usage')) || {}, remote = (await S.get('remote')) || {};
-  const keys = new Set(Object.keys(usage[dayKey()] || {}).concat(Object.keys(remote)));
+  const keys = new Set(Object.keys(usage[dayKey()] || {}).concat(Object.keys(remote)).filter((k) => !isSection(k)));
   const cache = {};
   for (const k of keys) cache[k] = await usedToday(k);
   if (!(site.key in cache)) cache[site.key] = await usedToday(site.key);
   const used = (app) => app.startsWith('cat:') ? Object.keys(cache).filter((k) => catOf(cfg, k) === app.slice(4)).reduce((n, k) => n + cache[k], 0) : (cache[app] || 0);
   const v = check(cfg, site.key, used);
   if (!v) return;
-  const q = new URLSearchParams({ k: site.key, l: site.label, r: v.reason, m: v.rule && v.rule.minutes ? String(v.rule.minutes) : '', u: url });
+  const q = new URLSearchParams({ k: site.key, l: site.label, r: v.reason, m: v.rule && v.rule.minutes ? String(v.rule.minutes) : '', n: v.rule && v.rule.label && v.reason === 'mode' ? v.rule.label : '', u: url });
   chrome.tabs.update(tabId, { url: BLOCKED + '?' + q.toString() }).catch(() => {});
   event('site_block', site.key, site.label, v.reason);
 }
 async function enforceAll() {
   const tabs = await chrome.tabs.query({});
   for (const t of tabs) if (t.url) await enforce(t.id, t.url);
+}
+
+// ⏳ Ogohlantirish (Telegram orqali): kunlik limitning cfg.warnAt foizlarida va 5 daqiqa qolganda — kuniga bir marta
+async function warnCheck() {
+  const cfg = await cfgOf();
+  if (!(await S.get('token'))) return;
+  const warned = (await S.get('warned')) || {}, d = dayKey();
+  let changed = false;
+  for (const r of cfg.rules || []) {
+    const lim = r.kind === 'daily' && r.on && r.app && r.app.startsWith('site:') ? ruleMinutes(r) : 0;
+    if (!lim) continue;
+    const used = await usedToday(r.app), left = lim * 60 - used;
+    if (left <= 0) continue;
+    let best = -1;
+    for (const p of cfg.warnAt || []) { const k = d + '|' + r.app + '|p' + p; if (p > 0 && p < 100 && used * 100 >= lim * 60 * p && !warned[k]) { warned[k] = 1; changed = true; best = Math.max(best, p); } }
+    const k5 = d + '|' + r.app;
+    if (lim > 5 && left <= 300 && !warned[k5]) { warned[k5] = 1; changed = true; best = 0; }
+    if (best >= 0) event('warn', r.app, r.label || r.app, best ? 'p' + best : 'daily');
+  }
+  if (changed) { Object.keys(warned).forEach((k) => { if (!k.startsWith(d)) delete warned[k]; }); await S.set({ warned }); }
 }
 
 // ---------- Hodisalar → server → Telegram ----------
@@ -157,7 +200,7 @@ async function sync() {
     [dayKey(), dayKey(new Date(Date.now() - 86400000))].forEach((d) => {
       const day = usage[d] || {};
       Object.keys(day).sort((a, b) => day[b].s - day[a].s).slice(0, 80).forEach((k) => {
-        if (day[k].s >= 1) rows.push({ day: d, app: k, label: day[k].label, seconds: day[k].s, hours: day[k].h });
+        if (day[k].s >= 1 || day[k].o) rows.push({ day: d, app: k, label: day[k].label, seconds: day[k].s, hours: day[k].h, opens: day[k].o || 0, open_hours: day[k].oh || [] });
       });
     });
     const events = (await S.get('events')) || [];
@@ -171,6 +214,7 @@ async function sync() {
     }
     await S.set({ cfg: r.config || {}, remote: r.site_usage || {}, device: r.device || null, syncedAt: Date.now() });
     await enforceAll();
+    await warnCheck().catch(() => {});
     notifyPopup();
   } catch (e) { /* oflayn — keyingi daqiqada qayta urinadi */ }
   finally { syncing = false; }
@@ -197,4 +241,19 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg && msg.type === 'fg:sync') { sync().then(() => reply({ ok: true })); return true; }
   if (msg && msg.type === 'fg:unpair') { S.set({ token: null, cfg: {}, remote: {} }).then(() => reply({ ok: true })); return true; }
   if (msg && msg.type === 'fg:closeTab' && sender.tab) { chrome.tabs.remove(sender.tab.id); }
+  // Sayt ichidagi bo'lim vaqti (insite.js har 5 soniyada)
+  if (msg && msg.type === 'fg:sec' && typeof msg.key === 'string' && /^site:[a-z0-9.]+#[a-z]+$/.test(msg.key)) {
+    (async () => { const cfg = await cfgOf(); if (cfg.track !== false && (await S.get('token'))) await addUsage(msg.key, String(msg.label || '').slice(0, 60), Math.min(30, Math.max(0, +msg.s || 0)), new Date()); })().then(() => reply({ ok: true }));
+    return true;
+  }
+  if (msg && msg.type === 'fg:secUsed' && Array.isArray(msg.keys)) {
+    (async () => { const out = {}; for (const k of msg.keys.slice(0, 10)) out[k] = await usedToday(String(k)); return out; })().then(reply);
+    return true;
+  }
+  // "Nafas oling" sahifasi: "Ha, kerak" — N daqiqa ruxsat; "Yo'q" — hodisa
+  if (msg && msg.type === 'fg:grant' && typeof msg.key === 'string') {
+    (async () => { const { grants } = await chrome.storage.session.get('grants'); const g = grants || {}; g[msg.key] = Date.now() + Math.min(240, Math.max(1, +msg.min || 15)) * 60000; await chrome.storage.session.set({ grants: g }); })().then(() => reply({ ok: true }));
+    return true;
+  }
+  if (msg && msg.type === 'fg:mindfulNo' && typeof msg.key === 'string') { event('site_block', msg.key, String(msg.label || msg.key), 'mindful'); if (sender.tab) chrome.tabs.remove(sender.tab.id); }
 });

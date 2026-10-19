@@ -535,3 +535,174 @@ a.fg-btn { display: inline-flex; align-items: center; justify-content: center; g
 .fg-rwh-top em { font-style: normal; font-weight: 800; color: var(--red); font-variant-numeric: tabular-nums; }
 .fg-rwh-why { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 3px 0; }
 .fg-rwh-it small { display: block; margin-top: 6px; font-size: 11.5px; color: var(--text-muted); }
+
+/* ============================================================
+   v0.6 — StayFree uslubidagi qo'shimchalar: qidiruv, filtrlar, kalendar, grafik, legend, belgilar,
+   tarix, pauza, rejimlar, oq ro'yxat, ongli ochish, sayt ichidagi donut va limitlar, PIN
+   ============================================================ */
+/* 🧭 Sozlash bosqichlari */
+.fg-setup-h > b { flex: 1; min-width: 0; font-size: 14.5px; }
+.fg-setup-h > em { font-style: normal; font-size: 13px; font-weight: 600; color: var(--accent); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.fg-setup-bar { flex: none; width: 70px; height: 6px; border-radius: 6px; background: var(--surface2); overflow: hidden; }
+.fg-setup-bar i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.fg-setup-l { display: flex; flex-direction: column; gap: 6px; padding: 0 12px 12px; }
+.fg-setup-s { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.fg-setup-s > span:first-child { font-size: 20px; }
+.fg-setup-s i { margin-left: auto; font-style: normal; color: var(--text-muted); }
+.fg-setup-s.ok { opacity: .6; cursor: default; }
+.fg-setup-n { display: flex; flex-direction: column; min-width: 0; }
+.fg-setup-n b { font-size: 13.5px; }
+.fg-setup-n small { font-size: 12px; color: var(--text-muted); }
+
+/* 🔍 Qidiruv */
+.fg-search { position: relative; }
+.fg-search .fg-in { height: 48px; border-radius: 16px; background: var(--surface); padding-left: 14px; }
+.fg-search-r { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 6px); max-height: 360px; overflow: auto; padding: 6px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(0,0,0,.35); }
+
+/* 🎛 Filtrlar */
+.fg-reset { align-self: flex-start; border: 0; background: none; color: var(--text-muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 2px 4px; }
+.fg-reset:hover { color: var(--text); }
+.fg-filters { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.fg-filters::-webkit-scrollbar { display: none; }
+.fg-filters > * { flex: none; }
+.fg-filters .fg-sel { margin-left: 0; border-radius: 999px; padding: 0 14px; max-width: 240px; background: var(--surface2); }
+.fg-date-l { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; cursor: pointer; white-space: nowrap; color: var(--accent); font-size: 14px; }
+.fg-date-l b { min-width: 0; }
+.fg-date-l input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; }
+
+/* 📈 Taqqoslash va grafik */
+.fg-cmps { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 10px; }
+.fg-cmp { display: inline-flex; align-items: baseline; gap: 4px; font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--surface2); color: var(--text-muted); }
+.fg-cmp small { font-weight: 500; font-size: 11.5px; }
+.fg-cmp.up { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
+.fg-cmp.down { color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); }
+.fg-plot { position: relative; }
+.fg-ymax { position: absolute; left: 0; top: -2px; font-size: 10px; color: var(--text-muted); z-index: 1; }
+.fg-chart { padding-top: 14px; }
+button.fg-col { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: inherit; }
+.fg-col .fg-stk { position: static; display: flex; flex-direction: column; width: 100%; max-width: 26px; border-radius: 6px 6px 3px 3px; overflow: hidden; transition: height .4s cubic-bezier(.2,.8,.3,1); }
+.fg-col .fg-stk i { flex: 1 1 0; min-height: 2px; max-width: none; border-radius: 0; transition: none; }
+.fg-col .fg-stk i.b { background: linear-gradient(180deg, color-mix(in srgb, var(--info) 80%, #fff), var(--info)); }
+.fg-col:hover .fg-stk { filter: brightness(1.2); }
+.fg-col.sel .fg-stk { filter: brightness(1.25); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.fg-col.z::after { order: 9; }
+.fg-line { margin-top: 14px; background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(100% / 23 - 1px), color-mix(in srgb, var(--border) 70%, transparent) calc(100% / 23 - 1px), color-mix(in srgb, var(--border) 70%, transparent) calc(100% / 23)); }
+.fg-line .ar { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.fg-line .ln { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.fg-line .ar.b { fill: color-mix(in srgb, var(--info) 16%, transparent); }
+.fg-line .ln.b { stroke: var(--info); }
+.fg-dots { position: absolute; inset: 0; }
+.fg-hit { position: absolute; top: 0; bottom: 0; width: calc(100% / 24); transform: translateX(-50%); border: 0; background: none; padding: 0; cursor: pointer; }
+.fg-hit i { position: absolute; left: 50%; width: 7px; height: 7px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
+.fg-hit i.b { background: var(--info); }
+.fg-hit.sel { background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 6px; }
+.fg-hit.sel i { width: 10px; height: 10px; }
+.fg-line-x span:nth-child(2) { position: absolute; left: 50%; transform: translateX(-50%); }
+.fg-tip { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12.5px; color: var(--text-muted); padding: 8px 10px; margin-bottom: 8px; border-radius: 12px; background: var(--surface2); }
+.fg-tip b { color: var(--text); }
+.fg-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.fg-tip i.b { background: var(--info); }
+.fg-lg { display: inline-flex; align-items: flex-start; gap: 8px; border: 0; background: none; color: var(--text-muted); font: inherit; font-size: 12.5px; cursor: pointer; padding: 2px 0; text-align: left; }
+.fg-lg span { display: flex; flex-direction: column; }
+.fg-lg i { margin: 3px 0 0 !important; }
+.fg-lg b { font-size: 14px; }
+.fg-lg.off { opacity: .4; }
+.fg-lg.off b { text-decoration: line-through; }
+.fg-eye { border: 0; background: var(--surface2); width: 34px; height: 34px; border-radius: 10px; cursor: pointer; font-size: 15px; }
+button.fg-total { border: 0; background: none; color: var(--text-muted); font: inherit; cursor: pointer; }
+button.fg-total:hover b { text-decoration: underline; }
+
+/* Ilova qatori va belgilar */
+div.fg-row.fg-app { cursor: pointer; }
+div.fg-row.fg-app:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); transform: translateY(-1px); }
+div.fg-row.fg-app:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fg-bdg { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; letter-spacing: .5px; }
+.fg-bdg:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.fg-bdg.red { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
+
+/* 🛡 Bloklash tarixi */
+.fg-hist-k { font-size: 13px; color: var(--text-muted); margin: -4px 0 8px; }
+.fg-hist-k b { color: var(--text); font-size: 15px; }
+.fg-ev { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+.fg-ev-t { flex: none; width: 42px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.fg-ev-n { display: flex; flex-direction: column; min-width: 0; }
+.fg-ev-n b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fg-ev-n small { font-size: 11.5px; color: var(--red); }
+.fg-ev.warn .fg-ev-n small { color: var(--gold); }
+.fg-sheet .fg-ev { padding: 8px 2px; }
+
+/* ⏸ Pauza */
+.fg-pause { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; }
+.fg-pause-ic { font-size: 22px; }
+.fg-pause-t { flex: 1; min-width: 150px; display: flex; flex-direction: column; }
+.fg-pause-t b { font-size: 14px; }
+.fg-pause-t small { font-size: 12px; color: var(--text-muted); }
+.fg-pause.on { border-color: color-mix(in srgb, var(--gold) 45%, var(--border)); background: linear-gradient(120deg, var(--gold-dim), var(--surface)); }
+.fg-pause.on small span { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--gold); }
+.fg-chips button:disabled { opacity: .4; cursor: default; }
+
+/* 🎯 Fokus: o'z vaqti, turi */
+.fg-chip-in { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 600; padding: 0 10px; border-radius: 999px; height: 35px; }
+.fg-chip-in.on { border-color: var(--accent); color: var(--accent); }
+.fg-chip-in input { width: 52px; border: 0; background: none; color: var(--text); font: inherit; outline: none; text-align: center; -moz-appearance: textfield; }
+.fg-chip-in input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.fg-seg.wide { width: 100%; }
+.fg-seg.wide button { flex: 1; width: auto; height: 38px; font-size: 13px; font-weight: 600; }
+
+/* 🎭 Rejimlar va 🌬 ongli ochish */
+.fg-tile.emo { font-weight: 400; }
+.fg-row.fg-mode-on { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface)); }
+.fg-row-btn { border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; padding: 0; }
+.fg-emos { margin-top: 8px; }
+.fg-emos button { font-size: 18px; padding: 6px 10px; }
+.fg-msched { margin-top: 8px; display: flex; flex-direction: column; gap: 10px; }
+.fg-mfset { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; padding: 12px 14px; font-size: 12.5px; color: var(--text-muted); }
+.fg-mfset .fg-chips button { padding: 6px 10px; }
+.fg-more { align-self: center; border: 0; background: none; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 8px; }
+
+/* 🧩 Sayt ichida: donut, limit */
+.fg-acc-h b small { font-weight: 500; color: var(--text-muted); }
+.fg-is-l { display: inline-flex; align-items: center; gap: 10px; }
+.fg-is-l i { font-style: normal; width: 22px; text-align: center; }
+.fg-islim { display: flex; flex-direction: column; gap: 4px; padding: 0 0 12px 32px; font-size: 12.5px; color: var(--text-muted); }
+.fg-islim label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fg-sel.sm { height: 32px; font-size: 12.5px; margin-left: 0; color: var(--accent); }
+.fg-islim b { color: var(--text); }
+.fg-donut-w { padding: 4px 0 14px; display: grid; grid-template-columns: 1fr; gap: 10px; }
+.fg-donut-t { text-align: center; font-size: 13px; color: var(--text-muted); }
+.fg-q { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border-hover, var(--border)); font-size: 10px; cursor: help; }
+.fg-donut { position: relative; width: 170px; height: 170px; margin: 0 auto; }
+.fg-donut svg { width: 100%; height: 100%; transform: rotate(0deg); }
+.fg-donut svg circle { transition: stroke-dasharray .5s; }
+.fg-donut-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.fg-donut-c b { font-size: 16px; color: var(--text); }
+.fg-donut-c small { font-size: 11px; color: var(--text-muted); }
+.fg-donut-l { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 12.5px; color: var(--text-muted); }
+.fg-donut-l span { display: inline-flex; align-items: center; gap: 6px; }
+.fg-donut-l i { width: 10px; height: 10px; border-radius: 2px; }
+.fg-donut-l b { color: var(--text); }
+.fg-sheet .fg-donut-w { margin-top: 6px; }
+
+/* 📅 Kunlar bo'yicha limit */
+.fg-perday { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 8px; }
+.fg-perday label { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+.fg-perday .fg-in { height: 38px; padding: 0 4px; text-align: center; font-size: 13px; }
+.fg-perday small { grid-column: 1 / -1; font-size: 11.5px; color: var(--text-muted); }
+
+/* ⏳ Ogohlantirish va 🔑 PIN */
+.fg-opt-col { align-items: flex-start; }
+.fg-opt-col .fg-chips { margin-top: 8px; }
+.fg-pinbox { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+.fg-pin { max-width: 260px; text-align: center; letter-spacing: 6px; font-size: 20px; }
+.fg-pin.err { border-color: var(--red); animation: fg-shake .3s; }
+@keyframes fg-shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+@media (max-width: 600px) {
+  .fg-filters .fg-sel { max-width: 200px; flex: none; }
+  .fg-perday { gap: 3px; }
+  .fg-perday .fg-in { font-size: 12px; }
+  .fg-donut { width: 150px; height: 150px; }
+  .fg-mfset { grid-template-columns: 1fr; }
+  .fg-hit i { width: 5px; height: 5px; }
+}
+.fg-msched[hidden], .fg-perday[hidden] { display: none; }

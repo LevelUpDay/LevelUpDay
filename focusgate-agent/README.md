@@ -4,6 +4,7 @@ Soat yonida (tray) ishlaydigan kichik dastur:
 
 - **Kuzatish** — har soniyada faol oynani o'qiydi, dastur/saytda o'tgan vaqtni hisoblaydi (2 daqiqa harakatsiz bo'lsa hisoblanmaydi). Saytlar brauzer oynasi sarlavhasidan aniqlanadi (YouTube, Instagram, TikTok, ...).
 - **Bloklash** — har 2 soniyada qoidalarni tekshiradi: kunlik limit, jadval, doimiy blok, seans limiti, fokus sessiyasi. Bloklangan dastur yopiladi, bloklangan sayt tabi (Ctrl+W) yopiladi. Tizim jarayonlari hech qachon yopilmaydi.
+- **v0.6** — ochilishlar soni (`opens`), kunlar bo'yicha limit (`rule.perDay`), foizli ogohlantirish (`warnAt`), rejimlar (`modes`), fokusda oq ro'yxat (`allowOnly`/`allowApps` — ro'yxatda yo'q oyna yig'iladi), ongli ochish (`mindful` — oyna yig'iladi, N soniyadan keyin "rostdan kerakmi?").
 - **Sinxronlash** — har 30 soniyada `supabase/functions/focusgate` bilan: foydalanish → `fg_usage`, sozlamalar ← `fg_config`.
 - **Ulash** — birinchi ishga tushishda brauzerda `levelupday.github.io/LevelUpDay/#fgpair=XXXX-XXXX` ochiladi, foydalanuvchi "Ulash" ni bosadi.
 - **Dasturlar ro'yxati** — Start menyusi va ish stoli yorliqlari (.lnk, Squirrel `Update.exe --processStart` ham), `Uninstall` yozuvlari va ishlab turgan jarayonlardan yig'iladi; 6 soatda bir `fg_devices.apps` ga yuboriladi.

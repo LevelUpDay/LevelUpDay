@@ -23,6 +23,19 @@ type Rule struct {
 	From    string `json:"from"` // "09:00"
 	To      string `json:"to"`   // "18:00"
 	On      bool   `json:"on"`
+	PerDay  map[string]int `json:"perDay"` // kunlik limit hafta kuni bo'yicha: "1".."7" → daqiqa (yo'q — Minutes)
+}
+
+// Mode — "Ish", "Uyqu", "Imtihon" kabi rejim: yoqilganda (yoki jadval vaqtida) ro'yxatdagilar bloklanadi.
+type Mode struct {
+	ID    string     `json:"id"`
+	Name  string     `json:"name"`
+	Apps  []FocusApp `json:"apps"`
+	On    bool       `json:"on"`
+	Sched bool       `json:"sched"`
+	Days  []int      `json:"days"`
+	From  string     `json:"from"`
+	To    string     `json:"to"`
 }
 
 type FocusApp struct {
@@ -40,6 +53,13 @@ type Config struct {
 	FocusUntil int64      `json:"focusUntil"` // ms
 	PauseUntil int64      `json:"pauseUntil"` // ms
 	Cats       map[string]string `json:"cats"`
+	Modes      []Mode            `json:"modes"`
+	AllowOnly  bool              `json:"allowOnly"`  // fokus paytida faqat AllowApps ishlaydi
+	AllowApps  []FocusApp        `json:"allowApps"`
+	Mindful    []FocusApp        `json:"mindful"`    // ochishdan oldin "rostdan kerakmi?" so'raladi
+	MindfulMin int               `json:"mindfulMin"` // "Ha" desa — necha daqiqa ruxsat (standart 15)
+	MindfulSec int               `json:"mindfulSec"` // savoldan oldin kutish (standart 10 s)
+	WarnAt     []int             `json:"warnAt"`     // qo'shimcha ogohlantirish: limitning 50%, 80% ...
 	Lang       string            `json:"lang"` // LevelUpDay'da tanlangan til: uz | en | ru // foydalanuvchi o'zgartirgan kategoriyalar: ilova → kategoriya
 }
 
@@ -48,9 +68,11 @@ func (c *Config) NotifOn() bool { return c.Notif == nil || *c.Notif }
 
 // ---------- Foydalanish hisobi ----------
 type AppUsage struct {
-	Label string    `json:"label"`
-	Sec   int       `json:"s"`
-	Hours [24]int   `json:"h"`
+	Label string  `json:"label"`
+	Sec   int     `json:"s"`
+	Hours [24]int `json:"h"`
+	Opens int     `json:"o"`  // necha marta ochilgan (boshqa ilovadan o'tilgan)
+	OH    [24]int `json:"oh"` // ochilishlar soatlar bo'yicha
 }
 
 type State struct {
@@ -88,6 +110,26 @@ func (s *State) Add(t time.Time, app, label string, sec int) {
 	}
 	u.Sec += sec
 	u.Hours[t.Hour()] += sec
+}
+
+// AddOpen — ilova ochilganini (seans boshlanganini) sanaydi.
+func (s *State) AddOpen(t time.Time, app, label string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	d := DayKey(t)
+	if s.Usage[d] == nil {
+		s.Usage[d] = map[string]*AppUsage{}
+	}
+	u := s.Usage[d][app]
+	if u == nil {
+		u = &AppUsage{}
+		s.Usage[d][app] = u
+	}
+	if label != "" && u.Label == "" {
+		u.Label = label
+	}
+	u.Opens++
+	u.OH[t.Hour()]++
 }
 
 func (s *State) Seconds(t time.Time, app string) int {
@@ -133,8 +175,10 @@ type UsageRow struct {
 	Day     string `json:"day"`
 	App     string `json:"app"`
 	Label   string `json:"label"`
-	Seconds int    `json:"seconds"`
-	Hours   []int  `json:"hours"`
+	Seconds   int    `json:"seconds"`
+	Hours     []int  `json:"hours"`
+	Opens     int    `json:"opens"`
+	OpenHours []int  `json:"open_hours"`
 }
 
 // Rows — serverga yuboriladigan qatorlar (bugun va kecha).
@@ -153,7 +197,7 @@ func (s *State) Rows(t time.Time) []UsageRow {
 			if u.Sec < 1 {
 				continue
 			}
-			out = append(out, UsageRow{Day: d, App: a, Label: u.Label, Seconds: u.Sec, Hours: u.Hours[:]})
+			out = append(out, UsageRow{Day: d, App: a, Label: u.Label, Seconds: u.Sec, Hours: u.Hours[:], Opens: u.Opens, OpenHours: u.OH[:]})
 		}
 	}
 	return out
@@ -260,7 +304,7 @@ var Protected = map[string]bool{
 
 type Verdict struct {
 	Blocked bool
-	Reason  string // "daily" | "always" | "schedule" | "focus" | "session"
+	Reason  string // "daily" | "always" | "schedule" | "focus" | "session" | "mode" | "allow"
 	Rule    *Rule
 }
 
@@ -280,14 +324,21 @@ func hm(s string) int {
 	return h*60 + m
 }
 
-func inSchedule(r *Rule, t time.Time) bool {
+func weekday(t time.Time) int {
 	wd := int(t.Weekday())
 	if wd == 0 {
 		wd = 7
 	}
-	if len(r.Days) > 0 {
+	return wd
+}
+
+func inSchedule(r *Rule, t time.Time) bool { return inWindow(r.Days, r.From, r.To, t) }
+
+func inWindow(days []int, fromS, toS string, t time.Time) bool {
+	wd := weekday(t)
+	if len(days) > 0 {
 		ok := false
-		for _, d := range r.Days {
+		for _, d := range days {
 			if d == wd {
 				ok = true
 			}
@@ -296,7 +347,7 @@ func inSchedule(r *Rule, t time.Time) bool {
 			return false
 		}
 	}
-	from, to, now := hm(r.From), hm(r.To), t.Hour()*60+t.Minute()
+	from, to, now := hm(fromS), hm(toS), t.Hour()*60+t.Minute()
 	if from == to {
 		return true
 	}
@@ -304,6 +355,55 @@ func inSchedule(r *Rule, t time.Time) bool {
 		return now >= from && now < to
 	}
 	return now >= from || now < to // tun bo'yi (22:00–06:00)
+}
+
+// RuleMinutes — kunlik limit bugun necha daqiqa (hafta kuni bo'yicha alohida bo'lishi mumkin).
+func RuleMinutes(r *Rule, t time.Time) int {
+	if r.PerDay != nil {
+		if m, ok := r.PerDay[itoa(weekday(t))]; ok {
+			return m
+		}
+	}
+	return r.Minutes
+}
+
+// ModeActive — rejim hozir yoqilganmi (qo'lda yoki jadval bo'yicha).
+func ModeActive(m *Mode, t time.Time) bool {
+	return m.On || (m.Sched && inWindow(m.Days, m.From, m.To, t))
+}
+
+// FocusOn — fokus sessiyasi davom etmoqdami.
+func FocusOn(cfg *Config, t time.Time) bool { return cfg.FocusUntil > t.UnixMilli() }
+
+// Allowed — "faqat ruxsat etilganlar" fokus rejimida ilova ruxsat etilganmi.
+func Allowed(cfg *Config, st *State, app string) bool {
+	if Protected[app] || strings.HasPrefix(app, "focusgate") {
+		return true
+	}
+	for _, f := range cfg.AllowApps {
+		if matchApp(cfg, st, f.App, app) {
+			return true
+		}
+	}
+	return false
+}
+
+// AllowBlocks — fokusdagi oq ro'yxat rejimida shu ilova to'xtatilishi kerakmi.
+func AllowBlocks(cfg *Config, st *State, app string, t time.Time) bool {
+	if !cfg.AllowOnly || !FocusOn(cfg, t) || (!cfg.Strict && cfg.PauseUntil > t.UnixMilli()) {
+		return false
+	}
+	return !Allowed(cfg, st, app)
+}
+
+// IsMindful — ochishdan oldin "rostdan kerakmi?" so'raladigan ilova.
+func IsMindful(cfg *Config, st *State, app string) bool {
+	for _, f := range cfg.Mindful {
+		if f.On && matchApp(cfg, st, f.App, app) {
+			return true
+		}
+	}
+	return false
 }
 
 // Check — ilova (exe yoki site:...) hozir bloklanganmi?
@@ -322,6 +422,17 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 			}
 		}
 	}
+	for i := range cfg.Modes {
+		m := &cfg.Modes[i]
+		if !ModeActive(m, t) {
+			continue
+		}
+		for _, f := range m.Apps {
+			if matchApp(cfg, st, f.App, app) {
+				return Verdict{true, "mode", &Rule{Label: m.Name}}
+			}
+		}
+	}
 	for i := range cfg.Rules {
 		r := &cfg.Rules[i]
 		if !r.On || !matchApp(cfg, st, r.App, app) {
@@ -335,7 +446,7 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 				return Verdict{true, "schedule", r}
 			}
 		case "daily":
-			if r.Minutes > 0 && usedFor(cfg, st, r.App, t) >= r.Minutes*60 {
+			if m := RuleMinutes(r, t); m > 0 && usedFor(cfg, st, r.App, t) >= m*60 {
 				return Verdict{true, "daily", r}
 			}
 		}
@@ -353,23 +464,50 @@ func SessionLimit(cfg *Config, st *State, app string) int {
 	return 0
 }
 
-// WarnDue — kunlik limit tugashiga ≤5 daqiqa qolganda bir marta ogohlantirish.
-func WarnDue(cfg *Config, st *State, t time.Time) []Rule {
-	var out []Rule
+// Warn — ogohlantirish: Pct = 0 — "5 daqiqa qoldi", aks holda limitning Pct foizi ishlatildi.
+type Warn struct {
+	Rule Rule
+	Pct  int
+	Left int // soniya
+}
+
+// WarnDue — kunlik limit tugashiga ≤5 daqiqa qolganda va cfg.WarnAt foizlarida (har biri kuniga bir marta).
+func WarnDue(cfg *Config, st *State, t time.Time) []Warn {
+	var out []Warn
 	for _, r := range cfg.Rules {
-		if !r.On || r.Kind != "daily" || r.Minutes <= 5 {
+		mins := RuleMinutes(&r, t)
+		if !r.On || r.Kind != "daily" || mins <= 0 {
 			continue
 		}
 		used := usedFor(cfg, st, r.App, t)
-		left := r.Minutes*60 - used
-		key := DayKey(t) + "|" + r.App
+		left := mins*60 - used
+		if left <= 0 {
+			continue
+		}
 		st.mu.Lock()
-		done := st.Warned[key]
-		if left > 0 && left <= 300 && !done {
+		// Eng katta yetilgan foiz bitta xabar bo'ladi (50% va 80% bir vaqtda yetilsa — faqat 80%)
+		best := -1
+		for _, p := range cfg.WarnAt {
+			if p <= 0 || p >= 100 || used*100 < mins*60*p {
+				continue
+			}
+			key := DayKey(t) + "|" + r.App + "|p" + itoa(p)
+			if !st.Warned[key] {
+				st.Warned[key] = true
+				if p > best {
+					best = p
+				}
+			}
+		}
+		key := DayKey(t) + "|" + r.App
+		if mins > 5 && left <= 300 && !st.Warned[key] {
 			st.Warned[key] = true
-			out = append(out, r)
+			best = 0
 		}
 		st.mu.Unlock()
+		if best >= 0 {
+			out = append(out, Warn{r, best, left})
+		}
 	}
 	return out
 }

@@ -4,9 +4,10 @@
 //   2) sayt:   {action:'pair_approve', code} + foydalanuvchi JWT → qurilma yaratiladi
 //   3) agent:  {action:'pair_poll', code}         → {token} (bir martalik; keyin kod o'chiriladi)
 //  Sinxronlash:
-//      agent:  {action:'sync', token, version, usage:[{day, app, label, seconds, hours[24]}], apps?:[{exe, name, cat?, icon?}], events?:[{kind, app, label, reason, at}]}
-//      kengaytma ham shu funksiyadan foydalanadi (qurilma nomi 'Chrome …').
+//      agent:  {action:'sync', token, version, usage:[{day, app, label, seconds, hours[24], opens?, open_hours?[24]}], apps?:[{exe, name, cat?, icon?}], events?:[{kind, app, label, reason, at}]}
+//      kengaytma ham shu funksiyadan foydalanadi (qurilma nomi 'Chrome …'). Sayt bo'limlari: "site:youtube#shorts".
 //              → {config, device, now}   (usage — shu qurilmaning kunlik umumiy qiymatlari, ustiga yoziladi)
+//  Haftalik hisobot: {action:'weekly_report'} — faqat pg_cron (x-cron-secret), yakshanba kechqurun Telegram'ga.
 // JWT tekshiruvi o'chirilgan: agent qurilma tokeni bilan, sayt esa foydalanuvchi JWT bilan tekshiriladi.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
@@ -14,14 +15,14 @@ const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const PAIR_TTL_MS = 15 * 60 * 1000;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const APP_URL = "https://levelupday.github.io/LevelUpDay/#focusgate";
+const APP_URL = "https://levelupday.github.io/LevelUpDay/focusgate";
 
 // ---------- ✈️ Telegram: bloklash / ogohlantirish xabarlari ----------
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!));
 const TX: Record<string, Record<string, string>> = {
-  uz: { head: "🛡 <b>Focusgate</b>", block: "yopildi", site: "sayt tabi yopildi", warn: "kunlik limitga 5 daqiqa qoldi", daily: "bugungi limit tugadi", always: "doimiy bloklangan", schedule: "jadval bo'yicha bloklangan", focus: "fokus vaqtida", session: "seans vaqti tugadi", btn: "📊 Focusgate'ni ochish", more: "yana" },
-  en: { head: "🛡 <b>Focusgate</b>", block: "was closed", site: "tab was closed", warn: "5 minutes left of your daily limit", daily: "daily limit reached", always: "always blocked", schedule: "blocked by schedule", focus: "during focus", session: "session time is up", btn: "📊 Open Focusgate", more: "more" },
-  ru: { head: "🛡 <b>Focusgate</b>", block: "закрыто", site: "вкладка закрыта", warn: "до дневного лимита 5 минут", daily: "дневной лимит исчерпан", always: "заблокировано навсегда", schedule: "заблокировано по расписанию", focus: "во время фокуса", session: "время сессии вышло", btn: "📊 Открыть Focusgate", more: "ещё" },
+  uz: { head: "🛡 <b>Focusgate</b>", block: "yopildi", site: "sayt tabi yopildi", warn: "kunlik limitga 5 daqiqa qoldi", warnp: "kunlik limitning {p}% ishlatildi", daily: "bugungi limit tugadi", always: "doimiy bloklangan", schedule: "jadval bo'yicha bloklangan", focus: "fokus vaqtida", session: "seans vaqti tugadi", mode: "rejim bo'yicha bloklangan", allow: "fokusda faqat ruxsat etilganlar", mindful: "«kerak emas» deb yopdingiz 👏", btn: "📊 Focusgate'ni ochish", more: "yana" },
+  en: { head: "🛡 <b>Focusgate</b>", block: "was closed", site: "tab was closed", warn: "5 minutes left of your daily limit", warnp: "{p}% of the daily limit used", daily: "daily limit reached", always: "always blocked", schedule: "blocked by schedule", focus: "during focus", session: "session time is up", mode: "blocked by a mode", allow: "only allowed apps during focus", mindful: "you chose not to open it 👏", btn: "📊 Open Focusgate", more: "more" },
+  ru: { head: "🛡 <b>Focusgate</b>", block: "закрыто", site: "вкладка закрыта", warn: "до дневного лимита 5 минут", warnp: "использовано {p}% дневного лимита", daily: "дневной лимит исчерпан", always: "заблокировано навсегда", schedule: "заблокировано по расписанию", focus: "во время фокуса", session: "время сессии вышло", mode: "заблокировано режимом", allow: "в фокусе только разрешённые", mindful: "вы решили не открывать 👏", btn: "📊 Открыть Focusgate", more: "ещё" },
 };
 async function tgNotify(sb: any, userId: string, events: { id: number; kind: string; app: string; label: string | null; reason: string | null }[]) {
   if (!BOT_TOKEN || !events.length) return;
@@ -36,7 +37,7 @@ async function tgNotify(sb: any, userId: string, events: { id: number; kind: str
   const lang = ["ru", "en"].includes(String(link.lang)) ? String(link.lang) : "uz", t = TX[lang];
   const line = (e: typeof send[0]) => {
     const name = esc(e.label || e.app.replace(/^site:/, "").replace(/\.exe$/, ""));
-    if (e.kind === "warn") return `⏳ <b>${name}</b> — ${t.warn}`;
+    if (e.kind === "warn") { const p = /^p(\d{1,2})$/.exec(e.reason || ""); return `⏳ <b>${name}</b> — ${p ? t.warnp.replace("{p}", p[1]) : t.warn}`; }
     return `⛔ <b>${name}</b> ${e.kind === "site_block" ? t.site : t.block}${e.reason && t[e.reason] ? " · " + t[e.reason] : ""}`;
   };
   const lines = send.slice(0, 6).map(line);
@@ -46,7 +47,41 @@ async function tgNotify(sb: any, userId: string, events: { id: number; kind: str
     body: JSON.stringify({ chat_id: link.chat_id, text: t.head + "\n" + lines.join("\n"), parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: [[{ text: t.btn, url: APP_URL }]] } }),
   }).catch(() => null);
   if (r && r.status === 403) await sb.from("telegram_links").update({ enabled: false }).eq("user_id", userId);
-  await sb.from("fg_events").update({ notified: true }).in("id", send.map((e) => e.id));
+  // Faqat yuborilgan bo'lsa "xabar berildi" deb belgilaymiz (aks holda keyingi sinxronda qayta urinadi)
+  if (r && r.ok) await sb.from("fg_events").update({ notified: true }).in("id", send.map((e) => e.id));
+}
+
+// ---------- 📊 Haftalik hisobot (cron, yakshanba kechqurun) ----------
+const WK: Record<string, Record<string, string>> = {
+  uz: { head: "📊 <b>Focusgate · haftalik hisobot</b>", total: "Bu hafta ekran vaqti", less: "o'tgan haftadan kam", more: "o'tgan haftadan ko'p", same: "o'tgan hafta bilan bir xil", top: "Eng ko'p vaqt", h: "s", m: "daq", btn: "📊 Batafsil" },
+  en: { head: "📊 <b>Focusgate · weekly report</b>", total: "Screen time this week", less: "less than last week", more: "more than last week", same: "same as last week", top: "Top apps", h: "h", m: "m", btn: "📊 Details" },
+  ru: { head: "📊 <b>Focusgate · недельный отчёт</b>", total: "Экранное время за неделю", less: "меньше, чем на прошлой неделе", more: "больше, чем на прошлой неделе", same: "как на прошлой неделе", top: "Больше всего времени", h: "ч", m: "мин", btn: "📊 Подробнее" },
+};
+function fmtHM(sec: number, t: Record<string, string>) { const m = Math.round(sec / 60), h = Math.floor(m / 60); return h ? `${h} ${t.h} ${m % 60} ${t.m}` : `${m} ${t.m}`; }
+async function weeklyReport(sb: any) {
+  if (!BOT_TOKEN) return 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: rows, error } = await sb.rpc("fg_weekly_summary", { p_today: today });
+  if (error || !rows?.length) return 0;
+  const ids = rows.map((r: any) => r.user_id);
+  const { data: links } = await sb.from("telegram_links").select("user_id,chat_id,enabled,prefs,lang").in("user_id", ids).eq("enabled", true);
+  let sent = 0;
+  for (const l of links || []) {
+    if (l.prefs && (l.prefs.fg === false || l.prefs.fgweekly === false)) continue;
+    const r = rows.find((x: any) => x.user_id === l.user_id); if (!r) continue;
+    const lang = ["ru", "en"].includes(String(l.lang)) ? String(l.lang) : "uz", t = WK[lang];
+    const pct = r.prev_sec ? Math.round((r.this_sec - r.prev_sec) / r.prev_sec * 100) : 0;
+    const cmp = !r.prev_sec ? "" : pct === 0 ? `\n➖ ${t.same}` : pct < 0 ? `\n📉 ${Math.abs(pct)}% ${t.less} 👏` : `\n📈 ${pct}% ${t.more}`;
+    const top = (Array.isArray(r.top) ? r.top : []).map((a: any, i: number) => `${i + 1}. ${esc(String(a.label || a.app).replace(/^site:/, "").replace(/\.exe$/, ""))} — ${fmtHM(a.s, t)}`).join("\n");
+    const text = `${t.head}\n\n⏱ ${t.total}: <b>${fmtHM(r.this_sec, t)}</b>${cmp}${top ? `\n\n🏆 ${t.top}:\n${top}` : ""}`;
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: l.chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: [[{ text: t.btn, url: APP_URL }]] } }),
+    }).catch(() => null);
+    if (res && res.status === 403) await sb.from("telegram_links").update({ enabled: false }).eq("user_id", l.user_id);
+    if (res && res.ok) sent++;
+  }
+  return sent;
 }
 
 const CORS = {
@@ -68,6 +103,7 @@ function pairCode() {
 }
 const CODE_RE = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const hours24 = (v: unknown, max: number) => Array.isArray(v) ? v.slice(0, 24).map((x: unknown) => Math.max(0, Math.min(max, Math.round(Number(x) || 0)))) : [];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -79,13 +115,33 @@ Deno.serve(async (req) => {
 
   // ---------- 1) Ulashni boshlash (agent) ----------
   if (action === "pair_start") {
-    const name = String(body.name || "Windows PC").slice(0, 60);
+    const name = String(body.name || "Windows PC").replace(/[\u0000-\u001f<>]/g, "").slice(0, 60);
+    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim().slice(0, 64) || null;
+    // Eskirgan kodlarni tozalaymiz; bitta manzildan 10 daqiqada ko'pi bilan 10 ta kod
+    await sb.from("fg_pair").delete().lt("created_at", new Date(Date.now() - PAIR_TTL_MS).toISOString());
+    if (ip) {
+      const { count } = await sb.from("fg_pair").select("code", { count: "exact", head: true }).eq("ip", ip).gte("created_at", new Date(Date.now() - 10 * 60000).toISOString());
+      if ((count || 0) >= 10) return json({ error: "rate_limited" }, 429);
+    }
     for (let i = 0; i < 4; i++) {
       const code = pairCode();
-      const { error } = await sb.from("fg_pair").insert({ code, device_name: name });
+      const { error } = await sb.from("fg_pair").insert({ code, device_name: name, ip });
       if (!error) return json({ code, ttl: PAIR_TTL_MS / 1000 });
     }
     return json({ error: "pair_failed" }, 500);
+  }
+
+  // ---------- 2a) Ulash so'rovi haqida ma'lumot (sayt tasdiqlashdan oldin ko'rsatadi) ----------
+  if (action === "pair_info") {
+    const code = String(body.code || "").toUpperCase().trim();
+    if (!CODE_RE.test(code)) return json({ error: "bad_code" }, 400);
+    const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    const { data: u } = await sb.auth.getUser(jwt);
+    if (!u?.user?.id) return json({ error: "unauthorized" }, 401);
+    const { data: p } = await sb.from("fg_pair").select("device_name,user_id,created_at").eq("code", code).maybeSingle();
+    if (!p || Date.now() - new Date(p.created_at).getTime() > PAIR_TTL_MS) return json({ error: "expired" }, 410);
+    if (p.user_id) return json({ error: "already_used" }, 409);
+    return json({ name: p.device_name, created_at: p.created_at, age_sec: Math.round((Date.now() - new Date(p.created_at).getTime()) / 1000) });
   }
 
   // ---------- 2) Ulashni tasdiqlash (sayt, foydalanuvchi JWT) ----------
@@ -99,11 +155,14 @@ Deno.serve(async (req) => {
     const { data: p } = await sb.from("fg_pair").select("code,device_name,user_id,created_at").eq("code", code).maybeSingle();
     if (!p || Date.now() - new Date(p.created_at).getTime() > PAIR_TTL_MS) return json({ error: "expired" }, 410);
     if (p.user_id) return json({ error: "already_used" }, 409);
+    // Atomar "band qilish": ikki marta bosilsa ham bitta qurilma yaratiladi
+    const { data: claimed } = await sb.from("fg_pair").update({ user_id: uid }).eq("code", code).is("user_id", null).select("code");
+    if (!claimed || !claimed.length) return json({ error: "already_used" }, 409);
     const token = randHex(32);
     const { data: dev, error: de } = await sb.from("fg_devices")
       .insert({ user_id: uid, name: p.device_name, token_hash: await sha256(token) }).select("id,name").single();
-    if (de || !dev) return json({ error: "device_failed" }, 500);
-    await sb.from("fg_pair").update({ user_id: uid, token }).eq("code", code);
+    if (de || !dev) { await sb.from("fg_pair").update({ user_id: null }).eq("code", code); return json({ error: "device_failed" }, 500); }
+    await sb.from("fg_pair").update({ token }).eq("code", code);
     return json({ ok: true, device: dev });
   }
 
@@ -132,12 +191,13 @@ Deno.serve(async (req) => {
       const day = String(r?.day || "");
       if (!DAY_RE.test(day)) continue;
       const age = (now - new Date(day + "T00:00:00Z").getTime()) / 86400000;
-      if (age > 3 || age < -2) continue; // faqat so'nggi kunlar
+      if (age > 4 || age < -2) continue; // faqat so'nggi kunlar (oflayn bo'lgan kunlar ham yetib kelsin)
       const app = String(r?.app || "").toLowerCase().slice(0, 120);
       if (!app) continue;
       const seconds = Math.max(0, Math.min(86400, Math.round(Number(r?.seconds) || 0)));
-      const hours = Array.isArray(r?.hours) ? r.hours.slice(0, 24).map((x: unknown) => Math.max(0, Math.min(3600, Math.round(Number(x) || 0)))) : [];
-      rows.push({ user_id: dev.user_id, device_id: dev.id, day, app, label: r?.label ? String(r.label).slice(0, 80) : null, seconds, hours, updated_at: new Date().toISOString() });
+      // opens/open_hours har doim yoziladi (eski agentlarda 0) — upsert'da ustunlar bir xil bo'lsin
+      const opens = Math.max(0, Math.min(5000, Math.round(Number(r?.opens) || 0)));
+      rows.push({ user_id: dev.user_id, device_id: dev.id, day, app, label: r?.label ? String(r.label).slice(0, 80) : null, seconds, hours: hours24(r?.hours, 3600), opens, open_hours: hours24(r?.open_hours, 1000), updated_at: new Date().toISOString() });
     }
     if (rows.length) {
       const { error } = await sb.from("fg_usage").upsert(rows, { onConflict: "user_id,device_id,day,app" });
@@ -166,7 +226,7 @@ Deno.serve(async (req) => {
     await sb.from("fg_devices").update(upd).eq("id", dev.id);
     // 🛡 Hodisalar: dastur yopildi / sayt yopildi / ogohlantirish → jurnal + Telegram
     if (Array.isArray(body.events) && body.events.length) {
-      const evs = body.events.slice(0, 50).map((e: any) => ({
+      const evs = body.events.slice(0, 30).map((e: any) => ({
         user_id: dev.user_id, device_id: dev.id,
         kind: ["block", "site_block", "warn"].includes(String(e?.kind)) ? String(e.kind) : "block",
         app: String(e?.app || "").toLowerCase().slice(0, 120), label: e?.label ? String(e.label).slice(0, 80) : null,
@@ -186,9 +246,10 @@ Deno.serve(async (req) => {
       site_usage = {};
       for (const r of su || []) site_usage[r.app] = Math.max(site_usage[r.app] || 0, r.seconds || 0);
     }
-    // Android: bugun BOSHQA qurilmalarda o'tgan vaqt (umumiy limit: kompyuter + telefon). Saytlar — eng kattasi, dasturlar — yig'indi.
+    // Bugun BOSHQA qurilmalarda o'tgan vaqt. Saytlar — eng kattasi, dasturlar — yig'indi.
     let others: Record<string, number> | undefined;
-    if (String(body.version || "").startsWith("android-") && DAY_RE.test(String(body.today || ""))) {
+    // Endi barcha qurilmalarga: umumiy kunlik limit (kompyuter + telefon + kengaytma) hamma joyda bir xil hisoblansin
+    if (DAY_RE.test(String(body.today || ""))) {
       const { data: ou } = await sb.from("fg_usage").select("app,seconds").eq("user_id", dev.user_id).eq("day", String(body.today)).neq("device_id", dev.id);
       others = {};
       for (const r of ou || []) {
@@ -197,6 +258,14 @@ Deno.serve(async (req) => {
       }
     }
     return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.name }, now, site_usage, others });
+  }
+
+  // ---------- 📊 Haftalik hisobot (faqat cron: x-cron-secret) ----------
+  if (action === "weekly_report") {
+    const { data: pc } = await sb.rpc("_push_config");
+    if (!pc?.cron_secret || req.headers.get("x-cron-secret") !== pc.cron_secret) return json({ error: "forbidden" }, 403);
+    const n = await weeklyReport(sb);
+    return json({ ok: true, sent: n });
   }
 
   return json({ error: "unknown_action" }, 400);

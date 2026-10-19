@@ -30,6 +30,8 @@ var (
 	pGetWindowTextLengthW    = user32.NewProc("GetWindowTextLengthW")
 	pMessageBoxW             = user32.NewProc("MessageBoxW")
 	pKeybdEvent              = user32.NewProc("keybd_event")
+	pShowWindow              = user32.NewProc("ShowWindow")
+	pSetForegroundWindow     = user32.NewProc("SetForegroundWindow")
 	pGetTickCount            = kernel32.NewProc("GetTickCount")
 	pCreateMutexW            = kernel32.NewProc("CreateMutexW")
 	pGetUserDefaultUILanguage = kernel32.NewProc("GetUserDefaultUILanguage")
@@ -158,6 +160,21 @@ func CloseTab() {
 	pKeybdEvent.Call(vkW, 0, 0, 0)
 	pKeybdEvent.Call(vkW, 0, keyUp, 0)
 	pKeybdEvent.Call(vkControl, 0, keyUp, 0)
+}
+
+// Minimize — oynani vazifalar paneliga yig'adi (SW_MINIMIZE).
+func Minimize(hwnd uintptr) {
+	if hwnd != 0 {
+		pShowWindow.Call(hwnd, 6)
+	}
+}
+
+// Restore — yig'ilgan oynani qaytaradi va oldinga chiqaradi (SW_RESTORE).
+func Restore(hwnd uintptr) {
+	if hwnd != 0 {
+		pShowWindow.Call(hwnd, 9)
+		pSetForegroundWindow.Call(hwnd)
+	}
 }
 
 // MessageBox — oddiy oyna (alohida goroutine'da chaqiring). Qaytaradi: 1=OK, 6=Yes, 7=No.

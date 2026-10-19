@@ -1,7 +1,7 @@
 {
-  "version": "0.5.3",
-  "sha256": "f5cf199f9325473f99cbbe67d4441cbae3bfb0f5b0fb479cd4eae3370c07ab2d",
+  "version": "0.6.0",
+  "sha256": "64df0a8706c135d96c448b8573515affac708f10272a76ed2bd5b8f877346458",
   "url": "https://levelupday.github.io/LevelUpDay/downloads/Focusgate.exe",
-  "notes": "Ulash tasdig'i o'rnatilgan LevelUpDay ilovasida ochiladi",
-  "ext": "0.5.0"
+  "notes": "Rejimlar, oq ro'yxat, ongli ochish, ochilishlar soni, foizli ogohlantirishlar, kunlar bo'yicha limit",
+  "ext": "0.6.0"
 }

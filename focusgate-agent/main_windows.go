@@ -188,9 +188,13 @@ func reasonText(v Verdict) string {
 	case "schedule":
 		return Tr("r_schedule", v.Rule.From+"–"+v.Rule.To)
 	case "daily":
-		return Tr("r_daily", FmtDur(v.Rule.Minutes*60))
+		return Tr("r_daily", FmtDur(RuleMinutes(v.Rule, time.Now())*60))
 	case "session":
 		return Tr("r_session")
+	case "mode":
+		return Tr("r_mode", v.Rule.Label)
+	case "allow":
+		return Tr("r_allow")
 	}
 	return Tr("r_blocked")
 }
@@ -353,6 +357,7 @@ func startPairing() {
 func trackLoop() {
 	tick := time.NewTicker(time.Second)
 	saveT := time.Now()
+	lastApp, lastActive := "", map[string]time.Time{} // ochilishlar soni: boshqa ilovadan o'tilsa (30 s dan ko'p tanaffus bilan)
 	for now := range tick.C {
 		st.mu.Lock()
 		cfg := st.Config
@@ -369,7 +374,16 @@ func trackLoop() {
 					label = strings.TrimSuffix(fg.Exe, ".exe")
 				}
 				st.Add(now, app, label, 1)
+				if app != lastApp {
+					if t0, ok := lastActive[app]; !ok || now.Sub(t0) > 30*time.Second {
+						st.AddOpen(now, app, label)
+					}
+					lastApp = app
+				}
+				lastActive[app] = now
 			}
+		} else {
+			lastApp = ""
 		}
 		if now.Sub(saveT) > 30*time.Second {
 			saveT = now
@@ -447,6 +461,14 @@ func enforceLoop() {
 				delete(sessions, pid)
 			}
 		}
+		// 🎯 Fokusda "faqat ruxsat etilganlar": faol oyna ro'yxatda bo'lmasa — yig'iladi (dastur) yoki tab yopiladi (sayt)
+		if fg, ok := GetForeground(); ok && fg.Exe != self && !noTrack[fg.Exe] && AllowBlocks(&cfg, st, fg.Exe, now) {
+			allowEnforce(&cfg, fg, now)
+		}
+		// 🌬 Ongli ochish: ro'yxatdagi dastur ochilsa — yig'iladi, N soniyadan keyin "rostdan kerakmi?" so'raladi
+		if fg, ok := GetForeground(); ok && !Browsers[fg.Exe] && IsMindful(&cfg, st, fg.Exe) {
+			mindfulAsk(&cfg, fg, procs)
+		}
 		// Saytlar: faol brauzer tabi bloklangan saytda bo'lsa — tab yopiladi
 		if fg, ok := GetForeground(); ok && Browsers[fg.Exe] {
 			if s, ok := SiteOf(fg.Title, cfg.Rules); ok {
@@ -457,16 +479,94 @@ func enforceLoop() {
 				}
 			}
 		}
-		for _, r := range WarnDue(&cfg, st, now) {
-			lbl := r.Label
+		for _, w := range WarnDue(&cfg, st, now) {
+			lbl := w.Rule.Label
 			if lbl == "" {
-				lbl = r.App
+				lbl = w.Rule.App
 			}
-			left := r.Minutes*60 - st.Seconds(now, r.App)
-			notify("warn:"+r.App, Tr("warn_title", lbl, FmtDur(left)), Tr("warn_body"))
-			event(now, "warn", r.App, lbl, "daily")
+			if w.Pct > 0 {
+				notify("warn:"+w.Rule.App, Tr("warn_pct_title", lbl, itoa(w.Pct)+"%"), Tr("warn_pct_body", FmtDur(w.Left)))
+				event(now, "warn", w.Rule.App, lbl, "p"+itoa(w.Pct))
+				continue
+			}
+			notify("warn:"+w.Rule.App, Tr("warn_title", lbl, FmtDur(w.Left)), Tr("warn_body"))
+			event(now, "warn", w.Rule.App, lbl, "daily")
 		}
 	}
+}
+
+// allowEnforce — oq ro'yxatdan tashqari faol oyna: sayt bo'lsa tab yopiladi, dastur bo'lsa oyna yig'iladi.
+func allowEnforce(cfg *Config, fg Foreground, now time.Time) {
+	if Browsers[fg.Exe] {
+		sitesAllowed := false
+		for _, f := range cfg.AllowApps {
+			if strings.HasPrefix(f.App, "site:") {
+				sitesAllowed = true
+			}
+		}
+		if s, ok := SiteOf(fg.Title, cfg.Rules); ok && !Allowed(cfg, st, s.Key) && (sitesAllowed || !Allowed(cfg, st, fg.Exe)) {
+			CloseTab()
+			notify("allow:"+s.Key, Tr("closed", s.Label), Tr("r_allow"))
+			event(now, "site_block", s.Key, s.Label, "allow")
+			return
+		}
+		if sitesAllowed || Allowed(cfg, st, fg.Exe) {
+			return // ruxsat etilgan sayt yoki aniqlanmagan sahifa — kengaytma tekshiradi
+		}
+	}
+	Minimize(fg.HWND)
+	notify("allow:"+fg.Exe, Tr("minimized", niceName(fg.Exe)), Tr("r_allow"))
+	event(now, "block", fg.Exe, niceName(fg.Exe), "allow")
+}
+
+var (
+	mindMu    sync.Mutex
+	mindGrant = map[string]time.Time{} // "Ha" deyilgan ilovalar: qachongacha ruxsat
+	mindAsk   = map[string]bool{}
+)
+
+// mindfulAsk — ongli ochish: oyna yig'iladi, kutish vaqtidan keyin savol; "Ha" — N daqiqa ruxsat, "Yo'q" — yopiladi.
+func mindfulAsk(cfg *Config, fg Foreground, procs map[string][]uint32) {
+	mindMu.Lock()
+	if time.Now().Before(mindGrant[fg.Exe]) {
+		mindMu.Unlock()
+		return
+	}
+	if mindAsk[fg.Exe] {
+		mindMu.Unlock()
+		Minimize(fg.HWND) // savol kutilayotganda qayta ochilsa — yana yig'iladi
+		return
+	}
+	mindAsk[fg.Exe] = true
+	mindMu.Unlock()
+	wait, mins := cfg.MindfulSec, cfg.MindfulMin
+	if wait <= 0 || wait > 60 {
+		wait = 10
+	}
+	if mins <= 0 || mins > 240 {
+		mins = 15
+	}
+	name, hwnd, exe := niceName(fg.Exe), fg.HWND, fg.Exe
+	Minimize(hwnd)
+	notify("!mind:"+exe, Tr("mind_title"), Tr("mind_wait", itoa(wait)))
+	go func() {
+		time.Sleep(time.Duration(wait) * time.Second)
+		yes := MessageBox("Focusgate", Tr("mind_q", name, FmtDur(mins*60)), 0x04|0x20) == 6
+		mindMu.Lock()
+		if yes {
+			mindGrant[exe] = time.Now().Add(time.Duration(mins) * time.Minute)
+		}
+		delete(mindAsk, exe)
+		mindMu.Unlock()
+		if yes {
+			Restore(hwnd)
+			return
+		}
+		for _, pid := range Processes()[exe] {
+			_ = Kill(pid)
+		}
+		event(time.Now(), "block", exe, name, "mindful")
+	}()
 }
 
 func niceName(exe string) string {
