@@ -82,7 +82,7 @@ func TestSitesWarnRows(t *testing.T) {
 	now := at(15, 0)
 	cfg := Config{Rules: []Rule{{App: "game.exe", Kind: "daily", Minutes: 30, On: true}}}
 	st.Add(now, "game.exe", "Game", 26*60)
-	if len(WarnDue(&cfg, st, now)) != 1 || len(WarnDue(&cfg, st, now)) != 0 {
+	if w := WarnDue(&cfg, st, now); len(w) != 1 || w[0].Pct != 0 || len(WarnDue(&cfg, st, now)) != 0 {
 		t.Fatal("ogohlantirish bir marta chiqishi kerak")
 	}
 	rows := st.Rows(now)
@@ -297,4 +297,67 @@ func TestChromeAppID(t *testing.T) {
 		}
 	}
 	t.Log("LevelUpDay app id:", id)
+}
+
+func TestPerDayModesAllowWarnOpens(t *testing.T) {
+	st := NewState()
+	now := at(15, 0) // 2026-10-14 — chorshanba (3)
+	// Hafta kuni bo'yicha limit: chorshanba 10 daqiqa, boshqa kunlar 60
+	cfg := Config{Rules: []Rule{{App: "game.exe", Kind: "daily", Minutes: 60, PerDay: map[string]int{"3": 10}, On: true}}}
+	st.Add(now, "game.exe", "Game", 11*60)
+	if v := Check(&cfg, st, "game.exe", now); !v.Blocked || v.Reason != "daily" {
+		t.Fatalf("chorshanba limiti ishlamadi: %+v", v)
+	}
+	if v := Check(&cfg, st, "game.exe", now.AddDate(0, 0, 1)); v.Blocked {
+		t.Fatal("payshanba 60 daqiqa bo'lishi kerak")
+	}
+	// Rejim: qo'lda yoqilgan va jadval bo'yicha
+	cfg = Config{Modes: []Mode{{Name: "Ish", On: true, Apps: []FocusApp{{App: "discord.exe"}}}, {Name: "Uyqu", Sched: true, From: "22:00", To: "07:00", Apps: []FocusApp{{App: "cat:games"}}}}}
+	if v := Check(&cfg, st, "discord.exe", now); !v.Blocked || v.Reason != "mode" || v.Rule.Label != "Ish" {
+		t.Fatalf("rejim bloklamadi: %+v", v)
+	}
+	if v := Check(&cfg, st, "steam.exe", now); v.Blocked {
+		t.Fatal("uyqu rejimi kunduzi ishlamasligi kerak")
+	}
+	if v := Check(&cfg, st, "steam.exe", at(23, 30)); !v.Blocked {
+		t.Fatal("uyqu rejimi kechasi ishlashi kerak")
+	}
+	// Oq ro'yxat: faqat fokus paytida
+	cfg = Config{AllowOnly: true, AllowApps: []FocusApp{{App: "code.exe"}}, FocusUntil: now.Add(time.Hour).UnixMilli()}
+	if !AllowBlocks(&cfg, st, "discord.exe", now) || AllowBlocks(&cfg, st, "code.exe", now) || AllowBlocks(&cfg, st, "explorer.exe", now) {
+		t.Fatal("oq ro'yxat noto'g'ri")
+	}
+	if AllowBlocks(&cfg, st, "discord.exe", now.Add(2*time.Hour)) {
+		t.Fatal("fokus tugagach oq ro'yxat ishlamasligi kerak")
+	}
+	// Foizli ogohlantirish: 50% va 80% — bir vaqtda yetilsa bitta (80%)
+	st2 := NewState()
+	cfg = Config{WarnAt: []int{50, 80}, Rules: []Rule{{App: "x.exe", Kind: "daily", Minutes: 100, On: true}}}
+	st2.Add(now, "x.exe", "X", 85*60)
+	w := WarnDue(&cfg, st2, now)
+	if len(w) != 1 || w[0].Pct != 80 || len(WarnDue(&cfg, st2, now)) != 0 {
+		t.Fatalf("foizli ogohlantirish: %+v", w)
+	}
+	// Ochilishlar soni qatorlarga tushadi
+	st2.AddOpen(now, "x.exe", "X")
+	st2.AddOpen(now, "x.exe", "X")
+	if r := st2.Rows(now); len(r) != 1 || r[0].Opens != 2 || r[0].OpenHours[15] != 2 {
+		t.Fatalf("ochilishlar: %+v", r)
+	}
+	if !IsMindful(&Config{Mindful: []FocusApp{{App: "telegram.exe", On: true}}}, st, "telegram.exe") {
+		t.Fatal("mindful")
+	}
+}
+
+func TestApplyReset(t *testing.T) {
+	st := NewState()
+	now := at(10, 0)
+	st.Add(now, "x.exe", "X", 60)
+	if !st.ApplyReset(100) || len(st.Rows(now)) != 0 || st.ResetSeen != 100 {
+		t.Fatal("tozalash ishlamadi")
+	}
+	st.Add(now, "x.exe", "X", 60)
+	if st.ApplyReset(100) || len(st.Rows(now)) != 1 {
+		t.Fatal("bir xil tozalash qayta qo'llanmasligi kerak")
+	}
 }

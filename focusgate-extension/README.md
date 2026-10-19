@@ -2,6 +2,7 @@
 
 - Saytlarni bloklaydi (doimiy, jadval, kunlik limit, fokus) — `blocked.html` sahifasiga yo'naltiradi
 - Sayt ichida: YouTube Shorts / tavsiyalar / izohlar, Instagram Reels / Explore, Facebook Reels (`insite.js`, `cfg.inSite`)
+- v0.6: TikTok / X / Reddit, YouTube qidiruv va PiP, Instagram/Facebook Stories; Shorts/Reels uchun kunlik limit (`cfg.inSiteLim`); bo'limlar vaqti (`site:youtube#shorts`) donut uchun; rejimlar, oq ro'yxat, "nafas oling" sahifasi (`cfg.mindful`), ochilishlar soni, foizli ogohlantirishlar (Telegram)
 - Faol tabdagi saytda o'tgan vaqtni hisoblaydi va har daqiqada `supabase/functions/focusgate` bilan sinxronlanadi
 - Ulash: popup → "Akkauntga ulash" → LevelUpDay'da "Ulash"
 

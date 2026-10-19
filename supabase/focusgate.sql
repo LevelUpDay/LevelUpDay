@@ -31,3 +31,15 @@ alter table public.fg_sessions enable row level security;
 -- siyosatlar: fgs_sel / fgs_ins (started_at ≈ now()) / fgs_upd; trigger _fg_sessions_guard: faqat ended_at o'zgaradi
 -- RPC: fg_world_stats(p_days) — anonim (≥3 foydalanuvchi), fg_friends_board(p_days) — config.share=false bo'lsa ko'rinmaydi, fg_friends_focus()
 -- To'liq matn bazada qo'llangan (security definer, search_path=public).
+
+-- ===== v0.6: ochilishlar soni + sayt bo'limlari (migratsiya: fg_usage_opens_and_sections) =====
+alter table public.fg_usage add column if not exists opens int not null default 0;          -- necha marta ochilgan
+alter table public.fg_usage add column if not exists open_hours int[] not null default '{}'; -- ochilishlar soatlar bo'yicha
+-- "site:youtube#shorts" kabi bo'lim qatorlari (kengaytma) — fg_world_stats / fg_friends_board / fg_weekly_summary
+-- ularni umumiy ekran vaqtiga qo'shmaydi: position('#' in app) = 0.
+
+-- ===== v0.6.1: statistikani tozalash (Profil → Reset → Focusgate) =====
+-- functions/focusgate {action:'reset_stats'} + foydalanuvchi JWT: fg_usage, fg_events, fg_sessions dan faqat o'z qatorlarini
+-- o'chiradi va fg_config.config.statsResetAt = ms qo'yadi. Agent (0.6.1+) va kengaytma (0.6.1+) sync'da reset_seen yuboradi;
+-- reset_seen < statsResetAt bo'lsa server eski hisobni yozmaydi, qurilma esa mahalliy hisobini nolga tushiradi.
+-- Agent nomi "Windows · KOMPYUTER · foydalanuvchi" — bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma.

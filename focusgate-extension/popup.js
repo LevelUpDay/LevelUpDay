@@ -10,7 +10,7 @@ async function render() {
   const o = await chrome.storage.local.get(['token', 'usage', 'cfg', 'device', 'pair', 'syncedAt']);
   if (o.cfg && ['uz', 'en', 'ru'].includes(o.cfg.lang)) LANG = o.cfg.lang;
   const day = (o.usage || {})[dayKey()] || {};
-  const list = Object.keys(day).map((k) => ({ k, l: day[k].label || k.replace(/^site:/, ''), s: day[k].s })).sort((a, b) => b.s - a.s);
+  const list = Object.keys(day).filter((k) => k.indexOf('#') === -1).map((k) => ({ k, l: day[k].label || k.replace(/^site:/, ''), s: day[k].s })).sort((a, b) => b.s - a.s);
   const total = list.reduce((s, x) => s + x.s, 0);
   $('total').textContent = fmt(total);
   $('totalL').textContent = L('bugun saytlarda', 'on sites today', 'на сайтах сегодня');

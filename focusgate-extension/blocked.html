@@ -19,6 +19,11 @@
   button, a.btn { flex: 1; border: 0; border-radius: 14px; padding: 13px 16px; font: 700 14px system-ui, sans-serif; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
   .primary { background: #7C5CFC; color: #fff; }
   .ghost { background: rgba(255,255,255,.08); color: #F0EEF8; }
+  button:disabled { opacity: .45; cursor: default; }
+  .breath { width: 120px; height: 120px; margin: 4px auto 20px; border-radius: 50%; display: grid; place-items: center; font: 800 34px system-ui, sans-serif;
+    background: radial-gradient(circle, rgba(124,92,252,.55), rgba(124,92,252,.12) 70%); box-shadow: 0 0 0 0 rgba(124,92,252,.45); animation: br 4s ease-in-out infinite; }
+  @keyframes br { 0%,100% { transform: scale(.82); box-shadow: 0 0 0 0 rgba(124,92,252,.35); } 50% { transform: scale(1); box-shadow: 0 0 0 22px rgba(124,92,252,0); } }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -27,9 +32,11 @@
     <h1 id="t">Bu sayt hozir bloklangan</h1>
     <div class="site" id="site"></div>
     <p id="why"></p>
+    <div class="breath" id="breath" hidden></div>
     <div class="quote" id="q"></div>
     <div class="row">
       <button class="ghost" id="close">Tabni yopish</button>
+      <button class="primary" id="yes" hidden></button>
       <a class="btn primary" id="go" href="https://levelupday.github.io/LevelUpDay/#focusgate">🎯 LevelUpDay</a>
     </div>
   </div>

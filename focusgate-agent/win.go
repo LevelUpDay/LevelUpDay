@@ -30,6 +30,8 @@ var (
 	pGetWindowTextLengthW    = user32.NewProc("GetWindowTextLengthW")
 	pMessageBoxW             = user32.NewProc("MessageBoxW")
 	pKeybdEvent              = user32.NewProc("keybd_event")
+	pShowWindow              = user32.NewProc("ShowWindow")
+	pSetForegroundWindow     = user32.NewProc("SetForegroundWindow")
 	pGetTickCount            = kernel32.NewProc("GetTickCount")
 	pCreateMutexW            = kernel32.NewProc("CreateMutexW")
 	pGetUserDefaultUILanguage = kernel32.NewProc("GetUserDefaultUILanguage")
@@ -124,7 +126,18 @@ func IdleSeconds() uint32 {
 	return (uint32(tick) - li.dwTime) / 1000
 }
 
-// Processes — ishlayotgan jarayonlar: exe (kichik harf) → PID'lar.
+// mySession — shu agent ishlayotgan Windows seansi (har bir foydalanuvchining o'z seansi bor)
+var mySession = func() uint32 {
+	var sid uint32
+	if windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &sid) != nil {
+		return ^uint32(0)
+	}
+	return sid
+}()
+
+// Processes — SHU foydalanuvchi seansidagi jarayonlar: exe (kichik harf) → PID'lar.
+// Bitta kompyuterda bir nechta Windows foydalanuvchisi bo'lsa, har birining agenti faqat o'zinikini
+// hisoblaydi va bloklaydi (boshqa foydalanuvchining dasturlari va agentiga tegmaydi).
 func Processes() map[string][]uint32 {
 	out := map[string][]uint32{}
 	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
@@ -135,6 +148,10 @@ func Processes() map[string][]uint32 {
 	var pe windows.ProcessEntry32
 	pe.Size = uint32(unsafe.Sizeof(pe))
 	for err = windows.Process32First(snap, &pe); err == nil; err = windows.Process32Next(snap, &pe) {
+		var sid uint32
+		if mySession != ^uint32(0) && windows.ProcessIdToSessionId(pe.ProcessID, &sid) == nil && sid != mySession {
+			continue
+		}
 		name := strings.ToLower(windows.UTF16ToString(pe.ExeFile[:]))
 		out[name] = append(out[name], pe.ProcessID)
 	}
@@ -158,6 +175,21 @@ func CloseTab() {
 	pKeybdEvent.Call(vkW, 0, 0, 0)
 	pKeybdEvent.Call(vkW, 0, keyUp, 0)
 	pKeybdEvent.Call(vkControl, 0, keyUp, 0)
+}
+
+// Minimize — oynani vazifalar paneliga yig'adi (SW_MINIMIZE).
+func Minimize(hwnd uintptr) {
+	if hwnd != 0 {
+		pShowWindow.Call(hwnd, 6)
+	}
+}
+
+// Restore — yig'ilgan oynani qaytaradi va oldinga chiqaradi (SW_RESTORE).
+func Restore(hwnd uintptr) {
+	if hwnd != 0 {
+		pShowWindow.Call(hwnd, 9)
+		pSetForegroundWindow.Call(hwnd)
+	}
 }
 
 // MessageBox — oddiy oyna (alohida goroutine'da chaqiring). Qaytaradi: 1=OK, 6=Yes, 7=No.

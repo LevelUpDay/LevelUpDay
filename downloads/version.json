@@ -1,7 +1,7 @@
 {
-  "version": "0.5.3",
-  "sha256": "f5cf199f9325473f99cbbe67d4441cbae3bfb0f5b0fb479cd4eae3370c07ab2d",
+  "version": "0.6.1",
+  "sha256": "ffbfd3cf96f7a02064425a57f0a45aa4e3c1458e8539072317da94791c229ee7",
   "url": "https://levelupday.github.io/LevelUpDay/downloads/Focusgate.exe",
-  "notes": "Ulash tasdig'i o'rnatilgan LevelUpDay ilovasida ochiladi",
-  "ext": "0.5.0"
+  "notes": "Bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma; statistikani tozalash",
+  "ext": "0.6.1"
 }

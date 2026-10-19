@@ -55,11 +55,26 @@ export const SITE_CAT = {
   'site:coursera': 'study', 'site:udemy': 'study', 'site:khanacademy': 'study', 'site:duolingo': 'study',
 };
 export function catOf(cfg, key) { return (cfg && cfg.cats && cfg.cats[key]) || SITE_CAT[key] || 'web'; }
-function matches(cfg, ruleApp, key) { return ruleApp === key || (ruleApp.startsWith('cat:') && catOf(cfg, key) === ruleApp.slice(4)); }
+export function matches(cfg, ruleApp, key) { return ruleApp === key || (ruleApp.startsWith('cat:') && catOf(cfg, key) === ruleApp.slice(4)); }
+// Sayt bo'limlari ("site:youtube#shorts") — statistika uchun; limit va kategoriya yig'indisiga qo'shilmaydi
+export function isSection(key) { return key.indexOf('#') !== -1; }
 
 function hm(s) { const m = /^(\d{1,2}):(\d{2})/.exec(s || ''); return m ? +m[1] * 60 + +m[2] : 0; }
+function weekday(d) { const wd = d.getDay(); return wd === 0 ? 7 : wd; }
+// Kunlik limit bugun necha daqiqa (r.perDay: "1".."7" → daqiqa)
+export function ruleMinutes(r, d = new Date()) { const v = r.perDay && r.perDay[String(weekday(d))]; return v != null ? +v : (r.minutes || 0); }
+export function modeActive(m, d = new Date()) { return !!(m && (m.on || (m.sched && inSchedule(m, d)))); }
+const BROWSER_EXE = /^(chrome|msedge|firefox|brave|opera|opera_gx|vivaldi|browser|arc|yandex)\.exe$/;
+// Fokusda "faqat ruxsat etilganlar": sayt ruxsat etilganmi
+export function allowedSite(cfg, key) {
+  const list = cfg.allowApps || [];
+  if (list.some((f) => f.app && matches(cfg, f.app, key))) return true;
+  // Ro'yxatda birorta ham sayt yo'q, lekin brauzer ruxsat etilgan — barcha saytlar ochiq
+  return !list.some((f) => /^site:/.test(f.app || '')) && list.some((f) => BROWSER_EXE.test(f.app || ''));
+}
+export function mindfulSite(cfg, key) { return (cfg.mindful || []).some((f) => f.on && f.app && matches(cfg, f.app, key)); }
 export function inSchedule(r, d) {
-  let wd = d.getDay(); if (wd === 0) wd = 7;
+  const wd = weekday(d);
   if (r.days && r.days.length && r.days.indexOf(wd) === -1) return false;
   const from = hm(r.from), to = hm(r.to), now = d.getHours() * 60 + d.getMinutes();
   if (from === to) return true;
@@ -73,11 +88,14 @@ export function check(cfg, key, used, now = new Date()) {
   const ms = now.getTime();
   if (!cfg.strict && (cfg.pauseUntil || 0) > ms) return null;
   if ((cfg.focusUntil || 0) > ms && (cfg.focusApps || []).some((f) => f.on && matches(cfg, f.app, key))) return { reason: 'focus' };
+  if ((cfg.focusUntil || 0) > ms && cfg.allowOnly && !allowedSite(cfg, key)) return { reason: 'allow' };
+  for (const m of cfg.modes || []) if (modeActive(m, now) && (m.apps || []).some((f) => f.app && matches(cfg, f.app, key))) return { reason: 'mode', rule: { label: m.name } };
   for (const r of cfg.rules || []) {
     if (!r.on || !r.app || !matches(cfg, r.app, key)) continue;
     if (r.kind === 'always') return { reason: 'always', rule: r };
     if (r.kind === 'schedule' && inSchedule(r, now)) return { reason: 'schedule', rule: r };
-    if (r.kind === 'daily' && r.minutes > 0 && usedOf(r.app.startsWith('cat:') ? r.app : key) >= r.minutes * 60) return { reason: 'daily', rule: r };
+    const lim = r.kind === 'daily' ? ruleMinutes(r, now) : 0;
+    if (lim > 0 && usedOf(r.app.startsWith('cat:') ? r.app : key) >= lim * 60) return { reason: 'daily', rule: Object.assign({}, r, { minutes: lim }) };
   }
   return null;
 }
