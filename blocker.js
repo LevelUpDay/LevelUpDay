@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.6.0'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.6.1'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
   // ✅ Focusgate kuzatuvchilari (Windows dasturi Focusgate.exe va brauzer kengaytmasi ZIP) — Focusgate bo'limida yuklab olinadi.
   // Faqat "Ilovani o'rnatish" oynasidagi Windows o'rnatuvchisi o'chirilgan (extras.js: dlOn).
@@ -993,12 +993,30 @@
   // Pomodoro ish bosqichi yoki Fokus rejimi taymeri ishlasa — Focusgate fokus ro'yxatidagi dasturlar bloklanadi.
   // Har biri alohida ishlayveradi; Focusgate'da qo'lda boshlangan sessiyaga tegilmaydi.
   var SRC = { pomo: ['🍅', ['Pomodoro', 'Pomodoro', 'Pomodoro']], focusmode: ['🧘', ['Fokus rejimi', 'Focus mode', 'Режим фокуса']], focusgate: ['🔒', ['Focusgate', 'Focusgate', 'Focusgate']] };
+  // Bog'lanish yoqilganmi: umumiy sozlama (cfg.linkFocus) va manba bo'yicha (cfg.linkOff.pomo / .focusmode)
+  function linkOn(src) { var c = cfg(); return c.linkFocus !== false && !(c.linkOff && c.linkOff[src]); }
+  function setLink(src, on, after) {
+    if (!real()) { needConnect(); return; }
+    var c = cfg(), active = (c.focusUntil || 0) > Date.now() && linkOwner() === src;
+    if (!on && active && c.strict) { try { toast('🔐 ' + L('Qat\'iy rejim: fokus tugaguncha o\'chirib bo\'lmaydi', 'Strict mode: can\'t turn off until focus ends', 'Строгий режим: нельзя выключить до конца фокуса')); } catch (e) {} return; }
+    var apply = function () {
+      var cc = cfg(); cc.linkOff = Object.assign({}, cc.linkOff || {});
+      if (on) { delete cc.linkOff[src]; cc.linkFocus = true; var st = fgS(); if (st.linkMute === src) st.linkMute = null; } else cc.linkOff[src] = true;
+      saveCfg(); save();
+      if (!on) window.LUFocusBus.sync(src, 0); // shu manba boshlagan bloklash darhol to'xtaydi
+      else { try { window.dispatchEvent(new CustomEvent('lu-fg-relink', { detail: src })); } catch (e) {} } // ishlab turgan Pomodoro darhol qayta ulansin
+      try { toast((on ? '🔒 ' : '🔓 ') + SRC[src][0] + ' ' + T(SRC[src][1]) + ' — ' + (on ? L('Focusgate bloklashi yoqildi', 'Focusgate blocking on', 'блокировка Focusgate включена') : L('Focusgate bloklashi o\'chirildi', 'Focusgate blocking off', 'блокировка Focusgate выключена'))); } catch (e) {}
+      if (after) after(); rerender();
+    };
+    if (!on && active) guard(apply); else apply();
+  }
   function fgS() { if (!S.focusgate || typeof S.focusgate !== 'object') S.focusgate = {}; return S.focusgate; }
   function linkOwner() { try { return (S.focusgate && S.focusgate.linkSrc) || null; } catch (e) { return null; } }
   window.LUFocusBus = {
     sync: function (src, until, label) {
       if (!real()) return;
-      var c = cfg(); if (c.linkFocus === false) return;
+      var c = cfg();
+      if (!linkOn(src)) until = 0; // bog'lanish o'chirilgan — shu manba boshlagan bloklash ham to'xtaydi
       var now = Date.now(), cur = c.focusUntil || 0, owner = linkOwner(), st = fgS();
       if (until > now) {
         if (st.linkMute === src) return;                          // foydalanuvchi Focusgate'da to'xtatgan
@@ -1024,16 +1042,29 @@
         save(); rerender();
       }
     },
-    // Pomodoro / Fokus rejimi oynasida kichik belgi: "🔒 Focusgate: 3 ta dastur bloklangan"
-    badge: function (box, running) {
+    // Pomodoro / Fokus rejimi oynasida: "🔒 Focusgate: 3 ta dastur bloklanadi" + yoqish/o'chirish tugmasi
+    badge: function (box, running, src) {
       if (!box) return;
+      src = src || (box.id === 'pomo-hero' ? 'pomo' : 'focusmode');
       var el = box.querySelector(':scope > .fg-busbadge');
-      var on = running && real() && cfg().linkFocus !== false;
-      if (!on) { if (el) el.remove(); return; }
-      var n = (cfg().focusApps || []).filter(function (f) { return f.on; }).length;
-      var txt = '🔒 Focusgate · ' + (n ? L(n + ' ta dastur bloklangan', n + ' apps blocked', 'заблокировано: ' + n) : L('bloklash ro\'yxati bo\'sh — qo\'shing', 'block list is empty — add apps', 'список пуст — добавьте'));
-      if (!el) { el = document.createElement('button'); el.type = 'button'; el.className = 'fg-busbadge'; el.onclick = function () { try { if (typeof pomoCloseModal === 'function') pomoCloseModal(); } catch (e) {} window.xOpenBlocker('block'); }; box.appendChild(el); }
-      if (el.textContent !== txt) el.textContent = txt;
+      if (!real()) { if (el) el.remove(); return; }
+      var c = cfg(), on = linkOn(src), n = c.allowOnly ? -1 : (c.focusApps || []).filter(function (f) { return f.on; }).length;
+      var what = n < 0 ? L('faqat ruxsat etilganlar ishlaydi', 'only allowed apps work', 'работают только разрешённые') : n ? L(n + ' ta dastur', n + ' apps', n + ' прил.') : L('ro\'yxat bo\'sh — qo\'shing', 'list is empty — add apps', 'список пуст — добавьте');
+      var txt = on ? '🔒 Focusgate · ' + (running ? (n < 0 ? what : n ? L(n + ' ta dastur bloklangan', n + ' apps blocked', 'заблокировано: ' + n) : what) : L('boshlaganda bloklanadi: ', 'blocks when started: ', 'заблокирует при старте: ') + what)
+        : '🔓 Focusgate · ' + L('bloklash o\'chiq', 'blocking is off', 'блокировка выключена');
+      if (!el) {
+        el = document.createElement('div'); el.className = 'fg-busbadge';
+        el.innerHTML = '<button type="button" class="fg-bus-l"></button><button type="button" class="fg-sw fg-bus-sw" role="switch"><i></i></button>';
+        el.querySelector('.fg-bus-l').onclick = function () { try { if (typeof pomoCloseModal === 'function') pomoCloseModal(); } catch (e) {} window.xOpenBlocker('block'); };
+        el.querySelector('.fg-bus-sw').onclick = function (e) { e.stopPropagation(); setLink(el.dataset.src, !linkOn(el.dataset.src), function () { window.LUFocusBus.badge(box, el.dataset.run === '1', el.dataset.src); }); };
+        box.appendChild(el);
+      }
+      el.dataset.src = src; el.dataset.run = running ? '1' : '0';
+      el.classList.toggle('off', !on);
+      var lb = el.querySelector('.fg-bus-l'), sw0 = el.querySelector('.fg-bus-sw');
+      if (lb.textContent !== txt) lb.textContent = txt;
+      sw0.classList.toggle('on', on); sw0.setAttribute('aria-checked', on ? 'true' : 'false');
+      sw0.setAttribute('aria-label', L('Focusgate bilan bloklash', 'Block with Focusgate', 'Блокировать через Focusgate'));
     },
     owner: linkOwner
   };
@@ -1954,9 +1985,23 @@
   }, 1000);
   setInterval(function () { if (real() && (visible() || document.querySelector('#fg-stats-card') || rwLinked().length)) load(); }, 60000);
 
+  // 🧹 Profil → Reset: Focusgate statistikasi (ekran vaqti, bloklash tarixi, fokus sessiyalari) — serverda va qurilmalarda
+  async function resetStats() {
+    var st = fgS();
+    ['goodDays', 'focusMin', 'focusDone', 'rewarded', 'pauses', 'sess', 'linkSess'].forEach(function (k) { delete st[k]; });
+    try { save(); } catch (e) {}
+    FG.rows = []; FG.events = []; _dmCache = {}; SOC.at = 0;
+    if (!sbOk()) { rerender(); return { ok: true, local: true }; }
+    var r = await supabase.functions.invoke('focusgate', { body: { action: 'reset_stats' } });
+    var err = r.error || (r.data && r.data.error);
+    if (err) throw new Error(typeof err === 'string' ? err : (err.message || 'reset_failed'));
+    if (FG.cfg && r.data && r.data.at) FG.cfg.statsResetAt = r.data.at; // keyingi saqlashda yo'qolmasin
+    await load(true);
+    return r.data;
+  }
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, pickApps: pickApps, rewardLinked: rewardLinked, rewardHistory: rewardHistory, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, pickApps: pickApps, resetStats: resetStats, rewardLinked: rewardLinked, rewardHistory: rewardHistory, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();

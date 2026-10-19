@@ -37,3 +37,9 @@ alter table public.fg_usage add column if not exists opens int not null default 
 alter table public.fg_usage add column if not exists open_hours int[] not null default '{}'; -- ochilishlar soatlar bo'yicha
 -- "site:youtube#shorts" kabi bo'lim qatorlari (kengaytma) — fg_world_stats / fg_friends_board / fg_weekly_summary
 -- ularni umumiy ekran vaqtiga qo'shmaydi: position('#' in app) = 0.
+
+-- ===== v0.6.1: statistikani tozalash (Profil → Reset → Focusgate) =====
+-- functions/focusgate {action:'reset_stats'} + foydalanuvchi JWT: fg_usage, fg_events, fg_sessions dan faqat o'z qatorlarini
+-- o'chiradi va fg_config.config.statsResetAt = ms qo'yadi. Agent (0.6.1+) va kengaytma (0.6.1+) sync'da reset_seen yuboradi;
+-- reset_seen < statsResetAt bo'lsa server eski hisobni yozmaydi, qurilma esa mahalliy hisobini nolga tushiradi.
+-- Agent nomi "Windows · KOMPYUTER · foydalanuvchi" — bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma.

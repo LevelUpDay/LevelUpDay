@@ -348,3 +348,16 @@ func TestPerDayModesAllowWarnOpens(t *testing.T) {
 		t.Fatal("mindful")
 	}
 }
+
+func TestApplyReset(t *testing.T) {
+	st := NewState()
+	now := at(10, 0)
+	st.Add(now, "x.exe", "X", 60)
+	if !st.ApplyReset(100) || len(st.Rows(now)) != 0 || st.ResetSeen != 100 {
+		t.Fatal("tozalash ishlamadi")
+	}
+	st.Add(now, "x.exe", "X", 60)
+	if st.ApplyReset(100) || len(st.Rows(now)) != 1 {
+		t.Fatal("bir xil tozalash qayta qo'llanmasligi kerak")
+	}
+}

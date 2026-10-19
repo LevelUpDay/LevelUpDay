@@ -1410,3 +1410,25 @@ html.x-dragging [data-xdz="secs"], html.x-dragging #tabs-bar, html.x-dragging #x
 .x-sec, #x-bnav button, #tabs-bar .tab { transition: transform .15s, box-shadow .15s, opacity .15s; }
 #x-bnav.many button .x-bn-l { font-size: 9.5px; }
 #x-bnav.many .x-bn-i { font-size: 19px; }
+/* 🧲 Drag & swap: sudrash paytida matn belgilanmasin va sahifa barmoq bilan surilmasin */
+html.x-dragging, html.x-dragging * { -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; }
+html.x-dragging body { touch-action: none; overscroll-behavior: none; }
+.x-sec[data-xdrag], #x-bnav [data-xdrag] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.x-dg-over:not([data-xdz]):not(#tabs-bar) { transition: transform .12s, box-shadow .12s; }
+
+/* 📥 Inbox — o'chirish va tanlash */
+.ib-del { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--border); background: transparent; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; opacity: .7; filter: grayscale(.4); }
+.ib-del:hover { opacity: 1; filter: none; border-color: var(--red); background: rgba(248,113,113,.1); }
+.ib-st-del { margin-left: auto; flex-shrink: 0; width: 24px; height: 24px; border-radius: 7px; border: 0; background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 0; opacity: .55; }
+.ib-st-del:hover { opacity: 1; color: var(--red); background: rgba(248,113,113,.12); }
+.ib-sel { width: 24px; height: 24px; flex-shrink: 0; border-radius: 7px; border: 2px solid var(--border-hover, var(--border)); background: transparent; color: #fff; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.ib-sel.on { background: var(--accent); border-color: var(--accent); }
+.ib-sel svg { width: 13px; height: 13px; }
+.ib-item.is-sel { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.ib-selmode.on { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); color: var(--text); }
+.ib-selbar { position: sticky; top: 56px; z-index: 4; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; margin: 4px 0 8px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.ib-selbar[hidden] { display: none; }
+.ib-selbar-n { flex: 1; min-width: 110px; font-weight: 700; font-size: 13.5px; color: var(--text); }
+.ib-selbar .ib-selbar-del { background: var(--red); border-color: var(--red); color: #fff; }
+.ib-selbar .ib-selbar-del:disabled { opacity: .45; }
+@media (max-width: 480px) { .ib-del { width: 30px; height: 30px; } .ib-selmode { padding-left: 8px; padding-right: 8px; } }

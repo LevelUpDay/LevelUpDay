@@ -18546,6 +18546,7 @@ function openResetOptionsModal() {
       _rstOptRow('ro-stats-cb', '📊', _cl('Statistika va tangalar (XP, streak, 🪙, 💎, tarix)', 'Stats & coins (XP, streak, 🪙, 💎, history)', 'Статистика и монеты (XP, серия, 🪙, 💎, история)')) +
       _rstOptRow('ro-tasks-cb', '📋', t('reset_opt_tasks')) +
       _rstOptRow('ro-diary-cb', '📔', _cl('Kundalik (kayfiyat, uyqu)', 'Journal (mood, sleep)', 'Дневник (настроение, сон)')) +
+      (window.LUFocusgate && window.LUFocusgate.resetStats ? _rstOptRow('ro-fg-cb', '🛡', _cl('Focusgate (ekran vaqti, bloklash tarixi, fokus sessiyalari)', 'Focusgate (screen time, block history, focus sessions)', 'Focusgate (экранное время, история блокировок, сессии фокуса)')) : '') +
       examsRowHtml +
       _rstOptRow('ro-all-cb', '💥', t('reset_opt_all')) +
     '</div>' +
@@ -18561,9 +18562,10 @@ function openResetOptionsModal() {
   var cbTasks = document.getElementById('ro-tasks-cb');
   var cbDiary = document.getElementById('ro-diary-cb');
   var cbExams = document.getElementById('ro-exams-cb'); // mavjud bo'lmasa null
+  var cbFg = document.getElementById('ro-fg-cb'); // Focusgate (mavjud bo'lmasa null)
   var cbAll = document.getElementById('ro-all-cb');
   var confirmBtn = document.getElementById('reset-opts-confirm');
-  var toggleables = cbExams ? [cbStats, cbTasks, cbDiary, cbExams] : [cbStats, cbTasks, cbDiary];
+  var toggleables = [cbStats, cbTasks, cbDiary, cbFg, cbExams].filter(Boolean);
 
   function syncUI() {
     var allOn = cbAll.checked;
@@ -18592,6 +18594,17 @@ function openResetOptionsModal() {
     var doExams = cbAll.checked || (cbExams ? cbExams.checked : false);
     var doDiary = cbAll.checked || cbDiary.checked;
     var examTypes = doExams ? examsWithData : [];
+    var doFg = cbAll.checked || (cbFg ? cbFg.checked : false);
+    // 🛡 Focusgate: serverdagi ekran vaqti/tarix va qurilmalardagi hisob (S tozalanishidan OLDIN chaqiriladi)
+    if (doFg && window.LUFocusgate && window.LUFocusgate.resetStats) {
+      window.LUFocusgate.resetStats().then(function () {
+        toast('🛡 ' + _cl('Focusgate statistikasi tozalandi', 'Focusgate stats cleared', 'Статистика Focusgate очищена'));
+      }, function (e) {
+        toast('⚠️ Focusgate: ' + _cl('tozalab bo\'lmadi', 'could not clear', 'не удалось очистить') + (e && e.message ? ' (' + e.message + ')' : ''));
+      });
+    }
+    var onlyFg = doFg && !cbAll.checked && !doStats && !doTasks && !doDiary && !examTypes.length;
+    if (onlyFg) { close(); return; }
 
     if (cbAll.checked) { close(); _rstFullReset(); return; }
     if (doCoins && !doStats && S.coins < 0) {
@@ -21833,6 +21846,9 @@ setInterval(function(){ if(document.getElementById('view-spin') && document.getE
   }
 
   function applyTabOrder() {
+    // Menyu tartibini endi extras.js (S.xNav, drag & swap) boshqaradi. Eski S.tabOrder bo'yicha qayta
+    // joylash yangi tartibni buzardi (ro'yxatda yo'q Focusgate kabi bo'limlar menyu tepasiga sakrab chiqardi).
+    if (typeof window.xApplyNav === 'function') { window.xApplyNav(); return; }
     var bar = document.getElementById('tabs-bar');
     if (!bar) return;
     getTabOrder().forEach(function(tabId) {
@@ -21864,6 +21880,7 @@ setInterval(function(){ if(document.getElementById('view-spin') && document.getE
     _tabDragInited = true;
 
     bar.addEventListener('pointerdown', function(e) {
+      if (typeof window.xApplyNav === 'function') return; // yangi drag & swap (extras.js) ishlaydi — ikkalasi bir vaqtda ishlamasin
       var btn = e.target.closest('[data-tab]');
       if (!btn) return;
       startX = e.clientX;
@@ -29458,6 +29475,8 @@ try {
     var toggleEl = document.getElementById('pomo-hero-toggle');
     if (!pillsEl || !clockEl) return;
     var heroId = pomoHeroActId();
+    // 🔗 Focusgate: yoqish/o'chirish tugmasi Pomodoro oynasida doim ko'rinadi
+    try { if (window.LUFocusBus) { var _fa = pomoActivities.filter(function (x) { return x.id === pomoActiveId; })[0]; window.LUFocusBus.badge(document.getElementById('pomo-hero'), !!(_fa && _fa.running && _fa.phase !== 'break'), 'pomo'); } } catch (e) {}
 
     if (!pomoActivities.length) {
       pillsEl.innerHTML = '<div style="font-size:var(--fs-xs);color:rgba(255,255,255,0.55)">' + t('pomo_no_activities_hint') + '</div>';
@@ -29537,12 +29556,17 @@ try {
 
 
   // 🔗 Focusgate bilan bog'lanish: ish bosqichida dasturlar bloklanadi, tanaffusda ochiladi
+  // Pomodoro oynasidagi tugma bilan qayta yoqilsa — ishlab turgan sessiya darhol bloklaydi
+  window.addEventListener('lu-fg-relink', function (e) {
+    if (e && e.detail !== 'pomo') return;
+    try { pomoFgSync(pomoActivities.filter(function (x) { return x.id === pomoActiveId; })[0] || null); } catch (er) {}
+  });
   function pomoFgSync(act) {
     try {
       if (!window.LUFocusBus) return;
       if (act && act.running && act.phase !== 'break') window.LUFocusBus.sync('pomo', Date.now() + Math.max(0, pomoWorkMs() - (act.cycleMs || 0)), act.name);
       else window.LUFocusBus.sync('pomo', 0);
-      window.LUFocusBus.badge(document.getElementById('pomo-hero'), !!(act && act.running && act.phase !== 'break'));
+      window.LUFocusBus.badge(document.getElementById('pomo-hero'), !!(act && act.running && act.phase !== 'break'), 'pomo');
     } catch (e) {}
     try { pomoShadeSync(); } catch (e) {}
   }

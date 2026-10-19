@@ -7,6 +7,8 @@
 //      agent:  {action:'sync', token, version, usage:[{day, app, label, seconds, hours[24], opens?, open_hours?[24]}], apps?:[{exe, name, cat?, icon?}], events?:[{kind, app, label, reason, at}]}
 //      kengaytma ham shu funksiyadan foydalanadi (qurilma nomi 'Chrome …'). Sayt bo'limlari: "site:youtube#shorts".
 //              → {config, device, now}   (usage — shu qurilmaning kunlik umumiy qiymatlari, ustiga yoziladi)
+//  Statistikani tozalash: {action:'reset_stats'} + foydalanuvchi JWT → fg_usage/fg_events/fg_sessions (faqat o'ziniki)
+//      va config.statsResetAt — agent/kengaytma (reset_seen < statsResetAt) mahalliy hisobni ham nolga tushiradi.
 //  Haftalik hisobot: {action:'weekly_report'} — faqat pg_cron (x-cron-secret), yakshanba kechqurun Telegram'ga.
 // JWT tekshiruvi o'chirilgan: agent qurilma tokeni bilan, sayt esa foydalanuvchi JWT bilan tekshiriladi.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -185,8 +187,13 @@ Deno.serve(async (req) => {
     if (!dev) return json({ error: "unauthorized" }, 401);
 
     const now = Date.now();
+    const { data: cfg } = await sb.from("fg_config").select("config,updated_at").eq("user_id", dev.user_id).maybeSingle();
+    // Statistika tozalangan, lekin qurilma buni hali bilmaydi (reset_seen eski) — eski hisobni qayta yozmaymiz.
+    // reset_seen yubormaydigan eski versiyalar odatdagidek ishlayveradi.
+    const resetAt = Number(cfg?.config?.statsResetAt) || 0;
+    const staleDevice = resetAt > 0 && typeof body.reset_seen === "number" && body.reset_seen < resetAt;
     const rows: Record<string, unknown>[] = [];
-    const usage = Array.isArray(body.usage) ? body.usage.slice(0, 400) : [];
+    const usage = Array.isArray(body.usage) && !staleDevice ? body.usage.slice(0, 400) : [];
     for (const r of usage) {
       const day = String(r?.day || "");
       if (!DAY_RE.test(day)) continue;
@@ -204,6 +211,12 @@ Deno.serve(async (req) => {
       if (error) return json({ error: "usage_failed", detail: error.message }, 500);
     }
     const upd: Record<string, unknown> = { last_seen: new Date().toISOString(), agent_version: body.version ? String(body.version).slice(0, 20) : null };
+    // Windows agenti nomi: "Windows · KOMPYUTER · foydalanuvchi" — bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma.
+    // Faqat avtomatik qo'yilgan nomlar yangilanadi.
+    if (typeof body.name === "string") {
+      const nn = body.name.replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 60);
+      if (/^Windows · /.test(nn) && /^Windows · /.test(String(dev.name || "")) && nn !== dev.name) { upd.name = nn; dev.name = nn; }
+    }
     // O'rnatilgan dasturlar ro'yxati (agent bir necha soatda bir yuboradi)
     if (Array.isArray(body.apps)) {
       const seen = new Set<string>();
@@ -225,7 +238,7 @@ Deno.serve(async (req) => {
     }
     await sb.from("fg_devices").update(upd).eq("id", dev.id);
     // 🛡 Hodisalar: dastur yopildi / sayt yopildi / ogohlantirish → jurnal + Telegram
-    if (Array.isArray(body.events) && body.events.length) {
+    if (Array.isArray(body.events) && body.events.length && !staleDevice) {
       const evs = body.events.slice(0, 30).map((e: any) => ({
         user_id: dev.user_id, device_id: dev.id,
         kind: ["block", "site_block", "warn"].includes(String(e?.kind)) ? String(e.kind) : "block",
@@ -238,7 +251,6 @@ Deno.serve(async (req) => {
         try { await tgNotify(sb, dev.user_id, ins || []); } catch (_) { /* Telegram xatosi sinxronlashni to'xtatmasin */ }
       }
     }
-    const { data: cfg } = await sb.from("fg_config").select("config,updated_at").eq("user_id", dev.user_id).maybeSingle();
     // Bugun saytlarda o'tgan vaqt — barcha qurilmalar bo'yicha eng kattasi (kengaytma limitni to'g'ri hisoblashi uchun)
     let site_usage: Record<string, number> | undefined;
     if (DAY_RE.test(String(body.today || ""))) {
@@ -258,6 +270,26 @@ Deno.serve(async (req) => {
       }
     }
     return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.name }, now, site_usage, others });
+  }
+
+  // ---------- 🧹 Statistikani tozalash (sayt, foydalanuvchi JWT) ----------
+  if (action === "reset_stats") {
+    const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    const { data: u } = await sb.auth.getUser(jwt);
+    const uid = u?.user?.id;
+    if (!uid) return json({ error: "unauthorized" }, 401);
+    const at = Date.now();
+    const out: Record<string, number> = {};
+    for (const t of ["fg_usage", "fg_events", "fg_sessions"]) {
+      const { error, count } = await sb.from(t).delete({ count: "exact" }).eq("user_id", uid);
+      if (error) return json({ error: "reset_failed", table: t, detail: error.message }, 500);
+      out[t] = count || 0;
+    }
+    // Qurilmalar mahalliy hisobini ham tozalasin
+    const { data: c } = await sb.from("fg_config").select("config").eq("user_id", uid).maybeSingle();
+    const conf = Object.assign({}, c?.config || {}, { statsResetAt: at });
+    await sb.from("fg_config").upsert({ user_id: uid, config: conf, updated_at: new Date().toISOString() });
+    return json({ ok: true, at, deleted: out });
   }
 
   // ---------- 📊 Haftalik hisobot (faqat cron: x-cron-secret) ----------

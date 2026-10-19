@@ -308,8 +308,7 @@ func startPairing() {
 		return
 	}
 	pairMu.Unlock()
-	host, _ := os.Hostname()
-	name := "Windows · " + host
+	name := deviceName()
 	code, err := PairStart(name)
 	if err != nil {
 		setStatus(Tr("no_net_pair"))
@@ -334,6 +333,7 @@ func startPairing() {
 			st.mu.Lock()
 			st.Token = tok
 			st.DeviceName = name
+			st.ResetSeen = time.Now().UnixMilli() // yangi ulangan qurilma eski tozalashlarni qo'llamaydi
 			st.mu.Unlock()
 			_ = st.Save()
 			pairMu.Lock()
@@ -569,6 +569,16 @@ func mindfulAsk(cfg *Config, fg Foreground, procs map[string][]uint32) {
 	}()
 }
 
+// deviceName — "Windows · KOMPYUTER · foydalanuvchi": bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma
+func deviceName() string {
+	host, _ := os.Hostname()
+	name := "Windows · " + host
+	if u := strings.TrimSpace(os.Getenv("USERNAME")); u != "" && !strings.EqualFold(u, host) {
+		name += " · " + u
+	}
+	return name
+}
+
 func niceName(exe string) string {
 	st.mu.Lock()
 	defer st.mu.Unlock()
@@ -599,7 +609,10 @@ func doSync() {
 		apps = ScanApps()
 	}
 	events := st.TakeEvents()
-	res, err := Sync(tok, st.Rows(time.Now()), apps, events)
+	st.mu.Lock()
+	seen := st.ResetSeen
+	st.mu.Unlock()
+	res, err := Sync(tok, deviceName(), seen, st.Rows(time.Now()), apps, events)
 	if err != nil {
 		st.ReturnEvents(events)
 	}
@@ -615,6 +628,9 @@ func doSync() {
 	if err != nil {
 		setStatus(Tr("offline"))
 		return
+	}
+	if st.ApplyReset(res.Config.StatsResetAt) {
+		_ = st.Save() // saytda statistika tozalandi — bu kompyuterdagi hisob ham noldan
 	}
 	if SetLang(res.Config.Lang) {
 		applyMenuLang()

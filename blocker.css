@@ -706,3 +706,8 @@ div.fg-row.fg-app:focus-visible { outline: 2px solid var(--accent); outline-offs
   .fg-hit i { width: 5px; height: 5px; }
 }
 .fg-msched[hidden], .fg-perday[hidden] { display: none; }
+/* 🔗 Pomodoro / Fokus rejimi: Focusgate yoqish/o'chirish */
+.fg-busbadge { display: flex; align-items: center; gap: 10px; width: max-content; max-width: 100%; padding: 4px 6px 4px 12px; cursor: default; }
+.fg-busbadge .fg-bus-l { border: 0; background: none; color: inherit; font: inherit; font-weight: 600; font-size: 12.5px; cursor: pointer; text-align: left; padding: 3px 0; }
+.fg-busbadge.off { border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.06); opacity: .85; }
+.fg-busbadge .fg-sw { flex: none; }

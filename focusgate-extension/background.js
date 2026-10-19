@@ -53,7 +53,7 @@ async function pollPair() {
       try {
         const r = await api({ action: 'pair_poll', code: p.code });
         if (r.token) {
-          await S.set({ token: r.token, pair: null });
+          await S.set({ token: r.token, pair: null, resetSeen: Date.now() });
           notifyPopup();
           sync();
           break;
@@ -206,12 +206,16 @@ async function sync() {
     const events = (await S.get('events')) || [];
     await S.set({ events: [] });
     let r;
-    try { r = await api({ action: 'sync', token, version: VERSION, usage: rows, events, today: dayKey() }); }
+    const resetSeen = (await S.get('resetSeen')) || 0;
+    try { r = await api({ action: 'sync', token, version: VERSION, usage: rows, events, today: dayKey(), reset_seen: resetSeen }); }
     catch (e) {
       const back = (await S.get('events')) || []; await S.set({ events: events.concat(back).slice(-200) });
       if (e.code === 401) await S.set({ token: null });
       throw e;
     }
+    // Saytda statistika tozalangan — bu brauzerdagi hisob ham noldan
+    const ra = Number((r.config || {}).statsResetAt) || 0;
+    if (ra > resetSeen) { usageQ = usageQ.then(() => S.set({ usage: {}, warned: {}, events: [], resetSeen: ra })); await usageQ; }
     await S.set({ cfg: r.config || {}, remote: r.site_usage || {}, device: r.device || null, syncedAt: Date.now() });
     await enforceAll();
     await warnCheck().catch(() => {});

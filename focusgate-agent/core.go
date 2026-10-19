@@ -60,6 +60,7 @@ type Config struct {
 	MindfulMin int               `json:"mindfulMin"` // "Ha" desa — necha daqiqa ruxsat (standart 15)
 	MindfulSec int               `json:"mindfulSec"` // savoldan oldin kutish (standart 10 s)
 	WarnAt     []int             `json:"warnAt"`     // qo'shimcha ogohlantirish: limitning 50%, 80% ...
+	StatsResetAt int64           `json:"statsResetAt"` // saytda "statistikani tozalash" bosilgan vaqt (ms)
 	Lang       string            `json:"lang"` // LevelUpDay'da tanlangan til: uz | en | ru // foydalanuvchi o'zgartirgan kategoriyalar: ilova → kategoriya
 }
 
@@ -84,6 +85,7 @@ type State struct {
 	AppsSentAt int64                           `json:"appsSentAt"` // dasturlar ro'yxati oxirgi marta yuborilgan (unix s)
 	Events     []Event                         `json:"events"`     // serverga hali yuborilmagan hodisalar
 	AppCats    map[string]string               `json:"appCats"`    // skanerda aniqlangan kategoriyalar (o'rnatilgan papka bo'yicha)
+	ResetSeen  int64                           `json:"resetSeen"`  // qaysi tozalashgacha mahalliy hisob o'chirilgan (ms)
 	lastEvent  map[string]time.Time
 	mu         sync.Mutex
 }
@@ -149,6 +151,20 @@ func (s *State) TotalToday(t time.Time) int {
 		n += u.Sec
 	}
 	return n
+}
+
+// ApplyReset — saytda statistika tozalangan bo'lsa (statsResetAt yangiroq), mahalliy hisob ham o'chiriladi.
+func (s *State) ApplyReset(at int64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if at <= s.ResetSeen {
+		return false
+	}
+	s.Usage = map[string]map[string]*AppUsage{}
+	s.Warned = map[string]bool{}
+	s.Events = nil
+	s.ResetSeen = at
+	return true
 }
 
 // Prune — 4 kundan eski hisoblarni o'chiradi.
