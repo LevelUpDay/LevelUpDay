@@ -123,12 +123,19 @@
         return;
       }
       var row = { id: id, user_id: uid, name: deviceName(), kind: (typeof _cloudDeviceType === 'function' ? _cloudDeviceType() : null), ua: (navigator.userAgent || '').slice(0, 200), last_seen: new Date().toISOString() };
+      // 🔄 Sinxron holati — admin paneli "Sinxron muammolari" uchun
+      var tel = { app_version: window.APP_VERSION || null, sync_pending: 0, sync_err: window._cloudLastErr ? String(window._cloudLastErr).slice(0, 200) : null, sync_at: row.last_seen };
+      try { tel.sync_pending = cloudPendingCount(); } catch (e) {}
+      if (!window._noDevTelemetry) Object.assign(row, tel);
       if (!r.data) {
         var ins = await supabase.from('account_devices').insert(row);
         // Yangi qurilma — Telegram'ga xabar (server tekshiradi, bir marta)
         if (!ins.error) { try { await supabase.functions.invoke('focusgate', { body: { action: 'notify_new_device', device_id: id } }); } catch (e) {} }
       } else {
-        await supabase.from('account_devices').update({ name: row.name, kind: row.kind, ua: row.ua, last_seen: row.last_seen }).eq('id', id);
+        var up = { name: row.name, kind: row.kind, ua: row.ua, last_seen: row.last_seen };
+        if (!window._noDevTelemetry) Object.assign(up, tel);
+        var ur = await supabase.from('account_devices').update(up).eq('id', id);
+        if (ur.error && /app_version|sync_/.test(ur.error.message || '')) window._noDevTelemetry = true;
       }
     } catch (e) {} finally { _devBusy = false; }
   }
@@ -162,15 +169,17 @@
   }
   setTimeout(autoBackup, 20000);
   setInterval(autoBackup, 30 * 60000);
-  async function restoreBackup(slot) {
+  // opts.admin — admin so'ragan tiklash (ops.js): tasdiqsiz, natijani qaytaradi
+  async function restoreBackup(slot, opts) {
+    opts = opts || {};
     var r = await supabase.from('app_backups').select('day,data,tasks,info').eq('user_id', S.cloudUserId).eq('slot', slot).maybeSingle();
-    if (r.error || !r.data) { tst('⚠️ ' + ((r.error && r.error.message) || L('Topilmadi', 'Not found', 'Не найдено'))); return; }
+    if (r.error || !r.data) { tst('⚠️ ' + ((r.error && r.error.message) || L('Topilmadi', 'Not found', 'Не найдено'))); return false; }
     var b = r.data, inf = b.info || {};
-    var ok = await confirmBox('☁️ ' + L('Zaxiradan tiklash', 'Restore backup', 'Восстановить копию'),
+    var ok = opts.admin ? true : await confirmBox('☁️ ' + L('Zaxiradan tiklash', 'Restore backup', 'Восстановить копию'),
       H(L(b.day + ' kungi nusxa tiklanadi: ' + (inf.tasks || 0) + ' ta vazifa, ' + (inf.goals || 0) + ' ta maqsad va sozlamalar. Hozirgi vazifalar shu nusxa bilan almashtiriladi.', 'The ' + b.day + ' copy will be restored: ' + (inf.tasks || 0) + ' tasks, ' + (inf.goals || 0) + ' goals and settings. Current tasks are replaced by it.', 'Будет восстановлена копия за ' + b.day + ': задач ' + (inf.tasks || 0) + ', целей ' + (inf.goals || 0) + ' и настройки. Текущие задачи будут заменены.')) +
       '<br><small class="acc-muted">' + H(L('🪙 Tanga, XP va olmos o\'zgarmaydi — ular faqat "Tanga tarixi" orqali tiklanadi.', '🪙 Coins, XP and gems are not changed — they are restored only via "Coin history".', '🪙 Монеты, XP и алмазы не меняются — их восстанавливают только через «Историю монет».')) + '</small>',
       L('Tiklash', 'Restore', 'Восстановить'), true);
-    if (!ok) return;
+    if (!ok) return false;
     await backupNow(false); // tiklashdan oldin hozirgi holat ham saqlanib qoladi
     var d = b.data || {};
     Object.keys(d).forEach(function (k) {
@@ -183,8 +192,10 @@
     try { ensureFullTaskOrder(); } catch (e) {}
     try { save(); } catch (e) {}
     try { scheduleAppStateSync(true); } catch (e) {}
+    try { scheduleTodosCloudSync(true); } catch (e) {}
     try { render(); renderProfile(); } catch (e) {}
-    tst('✅ ' + L('Zaxira tiklandi', 'Backup restored', 'Копия восстановлена'));
+    tst('✅ ' + L('Zaxira tiklandi', 'Backup restored', 'Копия восстановлена') + ' (' + b.day + ')');
+    return true;
   }
 
   // =========================================================
@@ -668,5 +679,5 @@
     if (pre && typeof wsState !== 'undefined') { wsState.loginEmail = pre; wsState.authMode = 'login'; sessionStorage.removeItem('ludLoginEmail'); }
   } catch (e) {}
 
-  window.LUAccount = { open: open, addConflict: addConflict, askGuestMerge: askGuestMerge, afterPull: afterPull, stashBeforeWipe: stashBeforeWipe, backupNow: backupNow, lock: lockNow, _devicePing: devicePing };
+  window.LUAccount = { open: open, addConflict: addConflict, askGuestMerge: askGuestMerge, afterPull: afterPull, stashBeforeWipe: stashBeforeWipe, backupNow: backupNow, restoreBackup: restoreBackup, lock: lockNow, _devicePing: devicePing };
 })();
