@@ -307,7 +307,7 @@ Deno.serve(async (req) => {
         others[r.app] = r.app.startsWith("site:") ? Math.max(others[r.app] || 0, v) : (others[r.app] || 0) + v;
       }
     }
-    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.label || dev.name, kind }, now, site_usage, others });
+    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.label || dev.name, kind, parent: (upd.parent_id as string | undefined) || dev.parent_id || null }, now, site_usage, others });
   }
 
   // ---------- 🧹 Statistikani tozalash (sayt, foydalanuvchi JWT) ----------

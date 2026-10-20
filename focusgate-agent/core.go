@@ -24,6 +24,26 @@ type Rule struct {
 	To      string `json:"to"`   // "18:00"
 	On      bool   `json:"on"`
 	PerDay  map[string]int `json:"perDay"` // kunlik limit hafta kuni bo'yicha: "1".."7" → daqiqa (yo'q — Minutes)
+	Devs    []string       `json:"devs"`   // qaysi qurilmalarda (fg_devices.id); bo'sh — hammasida
+}
+
+// forDevice — qoida shu qurilmada ishlaydimi (ID hali noma'lum bo'lsa — ishlaydi, xavfsizroq)
+func (r *Rule) forDevice(me string) bool {
+	if len(r.Devs) == 0 || me == "" {
+		return true
+	}
+	for _, d := range r.Devs {
+		if d == me {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *State) devID() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.DeviceID
 }
 
 // Mode — "Ish", "Uyqu", "Imtihon" kabi rejim: yoqilganda (yoki jadval vaqtida) ro'yxatdagilar bloklanadi.
@@ -450,9 +470,10 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 			}
 		}
 	}
+	me := st.devID()
 	for i := range cfg.Rules {
 		r := &cfg.Rules[i]
-		if !r.On || !matchApp(cfg, st, r.App, app) {
+		if !r.On || !r.forDevice(me) || !matchApp(cfg, st, r.App, app) {
 			continue
 		}
 		switch r.Kind {
@@ -473,8 +494,9 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 
 // SessionLimit — "session" turidagi qoida bo'lsa, bir ochilishga ruxsat etilgan daqiqalar.
 func SessionLimit(cfg *Config, st *State, app string) int {
+	me := st.devID()
 	for _, r := range cfg.Rules {
-		if r.On && r.Kind == "session" && matchApp(cfg, st, r.App, app) && r.Minutes > 0 {
+		if r.On && r.Kind == "session" && r.forDevice(me) && matchApp(cfg, st, r.App, app) && r.Minutes > 0 {
 			return r.Minutes
 		}
 	}
@@ -491,9 +513,10 @@ type Warn struct {
 // WarnDue — kunlik limit tugashiga ≤5 daqiqa qolganda va cfg.WarnAt foizlarida (har biri kuniga bir marta).
 func WarnDue(cfg *Config, st *State, t time.Time) []Warn {
 	var out []Warn
+	me := st.devID()
 	for _, r := range cfg.Rules {
 		mins := RuleMinutes(&r, t)
-		if !r.On || r.Kind != "daily" || mins <= 0 {
+		if !r.On || r.Kind != "daily" || mins <= 0 || !r.forDevice(me) {
 			continue
 		}
 		used := usedFor(cfg, st, r.App, t)

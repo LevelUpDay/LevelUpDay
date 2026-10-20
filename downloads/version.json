@@ -1,7 +1,7 @@
 {
-  "version": "0.6.2",
-  "sha256": "75075260e397211f4ee98394216bf293ebb54ed8dc8f17455bc3728c7eeb88d1",
+  "version": "0.6.3",
+  "sha256": "dfb846e728011535c589a9aa2544fc043cd77e19c323e32d3a77a564979843f0",
   "url": "https://levelupday.github.io/LevelUpDay/downloads/Focusgate.exe",
-  "notes": "Kengaytma o'zi qaysi kompyuterdaligini biladi (saytda kompyuter ichida ko'rinadi); saytda uzilganda bloklash to'xtaydi",
-  "ext": "0.6.2"
+  "notes": "Limit va bloklarni tanlangan qurilmalarda ishlatish mumkin",
+  "ext": "0.6.3"
 }

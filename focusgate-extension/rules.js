@@ -82,6 +82,13 @@ export function inSchedule(r, d) {
 }
 
 // check — sayt hozir bloklanganmi? used(appYokiCat) — bugun sarflangan soniyalar (son ham berish mumkin)
+// Qoida shu qurilmada ishlaydimi: r.devs (fg_devices.id) bo'sh — hammasida; aks holda shu kengaytma
+// yoki u turgan kompyuter (cfg._me / cfg._pc — sinxronda qo'yiladi) ro'yxatda bo'lsa
+export function forMe(cfg, r) {
+  const d = r && r.devs;
+  if (!Array.isArray(d) || !d.length || !cfg._me) return true;
+  return d.includes(cfg._me) || (!!cfg._pc && d.includes(cfg._pc));
+}
 export function check(cfg, key, used, now = new Date()) {
   if (!cfg || !key) return null;
   const usedOf = typeof used === 'function' ? used : () => used || 0;
@@ -91,7 +98,7 @@ export function check(cfg, key, used, now = new Date()) {
   if ((cfg.focusUntil || 0) > ms && cfg.allowOnly && !allowedSite(cfg, key)) return { reason: 'allow' };
   for (const m of cfg.modes || []) if (modeActive(m, now) && (m.apps || []).some((f) => f.app && matches(cfg, f.app, key))) return { reason: 'mode', rule: { label: m.name } };
   for (const r of cfg.rules || []) {
-    if (!r.on || !r.app || !matches(cfg, r.app, key)) continue;
+    if (!r.on || !r.app || !forMe(cfg, r) || !matches(cfg, r.app, key)) continue;
     if (r.kind === 'always') return { reason: 'always', rule: r };
     if (r.kind === 'schedule' && inSchedule(r, now)) return { reason: 'schedule', rule: r };
     const lim = r.kind === 'daily' ? ruleMinutes(r, now) : 0;
