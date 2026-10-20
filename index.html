@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
   <!-- ⏳ Kirish sessiyasi bor bo'lsa: akkaunt yuklanguncha mehmon ekrani ("user1") ko'rinmasin (account.js yuklanish oynasini ko'rsatadi) -->
-  <script>try{for(var _i=0;_i<localStorage.length;_i++){if(/^sb-.+-auth-token$/.test(localStorage.key(_i)||'')){document.documentElement.classList.add('lud-pending');setTimeout(function(){document.documentElement.classList.remove('lud-pending')},25000);break;}}}catch(e){}</script>
+  <!-- Faqat yangi kirish / akkaunt almashganda (qurilmadagi holat hali shu akkauntniki emas); odatiy qayta ochilishda sahifa darhol ko'rinadi -->
+  <script>try{(function(){var tok=false;for(var i=0;i<localStorage.length;i++){if(/^sb-.+-auth-token$/.test(localStorage.key(i)||'')){tok=true;break;}}
+    var clean=false;try{clean=!!sessionStorage.getItem('cloudCleanLogin');}catch(e){}
+    if(!tok&&!clean)return;
+    var raw=localStorage.getItem('todolist_app_state')||'',u=/"cloudUserId":"([^"]+)"/.exec(raw),o=/"_stateOwner":"([^"]+)"/.exec(raw);
+    if(!clean&&u&&o&&u[1]===o[1])return;
+    document.documentElement.classList.add('lud-pending');setTimeout(function(){document.documentElement.classList.remove('lud-pending')},25000);})();}catch(e){}</script>
   <style>html.lud-pending body{visibility:hidden}html.lud-pending .acc-loading{visibility:visible}</style>
 <meta charset="UTF-8">
 <script src="tz.js"></script>

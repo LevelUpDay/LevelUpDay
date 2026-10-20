@@ -1161,10 +1161,15 @@
   // Ilova holati yuklangach: joriy dizayn sotib olinmagan bo'lsa — Klassik'ga qaytaramiz.
   // Migratsiya: pullik dizaynlar paydo bo'lishidan oldin tanlangan dizayn bir marta "sovg'a" qilinadi
   // (S.shop.dzGrand), aks holda eski foydalanuvchilar dizaynini to'satdan yo'qotardi.
+  // Sovg'a faqat pullik dizaynlar paydo bo'lgunga qadar (2026-10-16) qo'shilgan foydalanuvchilarga — aks holda
+  // akkaunt almashtirib yoki Reset qilib, qurilmada qolgan pullik dizaynni tekinga olish mumkin edi
+  var GRANT_BEFORE = '2026-10-16';
+  function oldUser(s) { var j = s && s.profile && s.profile.joinedDate; return !!j && String(j) < GRANT_BEFORE; }
   function enforce() {
     var s = appS(); if (!s) return;
     if (!s.shop || typeof s.shop !== 'object') s.shop = { owned: [] };
     if (!Array.isArray(s.shop.owned)) s.shop.owned = [];
+    if (!oldUser(s)) { s.shop.dzGrand = 1; s.shop.dzGrandG = 1; }
     if (!s.shop.dzGrand) {
       s.shop.dzGrand = 1;
       // Faqat haqiqatan sovg'a berilganda saqlaymiz (yangi foydalanuvchining birinchi ishga tushishini buzmaslik uchun)
