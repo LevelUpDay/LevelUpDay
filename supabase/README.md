@@ -31,7 +31,7 @@ Edge function: `functions/send-reminders` (verify_jwt o'chiq — o'rniga Vault'd
 
 `fix_delete_account.sql` — "Delete account" ishlashi uchun **shart** (ichida `DELETE` bor,
 avtomatik qo'llanmadi). Supabase → SQL Editor'da bir marta ishga tushiring.
-Yangilangan: endi `coin_ledger`, `app_backups`, `account_devices` ham tozalanadi — qayta ishga tushiring.
+Yangilangan: endi `coin_ledger`, `app_backups`, `account_devices`, `user_admin_state`, `user_messages`, `promo_redemptions` ham tozalanadi — qayta ishga tushiring.
 
 `friends_remove_block.sql` — ichida `DELETE` bor, shuning uchun avtomatik qo'llanmadi.
 Supabase → SQL Editor'da bir marta ishga tushiring. Bo'lmasa ham ilova ishlaydi
