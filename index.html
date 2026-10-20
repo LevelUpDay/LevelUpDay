@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- ⏳ Kirish sessiyasi bor bo'lsa: akkaunt yuklanguncha mehmon ekrani ("user1") ko'rinmasin (account.js yuklanish oynasini ko'rsatadi) -->
+  <script>try{for(var _i=0;_i<localStorage.length;_i++){if(/^sb-.+-auth-token$/.test(localStorage.key(_i)||'')){document.documentElement.classList.add('lud-pending');setTimeout(function(){document.documentElement.classList.remove('lud-pending')},25000);break;}}}catch(e){}</script>
+  <style>html.lud-pending body{visibility:hidden}html.lud-pending .acc-loading{visibility:visible}</style>
 <meta charset="UTF-8">
 <script src="tz.js"></script>
 <script>

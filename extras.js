@@ -4401,6 +4401,7 @@
     if (nG) parts.push(nG + ' ' + L('ta maqsad', 'goals', 'целей'));
     if (nC) parts.push(nC + ' ' + L('ta Chest vazifa', 'chest tasks', 'задач Chest'));
     var doIt = function () {
+      try { allowTaskBulkDelete(); } catch (e) {}
       var goals = [], chests = [];
       items.forEach(function (x) {
         if (x.k === 't') { try { moveTaskToTrash(x.o.id); } catch (e) { console.warn('[inbox] del', e); } }

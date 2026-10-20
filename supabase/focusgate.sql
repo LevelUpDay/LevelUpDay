@@ -62,3 +62,18 @@ begin
 end; $$;
 revoke all on function public.fg_link_device(uuid, uuid) from public, anon;
 grant execute on function public.fg_link_device(uuid, uuid) to authenticated;
+
+-- ✏️ Qurilmaga o'z nomini berish (migratsiya: fg_device_label). name — avtomatik nom (o'zgarmaydi), label — saytda ko'rinadi.
+alter table public.fg_devices add column if not exists label text;
+create or replace function public.fg_rename_device(p_dev uuid, p_label text) returns text
+language plpgsql security definer set search_path to 'public' as $$
+declare v text := nullif(btrim(regexp_replace(coalesce(p_label, ''), '[\u0000-\u001f<>]', '', 'g')), '');
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  if v is not null and char_length(v) > 40 then v := left(v, 40); end if;
+  update fg_devices set label = v where id = p_dev and user_id = auth.uid();
+  if not found then raise exception 'not_found'; end if;
+  return v;
+end; $$;
+revoke all on function public.fg_rename_device(uuid, text) from public, anon;
+grant execute on function public.fg_rename_device(uuid, text) to authenticated;
