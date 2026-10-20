@@ -232,6 +232,7 @@ func onReady() {
 	go trackLoop()
 	go enforceLoop()
 	go syncLoop()
+	go localServer()
 	go updateLoop()
 	go ensureDesktop()
 	if st.Token == "" {
@@ -332,6 +333,7 @@ func startPairing() {
 		if tok != "" {
 			st.mu.Lock()
 			st.Token = tok
+			st.DeviceID = ""
 			st.DeviceName = name
 			st.ResetSeen = time.Now().UnixMilli() // yangi ulangan qurilma eski tozalashlarni qo'llamaydi
 			st.mu.Unlock()
@@ -617,8 +619,11 @@ func doSync() {
 		st.ReturnEvents(events)
 	}
 	if err == ErrUnauthorized {
+		// Saytda "Uzish" bosildi (yoki qurilma o'chirildi) — eski qoidalar bilan bloklashda davom etmaymiz
 		st.mu.Lock()
 		st.Token = ""
+		st.DeviceID = ""
+		st.Config = Config{}
 		st.mu.Unlock()
 		_ = st.Save()
 		setStatus(Tr("unpaired"))
@@ -646,6 +651,9 @@ func doSync() {
 	}
 	if res.Device.Name != "" {
 		st.DeviceName = res.Device.Name
+	}
+	if res.Device.ID != "" {
+		st.DeviceID = res.Device.ID
 	}
 	name := st.DeviceName
 	st.mu.Unlock()

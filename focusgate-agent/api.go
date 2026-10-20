@@ -14,7 +14,7 @@ import (
 const (
 	FunctionURL = "https://zzcvpenkevxlurgpjltz.supabase.co/functions/v1/focusgate"
 	AppURL      = "https://levelupday.github.io/LevelUpDay/"
-	Version     = "0.6.1"
+	Version     = "0.6.2"
 )
 
 var ErrUnauthorized = errors.New("unauthorized")
@@ -73,6 +73,7 @@ func PairPoll(code string) (string, error) {
 type SyncResult struct {
 	Config Config `json:"config"`
 	Device struct {
+		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"device"`
 	Now int64 `json:"now"`

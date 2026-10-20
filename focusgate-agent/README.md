@@ -23,3 +23,9 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
 Ikonka/versiya resurslari (`rsrc_windows_*.syso`) `go-winres simply --icon assets/icon.png --manifest gui ...` bilan yaratilgan.
 
 Chiqarish: `api.go` dagi `Version` ni oshiring, yig'ing, `dist/Focusgate.exe` ni `downloads/Focusgate.exe` ga ko'chiring va `downloads/version.json` dagi `version` + `sha256` ni yangilang — o'rnatilgan agentlar o'zi yangilanadi.
+
+## Mahalliy aloqa (v0.6.2)
+`127.0.0.1:47613–47617/focusgate/id` — brauzer kengaytmasi shu kompyuterdagi Focusgate'ning qurilma ID'sini oladi va
+serverga `pc_id` sifatida yuboradi (saytda kengaytma shu kompyuter ichida ko'rinadi). Faqat hozir ekrandagi (faol sessiya)
+Windows foydalanuvchisining Focusgate'i javob beradi; `Host` faqat `127.0.0.1` (DNS rebinding'dan himoya).
+Saytda qurilma uzilsa (401) — agent qoidalarni tozalaydi va bloklashni to'xtatadi.

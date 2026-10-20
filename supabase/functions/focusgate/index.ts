@@ -9,6 +9,7 @@
 //              → {config, device, now}   (usage — shu qurilmaning kunlik umumiy qiymatlari, ustiga yoziladi)
 //  Statistikani tozalash: {action:'reset_stats'} + foydalanuvchi JWT → fg_usage/fg_events/fg_sessions (faqat o'ziniki)
 //      va config.statsResetAt — agent/kengaytma (reset_seen < statsResetAt) mahalliy hisobni ham nolga tushiradi.
+//  Qurilma turi (fg_devices.kind): pc / ext / phone. Kengaytma kompyuterga bog'lanadi (parent_id): agent aytgan pc_id yoki bir xil tarmoq.
 //  Yangi qurilma: {action:'notify_new_device', device_id} + foydalanuvchi JWT → account_devices.notified, Telegram xabari (prefs.newDevice).
 //  Haftalik hisobot: {action:'weekly_report'} — faqat pg_cron (x-cron-secret), yakshanba kechqurun Telegram'ga.
 // JWT tekshiruvi o'chirilgan: agent qurilma tokeni bilan, sayt esa foydalanuvchi JWT bilan tekshiriladi.
@@ -106,6 +107,8 @@ function pairCode() {
 }
 const CODE_RE = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Qurilma turi nomidan: "Chrome · Windows (kengaytma)" → ext, "Android …" → phone, qolgani → pc (Windows agenti)
+const kindOf = (name: string, ver?: string | null) => /^ext-/.test(ver || "") || /\((kengaytma|extension|расширение)\)/i.test(name) ? "ext" : /^android-/.test(ver || "") || /android/i.test(name) ? "phone" : "pc";
 const hours24 = (v: unknown, max: number) => Array.isArray(v) ? v.slice(0, 24).map((x: unknown) => Math.max(0, Math.min(max, Math.round(Number(x) || 0)))) : [];
 
 Deno.serve(async (req) => {
@@ -144,7 +147,7 @@ Deno.serve(async (req) => {
     const { data: p } = await sb.from("fg_pair").select("device_name,user_id,created_at").eq("code", code).maybeSingle();
     if (!p || Date.now() - new Date(p.created_at).getTime() > PAIR_TTL_MS) return json({ error: "expired" }, 410);
     if (p.user_id) return json({ error: "already_used" }, 409);
-    return json({ name: p.device_name, created_at: p.created_at, age_sec: Math.round((Date.now() - new Date(p.created_at).getTime()) / 1000) });
+    return json({ name: p.device_name, kind: kindOf(String(p.device_name || "")), created_at: p.created_at, age_sec: Math.round((Date.now() - new Date(p.created_at).getTime()) / 1000) });
   }
 
   // ---------- 2) Ulashni tasdiqlash (sayt, foydalanuvchi JWT) ----------
@@ -162,10 +165,20 @@ Deno.serve(async (req) => {
     const { data: claimed } = await sb.from("fg_pair").update({ user_id: uid }).eq("code", code).is("user_id", null).select("code");
     if (!claimed || !claimed.length) return json({ error: "already_used" }, 409);
     const token = randHex(32);
+    const kind = kindOf(String(p.device_name || ""));
     const { data: dev, error: de } = await sb.from("fg_devices")
-      .insert({ user_id: uid, name: p.device_name, token_hash: await sha256(token) }).select("id,name").single();
+      .insert({ user_id: uid, name: p.device_name, kind, token_hash: await sha256(token) }).select("id,name,kind").single();
     if (de || !dev) { await sb.from("fg_pair").update({ user_id: null }).eq("code", code); return json({ error: "device_failed" }, 500); }
     await sb.from("fg_pair").update({ token }).eq("code", code);
+    // Shu kompyuter (shu Windows foydalanuvchisi) qayta ulandi — eski nusxasi ro'yxatda qolib ketmasin
+    if (kind === "pc") {
+      const { data: olds } = await sb.from("fg_devices").select("id").eq("user_id", uid).eq("kind", "pc").eq("name", p.device_name).neq("id", dev.id);
+      const ids = (olds || []).map((o: any) => o.id);
+      if (ids.length) {
+        await sb.from("fg_devices").update({ parent_id: dev.id }).eq("user_id", uid).in("parent_id", ids); // kengaytmalar yangi nusxaga o'tadi
+        await sb.from("fg_devices").delete().in("id", ids);
+      }
+    }
     return json({ ok: true, device: dev });
   }
 
@@ -184,8 +197,12 @@ Deno.serve(async (req) => {
   if (action === "sync") {
     const token = String(body.token || "");
     if (!/^[0-9a-f]{64}$/.test(token)) return json({ error: "unauthorized" }, 401);
-    const { data: dev } = await sb.from("fg_devices").select("id,user_id,name").eq("token_hash", await sha256(token)).maybeSingle();
+    const { data: dev } = await sb.from("fg_devices").select("id,user_id,name,kind,parent_id,link_src,created_at").eq("token_hash", await sha256(token)).maybeSingle();
     if (!dev) return json({ error: "unauthorized" }, 401);
+    const kind = dev.kind || kindOf(String(dev.name || ""), body.version ? String(body.version) : null);
+    // Tarmoq belgisi (IP o'zi saqlanmaydi): kengaytmani shu tarmoqdagi kompyuterga bog'lash uchun
+    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+    const ipHash = ip ? (await sha256(dev.user_id + "|" + ip)).slice(0, 24) : null;
 
     const now = Date.now();
     const { data: cfg } = await sb.from("fg_config").select("config,updated_at").eq("user_id", dev.user_id).maybeSingle();
@@ -211,7 +228,27 @@ Deno.serve(async (req) => {
       const { error } = await sb.from("fg_usage").upsert(rows, { onConflict: "user_id,device_id,day,app" });
       if (error) return json({ error: "usage_failed", detail: error.message }, 500);
     }
-    const upd: Record<string, unknown> = { last_seen: new Date().toISOString(), agent_version: body.version ? String(body.version).slice(0, 20) : null };
+    const upd: Record<string, unknown> = { last_seen: new Date().toISOString(), agent_version: body.version ? String(body.version).slice(0, 20) : null, kind, ip_hash: ipHash };
+    // 🧩 Kengaytma qaysi kompyuterda: 1) shu kompyuterdagi Focusgate agenti aytdi (pc_id), 2) bir xil tarmoq, faqat bitta kompyuter bo'lsa
+    if (kind === "ext" && dev.link_src !== "manual" && dev.link_src !== "none") {
+      let parent: string | null = null, src = "";
+      const pcId = String(body.pc_id || "");
+      if (/^[0-9a-f-]{36}$/i.test(pcId)) {
+        const { data: pc } = await sb.from("fg_devices").select("id").eq("id", pcId).eq("user_id", dev.user_id).eq("kind", "pc").maybeSingle();
+        if (pc) { parent = pc.id; src = "agent"; }
+      }
+      if (!parent && ipHash && dev.link_src !== "agent") {
+        const { data: pcs } = await sb.from("fg_devices").select("id").eq("user_id", dev.user_id).eq("kind", "pc").eq("ip_hash", ipHash)
+          .gte("last_seen", new Date(now - 15 * 60000).toISOString());
+        if (pcs && pcs.length === 1) { parent = pcs[0].id; src = "ip"; }
+      }
+      if (parent && (parent !== dev.parent_id || src !== dev.link_src)) {
+        upd.parent_id = parent; upd.link_src = src;
+        // Shu kompyuterdagi shu brauzerning eski (qayta o'rnatilgan) nusxalari — o'chiriladi
+        await sb.from("fg_devices").delete().eq("user_id", dev.user_id).eq("kind", "ext").eq("parent_id", parent).eq("name", dev.name)
+          .neq("id", dev.id).lt("last_seen", dev.created_at);
+      }
+    }
     // Windows agenti nomi: "Windows · KOMPYUTER · foydalanuvchi" — bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma.
     // Faqat avtomatik qo'yilgan nomlar yangilanadi.
     if (typeof body.name === "string") {
@@ -270,7 +307,7 @@ Deno.serve(async (req) => {
         others[r.app] = r.app.startsWith("site:") ? Math.max(others[r.app] || 0, v) : (others[r.app] || 0) + v;
       }
     }
-    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.name }, now, site_usage, others });
+    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.name, kind }, now, site_usage, others });
   }
 
   // ---------- 🧹 Statistikani tozalash (sayt, foydalanuvchi JWT) ----------

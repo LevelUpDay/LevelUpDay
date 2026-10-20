@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.6.1'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.6.2'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
   // ✅ Focusgate kuzatuvchilari (Windows dasturi Focusgate.exe va brauzer kengaytmasi ZIP) — Focusgate bo'limida yuklab olinadi.
   // Faqat "Ilovani o'rnatish" oynasidagi Windows o'rnatuvchisi o'chirilgan (extras.js: dlOn).
@@ -126,7 +126,11 @@
   }
   // Bir kunlik ilovalar (minut) va soatlar
   // 📱💻🧩 Ulangan qurilmalar: turi va tartib raqami (statistikada "1 · parking24" kabi)
-  function devKind(d) { var v = (d && d.agent_version) || ''; return /^ext-/.test(v) ? 'ext' : /^android-/.test(v) ? 'phone' : 'pc'; }
+  function devKind(d) {
+    if (d && d.kind) return d.kind === 'ext' || d.kind === 'phone' ? d.kind : 'pc';
+    var v = (d && d.agent_version) || ''; return /^ext-/.test(v) || /\((kengaytma|extension|расширение)\)/.test((d && d.name) || '') ? 'ext' : /^android-/.test(v) ? 'phone' : 'pc';
+  }
+  function devOn(d) { return !!(d && d.last_seen && Date.now() - new Date(d.last_seen).getTime() < 150000); }
   function devIcon(d) { var k = devKind(d); return k === 'ext' ? '🧩' : k === 'phone' ? '📱' : '💻'; }
   function devName(d) { return String((d && d.name) || 'Windows').replace(/\((kengaytma|extension|расширение)\)/, '(' + L('kengaytma', 'extension', 'расширение') + ')'); }
   function devById(id) { for (var i = 0; i < FG.devices.length; i++) if (FG.devices[i].id === id) return FG.devices[i]; return null; }
@@ -256,7 +260,7 @@
     try {
       var since = dayStr(-(HIST_DAYS - 1));
       var res = await Promise.all([
-        supabase.from('fg_devices').select('id,name,last_seen,agent_version,created_at,apps,apps_at').order('created_at', { ascending: true }),
+        supabase.from('fg_devices').select('id,name,kind,parent_id,link_src,last_seen,agent_version,created_at,apps,apps_at').order('created_at', { ascending: true }),
         supabase.from('fg_config').select('config').maybeSingle(),
         loadUsage(since),
         supabase.from('fg_events').select('kind,app,label,reason,at,device_id').gte('at', new Date(Date.now() - 8 * 864e5).toISOString()).order('at', { ascending: false }).limit(500)
@@ -267,6 +271,7 @@
       var c = res[1] && res[1].data && res[1].data.config;
       // Yaqinda saqlangan bo'lsa — serverdan kelgan (eskirgan bo'lishi mumkin) nusxa ustiga yozilmaydi
       if (!FG.cfg || Date.now() - (FG.dirtyAt || 0) > 10000) FG.cfg = Object.assign({ track: true, notif: true, strict: false, rules: [], focusApps: [], focusUntil: 0 }, c || {});
+      setTimeout(function () { try { strictTick(); } catch (e) {} }, 0);
       (FG.cfg.rules || []).forEach(function (r, i) { if (!r.id) r.id = 'r' + Date.now().toString(36) + i; });
       try { if (FG.devices.length && FG.cfg.lang !== getLang()) setTimeout(saveCfg, 0); } catch (e) {}
       FG.rows = (res[2] && res[2].data) || []; _dmCache = {};
@@ -360,7 +365,13 @@
     if (s < 86400) return Math.round(s / 3600) + ' ' + L('soat oldin', 'h ago', 'ч назад');
     return Math.round(s / 86400) + ' ' + L('kun oldin', 'd ago', 'дн. назад');
   }
-  function online() { return FG.devices.some(function (d) { return d.last_seen && Date.now() - new Date(d.last_seen).getTime() < 120000; }); }
+  function online() { return FG.devices.some(devOn); }
+  // Kompyuterlar bo'lsa — faqat ularning holati (kengaytma onlayn bo'lsa ham kompyuter oflayn bo'lishi mumkin)
+  function liveState() {
+    var pcs = FG.devices.filter(function (d) { return devKind(d) === 'pc'; });
+    if (pcs.length) return pcs.some(devOn) ? 'on' : 'pcoff';
+    return online() ? 'on' : 'off';
+  }
   var DAYS = function () { return L('Du Se Ch Pa Ju Sh Ya', 'Mo Tu We Th Fr Sa Su', 'Пн Вт Ср Чт Пт Сб Вс').split(' '); };
   function ruleDesc(r) {
     if (r.kind === 'always') return L('Doimiy blok', 'Always blocked', 'Всегда заблокировано');
@@ -382,7 +393,7 @@
     var daily = (c.rules || []).filter(function (r) { return r.on && r.kind === 'daily'; });
     var over = daily.filter(function (r) { var m = ruleMin(r, 0); return m > 0 && usedMin(r.app, 0) >= m; }).length;
     var active = (c.rules || []).filter(function (r) { return r.on; }).length;
-    var live = real() ? (pauseLeft() > 0 ? [' warn', '⏸ ' + L('Pauza', 'Paused', 'Пауза')] : (c.modes || []).some(modeOnNow) ? ['', '🎭 ' + (c.modes || []).filter(modeOnNow).map(function (m) { return m.name; }).join(', ')] : online() ? ['', L('Kuzatuv faol', 'Tracking on', 'Отслеживание вкл.')] : [' warn', L('Kompyuter oflayn', 'Computer offline', 'Компьютер офлайн')]) : [' off', L('Kompyuter ulanmagan', 'No computer connected', 'Компьютер не подключён')];
+    var live = real() ? (pauseLeft() > 0 ? [' warn', '⏸ ' + L('Pauza', 'Paused', 'Пауза')] : (c.modes || []).some(modeOnNow) ? ['', '🎭 ' + (c.modes || []).filter(modeOnNow).map(function (m) { return m.name; }).join(', ')] : liveState() === 'on' ? ['', L('Kuzatuv faol', 'Tracking on', 'Отслеживание вкл.')] : liveState() === 'pcoff' ? [' warn', L('Kompyuter oflayn', 'Computer offline', 'Компьютер офлайн')] : [' warn', L('Qurilmalar oflayn', 'Devices offline', 'Устройства офлайн')]) : [' off', L('Kompyuter ulanmagan', 'No computer connected', 'Компьютер не подключён')];
     return '<div class="fg-hero">' +
       '<div class="fg-hero-l"><div class="fg-brand"><span class="fg-logo">' + SHIELD + '</span><div><b>Focusgate</b><span>' + E(L('Ilova va sayt blokeri', 'App & site blocker', 'Блокировщик приложений')) + '</span></div></div>' +
       '<span class="fg-live' + live[0] + '"><i></i>' + E(live[1]) + '</span></div>' +
@@ -870,25 +881,60 @@
       ['track', '👁', ['Foydalanish vaqtini kuzatish', 'Track usage time', 'Отслеживать время'], ['Dastur va saytlarda o\'tkazilgan vaqt hisoblanadi', 'Counts time spent in apps and sites', 'Считает время в приложениях и на сайтах'], c.track !== false],
       ['notif', '🔔', ['Windows bildirishnomalari', 'Windows notifications', 'Уведомления Windows'], ['Limit tugashiga 5 daqiqa qolganda va bloklanganda', '5 minutes before a limit ends and when blocking', 'За 5 минут до лимита и при блокировке'], c.notif !== false],
       ['linkFocus', '🔗', ['Pomodoro va Fokus rejimi bilan', 'Link Pomodoro & Focus mode', 'Связать с Pomodoro и фокусом'], ['Ular ishlaganda ham fokus ro\'yxatidagi dasturlar bloklanadi', 'Apps in the focus list are blocked while they run', 'Приложения из списка фокуса блокируются и во время них'], c.linkFocus !== false],
-      ['strict', '🔐', ['Qat\'iy rejim', 'Strict mode', 'Строгий режим'], ['Limitlarni o\'chirib, pauza qilib va fokusni to\'xtatib bo\'lmaydi', 'No turning off limits, pausing or stopping focus', 'Нельзя отключить лимиты, поставить паузу или остановить фокус'], !!c.strict],
+      ['strict', '🔐', ['Qat\'iy rejim', 'Strict mode', 'Строгий режим'], c.strictOffAt ? ['⏳ O\'chadi: ' + new Date(c.strictOffAt).toLocaleString(), '⏳ Turns off: ' + new Date(c.strictOffAt).toLocaleString(), '⏳ Выключится: ' + new Date(c.strictOffAt).toLocaleString()] : ['Limitlarni o\'chirib, pauza qilib va fokusni to\'xtatib bo\'lmaydi', 'No turning off limits, pausing or stopping focus', 'Нельзя отключить лимиты, поставить паузу или остановить фокус'], !!c.strict],
       ['reward', '🪙', ['LevelUpDay mukofotlari', 'LevelUpDay rewards', 'Награды LevelUpDay'], ['Limitlarda qolgan kun: +10 🪙 · fokus: har daqiqa 1 XP', 'Day within limits: +10 🪙 · focus: 1 XP per minute', 'День в лимитах: +10 🪙 · фокус: 1 XP за минуту'], LOCAL.reward],
       ['share', '👥', ['Do\'stlarim ko\'rsin', 'Visible to friends', 'Видно друзьям'], ['Fokus va ekran vaqti do\'stlar reytingida chiqadi (dasturlar ko\'rinmaydi)', 'Focus and screen time appear in the friends board (apps stay private)', 'Фокус и экранное время видны в рейтинге друзей (приложения скрыты)'], c.share !== false],
       ['tg', '✈️', ['Telegram\'ga xabar', 'Telegram alerts', 'Сообщения в Telegram'], [FG.tg ? 'Dastur bloklansa yoki limit tugasa — botdan xabar' : 'Telegram ulanmagan — Profil → Sozlamalar → Telegram', FG.tg ? 'Message from the bot when something is blocked or a limit ends' : 'Telegram not connected — Profile → Settings → Telegram', FG.tg ? 'Сообщение от бота при блокировке или исчерпании лимита' : 'Telegram не подключён — Профиль → Настройки → Telegram'], !!(FG.tg && FG.tg.enabled && !(FG.tg.prefs && FG.tg.prefs.fg === false))],
       ['tgweekly', '📊', ['Haftalik hisobot (Telegram)', 'Weekly report (Telegram)', 'Недельный отчёт (Telegram)'], ['Har yakshanba kechqurun: ekran vaqti, o\'tgan hafta bilan taqqoslash, top ilovalar', 'Every Sunday evening: screen time, week-over-week change, top apps', 'Каждое воскресенье вечером: экранное время, сравнение с прошлой неделей, топ приложений'], !!(FG.tg && FG.tg.enabled && !(FG.tg.prefs && (FG.tg.prefs.fg === false || FG.tg.prefs.fgweekly === false)))]
     ];
     return rows.map(function (r) {
-      return '<div class="fg-opt"><span class="fg-set-ic">' + r[1] + '</span><span class="fg-set-t"><b>' + E(T(r[2])) + '</b><small>' + E(T(r[3])) + '</small></span>' + sw(r[4], 'data-fg-set="' + r[0] + '"', (r[0] === 'strict' && r[4] && real()) || ((r[0] === 'tg' || r[0] === 'tgweekly') && !FG.tg)) + '</div>';
+      return '<div class="fg-opt"><span class="fg-set-ic">' + r[1] + '</span><span class="fg-set-t"><b>' + E(T(r[2])) + '</b><small>' + E(T(r[3])) + '</small></span>' + sw(r[4], 'data-fg-set="' + r[0] + '"', (r[0] === 'tg' || r[0] === 'tgweekly') && !FG.tg) + '</div>';
     }).join('');
   }
+  // 🔗 Ulangan qurilmalar: har bir kompyuter ichida uning brauzer kengaytmasi (ulangan / ulanmagan),
+  // telefonlar alohida, kompyuterga bog'lanmagan kengaytmalar — "qaysi kompyuterda?" tanlovi bilan
+  function devStatus(d) {
+    var on = devOn(d);
+    return '<small class="' + (on ? 'grn' : '') + '">' + (on ? '● ' + E(L('onlayn', 'online', 'онлайн')) : E(ago(d.last_seen))) +
+      (d.agent_version ? ' · v' + E(String(d.agent_version).replace(/^(ext|android)-/, '')) : '') + '</small>';
+  }
+  function browserOf(d) { return String((d && d.name) || 'Chrome').replace(/\s*\((kengaytma|extension|расширение)\)\s*/i, '').trim(); }
   function devicesHtml() {
     if (!real()) return '';
-    return '<div class="fg-group-t">🔗 ' + E(L('Ulangan qurilmalar', 'Connected devices', 'Подключённые устройства')) + ' <em>' + FG.devices.length + '</em></div><div class="fg-hint">' + E(L('Xohlagancha kompyuter, telefon, planshet va brauzer kengaytmasini ulashingiz mumkin — statistikada hammasi qo\'shib hisoblanadi.', 'Connect as many computers, phones, tablets and browser extensions as you like — stats add them all up.', 'Подключайте сколько угодно компьютеров, телефонов, планшетов и расширений — статистика суммирует всё.')) + '</div><div class="fg-list">' +
-      FG.devices.map(function (d) {
-        var on = d.last_seen && Date.now() - new Date(d.last_seen).getTime() < 120000;
-        var ext = /^ext-/.test(d.agent_version || ''), droid = /^android-/.test(d.agent_version || '');
-        return '<div class="fg-row"><span class="fg-tile" style="--tc:' + (ext ? '#f59e0b' : droid ? '#22c55e' : '#3b82f6') + '">' + (ext ? '🧩' : droid ? '📱' : '🪟') + '</span><span class="fg-row-m"><b>' + E(String(d.name || 'Windows').replace(/\((kengaytma|extension|расширение)\)/, '(' + L('kengaytma', 'extension', 'расширение') + ')')) + '</b><small class="' + (on ? 'grn' : '') + '">' + (on ? '● ' : '') + E(ago(d.last_seen)) + (d.agent_version ? ' · v' + E(String(d.agent_version).replace(/^(ext|android)-/, '')) : '') + (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small></span>' +
-          '<button type="button" class="fg-btn sm ghost" data-fg-unpair="' + E(d.id) + '">' + E(L('Uzish', 'Remove', 'Отключить')) + '</button></div>';
-      }).join('') + '</div>';
+    var pcs = [], exts = [], phones = [], kids = {};
+    FG.devices.forEach(function (d) { var k = devKind(d); (k === 'pc' ? pcs : k === 'ext' ? exts : phones).push(d); });
+    var loose = exts.filter(function (x) {
+      var p = x.parent_id && devById(x.parent_id);
+      if (p && devKind(p) === 'pc') { (kids[p.id] = kids[p.id] || []).push(x); return false; }
+      return true;
+    });
+    var unpairBtn = function (d, sm) { return '<button type="button" class="fg-btn sm ghost' + (sm ? ' fg-unx' : '') + '" data-fg-unpair="' + E(d.id) + '" aria-label="' + E(L('Uzish', 'Remove', 'Отключить')) + '">' + (sm ? '✕' : E(L('Uzish', 'Remove', 'Отключить'))) + '</button>'; };
+    var extLine = function (x) {
+      return '<div class="fg-subrow"><span class="fg-sub-ic">🧩</span><span class="fg-row-m"><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + ' · ' + E(browserOf(x)) + '</b>' +
+        '<small class="fg-ok">✅ ' + E(L('Ulangan', 'Connected', 'Подключено')) + '</small> ' + devStatus(x) + '</span>' + unpairBtn(x, true) + '</div>';
+    };
+    var h = '<div class="fg-group-t">🔗 ' + E(L('Ulangan qurilmalar', 'Connected devices', 'Подключённые устройства')) + ' <em>' + (pcs.length + phones.length + (pcs.length ? 0 : exts.length)) + '</em></div>' +
+      '<div class="fg-hint">' + E(L('Har bir kompyuterda Focusgate dasturi va brauzer kengaytmasi birga ishlaydi: dastur — ilovalarni, kengaytma — saytlarni boshqaradi.', 'On each computer the Focusgate app and the browser extension work together: the app handles programs, the extension handles websites.', 'На каждом компьютере работают вместе программа Focusgate и расширение: программа — приложения, расширение — сайты.')) + '</div><div class="fg-list">';
+    pcs.forEach(function (d) {
+      var k = kids[d.id] || [];
+      h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#3b82f6">🪟</span><span class="fg-row-m"><b>' + E(devName(d)) + '</b>' + devStatus(d).replace('</small>', (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small>') + '</span>' + unpairBtn(d) + '</div>' +
+        (k.length ? k.map(extLine).join('') :
+          '<div class="fg-subrow off"><span class="fg-sub-ic">🧩</span><span class="fg-row-m"><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><small class="fg-no">❌ ' + E(L('Ulanmagan — saytlar va Shorts/Reels bloklanmaydi', 'Not connected — sites and Shorts/Reels aren\'t blocked', 'Не подключено — сайты и Shorts/Reels не блокируются')) + '</small></span>' +
+          (DOWNLOADS_ON ? '<button type="button" class="fg-btn sm" data-fg-extinstall>' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button>' : '') + '</div>') + '</div>';
+    });
+    phones.forEach(function (d) {
+      h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#22c55e">📱</span><span class="fg-row-m"><b>' + E(devName(d)) + '</b>' + devStatus(d) + '</span>' + unpairBtn(d) + '</div></div>';
+    });
+    if (loose.length) {
+      if (pcs.length) h += '<div class="fg-group-t sm">🧩 ' + E(L('Qaysi kompyuterdaligi aniqlanmagan kengaytmalar', 'Extensions not matched to a computer', 'Расширения без компьютера')) + '</div>' +
+        '<div class="fg-hint">' + E(L('Kompyuterda Focusgate v' + AGENT_VERSION + ' va kengaytma ishlab tursa — o\'zi bog\'lanadi. Yoki qo\'lda tanlang:', 'With Focusgate v' + AGENT_VERSION + ' running on that computer it links automatically. Or pick it yourself:', 'Если на компьютере запущен Focusgate v' + AGENT_VERSION + ' — привяжется само. Или выберите вручную:')) + '</div>';
+      loose.forEach(function (x) {
+        h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#f59e0b">🧩</span><span class="fg-row-m"><b>' + E(devName(x)) + '</b>' + devStatus(x) + '</span>' + unpairBtn(x) + '</div>' +
+          (pcs.length ? '<div class="fg-subrow"><span class="fg-sub-ic">💻</span><select class="fg-sel" data-fg-link="' + E(x.id) + '"><option value="">' + E(L('Qaysi kompyuterda?', 'Which computer?', 'На каком компьютере?')) + '</option>' +
+            pcs.map(function (p) { return '<option value="' + E(p.id) + '">' + E(devName(p)) + '</option>'; }).join('') + '</select></div>' : '') + '</div>';
+      });
+    }
+    return h + '</div>';
   }
   function getCards() {
     if (!DOWNLOADS_ON) return '';
@@ -1756,22 +1802,88 @@
   }
   function soon() { try { toast('🧩 ' + L('Brauzer kengaytmasi tez orada!', 'Browser extension coming soon!', 'Расширение браузера скоро!')); } catch (e) {} }
 
+  // ---------- 🔌 Qurilmani uzish / kengaytmani kompyuterga bog'lash ----------
+  function kindWord(k) { return k === 'ext' ? L('brauzer kengaytmasi', 'browser extension', 'расширение браузера') : k === 'phone' ? L('telefon', 'phone', 'телефон') : L('kompyuter', 'computer', 'компьютер'); }
+  function unpairAsk(id) {
+    var d = devById(id); if (!d) return;
+    var k = devKind(d), c = cfg();
+    // Qat'iy rejim: qurilmani uzish — limitlarni o'chirish bilan teng
+    if (c.strict && real()) { toast('🔐 ' + L('Qat\'iy rejimda qurilmani uzib bo\'lmaydi — avval Sozlamalarda qat\'iy rejimni o\'chiring', 'Strict mode: devices can\'t be removed — turn strict mode off in Settings first', 'Строгий режим: нельзя отключить устройство — сначала выключите строгий режим')); return; }
+    guard(function () {
+      var kids = FG.devices.filter(function (x) { return x.parent_id === d.id; });
+      var o = openSheet('<h3>🔌 ' + E(L('Uzish', 'Remove', 'Отключить')) + ': ' + E(devName(d)) + '</h3><p class="fg-p">' +
+        E(L('Shu ' + kindWord(k) + 'da Focusgate ishlashdan to\'xtaydi: vaqt hisoblanmaydi va hech narsa bloklanmaydi. Statistikasi saqlanib qoladi.', 'Focusgate stops working on this ' + kindWord(k) + ': no tracking and nothing is blocked. Its stats are kept.', 'Focusgate перестанет работать на этом устройстве: учёт и блокировка остановятся. Статистика сохранится.')) +
+        (kids.length ? '<br><br>🧩 ' + E(L('Shu kompyuterdagi kengaytma alohida ishlashda davom etadi — uni ham uzish uchun yonidagi ✕ ni bosing.', 'The extension on this computer keeps working on its own — press ✕ next to it to remove it too.', 'Расширение на этом компьютере продолжит работать — чтобы отключить и его, нажмите ✕ рядом.')) : '') +
+        '</p><div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button><button type="button" class="fg-btn danger" data-fg-unpairok>' + E(L('Uzish', 'Remove', 'Отключить')) + '</button></div>');
+      o.querySelector('[data-fg-unpairok]').onclick = async function () {
+        this.disabled = true;
+        var r = await supabase.from('fg_devices').delete().eq('id', d.id);
+        if (r.error) { toast('⚠️ ' + r.error.message); this.disabled = false; return; }
+        closeSheet(); toast('🔌 ' + devName(d) + ' — ' + L('uzildi', 'removed', 'отключено')); load(true);
+      };
+    });
+  }
+  async function linkExt(id, parent) {
+    if (!parent) return;
+    var r = await supabase.rpc('fg_link_device', { p_dev: id, p_parent: parent });
+    if (r.error) { toast('⚠️ ' + r.error.message); return; }
+    var p = devById(parent); toast('🔗 ' + L('Kengaytma bog\'landi: ', 'Extension linked to ', 'Расширение привязано: ') + (p ? devName(p) : '')); load(true);
+  }
+
+  // 🔐 Qat'iy rejimni o'chirish — darhol emas, 24 soatdan keyin (o'ylab ko'rish vaqti); fokus paytida — umuman yo'q
+  function strictOffAsk() {
+    var c = cfg();
+    if (focusLeft() > 0) { toast('🔐 ' + L('Fokus tugaguncha qat\'iy rejimni o\'chirib bo\'lmaydi', 'Strict mode can\'t be turned off until focus ends', 'Нельзя выключить строгий режим до конца фокуса')); return; }
+    if (c.strictOffAt) {
+      var o2 = openSheet('<h3>🔐 ' + E(L('Qat\'iy rejim o\'chirilmoqda', 'Strict mode is turning off', 'Строгий режим выключается')) + '</h3><p class="fg-p">' + E(L('O\'chish vaqti: ', 'Turns off at: ', 'Выключится: ') + new Date(c.strictOffAt).toLocaleString()) + '</p>' +
+        '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Yopish', 'Close', 'Закрыть')) + '</button><button type="button" class="fg-btn" data-strict-keep>🔐 ' + E(L('Qat\'iy rejimda qolish', 'Keep strict mode', 'Оставить строгий режим')) + '</button></div>');
+      o2.querySelector('[data-strict-keep]').onclick = function () { delete cfg().strictOffAt; saveCfg(); closeSheet(); rerender(); };
+      return;
+    }
+    guard(function () {
+      var o = openSheet('<h3>🔐 ' + E(L('Qat\'iy rejimni o\'chirish', 'Turn off strict mode', 'Выключить строгий режим')) + '</h3><p class="fg-p">' + E(L('Qat\'iy rejim 24 soatdan keyin o\'chadi — bu vaqt ichida fikringizni o\'zgartirishingiz mumkin. Shungacha limitlar avvalgidek ishlaydi.', 'Strict mode turns off in 24 hours — you can change your mind until then. Limits keep working as before.', 'Строгий режим выключится через 24 часа — до этого можно передумать. Лимиты продолжат работать.')) + '</p>' +
+        '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button><button type="button" class="fg-btn" data-strict-off>' + E(L('24 soatdan keyin o\'chirish', 'Turn off in 24 h', 'Выключить через 24 ч')) + '</button></div>');
+      o.querySelector('[data-strict-off]').onclick = function () { cfg().strictOffAt = Date.now() + 24 * 3600e3; saveCfg(); closeSheet(); rerender(); toast('⏳ ' + L('Qat\'iy rejim 24 soatdan keyin o\'chadi', 'Strict mode turns off in 24 hours', 'Строгий режим выключится через 24 часа')); };
+    });
+  }
+  function strictTick() { var c = FG.cfg; if (real() && c && c.strict && c.strictOffAt && Date.now() >= c.strictOffAt && !(focusLeft() > 0)) { c.strict = false; delete c.strictOffAt; saveCfg(); rerender(); } }
+  setInterval(strictTick, 60000);
+
   // ---------- 🔗 Kompyuterni ulash (#fgpair=XXXX-XXXX) ----------
   var _pairWait = 0;
   function pairFromHash() {
     var m = /fgpair=([A-Za-z2-9]{4}-[A-Za-z2-9]{4})/.exec(location.hash || '');
+    // Akkauntga kirilmagan paytda kelgan kod — kirgandan keyin davom etamiz (15 daqiqa ichida)
+    if (!m) { try { var pend = JSON.parse(sessionStorage.getItem('fgPendingPair') || 'null'); if (pend && sbOk() && Date.now() - pend.at < 14 * 60000) { sessionStorage.removeItem('fgPendingPair'); m = [0, pend.code]; } } catch (e) {} }
     if (!m) { if (/^#focusgate/.test(location.hash || '')) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} setTimeout(function () { window.xOpenBlocker(); }, 300); } return; }
     var code = m[1].toUpperCase();
     if (!sbOk()) {
       if (_pairWait++ < 40) { setTimeout(pairFromHash, 1500); return; } // sessiya tiklanishini kutamiz
-      openSheet('<h3>🔐 ' + E(L('Avval akkauntga kiring', 'Sign in first', 'Сначала войдите')) + '</h3><p class="fg-p">' + E(L('Kompyuterni ulash uchun LevelUpDay akkauntingizga kiring, so\'ng Focusgate\'dagi "Akkauntga ulash" ni qayta bosing.', 'Sign in to your LevelUpDay account, then press "Connect account" in Focusgate again.', 'Войдите в аккаунт LevelUpDay и снова нажмите «Подключить» в Focusgate.')) + '</p>');
+      try { sessionStorage.setItem('fgPendingPair', JSON.stringify({ code: code, at: Date.now() })); history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      openSheet('<h3>🔐 ' + E(L('Avval akkauntga kiring', 'Sign in first', 'Сначала войдите')) + '</h3><p class="fg-p">' + E(L('Qurilmani ulash uchun LevelUpDay akkauntingizga kiring — kirganingizdan keyin ulash oynasi o\'zi ochiladi (kod 15 daqiqa amal qiladi).', 'Sign in to your LevelUpDay account — the connect window reopens by itself after you sign in (the code is valid for 15 minutes).', 'Войдите в аккаунт LevelUpDay — окно подключения откроется само после входа (код действует 15 минут).')) + '</p>');
       return;
     }
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-    var o = openSheet('<div class="fg-pair"><span class="fg-pair-ic">💻</span><h3>' + E(L('Kompyuterni ulash', 'Connect computer', 'Подключить компьютер')) + '</h3>' +
-      '<p class="fg-p">' + E(L('Focusgate shu kodni ko\'rsatyaptimi? Tasdiqlasangiz, kompyuter akkauntingizga ulanadi.', 'Does Focusgate show this code? Confirm to link the computer to your account.', 'Focusgate показывает этот код? Подтвердите, чтобы привязать компьютер.')) + '</p>' +
+    var o = openSheet('<div class="fg-pair"><span class="fg-pair-ic" data-pi-ic>💻</span><h3 data-pi-t>' + E(L('Qurilmani ulash', 'Connect a device', 'Подключить устройство')) + '</h3>' +
+      '<div class="fg-pair-dev" data-pi-dev>⏳</div>' +
+      '<p class="fg-p">' + E(L('Focusgate shu kodni ko\'rsatyaptimi? Tasdiqlasangiz, qurilma akkauntingizga ulanadi. Siz o\'zingiz boshlamagan bo\'lsangiz — bekor qiling.', 'Does Focusgate show this code? Confirm to link the device to your account. If you didn\'t start this yourself — cancel.', 'Focusgate показывает этот код? Подтвердите, чтобы привязать устройство. Если вы этого не начинали — отмените.')) + '</p>' +
       '<div class="fg-code">' + E(code) + '</div>' +
       '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button><button type="button" class="fg-btn" data-fg-pairok>✅ ' + E(L('Ulash', 'Connect', 'Подключить')) + '</button></div></div>');
+    // Qaysi qurilma ulanmoqda (nomi, turi, qachon) — begona havola bilan ulab yubormaslik uchun
+    supabase.functions.invoke('focusgate', { body: { action: 'pair_info', code: code } }).then(function (r) {
+      var box = o.querySelector('[data-pi-dev]'); if (!box) return;
+      var d = r && r.data, err = (r && r.error) || (d && d.error);
+      if (err || !d || !d.name) {
+        var msg = String((d && d.error) || (err && err.message) || err || '');
+        box.innerHTML = '⚠️ ' + E(/expired|410/.test(msg) ? L('Kod eskirgan — Focusgate\'da qayta ulashni bosing', 'The code expired — start connecting again in Focusgate', 'Код устарел — начните подключение заново') : /already|409/.test(msg) ? L('Bu kod allaqachon ishlatilgan', 'This code was already used', 'Код уже использован') : L('Qurilma ma\'lumotini olib bo\'lmadi', 'Couldn\'t load device info', 'Не удалось получить данные устройства'));
+        if (/expired|410|already|409/.test(msg)) { var ok = o.querySelector('[data-fg-pairok]'); if (ok) ok.disabled = true; }
+        return;
+      }
+      var ic = d.kind === 'ext' ? '🧩' : d.kind === 'phone' ? '📱' : '💻';
+      o.querySelector('[data-pi-ic]').textContent = ic;
+      o.querySelector('[data-pi-t]').textContent = d.kind === 'ext' ? L('Brauzer kengaytmasini ulash', 'Connect the browser extension', 'Подключить расширение') : d.kind === 'phone' ? L('Telefonni ulash', 'Connect the phone', 'Подключить телефон') : L('Kompyuterni ulash', 'Connect the computer', 'Подключить компьютер');
+      box.innerHTML = '<b>' + E(d.name) + '</b><small>' + E(L('So\'rov ', 'Requested ', 'Запрос ') + (d.age_sec < 60 ? L('hozirgina', 'just now', 'только что') : Math.round(d.age_sec / 60) + ' ' + L('daqiqa oldin', 'min ago', 'мин назад'))) + '</small>';
+    }, function () {});
     o.querySelector('[data-fg-pairok]').onclick = async function () {
       var b = this; b.disabled = true; b.textContent = '…';
       try {
@@ -1779,7 +1891,8 @@
         var err = r.error || (r.data && r.data.error);
         if (err) throw new Error(typeof err === 'string' ? err : (err.message || 'error'));
         closeSheet();
-        try { toast('✅ ' + L('Kompyuter ulandi! Bir daqiqada statistika paydo bo\'ladi.', 'Computer connected! Stats appear within a minute.', 'Компьютер подключён! Статистика появится через минуту.')); } catch (e) {}
+        var kd = r.data && r.data.device && r.data.device.kind;
+        try { toast('✅ ' + (kd === 'ext' ? L('Kengaytma ulandi! U shu kompyuterdagi Focusgate\'ni o\'zi topadi.', 'Extension connected! It finds Focusgate on this computer by itself.', 'Расширение подключено! Оно само найдёт Focusgate на этом компьютере.') : L('Qurilma ulandi! Bir daqiqada statistika paydo bo\'ladi.', 'Device connected! Stats appear within a minute.', 'Устройство подключено! Статистика появится через минуту.'))); } catch (e) {}
         await load(true);
         window.xOpenBlocker('today');
       } catch (e) {
@@ -1859,17 +1972,14 @@
       if (ion) guard(itog); else itog();
       return;
     }
-    if ((b = t.closest('[data-fg-unpair]'))) {
-      if (!confirm(L('Bu kompyuterni uzasizmi? Focusgate u yerda ishlashdan to\'xtaydi.', 'Remove this computer? Focusgate will stop working there.', 'Отключить этот компьютер? Focusgate перестанет там работать.'))) return;
-      supabase.from('fg_devices').delete().eq('id', b.dataset.fgUnpair).then(function () { load(true); });
-      return;
-    }
+    if ((b = t.closest('[data-fg-unpair]'))) { unpairAsk(b.dataset.fgUnpair); return; }
     if ((b = t.closest('.fg-sw[data-fg-set]'))) {
       var k = b.dataset.fgSet;
       if (k === 'reward') { LOCAL.reward = !LOCAL.reward; saveLocal(); }
       else if (k === 'tg') { if (!FG.tg) return; var pr = Object.assign({}, FG.tg.prefs || {}); pr.fg = pr.fg === false; FG.tg.prefs = pr; supabase.from('telegram_links').update({ prefs: pr }).eq('user_id', S.cloudUserId).then(function () {}); }
       else if (k === 'tgweekly') { if (!FG.tg) return; var pw = Object.assign({}, FG.tg.prefs || {}); var wasOn = !(pw.fg === false || pw.fgweekly === false); pw.fgweekly = !wasOn; if (!wasOn) pw.fg = true; FG.tg.prefs = pw; supabase.from('telegram_links').update({ prefs: pw }).eq('user_id', S.cloudUserId).then(function () {}); }
-      else if (real()) { if (k === 'strict' && c.strict) return; c[k] = !(k === 'strict' ? c.strict : c[k] !== false); saveCfg(); if (k === 'share') SOC.at = 0; }
+      else if (real() && k === 'strict' && c.strict) { strictOffAsk(); }
+      else if (real()) { c[k] = !(k === 'strict' ? c.strict : c[k] !== false); if (k === 'strict') delete c.strictOffAt; saveCfg(); if (k === 'share') SOC.at = 0; }
       else { needConnect(); return; }
       rerender(); return;
     }
@@ -1949,7 +2059,9 @@
     }
   });
   document.addEventListener('change', function (e) {
-    var s = e.target; if (!s || !s.matches || !s.closest('#view-blocker')) return;
+    var s = e.target; if (!s || !s.matches) return;
+    if (s.matches('[data-fg-link]') && s.closest('#view-blocker, .fg-scope')) { linkExt(s.dataset.fgLink, s.value); return; }
+    if (!s.closest('#view-blocker')) return;
     if (s.matches('[data-fg-cat], [data-fg-fcat]')) { UI.cat = s.value; render(); return; }
     if (s.matches('[data-fg-fdev]')) { UI.dev = s.value; render(); return; }
     if (s.matches('[data-fg-fmetric]')) { UI.metric = s.value === 'opens' ? 'opens' : 'time'; UI.hr = -1; render(); return; }

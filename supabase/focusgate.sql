@@ -43,3 +43,22 @@ alter table public.fg_usage add column if not exists open_hours int[] not null d
 -- o'chiradi va fg_config.config.statsResetAt = ms qo'yadi. Agent (0.6.1+) va kengaytma (0.6.1+) sync'da reset_seen yuboradi;
 -- reset_seen < statsResetAt bo'lsa server eski hisobni yozmaydi, qurilma esa mahalliy hisobini nolga tushiradi.
 -- Agent nomi "Windows · KOMPYUTER · foydalanuvchi" — bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma.
+
+-- 🔗 Qurilma turi va kengaytma ↔ kompyuter bog'lanishi (migratsiya: fg_device_links)
+--  kind: pc / ext / phone (ulashda nomidan aniqlanadi); parent_id: kengaytma qaysi kompyuterda;
+--  link_src: 'agent' (shu kompyuterdagi Focusgate 127.0.0.1 da aytdi), 'ip' (bir xil tarmoq, bitta kompyuter),
+--  'manual' (saytda tanlangan), 'none' (qo'lda olib tashlangan); ip_hash — sha256(user_id|ip), IP o'zi saqlanmaydi.
+alter table public.fg_devices add column if not exists kind text;
+alter table public.fg_devices add column if not exists parent_id uuid;
+alter table public.fg_devices add column if not exists ip_hash text;
+alter table public.fg_devices add column if not exists link_src text;
+create or replace function public.fg_link_device(p_dev uuid, p_parent uuid) returns void
+language plpgsql security definer set search_path to 'public' as $$
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  if not exists (select 1 from fg_devices where id = p_dev and user_id = auth.uid() and kind = 'ext') then raise exception 'not_found'; end if;
+  if p_parent is not null and not exists (select 1 from fg_devices where id = p_parent and user_id = auth.uid() and kind = 'pc') then raise exception 'bad_parent'; end if;
+  update fg_devices set parent_id = p_parent, link_src = case when p_parent is null then 'none' else 'manual' end where id = p_dev;
+end; $$;
+revoke all on function public.fg_link_device(uuid, uuid) from public, anon;
+grant execute on function public.fg_link_device(uuid, uuid) to authenticated;
