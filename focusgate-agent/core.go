@@ -78,6 +78,7 @@ type AppUsage struct {
 
 type State struct {
 	Token      string                          `json:"token"`
+	DeviceID   string                          `json:"deviceId"` // serverdagi fg_devices.id (kengaytma shu kompyuterga bog'lanishi uchun)
 	DeviceName string                          `json:"deviceName"`
 	Usage      map[string]map[string]*AppUsage `json:"usage"` // kun → ilova → hisob
 	Config     Config                          `json:"config"`

@@ -187,6 +187,25 @@ async function event(kind, app, label, reason) {
   clearTimeout(evTimer); evTimer = setTimeout(sync, 4000);
 }
 
+// ---------- 💻 Shu kompyuterdagi Focusgate (Windows agenti) ----------
+// Agent 127.0.0.1 da o'z qurilma ID'sini aytadi (faqat hozir ekrandagi Windows foydalanuvchisiniki) —
+// server kengaytmani shu kompyuterga bog'laydi (saytda "Kompyuter → Brauzer kengaytmasi: ulangan").
+const LOCAL_PORTS = [47613, 47614, 47615, 47616, 47617]; // focusgate-agent/local_windows.go bilan bir xil
+async function findAgent() {
+  const { agent } = await chrome.storage.session.get('agent');
+  if (agent && Date.now() - agent.at < (agent.id ? 5 : 2) * 60000) return agent.id || null;
+  let id = null;
+  for (const port of LOCAL_PORTS) {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 700);
+    try {
+      const r = await fetch('http://127.0.0.1:' + port + '/focusgate/id', { signal: ctl.signal, cache: 'no-store' });
+      if (r.status === 200) { const j = await r.json().catch(() => ({})); if (j.app === 'focusgate' && /^[0-9a-f-]{36}$/i.test(j.id || '')) { id = j.id; break; } }
+    } catch (e) { /* port yopiq — keyingisi */ } finally { clearTimeout(t); }
+  }
+  await chrome.storage.session.set({ agent: { id, at: Date.now() } });
+  return id;
+}
+
 // ---------- Sinxronlash ----------
 let syncing = false;
 async function sync() {
@@ -207,10 +226,12 @@ async function sync() {
     await S.set({ events: [] });
     let r;
     const resetSeen = (await S.get('resetSeen')) || 0;
-    try { r = await api({ action: 'sync', token, version: VERSION, usage: rows, events, today: dayKey(), reset_seen: resetSeen }); }
+    const pcId = await findAgent().catch(() => null);
+    try { r = await api({ action: 'sync', token, version: VERSION, usage: rows, events, today: dayKey(), reset_seen: resetSeen, pc_id: pcId }); }
     catch (e) {
       const back = (await S.get('events')) || []; await S.set({ events: events.concat(back).slice(-200) });
-      if (e.code === 401) await S.set({ token: null });
+      // Saytda uzildi — eski qoidalar bilan bloklashda davom etmaymiz
+      if (e.code === 401) { await S.set({ token: null, cfg: {}, device: null }); await enforceAll().catch(() => {}); notifyPopup(); }
       throw e;
     }
     // Saytda statistika tozalangan — bu brauzerdagi hisob ham noldan

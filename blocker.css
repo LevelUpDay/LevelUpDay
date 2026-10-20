@@ -711,3 +711,19 @@ div.fg-row.fg-app:focus-visible { outline: 2px solid var(--accent); outline-offs
 .fg-busbadge .fg-bus-l { border: 0; background: none; color: inherit; font: inherit; font-weight: 600; font-size: 12.5px; cursor: pointer; text-align: left; padding: 3px 0; }
 .fg-busbadge.off { border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.06); opacity: .85; }
 .fg-busbadge .fg-sw { flex: none; }
+
+/* 🔗 Qurilmalar: kompyuter + uning brauzer kengaytmasi */
+.fg-devc { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.fg-devc > .fg-row { border: none; border-radius: 0; background: transparent; }
+.fg-subrow { display: flex; align-items: center; gap: 10px; padding: 9px 12px 9px 16px; border-top: 1px dashed var(--border); background: color-mix(in srgb, var(--surface2) 60%, transparent); }
+.fg-subrow .fg-row-m small { display: inline; margin-right: 6px; }
+.fg-subrow .fg-sel { flex: 1; min-width: 0; }
+.fg-sub-ic { width: 26px; text-align: center; font-size: 16px; flex: 0 0 auto; }
+.fg-subrow.off .fg-row-m b { color: var(--text-muted); }
+.fg-ok { color: var(--green); font-weight: 700; }
+.fg-no { color: var(--red); font-weight: 600; }
+.fg-btn.fg-unx { padding: 4px 9px; min-width: 0; }
+.fg-group-t.sm { font-size: 12.5px; margin-top: 14px; }
+.fg-pair-dev { margin: 6px 0 4px; padding: 9px 12px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); text-align: center; font-size: 13px; }
+.fg-pair-dev b { display: block; font-size: 15px; overflow-wrap: anywhere; }
+.fg-pair-dev small { color: var(--text-muted); }
