@@ -132,7 +132,7 @@
   }
   function devOn(d) { return !!(d && d.last_seen && Date.now() - new Date(d.last_seen).getTime() < 150000); }
   function devIcon(d) { var k = devKind(d); return k === 'ext' ? '🧩' : k === 'phone' ? '📱' : '💻'; }
-  function devName(d) { return String((d && d.name) || 'Windows').replace(/\((kengaytma|extension|расширение)\)/, '(' + L('kengaytma', 'extension', 'расширение') + ')'); }
+  function devName(d) { if (d && d.label) return String(d.label); return String((d && d.name) || 'Windows').replace(/\((kengaytma|extension|расширение)\)/, '(' + L('kengaytma', 'extension', 'расширение') + ')'); }
   function devById(id) { for (var i = 0; i < FG.devices.length; i++) if (FG.devices[i].id === id) return FG.devices[i]; return null; }
   // Bir ilovaning soatlar bo'yicha vaqti (daqiqa) — tanlangan kun va qurilma uchun
   function appHours(id, off, dev) {
@@ -260,7 +260,7 @@
     try {
       var since = dayStr(-(HIST_DAYS - 1));
       var res = await Promise.all([
-        supabase.from('fg_devices').select('id,name,kind,parent_id,link_src,last_seen,agent_version,created_at,apps,apps_at').order('created_at', { ascending: true }),
+        supabase.from('fg_devices').select('id,name,label,kind,parent_id,link_src,last_seen,agent_version,created_at,apps,apps_at').order('created_at', { ascending: true }),
         supabase.from('fg_config').select('config').maybeSingle(),
         loadUsage(since),
         supabase.from('fg_events').select('kind,app,label,reason,at,device_id').gte('at', new Date(Date.now() - 8 * 864e5).toISOString()).order('at', { ascending: false }).limit(500)
@@ -898,7 +898,7 @@
     return '<small class="' + (on ? 'grn' : '') + '">' + (on ? '● ' + E(L('onlayn', 'online', 'онлайн')) : E(ago(d.last_seen))) +
       (d.agent_version ? ' · v' + E(String(d.agent_version).replace(/^(ext|android)-/, '')) : '') + '</small>';
   }
-  function browserOf(d) { return String((d && d.name) || 'Chrome').replace(/\s*\((kengaytma|extension|расширение)\)\s*/i, '').trim(); }
+  function browserOf(d) { if (d && d.label) return String(d.label); return String((d && d.name) || 'Chrome').replace(/\s*\((kengaytma|extension|расширение)\)\s*/i, '').trim(); }
   function devicesHtml() {
     if (!real()) return '';
     var pcs = [], exts = [], phones = [], kids = {};
@@ -908,28 +908,29 @@
       if (p && devKind(p) === 'pc') { (kids[p.id] = kids[p.id] || []).push(x); return false; }
       return true;
     });
+    var nm = function (d, txt) { return '<b class="fg-devname">' + E(txt) + '<button type="button" class="fg-ren" data-fg-rename="' + E(d.id) + '" aria-label="' + E(L('Nomini o\'zgartirish', 'Rename', 'Переименовать')) + '" title="' + E(L('Nomini o\'zgartirish', 'Rename', 'Переименовать')) + '">✏️</button></b>'; };
     var unpairBtn = function (d, sm) { return '<button type="button" class="fg-btn sm ghost' + (sm ? ' fg-unx' : '') + '" data-fg-unpair="' + E(d.id) + '" aria-label="' + E(L('Uzish', 'Remove', 'Отключить')) + '">' + (sm ? '✕' : E(L('Uzish', 'Remove', 'Отключить'))) + '</button>'; };
     var extLine = function (x) {
-      return '<div class="fg-subrow"><span class="fg-sub-ic">🧩</span><span class="fg-row-m"><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + ' · ' + E(browserOf(x)) + '</b>' +
+      return '<div class="fg-subrow"><span class="fg-sub-ic">🧩</span><span class="fg-row-m">' + nm(x, L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера') + ' · ' + browserOf(x)) +
         '<small class="fg-ok">✅ ' + E(L('Ulangan', 'Connected', 'Подключено')) + '</small> ' + devStatus(x) + '</span>' + unpairBtn(x, true) + '</div>';
     };
     var h = '<div class="fg-group-t">🔗 ' + E(L('Ulangan qurilmalar', 'Connected devices', 'Подключённые устройства')) + ' <em>' + (pcs.length + phones.length + (pcs.length ? 0 : exts.length)) + '</em></div>' +
       '<div class="fg-hint">' + E(L('Har bir kompyuterda Focusgate dasturi va brauzer kengaytmasi birga ishlaydi: dastur — ilovalarni, kengaytma — saytlarni boshqaradi.', 'On each computer the Focusgate app and the browser extension work together: the app handles programs, the extension handles websites.', 'На каждом компьютере работают вместе программа Focusgate и расширение: программа — приложения, расширение — сайты.')) + '</div><div class="fg-list">';
     pcs.forEach(function (d) {
       var k = kids[d.id] || [];
-      h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#3b82f6">🪟</span><span class="fg-row-m"><b>' + E(devName(d)) + '</b>' + devStatus(d).replace('</small>', (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small>') + '</span>' + unpairBtn(d) + '</div>' +
+      h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#3b82f6">🪟</span><span class="fg-row-m">' + nm(d, devName(d)) + devStatus(d).replace('</small>', (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small>') + '</span>' + unpairBtn(d) + '</div>' +
         (k.length ? k.map(extLine).join('') :
           '<div class="fg-subrow off"><span class="fg-sub-ic">🧩</span><span class="fg-row-m"><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><small class="fg-no">❌ ' + E(L('Ulanmagan — saytlar va Shorts/Reels bloklanmaydi', 'Not connected — sites and Shorts/Reels aren\'t blocked', 'Не подключено — сайты и Shorts/Reels не блокируются')) + '</small></span>' +
           (DOWNLOADS_ON ? '<button type="button" class="fg-btn sm" data-fg-extinstall>' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button>' : '') + '</div>') + '</div>';
     });
     phones.forEach(function (d) {
-      h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#22c55e">📱</span><span class="fg-row-m"><b>' + E(devName(d)) + '</b>' + devStatus(d) + '</span>' + unpairBtn(d) + '</div></div>';
+      h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#22c55e">📱</span><span class="fg-row-m">' + nm(d, devName(d)) + devStatus(d) + '</span>' + unpairBtn(d) + '</div></div>';
     });
     if (loose.length) {
       if (pcs.length) h += '<div class="fg-group-t sm">🧩 ' + E(L('Qaysi kompyuterdaligi aniqlanmagan kengaytmalar', 'Extensions not matched to a computer', 'Расширения без компьютера')) + '</div>' +
         '<div class="fg-hint">' + E(L('Kompyuterda Focusgate v' + AGENT_VERSION + ' va kengaytma ishlab tursa — o\'zi bog\'lanadi. Yoki qo\'lda tanlang:', 'With Focusgate v' + AGENT_VERSION + ' running on that computer it links automatically. Or pick it yourself:', 'Если на компьютере запущен Focusgate v' + AGENT_VERSION + ' — привяжется само. Или выберите вручную:')) + '</div>';
       loose.forEach(function (x) {
-        h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#f59e0b">🧩</span><span class="fg-row-m"><b>' + E(devName(x)) + '</b>' + devStatus(x) + '</span>' + unpairBtn(x) + '</div>' +
+        h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#f59e0b">🧩</span><span class="fg-row-m">' + nm(x, devName(x)) + devStatus(x) + '</span>' + unpairBtn(x) + '</div>' +
           (pcs.length ? '<div class="fg-subrow"><span class="fg-sub-ic">💻</span><select class="fg-sel" data-fg-link="' + E(x.id) + '"><option value="">' + E(L('Qaysi kompyuterda?', 'Which computer?', 'На каком компьютере?')) + '</option>' +
             pcs.map(function (p) { return '<option value="' + E(p.id) + '">' + E(devName(p)) + '</option>'; }).join('') + '</select></div>' : '') + '</div>';
       });
@@ -1823,6 +1824,27 @@
       };
     });
   }
+  // ✏️ Qurilmaga o'z nomini berish (masalan "Uy kompyuteri — Shodruz"). Bo'sh qoldirilsa — avtomatik nom qaytadi
+  function renameAsk(id) {
+    var d = devById(id); if (!d) return;
+    var o = openSheet('<h3>✏️ ' + E(L('Qurilma nomi', 'Device name', 'Название устройства')) + '</h3>' +
+      '<p class="fg-p">' + E(L('Adashmaslik uchun tushunarli nom bering: "Uy kompyuteri", "Ish noutbuki", "Shodruz — Chrome"…', 'Give it a clear name so you don\'t mix them up: "Home PC", "Work laptop", "Shodruz — Chrome"…', 'Дайте понятное название, чтобы не путать: «Домашний ПК», «Рабочий ноутбук»…')) + '</p>' +
+      '<input class="fg-in" data-fg-renin maxlength="40" autocomplete="off" value="' + E(d.label || '') + '" placeholder="' + E(String(d.name || '')) + '">' +
+      '<small class="fg-p" style="display:block;margin-top:6px;opacity:.75">' + E(L('Avtomatik nom: ', 'Automatic name: ', 'Автоматическое имя: ') + (d.name || '—')) + '</small>' +
+      '<div class="fg-acts">' + (d.label ? '<button type="button" class="fg-btn ghost" data-fg-renreset>↩️ ' + E(L('Avtomatik nom', 'Automatic name', 'Авто-имя')) + '</button>' : '<button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button>') +
+      '<button type="button" class="fg-btn" data-fg-renok>' + E(L('Saqlash', 'Save', 'Сохранить')) + '</button></div>');
+    var inp = o.querySelector('[data-fg-renin]');
+    setTimeout(function () { try { inp.focus(); inp.select(); } catch (e) {} }, 150);
+    var save = async function (val) {
+      var r = await supabase.rpc('fg_rename_device', { p_dev: id, p_label: val });
+      if (r.error) { toast('⚠️ ' + r.error.message); return; }
+      d.label = r.data || null; closeSheet(); rerender(); load(true);
+      toast('✏️ ' + devName(d));
+    };
+    o.querySelector('[data-fg-renok]').onclick = function () { save(inp.value.trim()); };
+    inp.onkeydown = function (e) { if (e.key === 'Enter') save(inp.value.trim()); };
+    var rs = o.querySelector('[data-fg-renreset]'); if (rs) rs.onclick = function () { save(''); };
+  }
   async function linkExt(id, parent) {
     if (!parent) return;
     var r = await supabase.rpc('fg_link_device', { p_dev: id, p_parent: parent });
@@ -1973,6 +1995,7 @@
       return;
     }
     if ((b = t.closest('[data-fg-unpair]'))) { unpairAsk(b.dataset.fgUnpair); return; }
+    if ((b = t.closest('[data-fg-rename]'))) { renameAsk(b.dataset.fgRename); return; }
     if ((b = t.closest('.fg-sw[data-fg-set]'))) {
       var k = b.dataset.fgSet;
       if (k === 'reward') { LOCAL.reward = !LOCAL.reward; saveLocal(); }

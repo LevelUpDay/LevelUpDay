@@ -64,12 +64,24 @@
   // =========================================================
   // ⏳ #3 Akkaunt yuklanmaguncha: mehmon holati (user1, 0 tanga) o'rniga yuklanish oynasi
   // =========================================================
-  var _loadSince = 0, _loadEl = null;
+  var _loadSince = 0, _loadEl = null, _pageAt = Date.now();
+  // Kirish sessiyasi bor, lekin akkaunt hali yuklanmagan (sahifa endi ochildi / kirgandan keyingi qayta yuklash):
+  // "user1, 0 tanga" mehmon ekrani bir lahza ko'rinib-yo'qolmasin — darhol yuklanish oynasi
+  function sessionPending() {
+    if (linked() && owner()) return false;
+    if (Date.now() - _pageAt > 25000) return false;
+    try {
+      if (sessionStorage.getItem('cloudCleanLogin')) return true;
+      for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && /^sb-.+-auth-token$/.test(k)) return true; }
+    } catch (e) {}
+    return false;
+  }
   function loadingTick() {
-    var need = linked() && !owner();
-    if (!need) { _loadSince = 0; if (_loadEl) { _loadEl.remove(); _loadEl = null; } return; }
+    var early = sessionPending();
+    var need = (linked() && !owner()) || early;
+    if (!need) { _loadSince = 0; if (_loadEl) { _loadEl.remove(); _loadEl = null; } document.documentElement.classList.remove('lud-pending'); return; }
     if (!_loadSince) _loadSince = Date.now();
-    if (Date.now() - _loadSince < 1500) return;
+    if (!early && Date.now() - _loadSince < 1500) return;
     var off = navigator.onLine === false;
     if (!_loadEl) {
       _loadEl = document.createElement('div');
@@ -87,7 +99,8 @@
     if (h.textContent !== ht) h.textContent = ht;
     if (p.textContent !== pt) p.textContent = pt;
   }
-  setInterval(loadingTick, 700);
+  setInterval(loadingTick, 300);
+  loadingTick();
 
   // =========================================================
   // 📱 #13 / #16 Qurilmalar
@@ -156,6 +169,13 @@
   async function backupNow(manual) {
     if (!linked() || !owner() || !window._cloudPullDone || !sbOk()) { if (manual) tst('⚠️ ' + L('Avval akkaunt yuklanishi kerak', 'Your account must load first', 'Сначала должен загрузиться аккаунт')); return false; }
     var day = dayKey(), p = backupPayload();
+    if (!manual) {
+      // 🛡 Avtomatik zaxira bugungi yaxshi nusxani bo'sh/yarim holat bilan bosib ketmasin
+      var ex = await supabase.from('app_backups').select('day,info').eq('user_id', S.cloudUserId).eq('slot', slotOf(day)).maybeSingle();
+      var exN = ex && ex.data && ex.data.day === day ? Number((ex.data.info || {}).tasks) || 0 : 0;
+      if (exN > 0 && (p.info.tasks === 0 || p.info.tasks * 2 < exN)) return false;
+      if (p.info.tasks === 0 && Object.keys(typeof _lastSyncedTasks === 'object' ? _lastSyncedTasks : {}).length > 0) return false;
+    }
     var r = await supabase.from('app_backups').upsert({ user_id: S.cloudUserId, slot: slotOf(day), day: day, data: p.data, tasks: p.tasks, info: p.info, created_at: new Date().toISOString() }, { onConflict: 'user_id,slot' });
     if (r.error) { if (manual) tst('⚠️ ' + r.error.message); return false; }
     ls('ludCloudBackupDay_' + S.cloudUserId, day);
@@ -272,7 +292,7 @@
     window._cloudPullDone = false;
     try { stopRealtimeSync(); } catch (e) {}
     window.save = function () {}; try { save = window.save; saveToLocalStorage = function () {}; syncTasksToLocalStorage = function () {}; } catch (e) {}
-    var del = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && DEVICE_KEYS.indexOf(k) === -1 && k.indexOf('cloudQueue_') !== 0) del.push(k); }
+    var del = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && DEVICE_KEYS.indexOf(k) === -1 && k.indexOf('cloudQueue2_') !== 0) del.push(k); }
     del.forEach(function (k) { ls(k, null); });
     if (writeLs) Object.keys(writeLs).forEach(function (k) { ls(k, writeLs[k]); });
     setTimeout(function () { location.replace(location.origin + location.pathname); }, 500);
@@ -313,7 +333,7 @@
     try {
       if (S && S.cloudUserId && owner() && typeof cloudPendingCount === 'function' && cloudPendingCount() > 0) {
         var q = { base: _lastSyncedTasks, ups: _pendingTodoUpserts, dels: _pendingTodoDeletes, at: Date.now() };
-        ls('cloudQueue_' + S.cloudUserId, JSON.stringify(q));
+        ls(_cloudQueueKey(S.cloudUserId), JSON.stringify(q));
         tst('💾 ' + L('Oldingi akkauntning yuborilmagan o\'zgarishlari saqlab qo\'yildi — o\'sha akkauntga qaytsangiz yuboriladi', 'The previous account\'s unsynced changes were kept — they will sync when you switch back', 'Неотправленные изменения прежнего аккаунта сохранены — отправятся при возврате'));
       }
     } catch (e) {}
@@ -536,7 +556,7 @@
         H(L('Bu qurilmadagi vazifalar va sozlamalar bulutdagi bilan almashtiriladi.', 'Tasks and settings on this device are replaced by the cloud copy.', 'Задачи и настройки на устройстве заменятся облачными.')) + (pend ? '<br><b class="acc-err">' + H(L(pend + ' ta yuborilmagan o\'zgarish yo\'qoladi!', pend + ' unsynced changes will be lost!', 'Потеряются неотправленные изменения: ' + pend)) + '</b>' : ''),
         L('Qayta yuklash', 'Reload', 'Загрузить'), !!pend);
       if (!ok) return;
-      try { _pendingTodoUpserts = {}; _pendingTodoDeletes = {}; _lastSyncedTasks = {}; ls('cloudQueue_' + S.cloudUserId, null); } catch (e) {}
+      try { _pendingTodoUpserts = {}; _pendingTodoDeletes = {}; _lastSyncedTasks = {}; ls(_cloudQueueKey(S.cloudUserId), null); } catch (e) {}
       var res = null; try { res = await cloudPullAll(S.cloudUserId); } catch (e) {}
       if (!res || !res.ok) { tst('⚠️ ' + L('Bulutdan o\'qib bo\'lmadi', 'Could not read the cloud', 'Не удалось прочитать облако')); return; }
       try { writeLocalTasks(S.tasks || []); saveToLocalStorage(S); applyLanguage(); render(); renderProfile(); } catch (e) {}

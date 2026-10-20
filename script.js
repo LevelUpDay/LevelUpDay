@@ -8682,18 +8682,38 @@ var _todosCloudSyncTimer = null;
 // internetsiz qilingan o'zgarish ilova yopilsa ham yo'qolmaydi, qayta ochilganda faqat haqiqiy o'zgarishlar yuboriladi
 // (boshqa qurilmadagi yangiroq tasklar eski nusxa bilan bosib yuborilmaydi).
 var _cloudQueueUid = null, _cloudQueueSaveT = null;
-function _cloudQueueKey(uid) { return 'cloudQueue_' + uid; }
+// v2: eski (v1) navbatlarda bo'sh holatda yozilgan "hammasini o'chir" yozuvlari bo'lishi mumkin edi — ular o'qilmaydi
+function _cloudQueueKey(uid) { return 'cloudQueue2_' + uid; }
+try { for (var _qi = localStorage.length - 1; _qi >= 0; _qi--) { var _qk = localStorage.key(_qi); if (_qk && _qk.indexOf('cloudQueue_') === 0) localStorage.removeItem(_qk); } } catch (e) {}
 function _cloudQueueLoad() {
   var uid = S && S.cloudUserId;
-  if (!uid || _cloudQueueUid === uid) return;
+  // Faqat holat shu akkauntniki ekani tasdiqlangandan keyin (bulut o'qilgan): aks holda bo'sh/mehmon ro'yxat
+  // eski "asos" bilan solishtirilib, hamma tasklar "o'chirilgan" deb navbatga tushardi
+  if (!uid || _cloudQueueUid === uid || !_cloudOwnerOk()) return;
   _cloudQueueUid = uid;
   try {
     var q = JSON.parse(localStorage.getItem(_cloudQueueKey(uid)) || 'null');
     if (!q || typeof q !== 'object') return;
-    if (q.base && typeof q.base === 'object') Object.keys(q.base).forEach(function (k) { if (!(k in _lastSyncedTasks)) _lastSyncedTasks[k] = q.base[k]; });
+    var here = {}; (S.tasks || []).forEach(function (t) { if (t) here[t.id] = true; });
+    // "Asos" faqat qurilmada bor tasklar uchun — u o'zi hech qachon o'chirishga sabab bo'lmaydi
+    if (q.base && typeof q.base === 'object') Object.keys(q.base).forEach(function (k) { if (here[k] && !(k in _lastSyncedTasks)) _lastSyncedTasks[k] = q.base[k]; });
     if (q.ups && typeof q.ups === 'object') Object.keys(q.ups).forEach(function (k) { if (!_pendingTodoUpserts[k] && !_pendingTodoDeletes[k]) _pendingTodoUpserts[k] = q.ups[k]; });
-    if (q.dels && typeof q.dels === 'object') Object.keys(q.dels).forEach(function (k) { if (!_pendingTodoUpserts[k]) _pendingTodoDeletes[k] = true; });
+    if (q.dels && typeof q.dels === 'object') Object.keys(q.dels).forEach(function (k) { if (!_pendingTodoUpserts[k] && !here[k]) _pendingTodoDeletes[k] = true; });
   } catch (e) {}
+}
+// Bulut o'qilgach: navbat tozalanadi va darhol saqlanadi (eski navbat keyingi ochilishda qayta o'qilmasin)
+function _cloudQueueReset(uid) {
+  _pendingTodoUpserts = {}; _pendingTodoDeletes = {};
+  _cloudQueueUid = uid;
+  try { localStorage.setItem(_cloudQueueKey(uid), JSON.stringify({ base: _lastSyncedTasks, ups: {}, dels: {}, at: Date.now() })); } catch (e) {}
+}
+// 🛡 Ommaviy o'chirishdan himoya: foydalanuvchi o'zi ko'p task o'chirmagan bo'lsa (bulk, reset), bir yo'la ko'p task
+// bulutdan o'chirilmaydi — bu odatda bo'sh/yuklanmagan holatdan kelgan xato. Ruxsat 15 soniya amal qiladi.
+function allowTaskBulkDelete() { window._taskBulkDelOk = Date.now(); }
+function _todoDeletesLookWrong(n) {
+  if (n < 3 || Date.now() - (window._taskBulkDelOk || 0) < 15000) return false;
+  var left = (S.tasks || []).length;
+  return left === 0 || (n >= 5 && n >= (left + n) * 0.6);
 }
 function _cloudQueueSave() {
   if (_cloudQueueSaveT) return;
@@ -8732,6 +8752,14 @@ function scheduleTodosCloudSync(immediate) {
       };
     });
     var deleteIds = Object.keys(_pendingTodoDeletes).map(Number);
+    if (_todoDeletesLookWrong(deleteIds.length)) {
+      // O'chirmaymiz: bulut ustun — tasklar bulutdan qaytariladi
+      console.warn('[Todos sync] ' + deleteIds.length + ' ta taskni bir yo\'la o\'chirish to\'xtatildi (himoya)');
+      try { if (window.LUOps) window.LUOps.reportError('mass task delete blocked: ' + deleteIds.length + ' of ' + ((S.tasks || []).length + deleteIds.length), 'script.js', 0, ''); } catch (e) {}
+      deleteIds.forEach(function (id) { delete _pendingTodoDeletes[id]; });
+      deleteIds = [];
+      setTimeout(function () { try { _cloudRefreshTodos(); } catch (e) {} }, 300);
+    }
     upserts.forEach(function (u) { _todoEchoRecord(u.task_id, JSON.stringify(u.task_data)); });
     var sentUp = _pendingTodoUpserts, sentDel = _pendingTodoDeletes;
     _pendingTodoUpserts = {};
@@ -15254,6 +15282,7 @@ function bulkDeleteTasks() {
   var preview = names.slice(0, 3).map(function (nm) { return '«' + esc(nm) + '»'; }).join('<br>') + (names.length > 3 ? '<br>+' + (names.length - 3) : '');
   var doDelete = function () {
     try { SFX.delete(); } catch (e) {}
+    allowTaskBulkDelete();
     ids.forEach(function(id){ moveTaskToTrash(id); });
     toggleBulkMode();
     showUndoToast(t('bulk_delete_toast').replace('{n}', ids.length), function () { ids.forEach(function (id) { restoreTask(id); }); });
@@ -18438,6 +18467,7 @@ function _rstResetStats() {
 function _rstResetTasks() {
   // Barcha vazifalar, maqsadlar (goals), mukofotlar (rewards) va
   // xazina (chest) tuzilmasi butunlay o'chiriladi
+  allowTaskBulkDelete();
   S.tasks = [];
   S.taskOrder = [];
   S.goals = [];
@@ -34314,7 +34344,7 @@ var cloudPullAll = async function(uid) {
   if (ok) {
     S._stateOwner = uid;
     // Bulut ustun: o'qishdan oldin navbatga tushgan (mehmon/eski) task yozuvlari yuborilmaydi
-    try { _pendingTodoUpserts = {}; _pendingTodoDeletes = {}; } catch (e) {}
+    try { _cloudQueueReset(uid); } catch (e) {}
   }
   S.lastCloudUserId = uid;
   return { ok: ok, hadProfile: hadProfile, hadTodos: hadTodos, hadAppState: !!as.had, profile: (profOk && profRes.data) || null };
@@ -34405,7 +34435,7 @@ var _cloudWipeLocalAndReload = function(msg, keepAuth, opts) {
     var del = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      if (k && KEEP.indexOf(k) === -1 && !(keepAuth && k.indexOf('sb-') === 0) && k.indexOf('cloudQueue_') !== 0) del.push(k);
+      if (k && KEEP.indexOf(k) === -1 && !(keepAuth && k.indexOf('sb-') === 0) && k.indexOf('cloudQueue2_') !== 0) del.push(k);
     }
     del.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
     try { sessionStorage.removeItem('cloudPomoReloaded'); } catch (e) {}

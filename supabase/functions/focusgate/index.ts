@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
   if (action === "sync") {
     const token = String(body.token || "");
     if (!/^[0-9a-f]{64}$/.test(token)) return json({ error: "unauthorized" }, 401);
-    const { data: dev } = await sb.from("fg_devices").select("id,user_id,name,kind,parent_id,link_src,created_at").eq("token_hash", await sha256(token)).maybeSingle();
+    const { data: dev } = await sb.from("fg_devices").select("id,user_id,name,label,kind,parent_id,link_src,created_at").eq("token_hash", await sha256(token)).maybeSingle();
     if (!dev) return json({ error: "unauthorized" }, 401);
     const kind = dev.kind || kindOf(String(dev.name || ""), body.version ? String(body.version) : null);
     // Tarmoq belgisi (IP o'zi saqlanmaydi): kengaytmani shu tarmoqdagi kompyuterga bog'lash uchun
@@ -307,7 +307,7 @@ Deno.serve(async (req) => {
         others[r.app] = r.app.startsWith("site:") ? Math.max(others[r.app] || 0, v) : (others[r.app] || 0) + v;
       }
     }
-    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.name, kind }, now, site_usage, others });
+    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.label || dev.name, kind }, now, site_usage, others });
   }
 
   // ---------- 🧹 Statistikani tozalash (sayt, foydalanuvchi JWT) ----------
