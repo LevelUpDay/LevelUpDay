@@ -2548,6 +2548,8 @@
     });
   }
 
+  // admin.js (yangi panel) "Statistika" bo'limida shu chizgichdan foydalanadi
+  window._adRenderDashboard = renderAdminDashboard;
   window.openAdminPanel = async function () {
     if (!cloudOk()) { toast('🔐 ' + L('Avval hisobingizga kiring', 'Sign in first', 'Сначала войдите')); return; }
     var old = document.getElementById('admin-panel-modal'); if (old) old.remove();

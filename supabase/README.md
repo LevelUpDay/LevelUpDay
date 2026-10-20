@@ -45,6 +45,18 @@ panelida fikrni o'chirish ishlamaydi.
 - Yangi qurilma xabari: `focusgate` edge funksiyasi, `{action:'notify_new_device', device_id}` + foydalanuvchi JWT;
   `telegram_links.prefs.newDevice = false` bo'lsa yuborilmaydi.
 
+## 👑 Admin paneli v2 (`admin.js`, `ops.js`)
+
+- SQL: `supabase/admin_tools.sql` (qo'llangan: admin_tools_a … admin_tools_e_grants).
+- Rollar: `admin_emails.role` — helper (1), admin (2), owner (3); `revoked_at` — rol olib tashlangan.
+  Har bir `admin_*` RPC `_admin_need(n)` bilan tekshiradi, har bir amal `admin_audit` ga yoziladi.
+- Jadvallar: `user_admin_state` (ban sababi, majburiy nik, tiklash so'rovi), `app_config` (flags, maintenance,
+  season, banned_words), `announcements`, `user_messages`, `promo_codes`/`promo_redemptions`, `client_errors`,
+  `admin_broadcasts`, `admin_audit`. `profiles.banned_until`, `activity_feed.hidden_at`, `account_devices.sync_*`.
+- Ban: `_profiles_admin_guard` — foydalanuvchi o'zi `banned_until` ni o'zgartira olmaydi, ban vaqtida tanga/XP/nik muzlaydi;
+  reyting va lentada ko'rinmaydi. Admin funksiyalari `app.admin_op` / `app.coin_restore` tranzaksiya sozlamalarini qo'yadi.
+- Edge funksiya `admin-broadcast` (verify_jwt o'chiq, admin/owner JWT tekshiradi): ilova ichida + Web Push + Telegram.
+
 ## Dashboard'da qilinadigan sozlamalar
 - **Authentication → URL Configuration**: Site URL va Redirect URLs ga
   `https://levelupday.github.io/LevelUpDay/` qo'shing.

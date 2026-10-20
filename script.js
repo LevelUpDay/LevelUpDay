@@ -17526,7 +17526,8 @@ function stopReytingCountdown() {
 // Masalan: 150 kishi → 1-o'rin 50 🪙, 2-o'rin 30 🪙, 3-o'rin 15 🪙.
 function reytingPrizeFor(rank, participants) {
   var n = Math.max(0, Number(participants) || 0);
-  var first = Math.max(5, Math.min(500, Math.round(n / 3)));
+  var mult = 1; try { var c = JSON.parse(localStorage.getItem('ludAppConfig') || 'null'); mult = Math.max(0.5, Math.min(5, Number(c && c.season && c.season.prize_mult) || 1)); } catch (e) {}
+  var first = Math.max(5, Math.min(500, Math.round(n / 3 * mult)));
   if (rank === 1) return first;
   if (rank === 2) return Math.max(3, Math.round(first * 0.6));
   if (rank === 3) return Math.max(2, Math.round(first * 0.3));
@@ -17539,13 +17540,22 @@ function reytingRememberSnapshot(res) {
   var me = res.list.find(function (p) { return p.isMe; });
   if (!me) return;
   var n = typeof res.participants === 'number' ? res.participants : res.list.filter(function (p) { return (p.seasonCoins || 0) > 0; }).length;
-  S.reytingSnap = { month: getMonthKey(), rank: me.rank, total: n, seasonCoins: me.seasonCoins || 0, ts: Date.now() };
+  S.reytingSnap = { month: getReytingSeasonKey(), rank: me.rank, total: n, seasonCoins: me.seasonCoins || 0, ts: Date.now() };
   S.reytingParticipants = n;
   save();
 }
 
+// 🏆 Mavsum kaliti: oy + admin qayta boshlagan bo'lsa epoch (app_config.season.epoch, ops.js)
+function getReytingSeasonKey() {
+  var m = getMonthKey(), cfg = null;
+  try { cfg = JSON.parse(localStorage.getItem('ludAppConfig') || 'null'); } catch (e) {}
+  // Sozlama hali yuklanmagan (yangi qurilma) — joriy oydagi saqlangan kalitni o'zgartirmaymiz
+  if (!cfg) { var cur = String(S.reytingSeasonMonth || ''); return cur.split('#')[0] === m ? cur : m; }
+  var ep = Number(cfg.season && cfg.season.epoch) || 0;
+  return m + (ep ? '#' + ep : '');
+}
 function checkReytingMonthlySeason() {
-  var curMonth = getMonthKey();
+  var curMonth = getReytingSeasonKey();
   if (!S.reytingSeasonMonth) {
     // Birinchi ishga tushirish — faqat joriy oy va Tanga bazaviy qiymatini
     // (hozirgi hamyon balansi) belgilaymiz.
@@ -27963,13 +27973,16 @@ function scheduleCloudSync(immediate) {
     supabase.from('profiles').upsert(row).then(function (r) {
       // 🛡 Server nikni rad etdi (7 kunlik cheklov / band / noto'g'ri) — nomsiz qayta yuboramiz va
       // mahalliy nikni serverdagisiga qaytaramiz
-      if (r.error && row.name !== undefined && /name_change_cooldown|name_invalid|name_reserved|profiles_name_lower_uniq|duplicate key/i.test((r.error.message || '') + ' ' + (r.error.details || ''))) {
+      if (r.error && row.name !== undefined && /name_change_cooldown|name_invalid|name_reserved|name_banned|profiles_name_lower_uniq|duplicate key/i.test((r.error.message || '') + ' ' + (r.error.details || ''))) {
         var cool = /cooldown/i.test(r.error.message || '');
         var reserved = /name_reserved/i.test(r.error.message || '');
+        var banned = /name_banned/i.test(r.error.message || '');
         var until = cool && r.error.details ? new Date(r.error.details) : null;
         delete row.name;
         _cloudRevertNameFromServer();
-        _cloudToast(reserved
+        _cloudToast(banned
+          ? '🚫 ' + _cl('Bu nikda taqiqlangan so\'z bor — boshqasini tanlang', 'This nickname contains a banned word — choose another one', 'В нике запрещённое слово — выберите другой')
+          : reserved
           ? '🚫 ' + _cl('Bu nik band: "admin", "owner", "helper" kabi so\'zlar faqat LevelUpDay jamoasi uchun', 'This nickname is reserved: words like "admin", "owner", "helper" are for the LevelUpDay team only', 'Этот ник зарезервирован: слова «admin», «owner», «helper» только для команды LevelUpDay')
           : cool
           ? '⏳ ' + _cl('Nikni 7 kunda faqat bir marta o\'zgartirish mumkin', 'You can change your nickname once every 7 days', 'Ник можно менять раз в 7 дней') + (until && !isNaN(until) ? ' (' + until.toLocaleDateString() + ')' : '')
@@ -28012,12 +28025,15 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
   function build(orderCol) {
     // select('*') — `gems` ustuni bazada bo'lsa u ham keladi, bo'lmasa xato bermaydi
     var q = supabase.from('profiles').select('*').order(orderCol, { ascending: false }).limit(100);
+    // 🚫 Bloklanganlar reytingda ko'rinmaydi (banned_until ustuni bo'lmasa — filtrsiz)
+    if (!window._noBanColumn) q = q.or('banned_until.is.null,banned_until.lt.' + new Date().toISOString());
     if (scope === 'local') q = q.eq('country', myCountry);
     // target_subjects — jsonb ustun: massiv o'rniga JSON matn yuboramiz (aks holda `cs.{sat}` → 400 xato)
     if (subjectFilter && subjectFilter !== 'all') q = q.contains('target_subjects', JSON.stringify([subjectFilter]));
     return q;
   }
   var res = await build(col);
+  if (res.error && /banned_until/i.test(res.error.message || '')) { window._noBanColumn = true; res = await build(col); }
   // `gems` ustuni hali yo'q bo'lsa — XP bo'yicha olib, ilovada saralaymiz
   if (res.error && col === 'gems') res = await build('xp');
   if (res.error) throw res.error;
@@ -28025,7 +28041,9 @@ window.fbFetchLeaderboard = async function (scope, metric, subjectFilter) {
   var participants = null;
   if (scope === 'global' && metric === 'coins' && (!subjectFilter || subjectFilter === 'all')) {
     try {
-      var cRes = await supabase.from('profiles').select('id', { count: 'exact', head: true }).gt('season_coins', 0);
+      var cq = supabase.from('profiles').select('id', { count: 'exact', head: true }).gt('season_coins', 0);
+      if (!window._noBanColumn) cq = cq.or('banned_until.is.null,banned_until.lt.' + new Date().toISOString());
+      var cRes = await cq;
       if (!cRes.error && typeof cRes.count === 'number') participants = cRes.count;
     } catch (e) {}
   }
