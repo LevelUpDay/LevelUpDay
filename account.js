@@ -292,7 +292,8 @@
     window._cloudPullDone = false;
     try { stopRealtimeSync(); } catch (e) {}
     window.save = function () {}; try { save = window.save; saveToLocalStorage = function () {}; syncTasksToLocalStorage = function () {}; } catch (e) {}
-    var del = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && DEVICE_KEYS.indexOf(k) === -1 && k.indexOf('cloudQueue2_') !== 0) del.push(k); }
+    var paidDesign = false; try { paidDesign = !!(window.LUDesign && !window.LUDesign.isFree(window.LUDesign.current())); } catch (e) {}
+    var del = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && (DEVICE_KEYS.indexOf(k) === -1 || (paidDesign && k === 'appTheme')) && k.indexOf('cloudQueue2_') !== 0) del.push(k); }
     del.forEach(function (k) { ls(k, null); });
     if (writeLs) Object.keys(writeLs).forEach(function (k) { ls(k, writeLs[k]); });
     setTimeout(function () { location.replace(location.origin + location.pathname); }, 500);

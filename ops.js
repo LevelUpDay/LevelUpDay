@@ -9,7 +9,7 @@
 // ============================================================
 (function () {
   'use strict';
-  window.APP_VERSION = 'v98'; // sw.js CACHE_VERSION bilan bir xil
+  window.APP_VERSION = 'v99'; // sw.js CACHE_VERSION bilan bir xil
 
   function L(uz, en, ru) { try { return _cl(uz, en, ru); } catch (e) { return uz; } }
   function H(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -214,10 +214,17 @@
     _modalBusy = true;
     var ov = modal(msgHtml(m) + '<div class="ops-acts">' + (m.kind === 'admin' ? '<button type="button" class="x-btn ghost" data-reply>↩️ ' + H(L('Javob yozish', 'Reply', 'Ответить')) + '</button>' : '') +
       '<button type="button" class="x-btn" data-ok>' + H(L('Rahmat', 'Thanks', 'Спасибо')) + '</button></div>', 'ops-msg');
-    var done = function () { ov.close(); _modalBusy = false; try { supabase.rpc('mark_messages_seen', { p_ids: [m.id] }); } catch (e) {} setTimeout(nextModal, 300); };
+    var done = function () { ov.close(); _modalBusy = false; markSeen([m.id]); setTimeout(nextModal, 300); };
     ov.querySelector('[data-ok]').onclick = done;
     var rp = ov.querySelector('[data-reply]');
     if (rp) rp.onclick = function () { done(); setTimeout(function () { try { openFeedbackModal(); } catch (e) {} }, 350); };
+  }
+  // ✅ Ko'rilgan xabar: serverga yuboriladi (supabase so'rovi .then'siz umuman jo'natilmaydi!) va qurilmada ham eslab qolinadi —
+  // tarmoq xatosida ham qayta chiqmaydi, keyingi ochilishda serverga yana yuboriladi
+  function seenKey() { return 'ludMsgSeen_' + ((typeof S !== 'undefined' && S && S.cloudUserId) || ''); }
+  function markSeen(ids) {
+    var loc = jget(seenKey(), []); ids.forEach(function (id) { if (loc.indexOf(id) === -1) loc.push(id); }); jset(seenKey(), loc.slice(-300));
+    try { supabase.rpc('mark_messages_seen', { p_ids: ids }).then(function () {}, function () {}); } catch (e) {}
   }
   function _lockedOut() { return !!document.querySelector('.ops-ban, .ops-maint, .acc-lock, .acc-loading'); }
 
@@ -279,7 +286,12 @@
       if (st.force) await applyForce(st.force);
       if (st.restore_slot != null) applyRestore(st.restore_slot);
       var have = {}; _msgQueue.forEach(function (m) { have[m.id] = 1; });
-      (st.messages || []).forEach(function (m) { if (!have[m.id] && !_msgShown[m.id]) _msgQueue.push(m); });
+      var loc = jget(seenKey(), []), resend = [];
+      (st.messages || []).forEach(function (m) {
+        if (loc.indexOf(m.id) !== -1) { resend.push(m.id); return; } // bu qurilmada ko'rilgan — faqat serverga qayta belgilaymiz
+        if (!have[m.id] && !_msgShown[m.id]) _msgQueue.push(m);
+      });
+      if (resend.length) markSeen(resend);
       nextModal();
     } catch (e) {} finally { _stBusy = false; }
   }

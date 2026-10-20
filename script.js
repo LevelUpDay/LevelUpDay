@@ -18543,6 +18543,10 @@ function _rstFullReset() {
   S.lastDate = today(); S.econV = 2; S.showWelcomeSurveyPending = false;
   if (S.profile) S.profile.joinedDate = S.profile.joinedDate || today();
   try { _rstResetCoinsExtra(); } catch (e) {}
+  // Reset xaridlarni ham tozalaydi: pullik dizayn qurilmada qolib, tekinga "sovg'a" bo'lib ketmasin
+  if (!S.shop || typeof S.shop !== 'object') S.shop = { owned: [] };
+  S.shop.dzGrand = 1; S.shop.dzGrandG = 1;
+  try { if (window.LUDesign && !window.LUDesign.isFree(window.LUDesign.current())) window.LUDesign.apply('default', { force: true, silent: true }); } catch (e) {}
   save();
   try { scheduleCloudSync(true); scheduleTodosCloudSync(true); scheduleAppStateSync(true); } catch (e) {}
   try { if (typeof recalcStreakFromLog === 'function') recalcStreakFromLog(); } catch (e) {}
@@ -34432,6 +34436,8 @@ var _cloudWipeLocalAndReload = function(msg, keepAuth, opts) {
     // To'g'ridan-to'g'ri yozuvchilar ham (realtime, profil, pomodoro) — eski akkaunt ID'si qayta yozilib qolsa, sahifa cheksiz qayta yuklanardi
     saveToLocalStorage = function () {}; syncTasksToLocalStorage = function () {};
     try { var w = JSON.parse(sessionStorage.getItem('ludWipeLog') || '[]').filter(function (t) { return Date.now() - t < 30000; }); w.push(Date.now()); sessionStorage.setItem('ludWipeLog', JSON.stringify(w)); } catch (e) {}
+    // Pullik dizayn akkauntga tegishli — boshqa akkauntga o'tganda/chiqqanda qurilmada qolmaydi
+    try { if (window.LUDesign && !window.LUDesign.isFree(window.LUDesign.current())) KEEP = KEEP.filter(function (x) { return x !== 'appTheme'; }); } catch (e) {}
     var del = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
