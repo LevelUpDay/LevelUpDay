@@ -730,3 +730,7 @@ div.fg-row.fg-app:focus-visible { outline: 2px solid var(--accent); outline-offs
 .fg-devname { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .fg-ren { flex: 0 0 auto; border: none; background: none; padding: 2px 4px; border-radius: 6px; font-size: 12px; cursor: pointer; opacity: .55; transition: opacity .15s, background .15s; }
 .fg-ren:hover, .fg-ren:focus-visible { opacity: 1; background: var(--surface2); }
+.fg-rdevs { display: block; font-size: 11px; color: var(--accent); margin-top: 2px; }
+.fg-devsel { flex-wrap: wrap; }
+.fg-devsel button { width: auto; padding: 7px 11px; font-size: 12.5px; }
+.fg-devhint { display: block; margin-top: 4px; opacity: .75; font-size: 11.5px; }

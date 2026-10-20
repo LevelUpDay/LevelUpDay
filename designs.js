@@ -58,11 +58,11 @@
     synth: { n: ['Synthwave', 'Synthwave', 'Синтвейв'], d: ['Retro quyosh va oldinga yuguruvchi neon yo\'l', 'Retro sun over an endless neon grid', 'Ретро-солнце над бесконечной неоновой сеткой'], base: '#0a0216', meta: '#1a0630', scale: 0.6, idleHover: 0.3, price: { gems: 45 } },
     silk: { n: ['Liquid Silk', 'Liquid Silk', 'Жидкий шёлк'], d: ['Oqib turuvchi binafsha-oltin ipak burmalari', 'Flowing folds of violet and gold silk', 'Струящиеся складки фиолетово-золотого шёлка'], base: '#07030f', meta: '#160a2a', scale: 0.5, idleHover: 0.5, price: { gems: 40 } }
   };
-  // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6): tanga 5 ga yaxlitlanadi, olmos kamida 1
+  // 🏷 Barcha narxlar 64% arzonlashtirilgan (asl narx × 0.36 — ikki marta 40% chegirma): tanga 5 ga yaxlitlanadi, olmos kamida 1
   Object.keys(D).forEach(function (k) {
     var p = D[k].price; if (!p) return;
-    if (p.coins) p.coins = Math.max(5, Math.round(p.coins * 0.6 / 5) * 5);
-    if (p.gems) p.gems = Math.max(1, Math.round(p.gems * 0.6));
+    if (p.coins) p.coins = Math.max(5, Math.round(p.coins * 0.36 / 5) * 5);
+    if (p.gems) p.gems = Math.max(1, Math.round(p.gems * 0.36));
   });
   Object.keys(D).forEach(function (k) {
     var o = D[k];

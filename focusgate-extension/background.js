@@ -3,7 +3,7 @@
 //  • Bloklangan saytni (doimiy / jadval / kunlik limit / fokus) "bloklandi" sahifasiga yo'naltiradi
 //  • Har daqiqada LevelUpDay bilan sinxronlanadi: foydalanish → server, sozlamalar ← server (Windows agenti bilan bir xil)
 //  • Ulash: LevelUpDay'da "Ulash" tasdiqlanadi (#fgpair=KOD)
-import { siteOf, check, dayKey, catOf, isSection, mindfulSite, ruleMinutes } from './rules.js';
+import { siteOf, check, dayKey, catOf, isSection, mindfulSite, ruleMinutes, forMe } from './rules.js';
 
 const FN = 'https://zzcvpenkevxlurgpjltz.supabase.co/functions/v1/focusgate';
 const APP = 'https://levelupday.github.io/LevelUpDay/';
@@ -161,7 +161,7 @@ async function warnCheck() {
   const warned = (await S.get('warned')) || {}, d = dayKey();
   let changed = false;
   for (const r of cfg.rules || []) {
-    const lim = r.kind === 'daily' && r.on && r.app && r.app.startsWith('site:') ? ruleMinutes(r) : 0;
+    const lim = r.kind === 'daily' && r.on && r.app && r.app.startsWith('site:') && forMe(cfg, r) ? ruleMinutes(r) : 0;
     if (!lim) continue;
     const used = await usedToday(r.app), left = lim * 60 - used;
     if (left <= 0) continue;
@@ -237,7 +237,9 @@ async function sync() {
     // Saytda statistika tozalangan — bu brauzerdagi hisob ham noldan
     const ra = Number((r.config || {}).statsResetAt) || 0;
     if (ra > resetSeen) { usageQ = usageQ.then(() => S.set({ usage: {}, warned: {}, events: [], resetSeen: ra })); await usageQ; }
-    await S.set({ cfg: r.config || {}, remote: r.site_usage || {}, device: r.device || null, syncedAt: Date.now() });
+    // _me / _pc — qoidalar qaysi qurilmalarga tegishli ekanini tekshirish uchun (rules.js → forMe)
+    const dv = r.device || {};
+    await S.set({ cfg: Object.assign({}, r.config || {}, { _me: dv.id || null, _pc: dv.parent || pcId || null }), remote: r.site_usage || {}, device: r.device || null, syncedAt: Date.now() });
     await enforceAll();
     await warnCheck().catch(() => {});
     notifyPopup();

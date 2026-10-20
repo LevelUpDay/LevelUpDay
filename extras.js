@@ -620,10 +620,10 @@
     { id: 'e_space', kind: 'effect', v: '🚀🪐💫', icon: '🚀', n: ['Koinot', 'Space launch', 'Космос'], coins: 220 },
     { id: 'e_magic', kind: 'effect', v: '🦄🌈✨', icon: '🦄', n: ['Sehr', 'Magic', 'Магия'], gems: 20 }
   ];
-  // 🏷 Barcha narxlar 40% arzonlashtirilgan (asl narx × 0.6). Dizayn va effekt narxlari o'z fayllarida xuddi shunday kamaytirilgan
+  // 🏷 Barcha narxlar 64% arzonlashtirilgan (asl narx × 0.36 — ikki marta 40% chegirma). Dizayn va effekt narxlari o'z fayllarida xuddi shunday kamaytirilgan
   SHOP.forEach(function (it) {
-    if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.6 / 5) * 5);
-    if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.6));
+    if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.36 / 5) * 5);
+    if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.36));
   });
   // 🎨 Pullik fon dizaynlari (narxlar designs.js da — yagona manba). Egalik id: 'd_<dizayn>'
   try {
@@ -828,11 +828,11 @@
   // Narx har bir o'zgartirilgan qism bo'yicha jonli hisoblanadi; oxirida to'lanadi.
   // Avval sotib olingan rang qayta tanlansa — bepul.
   // =========================================================
-  // (40% chegirmadan keyingi narxlar)
+  // (ikki marta 40% chegirmadan keyingi narxlar)
   var STUDIO_PRICE = {
-    accent: { coins: 90 },
-    nick: { coins: 60 }, nick2: { gems: 6 },
-    frame: { coins: 70 }, frame2: { gems: 7 }
+    accent: { coins: 55 },
+    nick: { coins: 35 }, nick2: { gems: 4 },
+    frame: { coins: 40 }, frame2: { gems: 4 }
   };
   function hsl2hex(h, s, l) {
     s /= 100; l /= 100;

@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.6.2'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.6.3'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
   // ✅ Focusgate kuzatuvchilari (Windows dasturi Focusgate.exe va brauzer kengaytmasi ZIP) — Focusgate bo'limida yuklab olinadi.
   // Faqat "Ilovani o'rnatish" oynasidagi Windows o'rnatuvchisi o'chirilgan (extras.js: dlOn).
@@ -702,12 +702,23 @@
       cats.map(function (c) { return '<button type="button" class="' + (UI.cat === c[0] ? 'on' : '') + '" data-fg-catf="' + c[0] + '" style="--cc:' + c[3] + '"><i></i>' + c[1] + ' ' + E(T(c[2])) + ' <b>' + E(fmt(by[c[0]])) + '</b></button>'; }).join('') + '</div></div>';
   }
 
+  // 📍 Qoida qaysi qurilmalarda: tanlanadigan qurilmalar — kompyuterlar, telefonlar va kompyuterga bog'lanmagan
+  // kengaytmalar (bog'langan kengaytma o'z kompyuteri bilan birga ishlaydi). r.devs bo'sh — hammasida.
+  function targetDevs() {
+    return FG.devices.filter(function (d) { var k = devKind(d); if (k !== 'ext') return true; var p = d.parent_id && devById(d.parent_id); return !(p && devKind(p) === 'pc'); });
+  }
+  function ruleDevs(r) { var ids = Array.isArray(r && r.devs) ? r.devs.filter(function (id) { return !!devById(id); }) : []; return ids.length ? ids : null; }
+  function ruleDevLabel(r) { var d = ruleDevs(r); return d ? d.map(function (id) { var x = devById(id); return devIcon(x) + ' ' + devName(x); }).join(', ') : ''; }
+  // Ko'proq qurilmada ishlaydimi (yangi ro'yxat eskisini to'liq qamrab oladi) — qat'iy rejim uchun
+  function devsCover(nw, old) { var a = ruleDevs({ devs: nw }), b = ruleDevs({ devs: old }); if (!a) return true; if (!b) return false; return b.every(function (id) { return a.indexOf(id) !== -1; }); }
+
   // ---------- ⏳ Limitlar ----------
   function ruleRow(r, i) {
-    var used = usedMin(r.app, 0), isDaily = r.kind === 'daily', lm = ruleMin(r, 0), over = isDaily && lm > 0 && used >= lm, pct = isDaily && lm ? Math.min(100, used / lm * 100) : 0;
+    var dvs = ruleDevs(r);
+    var used = dvs ? usedOn(r.app, dvs) : usedMin(r.app, 0), isDaily = r.kind === 'daily', lm = ruleMin(r, 0), over = isDaily && lm > 0 && used >= lm, pct = isDaily && lm ? Math.min(100, used / lm * 100) : 0;
     var sub = isDaily ? (over && r.on ? '⛔ ' + L('Limit tugadi — bloklandi', 'Limit reached — blocked', 'Лимит исчерпан — заблокировано') : fmt(used) + ' / ' + (lm ? fmt(lm) : '∞') + (r.perDay ? ' · 📅 ' + L('kunlar bo\'yicha', 'per day', 'по дням') : '')) : ruleDesc(r);
     return '<div class="fg-row fg-sortable' + (r.on ? '' : ' dim') + '" data-id="' + E(r.id || '') + '"><span class="fg-grip" aria-hidden="true">⋮⋮</span>' + (r.kind === 'always' && /porn|adult|xxx/.test(r.app) ? '<span class="fg-tile emo">🔞</span>' : tileFor(r.app)) +
-      '<button type="button" class="fg-row-m fg-row-btn" data-fg-edit="' + i + '"><span class="fg-row-n"><b>' + E(r.app.indexOf('cat:') === 0 ? T(catInfo(r.app.slice(4))[2]) : (r.label || labelOf(r.app))) + '</b>' + (r.app.indexOf('site:') === 0 ? '<small>' + E(L('sayt', 'site', 'сайт')) + '</small>' : r.app.indexOf('cat:') === 0 ? '<small>' + E(L('kategoriya', 'category', 'категория')) + '</small>' : '') + '</span><small class="' + (over && r.on ? 'red' : '') + '">' + E(sub) + '</small>' +
+      '<button type="button" class="fg-row-m fg-row-btn" data-fg-edit="' + i + '"><span class="fg-row-n"><b>' + E(r.app.indexOf('cat:') === 0 ? T(catInfo(r.app.slice(4))[2]) : (r.label || labelOf(r.app))) + '</b>' + (r.app.indexOf('site:') === 0 ? '<small>' + E(L('sayt', 'site', 'сайт')) + '</small>' : r.app.indexOf('cat:') === 0 ? '<small>' + E(L('kategoriya', 'category', 'категория')) + '</small>' : '') + '</span><small class="' + (over && r.on ? 'red' : '') + '">' + E(sub) + '</small>' + (dvs ? '<small class="fg-rdevs">📍 ' + E(ruleDevLabel(r)) + '</small>' : '') +
       (isDaily ? '<span class="fg-prog' + (over ? ' red' : pct > 75 ? ' warn' : '') + '"><i style="width:' + pct + '%"></i></span>' : '') + '</button>' +
       sw(r.on, 'data-fg-rule="' + i + '"', cfg().strict && r.on && real()) + '</div>';
   }
@@ -1668,6 +1679,10 @@
         '<div class="fg-perday"' + (r && r.perDay ? '' : ' hidden') + '>' + DAYS().map(function (d, i) { var v = r && r.perDay && r.perDay[String(i + 1)] != null ? r.perDay[String(i + 1)] : mins; return '<label><span>' + E(d) + '</span><input type="number" class="fg-in" min="0" max="1440" step="5" inputmode="numeric" data-fg-pd="' + (i + 1) + '" value="' + v + '"></label>'; }).join('') + '<small>' + E(L('daqiqa · 0 — o\'sha kuni limit yo\'q', 'minutes · 0 — no limit that day', 'минут · 0 — без лимита в этот день')) + '</small></div></div>' +
       '<div class="fg-kopt" data-k="sched"><div class="fg-lbl">' + E(L('Kunlar va vaqt', 'Days and time', 'Дни и время')) + '</div><div class="fg-days">' + DAYS().map(function (d, i) { return '<button type="button" class="' + (days.indexOf(i + 1) !== -1 ? 'on' : '') + '" data-fg-dow="' + (i + 1) + '">' + E(d) + '</button>'; }).join('') + '</div>' +
       '<div class="fg-times"><label>' + E(L('Dan', 'From', 'С')) + '<input type="time" class="fg-in" data-fg-from value="' + E((r && r.from) || '09:00') + '"></label><label>' + E(L('Gacha', 'To', 'До')) + '<input type="time" class="fg-in" data-fg-to value="' + E((r && r.to) || '18:00') + '"></label></div></div>' +
+      (targetDevs().length > 1 ? '<div class="fg-lbl">📍 ' + E(L('Qaysi qurilmalarda?', 'On which devices?', 'На каких устройствах?')) + '</div><div class="fg-days fg-devsel">' +
+        '<button type="button" class="' + (ruleDevs(r) ? '' : 'on') + '" data-fg-devall>🌐 ' + E(L('Hammasi', 'All', 'Все')) + '</button>' +
+        targetDevs().map(function (d) { var on = (ruleDevs(r) || []).indexOf(d.id) !== -1; return '<button type="button" class="' + (on ? 'on' : '') + '" data-fg-devsel="' + E(d.id) + '">' + devIcon(d) + ' ' + E(devName(d)) + '</button>'; }).join('') +
+        '</div><small class="fg-p fg-devhint">' + E(L('Kompyuter tanlansa — undagi brauzer kengaytmasi ham. Hech biri tanlanmasa — hamma qurilmada.', 'Picking a computer includes its browser extension. Nothing picked — all devices.', 'Выбран компьютер — включая его расширение. Ничего не выбрано — все устройства.')) + '</small>' : '') +
       (strictLock ? '<div class="fg-note">🔐 ' + E(L('Qat\'iy rejim: bu limitni faqat kuchaytirish mumkin.', 'Strict mode: this limit can only be tightened.', 'Строгий режим: лимит можно только ужесточить.')) + '</div>' : '') +
       '<div class="fg-acts">' + (r && !strictLock ? '<button type="button" class="fg-btn ghost danger" data-fg-del>🗑 ' + E(L('O\'chirish', 'Delete', 'Удалить')) + '</button>' : '<button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button>') +
       '<button type="button" class="fg-btn" data-fg-save>' + E(L('Saqlash', 'Save', 'Сохранить')) + '</button></div>');
@@ -1676,6 +1691,11 @@
     bindPicker(o);
     one(o, '[data-fg-kindsel]', function (b) { kind = b.getAttribute('data-fg-kindsel'); vis(); });
     o.querySelectorAll('[data-fg-dow]').forEach(function (b) { b.onclick = function () { b.classList.toggle('on'); }; });
+    // 📍 Qurilmalar: "Hammasi" yoki bir nechtasi
+    var devAll = o.querySelector('[data-fg-devall]');
+    var devSync = function () { if (devAll) devAll.classList.toggle('on', !o.querySelector('[data-fg-devsel].on')); };
+    if (devAll) devAll.onclick = function () { o.querySelectorAll('[data-fg-devsel]').forEach(function (x) { x.classList.remove('on'); }); devSync(); };
+    o.querySelectorAll('[data-fg-devsel]').forEach(function (b) { b.onclick = function () { b.classList.toggle('on'); devSync(); }; });
     var rg = o.querySelector('[data-fg-range]'), mEl = o.querySelector('.fg-mins');
     rg.oninput = function () { mEl.textContent = fmt(+rg.value); };
     vis();
@@ -1685,6 +1705,9 @@
     o.querySelector('[data-fg-save]').onclick = function () {
       var tg = readTarget(o); if (!tg) return;
       var nr = { id: r ? r.id : 'r' + Date.now().toString(36), app: tg.app, label: tg.label, kind: kind, on: true };
+      var pickedDevs = Array.prototype.map.call(o.querySelectorAll('[data-fg-devsel].on'), function (b) { return b.getAttribute('data-fg-devsel'); });
+      if (pickedDevs.length) nr.devs = pickedDevs;
+      else if (!o.querySelector('[data-fg-devall]') && r && r.devs) nr.devs = r.devs; // tanlov ko'rinmagan bo'lsa — eskisi saqlanadi
       if (kind === 'daily' || kind === 'session') nr.minutes = +rg.value;
       if (kind === 'daily' && o.querySelector('[data-fg-perday]').checked) {
         nr.perDay = {}; o.querySelectorAll('[data-fg-pd]').forEach(function (x) { nr.perDay[x.getAttribute('data-fg-pd')] = Math.max(0, Math.min(1440, Math.round(+x.value || 0))); });
@@ -1695,7 +1718,7 @@
       }
       // Kuchaytirishmi? Kunlik limit — har bir hafta kunida daqiqalar kamaygan yoki teng (0 = limitsiz — yumshatish)
       var dayMins = function (x, w) { var v = x.perDay && x.perDay[String(w)]; v = v != null ? +v : (x.minutes || 0); return v > 0 ? v : 1e9; };
-      var tighter = !!r && nr.app === r.app && (kind === r.kind ? (kind === 'always' || (kind === 'daily' ? [1, 2, 3, 4, 5, 6, 7].every(function (w) { return dayMins(nr, w) <= dayMins(r, w); }) : kind === 'session' ? (nr.minutes || 0) <= (r.minutes || 0) : JSON.stringify([nr.days, nr.from, nr.to]) === JSON.stringify([r.days, r.from, r.to]))) : kind === 'always');
+      var tighter = !!r && nr.app === r.app && devsCover(nr.devs, r.devs) && (kind === r.kind ? (kind === 'always' || (kind === 'daily' ? [1, 2, 3, 4, 5, 6, 7].every(function (w) { return dayMins(nr, w) <= dayMins(r, w); }) : kind === 'session' ? (nr.minutes || 0) <= (r.minutes || 0) : JSON.stringify([nr.days, nr.from, nr.to]) === JSON.stringify([r.days, r.from, r.to]))) : kind === 'always');
       if (strictLock && !tighter && kind !== 'schedule') {
         try { toast('🔐 ' + L('Qat\'iy rejimda limitni yumshatib bo\'lmaydi', 'Strict mode: limits can\'t be loosened', 'Строгий режим: лимит нельзя ослабить')); } catch (e) {} return;
       }
@@ -1703,7 +1726,7 @@
         var cc = cfg();
         if (r) { var k = -1; cc.rules.forEach(function (x, i) { if (x.id === r.id) k = i; }); if (k === -1) cc.rules.push(nr); else cc.rules[k] = nr; } else cc.rules.push(nr);
         saveCfg(); closeSheet(); rerender();
-        try { toast('🛡 ' + L('Saqlandi — kompyuter 30 soniyada qabul qiladi', 'Saved — your PC picks it up within 30 s', 'Сохранено — ПК получит за 30 с')); } catch (e) {}
+        try { toast('🛡 ' + L('Saqlandi — qurilmalar 30 soniyada qabul qiladi', 'Saved — devices pick it up within 30 s', 'Сохранено — устройства получат за 30 с') + (nr.devs ? ' · 📍 ' + ruleDevLabel(nr) : '')); } catch (e) {}
       };
       if (r && r.on && !tighter) guard(commit); else commit();
     };
