@@ -501,6 +501,8 @@
     var sl = (S.health && S.health[today()] && S.health[today()].sleep) || null;
     chips.push('<button class="x-tchip" data-tc="sleep"><span>😴</span><b>' + (sl ? sl + L(' s', 'h', ' ч') : '—') + '</b></button>');
     chips.push('<button class="x-tchip" data-tc="matrix"><span>▦</span><b>' + L('Matritsa', 'Matrix', 'Матрица') + '</b></button>');
+    var nn = notesList().length;
+    chips.push('<button class="x-tchip" data-tc="notes"><span>📝</span><b>' + L('List', 'List', 'Список') + '</b>' + (nn ? '<em>' + nn + '</em>' : '') + '</button>');
     el.innerHTML = chips.join('');
     el.querySelectorAll('[data-tc]').forEach(function (b) { b.onclick = function () { todayOpen(b.dataset.tc); }; });
   }
@@ -508,6 +510,7 @@
   function todayOpen(k) {
     if (k === 'boss') { xOpenHub('boss'); return; }
     if (k === 'matrix') { xOpenMatrix(); return; }
+    if (k === 'notes') { openNotes(); return; }
     var node = document.getElementById(k === 'quests' ? 'quests-card' : 'x-sleep-card'); if (!node) return;
     if (k === 'quests') { S.questsCollapsed = false; try { renderQuests(); } catch (e) {} }
     var ov = xModal('<div class="x-today-sheet"></div>', 'x-today-box');
@@ -521,6 +524,51 @@
     document.addEventListener('keydown', onKey, true);
   }
   window.xRenderToday = safe(renderToday);
+
+  // 📝 Tez eslatmalar (List): tanga/XP yo'q — shunchaki yozib qo'yish, tahrirlash va o'chirish. S.xNotes = [{id, t, at}]
+  function notesList() { if (!Array.isArray(S.xNotes)) S.xNotes = []; return S.xNotes; }
+  function openNotes() {
+    var html = '<h3 class="x-h">📝 ' + L('Tez eslatmalar', 'Quick notes', 'Быстрые заметки') + '</h3>' +
+      '<div class="x-nt-new"><textarea class="x-nt-in" rows="3" placeholder="' + H(L('Shu yerga yozing…', 'Write here…', 'Пишите здесь…')) + '"></textarea>' +
+      '<button class="x-btn x-nt-add">➕ ' + L('Listga qo\'shish', 'Add to list', 'Добавить') + '</button></div>' +
+      '<div class="x-nt-list"></div><button class="x-nt-clear">🗑 ' + L('Hammasini o\'chirish', 'Delete all', 'Удалить всё') + '</button>';
+    var ov = xModal(html, 'x-nt-box'), box = ov.querySelector('.x-box');
+    var inp = box.querySelector('.x-nt-in'), listEl = box.querySelector('.x-nt-list'), clr = box.querySelector('.x-nt-clear');
+    function commit() { save(); renderToday(); }
+    function draw() {
+      var N = notesList();
+      listEl.innerHTML = N.length ? N.map(function (n) {
+        return '<div class="x-nt-it" data-id="' + H(n.id) + '"><div class="x-nt-t" contenteditable="true" spellcheck="false">' + H(n.t) + '</div>' +
+          '<button class="x-nt-del" data-del="' + H(n.id) + '" aria-label="' + H(L('O\'chirish', 'Delete', 'Удалить')) + '">🗑</button></div>';
+      }).join('') : '<div class="x-nt-empty">' + L('Hozircha bo\'sh', 'Nothing here yet', 'Пока пусто') + '</div>';
+      clr.style.display = N.length ? '' : 'none';
+    }
+    function add() {
+      var t = inp.value.replace(/\s+$/, '').replace(/^\s*\n/, '');
+      if (!t.trim()) { inp.focus(); return; }
+      notesList().unshift({ id: 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), t: t, at: Date.now() });
+      inp.value = ''; commit(); draw(); inp.focus();
+    }
+    box.querySelector('.x-nt-add').onclick = add;
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); add(); } });
+    listEl.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-del]'); if (!b) return;
+      S.xNotes = notesList().filter(function (n) { return n.id !== b.dataset.del; }); commit(); draw();
+    });
+    // Tahrirlash: matnni bosib o'zgartirish, chiqqanda saqlanadi (bo'shatilsa — o'chadi)
+    listEl.addEventListener('focusout', function (e) {
+      var t = e.target.closest('.x-nt-t'); if (!t) return;
+      var id = t.parentNode.dataset.id, v = t.innerText.replace(/\s+$/, ''), n = notesList().find(function (x) { return x.id === id; });
+      if (!n) return;
+      if (!v.trim()) { S.xNotes = notesList().filter(function (x) { return x.id !== id; }); commit(); draw(); return; }
+      if (v !== n.t) { n.t = v; n.at = Date.now(); commit(); }
+    });
+    clr.onclick = function () {
+      if (!confirm(L('Barcha eslatmalar o\'chirilsinmi?', 'Delete all notes?', 'Удалить все заметки?'))) return;
+      S.xNotes = []; commit(); draw();
+    };
+    draw(); setTimeout(function () { inp.focus(); }, 60);
+  }
 
   function renderBossAll(hit) {
     renderBossStrip(hit);
