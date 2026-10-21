@@ -671,7 +671,7 @@
   // 🏷 Barcha narxlar 64% arzonlashtirilgan (asl narx × 0.36 — ikki marta 40% chegirma). Dizayn va effekt narxlari o'z fayllarida xuddi shunday kamaytirilgan
   SHOP.forEach(function (it) {
     if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.36 / 5) * 5);
-    if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.36));
+    if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.36 * 1.3)); // 💎 olmos narxlari tangadan farqli 30% qimmatroq
   });
   // 🎨 Pullik fon dizaynlari (narxlar designs.js da — yagona manba). Egalik id: 'd_<dizayn>'
   try {
@@ -884,8 +884,8 @@
   // (ikki marta 40% chegirmadan keyingi narxlar)
   var STUDIO_PRICE = {
     accent: { coins: 55 },
-    nick: { coins: 35 }, nick2: { gems: 4 },
-    frame: { coins: 40 }, frame2: { gems: 4 }
+    nick: { coins: 35 }, nick2: { gems: 5 },
+    frame: { coins: 40 }, frame2: { gems: 5 }
   };
   function hsl2hex(h, s, l) {
     s /= 100; l /= 100;

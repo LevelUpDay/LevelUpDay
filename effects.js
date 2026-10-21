@@ -64,7 +64,7 @@
   // 🏷 Barcha narxlar 64% arzonlashtirilgan (asl narx × 0.36 — ikki marta 40% chegirma)
   CAT.forEach(function (it) {
     if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.36 / 5) * 5);
-    if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.36));
+    if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.36 * 1.3)); // 💎 olmos narxlari tangadan farqli 30% qimmatroq
   });
   function byId(id) { for (var i = 0; i < CAT.length; i++) if (CAT[i].id === id) return CAT[i]; return null; }
   function byKey(k) { for (var i = 0; i < CAT.length; i++) if (CAT[i].key === k) return CAT[i]; return null; }
