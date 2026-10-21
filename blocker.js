@@ -100,8 +100,10 @@
   function dayStr(off) { var d = new Date(); d.setDate(d.getDate() + off); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
   // ---------- Ma'lumot modeli (real yoki namuna) ----------
+  function brandOf(id) { var b = window.FG_ICONS && id ? window.FG_ICONS[id] : null; return b && b[1] ? b : null; }
   function color(id) {
     if (BRAND[id]) return BRAND[id];
+    var bi = brandOf(id); if (bi) return '#' + bi[0];
     for (var i = 0; i < SITES.length; i++) if (SITES[i][0] === id && SITES[i][2]) return SITES[i][2];
     var h = 0; for (var j = 0; j < id.length; j++) h = (h * 31 + id.charCodeAt(j)) >>> 0;
     return 'hsl(' + (h % 360) + ',62%,52%)';
@@ -351,9 +353,15 @@
   }
   function tile(a, sz) {
     if (a.id && a.id.indexOf('cat:') === 0) { var ci = catInfo(a.id.slice(4)); return '<span class="fg-tile cat' + (sz ? ' ' + sz : '') + '" style="--tc:' + ci[3] + '">' + ci[1] + '</span>'; }
+    // Saytlar: o'rnatilgan brend ikonka → favikon; dasturlar: agent yuborgan ikonka → brend ikonka → favikon; bo'lmasa harf
+    var bi = a.id ? brandOf(a.id) : null, d = a.id && a.id.indexOf('site:') !== 0 && real() ? devApp(a.id) : null;
+    if (bi && !(d && d.icon)) {
+      var hx = bi[0], lum = (parseInt(hx.slice(0, 2), 16) * 299 + parseInt(hx.slice(2, 4), 16) * 587 + parseInt(hx.slice(4, 6), 16) * 114) / 255000;
+      return '<span class="fg-tile brand' + (sz ? ' ' + sz : '') + '" style="--tc:#' + hx + ';--tf:' + (lum > 0.72 ? '#111' : '#fff') + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + bi[1] + '"/></svg></span>';
+    }
     var ic = a.id ? iconOf(a.id) : '';
-    return '<span class="fg-tile' + (ic ? ' img' : '') + (sz ? ' ' + sz : '') + '" style="--tc:' + a.c + '">' + E((a.n || '?').charAt(0).toUpperCase()) +
-      (ic ? '<img src="' + E(ic) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove(\'img\');this.remove()">' : '') + '</span>';
+    return '<span class="fg-tile' + (ic ? ' img' : ' ltr') + (sz ? ' ' + sz : '') + '" style="--tc:' + a.c + '">' + E((a.n || '?').charAt(0).toUpperCase()) +
+      (ic ? '<img src="' + E(ic) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove(\'img\');this.parentNode.classList.add(\'ltr\');this.remove()">' : '') + '</span>';
   }
   function tileFor(app, sz) { return tile({ id: app, n: labelOf(app), c: color(app) }, sz); }
   function sw(on, attrs, dis) { return '<button type="button" class="fg-sw' + (on ? ' on' : '') + '" role="switch" aria-checked="' + !!on + '" ' + attrs + (dis ? ' disabled' : '') + '><i></i></button>'; }

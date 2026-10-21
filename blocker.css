@@ -734,3 +734,7 @@ div.fg-row.fg-app:focus-visible { outline: 2px solid var(--accent); outline-offs
 .fg-devsel { flex-wrap: wrap; }
 .fg-devsel button { width: auto; padding: 7px 11px; font-size: 12.5px; }
 .fg-devhint { display: block; margin-top: 4px; opacity: .75; font-size: 11.5px; }
+/* 🎨 Brend ikonkalari (fg-icons.js) va ikonkasiz dasturlar uchun bir xil uslubdagi harfli plitka */
+.fg-tile.brand { background: var(--tc); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text, #fff) 12%, transparent); }
+.fg-tile.brand svg { width: 56%; height: 56%; fill: var(--tf, #fff); }
+.fg-tile.ltr { background: color-mix(in srgb, var(--tc) 18%, var(--surface2)); color: color-mix(in srgb, var(--tc) 80%, var(--text, #fff)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc) 35%, transparent); }
