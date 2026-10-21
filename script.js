@@ -16289,6 +16289,32 @@ function isUsernameBlocked(newUsername) {
 }
 
 
+// Google/Gmail ismidan nik: "Shodruz Amonov" → "Shodruz_Amonov" (faqat A-Z, 0-9, _; 3–16 belgi).
+// Kirill harflari lotinga o'giriladi. Mos kelmasa — '' (avtomatik userN qoladi).
+var _NICK_CYR = { а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'j',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'x',ц:'ts',ч:'ch',ш:'sh',щ:'sh',ъ:'',ы:'i',ь:'',э:'e',ю:'yu',я:'ya',ў:'o',қ:'q',ғ:'g',ҳ:'h' };
+function toValidNick(raw) {
+  var v = String(raw || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u0400-\u04FF]/g, function (ch) { var lo = ch.toLowerCase(), r = _NICK_CYR[lo]; if (r == null) return ''; return ch !== lo && r ? r.charAt(0).toUpperCase() + r.slice(1) : r; })
+    .replace(/['`ʻʼ‘’]/g, '').trim().replace(/[\s.\-]+/g, '_').replace(/[^A-Za-z0-9_]/g, '').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  if (v.length > USERNAME_MAX_LEN) { var pt = v.split('_'); v = pt.length > 1 && (pt[0] + '_' + pt[1].charAt(0)).length <= USERNAME_MAX_LEN ? pt[0] + '_' + pt[1].charAt(0) : v.slice(0, USERNAME_MAX_LEN).replace(/_+$/, ''); }
+  return v.length >= 3 && USERNAME_ALLOWED_REGEX.test(v) && !isUsernameBlocked(v) ? v : '';
+}
+function nickFromAccount(meta, email) {
+  meta = meta || {};
+  var cands = [meta.full_name, meta.name, [meta.given_name, meta.family_name].filter(Boolean).join(' '), meta.given_name, String(email || '').split('@')[0]];
+  for (var i = 0; i < cands.length; i++) { var v = toValidNick(cands[i]); if (v && !isUsernameTaken(v, S.profile && S.profile.name)) return v; }
+  return '';
+}
+// Avval Gmail ismidan bo'sh joy bilan saqlangan nik ("Shodruz Amonov") — qoidaga moslab tuzatiladi
+function fixInvalidNick() {
+  var cur = S.profile && S.profile.name;
+  if (!cur || USERNAME_ALLOWED_REGEX.test(cur)) return false;
+  var v = toValidNick(cur);
+  if (!v || isUsernameTaken(v, cur)) return false;
+  applyUsernameChange(v); S.kiName = v;
+  return true;
+}
+
 function isUsernameTaken(newUsername, currentName) {
   if (!newUsername) return false;
   var normalized = newUsername.trim().toLowerCase();
@@ -34560,8 +34586,8 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
     S.showWelcomeSurveyPending = false;
     if (!res.hadProfile) {
       var meta = session.user.user_metadata || {};
-      var nm = String(meta.full_name || meta.name || (session.user.email || '').split('@')[0] || '').replace(/[^\p{L}\p{N}_ .-]/gu, '').slice(0, 20);
-      if (nm && !S.profile.name) S.profile.name = nm;
+      var nm = nickFromAccount(meta, session.user.email);
+      if (nm && !S.profile.name) { applyUsernameChange(nm); S.kiName = nm; }
       if (!S.profile.photo && meta.avatar_url) S.profile.photo = meta.avatar_url;
       if (!S.profile.joinedDate) S.profile.joinedDate = new Date().toISOString().slice(0, 10);
       window._cloudPullDone = true;
@@ -34569,6 +34595,7 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
       scheduleCloudSync(true);
       scheduleTodosCloudSync(true);
     }
+    try { if (fixInvalidNick()) scheduleCloudSync(true); } catch (e) {}
     try { closeWelcomeSurvey(); } catch (e) {}
     try { applyLanguage(); } catch (e) {}
     try { save(); } catch (e) {}
@@ -34602,6 +34629,7 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
   if (as.ok) {
     if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
     try { await _cloudRefreshTodos(); } catch (e) {}
+    try { if (fixInvalidNick()) { save(); updateHeaderUserTitle(); renderProfile(); scheduleCloudSync(true); } } catch (e) {}
     scheduleAppStateSync(true);
   }
 };
