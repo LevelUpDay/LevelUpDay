@@ -616,3 +616,38 @@ func (s *State) ReturnEvents(ev []Event) {
 	defer s.mu.Unlock()
 	s.Events = append(ev, s.Events...)
 }
+
+// ---------- Faol foydalanish: video/o'yinda klaviaturaga tegilmasa ham vaqt hisoblanadi ----------
+// mediaApps — video pleyerlar: film ko'rilayotganda sichqoncha ishlatilmaydi, lekin vaqt o'tyapti
+var mediaApps = map[string]bool{
+	"vlc.exe": true, "mpv.exe": true, "potplayermini64.exe": true, "potplayermini.exe": true, "mpc-hc64.exe": true, "mpc-hc.exe": true,
+	"mpc-be64.exe": true, "kmplayer.exe": true, "wmplayer.exe": true, "video.ui.exe": true, "netflix.exe": true, "stremio.exe": true,
+	"kodi.exe": true, "plex.exe": true, "smplayer.exe": true, "celluloid.exe": true, "totem.exe": true, "haruna.exe": true, "mplayer.exe": true,
+}
+
+// videoSites — brauzerda ochiq bo'lsa, harakatsizlikda ham hisoblanadigan saytlar (sarlavhadan)
+var videoSites = map[string]bool{
+	"site:youtube": true, "site:netflix": true, "site:twitch": true, "site:kinopoisk": true, "site:primevideo.com": true,
+	"site:disneyplus.com": true, "site:rutube.ru": true, "site:ivi.ru": true, "site:mover.uz": true, "site:kick.com": true, "site:tiktok": true,
+}
+
+// ActiveUse — shu soniya hisoblanadimi: odatda 2 daqiqa harakatsizlikdan keyin to'xtaydi; video pleyer va video saytda — 3 soatgacha,
+// o'yinlarda (geympad bilan o'ynalganda klaviatura ishlamaydi) — 30 daqiqagacha.
+func ActiveUse(idle uint32, exe, title string, rules []Rule, cats map[string]string) bool {
+	if idle < 120 {
+		return true
+	}
+	if mediaApps[exe] {
+		return idle < 3*3600
+	}
+	if Browsers[exe] {
+		if s, ok := SiteOf(title, rules); ok && videoSites[s.Key] {
+			return idle < 3*3600
+		}
+		return false
+	}
+	if cats[exe] == "games" || AutoCat(exe, "") == "games" {
+		return idle < 30*60
+	}
+	return false
+}

@@ -361,3 +361,18 @@ func TestApplyReset(t *testing.T) {
 		t.Fatal("bir xil tozalash qayta qo'llanmasligi kerak")
 	}
 }
+
+func TestActiveUse(t *testing.T) {
+	if !ActiveUse(10, "code.exe", "", nil, nil) || ActiveUse(300, "code.exe", "", nil, nil) {
+		t.Fatal("normal idle")
+	}
+	if !ActiveUse(1800, "chrome.exe", "Lofi beats - YouTube - Google Chrome", nil, nil) || ActiveUse(1800, "chrome.exe", "Docs - Google Chrome", nil, nil) {
+		t.Fatal("video site")
+	}
+	if !ActiveUse(3000, "vlc.exe", "film.mkv", nil, nil) || ActiveUse(4*3600, "vlc.exe", "", nil, nil) {
+		t.Fatal("media")
+	}
+	if !ActiveUse(600, "steam.exe", "", nil, nil) || !ActiveUse(600, "game.exe", "", nil, map[string]string{"game.exe": "games"}) || ActiveUse(3600, "steam.exe", "", nil, nil) {
+		t.Fatal("games")
+	}
+}
