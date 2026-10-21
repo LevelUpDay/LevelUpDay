@@ -62,7 +62,7 @@
   Object.keys(D).forEach(function (k) {
     var p = D[k].price; if (!p) return;
     if (p.coins) p.coins = Math.max(5, Math.round(p.coins * 0.36 / 5) * 5);
-    if (p.gems) p.gems = Math.max(1, Math.round(p.gems * 0.36));
+    if (p.gems) p.gems = Math.max(1, Math.round(p.gems * 0.36 * 1.3)); // 💎 olmos narxlari tangadan farqli 30% qimmatroq
   });
   Object.keys(D).forEach(function (k) {
     var o = D[k];
