@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -99,3 +101,27 @@ func Sync(token, name string, resetSeen int64, rows []UsageRow, apps []Installed
 }
 
 func PairURL(code string) string { return AppURL + "#fgpair=" + code }
+
+// ---------- Avtoyangilanish: downloads/version.json ----------
+type updateInfo struct {
+	Version string `json:"version"`
+	SHA256  string `json:"sha256"`
+	URL     string `json:"url"`
+}
+
+func newer(a, b string) bool { // a > b ?
+	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < 3; i++ {
+		var x, y int
+		if i < len(pa) {
+			x, _ = strconv.Atoi(pa[i])
+		}
+		if i < len(pb) {
+			y, _ = strconv.Atoi(pb[i])
+		}
+		if x != y {
+			return x > y
+		}
+	}
+	return false
+}

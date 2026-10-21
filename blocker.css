@@ -738,3 +738,10 @@ div.fg-row.fg-app:focus-visible { outline: 2px solid var(--accent); outline-offs
 .fg-tile.brand { background: var(--tc); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text, #fff) 12%, transparent); }
 .fg-tile.brand svg { width: 56%; height: 56%; fill: var(--tf, #fff); }
 .fg-tile.ltr { background: color-mix(in srgb, var(--tc) 18%, var(--surface2)); color: color-mix(in srgb, var(--tc) 80%, var(--text, #fff)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc) 35%, transparent); }
+/* 🐧 Windows / Linux tanlovi va terminal buyrug'i */
+.fg-ostabs { display: inline-flex; gap: 4px; padding: 3px; border-radius: 12px; background: var(--surface2, rgba(127,127,127,.12)); align-self: flex-start; }
+.fg-ostabs button { border: 0; background: transparent; color: var(--text-muted); font: 600 13px/1 inherit; font-family: inherit; padding: 8px 12px; border-radius: 9px; cursor: pointer; }
+.fg-ostabs button.on { background: var(--accent); color: #fff; }
+.fg-cmd { display: flex; align-items: center; gap: 8px; margin: 6px 0 4px; padding: 8px 8px 8px 10px; border-radius: 10px; background: #0b0f17; border: 1px solid var(--border); }
+.fg-cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: #a7f3d0; }
+.fg-cmd .fg-btn { flex: none; }

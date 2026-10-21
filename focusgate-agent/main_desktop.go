@@ -1,6 +1,6 @@
-//go:build windows
+//go:build windows || linux
 
-// LevelUpDay Focusgate — Windows agenti.
+// LevelUpDay Focusgate — kompyuter agenti (Windows va Linux; tizimga xos qismlar plat_*.go va win.go / x11_linux.go da).
 //  • Har soniyada faol oynani o'qiydi va vaqtni hisoblaydi (bo'sh turilganda hisoblanmaydi)
 //  • Har 2 soniyada qoidalarni tekshiradi: limit/jadval/doimiy/fokus — dastur yopiladi, sayt tabi yopiladi
 //  • Har 45 soniyada LevelUpDay bilan sinxronlanadi (foydalanish → server, sozlamalar ← server)
@@ -8,21 +8,16 @@
 package main
 
 import (
-	_ "embed"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"fyne.io/systray"
 )
-
-//go:embed assets/icon.ico
-var iconICO []byte
 
 var (
 	st       *State
@@ -139,17 +134,12 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	out.Close()
+	_ = os.Chmod(tmp, 0o755) // Linux: bajariladigan fayl
 	_ = os.Remove(dst)
 	return os.Rename(tmp, dst)
 }
 
-func openURL(u string) {
-	cmd := exec.Command("rundll32", "url.dll,FileProtocolHandler", u)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	_ = cmd.Start()
-}
-
-// notify — Windows bildirishnomasi (PowerShell orqali toast; konsol oynasi ko'rinmaydi).
+// notify — tizim bildirishnomasi (Windows: toast, Linux: freedesktop Notifications). "!" bilan boshlangan kalit — doim ko'rsatiladi.
 func notify(key, title, body string) {
 	st.mu.Lock()
 	notifOn := st.Config.NotifOn()
@@ -164,19 +154,7 @@ func notify(key, title, body string) {
 	}
 	lastNote[key] = time.Now()
 	noteMu.Unlock()
-	esc := func(s string) string {
-		r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "'", "&apos;", "\"", "&quot;")
-		return strings.ReplaceAll(r.Replace(s), "'", "''")
-	}
-	ps := `[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;` +
-		`[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null;` +
-		`$x = New-Object Windows.Data.Xml.Dom.XmlDocument;` +
-		`$x.LoadXml('<toast><visual><binding template="ToastGeneric"><text>` + esc(title) + `</text><text>` + esc(body) + `</text></binding></visual></toast>');` +
-		`[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe').Show([Windows.UI.Notifications.ToastNotification]::new($x))`
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
-	_ = cmd.Start()
-	go func() { _ = cmd.Wait() }()
+	toast(title, body)
 }
 
 func reasonText(v Verdict) string {
@@ -205,7 +183,7 @@ var (
 )
 
 func onReady() {
-	systray.SetIcon(iconICO)
+	systray.SetIcon(trayIcon)
 	systray.SetTitle("Focusgate")
 	systray.SetTooltip("LevelUpDay Focusgate v" + Version)
 	vItem := systray.AddMenuItem("LevelUpDay Focusgate v"+Version, "")
@@ -237,6 +215,9 @@ func onReady() {
 	go ensureDesktop()
 	if st.Token == "" {
 		go startPairing()
+	}
+	if n := platformNote(); n != "" {
+		go func() { time.Sleep(8 * time.Second); notify("!platform", "Focusgate", n) }()
 	}
 	for _, a := range os.Args[1:] {
 		if a == "--first-run" {
@@ -373,7 +354,7 @@ func trackLoop() {
 					}
 				}
 				if label == "" {
-					label = strings.TrimSuffix(fg.Exe, ".exe")
+					label = prettyExe(fg.Exe)
 				}
 				st.Add(now, app, label, 1)
 				if app != lastApp {
@@ -406,12 +387,6 @@ func trackLoop() {
 	}
 }
 
-// noTrack — vaqti hisoblanmaydigan tizim oynalari (Start menyusi, qidiruv, qulflangan ekran...)
-var noTrack = map[string]bool{
-	"lockapp.exe": true, "shellexperiencehost.exe": true, "startmenuexperiencehost.exe": true, "searchhost.exe": true,
-	"searchapp.exe": true, "textinputhost.exe": true, "applicationframehost.exe": true, "logonui.exe": true,
-}
-
 func pad2(n int) string {
 	if n < 10 {
 		return "0" + itoa(n)
@@ -422,7 +397,7 @@ func pad2(n int) string {
 // ---------- Bloklash ----------
 func enforceLoop() {
 	tick := time.NewTicker(2 * time.Second)
-	self := strings.ToLower(filepath.Base(exePath))
+	self := selfExe()
 	for now := range tick.C {
 		st.mu.Lock()
 		cfg := st.Config
@@ -571,11 +546,11 @@ func mindfulAsk(cfg *Config, fg Foreground, procs map[string][]uint32) {
 	}()
 }
 
-// deviceName — "Windows · KOMPYUTER · foydalanuvchi": bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma
+// deviceName — "Windows · KOMPYUTER · foydalanuvchi" (Linux'da "Linux · …"): har bir foydalanuvchi alohida qurilma
 func deviceName() string {
 	host, _ := os.Hostname()
-	name := "Windows · " + host
-	if u := strings.TrimSpace(os.Getenv("USERNAME")); u != "" && !strings.EqualFold(u, host) {
+	name := osLabel + " · " + host
+	if u := strings.TrimSpace(os.Getenv(userEnv)); u != "" && !strings.EqualFold(u, host) {
 		name += " · " + u
 	}
 	return name
@@ -587,7 +562,7 @@ func niceName(exe string) string {
 	if u := st.Usage[DayKey(time.Now())][exe]; u != nil && u.Label != "" {
 		return u.Label
 	}
-	return strings.TrimSuffix(exe, ".exe")
+	return prettyExe(exe)
 }
 
 // ---------- Sinxronlash ----------
@@ -684,7 +659,7 @@ func updateLoop() {
 // killOthers — boshqa barcha Focusgate jarayonlarini to'xtatadi (o'zidan tashqari) va ular yopilishini kutadi.
 func killOthers() {
 	self := uint32(os.Getpid())
-	mine := strings.ToLower(filepath.Base(exePath))
+	mine := selfExe()
 	killed := false
 	for exe, pids := range Processes() {
 		if exe != "focusgate.exe" && exe != mine && !strings.HasPrefix(exe, "focusgate") {

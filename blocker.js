@@ -14,6 +14,10 @@
   function T(a) { return L(a[0], a[1], a[2]); }
   var AGENT_VERSION = '0.6.3'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
+  // 🐧 Linux: bir qatorli o'rnatish (arxitekturani o'zi tanlaydi, sha256 ni tekshiradi) yoki to'g'ridan-to'g'ri fayl
+  var LINUX_CMD = 'curl -fsSL https://levelupday.github.io/LevelUpDay/downloads/install-linux.sh | sh';
+  var LINUX_URL = 'downloads/focusgate-linux-amd64?v=' + AGENT_VERSION;
+  var IS_LINUX = /Linux/.test(navigator.userAgent || '') && !/Android|CrOS/.test(navigator.userAgent || '');
   // ✅ Focusgate kuzatuvchilari (Windows dasturi Focusgate.exe va brauzer kengaytmasi ZIP) — Focusgate bo'limida yuklab olinadi.
   // Faqat "Ilovani o'rnatish" oynasidagi Windows o'rnatuvchisi o'chirilgan (extras.js: dlOn).
   var DOWNLOADS_ON = true;
@@ -427,12 +431,27 @@
     _pairWait = 0; closeSheet();
     location.hash = '#fgpair=' + v.slice(0, 4) + '-' + v.slice(4);
   }
+  function osTabs() {
+    var os = UI.os || (IS_LINUX ? 'linux' : 'win');
+    return '<div class="fg-ostabs">' + [['win', '🪟 Windows'], ['linux', '🐧 Linux']].map(function (o) { return '<button type="button" class="' + (os === o[0] ? 'on' : '') + '" data-fg-os="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+  }
+  function linuxSteps(signed) {
+    return '<ol class="fg-steps">' +
+      '<li><b>' + E(L('Terminalni oching (Ctrl+Alt+T) va shu buyruqni qo\'ying', 'Open a terminal (Ctrl+Alt+T) and paste this command', 'Откройте терминал (Ctrl+Alt+T) и вставьте команду')) + '</b>' +
+      '<span class="fg-cmd"><code>' + E(LINUX_CMD) + '</code><button type="button" class="fg-btn sm" data-fg-copycmd>📋 ' + E(L('Nusxa', 'Copy', 'Копировать')) + '</button></span>' +
+      '<small>' + E(L('Yoki faylni yuklab oling, so\'ng: chmod +x focusgate-linux-amd64 && ./focusgate-linux-amd64', 'Or download the file, then: chmod +x focusgate-linux-amd64 && ./focusgate-linux-amd64', 'Или скачайте файл и выполните: chmod +x focusgate-linux-amd64 && ./focusgate-linux-amd64')) + '</small></li>' +
+      '<li><b>' + E(L('Brauzer o\'zi ochiladi — "Ulash" ni bosing', 'Your browser opens — press "Connect"', 'Откроется браузер — нажмите «Подключить»')) + '</b>' + (signed ? '' : '<small class="red">' + E(L('Avval LevelUpDay akkauntingizga kiring (Profil → Sozlamalar).', 'Sign in to your LevelUpDay account first (Profile → Settings).', 'Сначала войдите в аккаунт LevelUpDay (Профиль → Настройки).')) + '</small>') + '</li>' +
+      '<li><b>Ubuntu, Mint, Fedora, Debian, Arch…</b><small>' + E(L('Vaqtni hisoblash uchun Xorg (X11) sessiyasi kerak. Wayland\'da dasturlarni bloklash ishlaydi, saytlar vaqtini esa kengaytma hisoblaydi.', 'Time tracking needs an Xorg (X11) session. On Wayland, app blocking works and site time is tracked by the extension.', 'Для учёта времени нужна сессия Xorg (X11). В Wayland блокировка программ работает, а время на сайтах считает расширение.')) + '</small></li></ol>' +
+      '<a class="fg-btn big fg-dl" href="' + LINUX_URL + '" download="focusgate-linux-amd64" rel="noopener">⬇ ' + E(L('Linux uchun yuklab olish', 'Download for Linux', 'Скачать для Linux')) + '</a>';
+  }
   function connectCard() {
     if (real()) return '';
     if (!DOWNLOADS_ON) return soonCard();
-    var signed = sbOk();
+    var signed = sbOk(), os = UI.os || (IS_LINUX ? 'linux' : 'win');
+    if (os === 'linux') return '<div class="fg-card fg-connect"><div class="fg-connect-h"><span>🐧</span><div><b>' + E(L('Kompyuteringizni ulang', 'Connect your computer', 'Подключите компьютер')) + '</b><small>' + E(L('Linux · bepul · 10 MB · v' + AGENT_VERSION, 'Linux · free · 10 MB · v' + AGENT_VERSION, 'Linux · бесплатно · 10 МБ · v' + AGENT_VERSION)) + '</small></div></div>' +
+      osTabs() + linuxSteps(signed) + (signed ? codeFormHtml() : '') + '</div>';
     return '<div class="fg-card fg-connect"><div class="fg-connect-h"><span>💻</span><div><b>' + E(L('Kompyuteringizni ulang', 'Connect your computer', 'Подключите компьютер')) + '</b><small>' + E(L('Windows 10/11 · bepul · 7 MB · v' + AGENT_VERSION, 'Windows 10/11 · free · 7 MB · v' + AGENT_VERSION, 'Windows 10/11 · бесплатно · 7 МБ · v' + AGENT_VERSION)) + '</small></div></div>' +
-      '<ol class="fg-steps">' +
+      osTabs() + '<ol class="fg-steps">' +
       '<li><b>' + E(L('Focusgate.exe ni yuklab oling', 'Download Focusgate.exe', 'Скачайте Focusgate.exe')) + '</b></li>' +
       '<li><b>' + E(L('Ishga tushiring', 'Run it', 'Запустите')) + '</b><small>' + E(L('Windows "Kompyuteringiz himoyalandi" desa: "Подробнее / More info" → "Run anyway".', 'If Windows says "Windows protected your PC": More info → Run anyway.', 'Если Windows пишет «Система защитила ваш ПК»: «Подробнее» → «Выполнить в любом случае».')) + '</small></li>' +
       '<li><b>' + E(L('Brauzer o\'zi ochiladi — "Ulash" ni bosing', 'Your browser opens — press "Connect"', 'Откроется браузер — нажмите «Подключить»')) + '</b>' + (signed ? '' : '<small class="red">' + E(L('Avval LevelUpDay akkauntingizga kiring (Profil → Sozlamalar).', 'Sign in to your LevelUpDay account first (Profile → Settings).', 'Сначала войдите в аккаунт LevelUpDay (Профиль → Настройки).')) + '</small>') + '</li></ol>' +
@@ -940,7 +959,7 @@
       '<div class="fg-hint">' + E(L('Har bir kompyuterda Focusgate dasturi va brauzer kengaytmasi birga ishlaydi: dastur — ilovalarni, kengaytma — saytlarni boshqaradi.', 'On each computer the Focusgate app and the browser extension work together: the app handles programs, the extension handles websites.', 'На каждом компьютере работают вместе программа Focusgate и расширение: программа — приложения, расширение — сайты.')) + '</div><div class="fg-list">';
     pcs.forEach(function (d) {
       var k = kids[d.id] || [];
-      h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:#3b82f6">🪟</span><span class="fg-row-m">' + nm(d, devName(d)) + devStatus(d).replace('</small>', (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small>') + '</span>' + unpairBtn(d) + '</div>' +
+      h += '<div class="fg-devc"><div class="fg-row"><span class="fg-tile" style="--tc:' + (/^Linux/.test(d.name || '') ? '#f59e0b">🐧' : '#3b82f6">🪟') + '</span><span class="fg-row-m">' + nm(d, devName(d)) + devStatus(d).replace('</small>', (Array.isArray(d.apps) ? ' · ' + d.apps.length + ' ' + E(L('dastur', 'apps', 'прогр.')) : '') + '</small>') + '</span>' + unpairBtn(d) + '</div>' +
         (k.length ? k.map(extLine).join('') :
           '<div class="fg-subrow off"><span class="fg-sub-ic">🧩</span><span class="fg-row-m"><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><small class="fg-no">❌ ' + E(L('Ulanmagan — saytlar va Shorts/Reels bloklanmaydi', 'Not connected — sites and Shorts/Reels aren\'t blocked', 'Не подключено — сайты и Shorts/Reels не блокируются')) + '</small></span>' +
           (DOWNLOADS_ON ? '<button type="button" class="fg-btn sm" data-fg-extinstall>' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button>' : '') + '</div>') + '</div>';
@@ -963,6 +982,7 @@
     if (!DOWNLOADS_ON) return '';
     return '<div class="fg-get">' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🪟</span><b>' + E(L('Windows uchun Focusgate', 'Focusgate for Windows', 'Focusgate для Windows')) + '</b><span>' + E(L('Dasturlarni kuzatadi va bloklaydi. Soat yonida (tray) ishlaydi.', 'Tracks and blocks programs. Lives in the system tray.', 'Отслеживает и блокирует программы. Работает в трее.')) + '</span><a class="fg-btn" href="' + DOWNLOAD_URL + '" download="Focusgate.exe" rel="noopener">⬇ ' + E(L('Yuklab olish', 'Download', 'Скачать')) + '</a></div>' +
+      '<div class="fg-card fg-get-c"><span class="fg-get-ic">🐧</span><b>' + E(L('Linux uchun Focusgate', 'Focusgate for Linux', 'Focusgate для Linux')) + '</b><span>' + E(L('Ubuntu, Mint, Fedora va boshqalar. Terminalda bitta buyruq bilan o\'rnatiladi.', 'Ubuntu, Mint, Fedora and more. Installs with one terminal command.', 'Ubuntu, Mint, Fedora и др. Ставится одной командой в терминале.')) + '</span><button type="button" class="fg-btn" data-fg-linuxsheet>🐧 ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div>' +
       '<div class="fg-card fg-get-c"><span class="fg-get-ic">🧩</span><b>' + E(L('Brauzer kengaytmasi', 'Browser extension', 'Расширение браузера')) + '</b><span>' + E(L('Shorts, Reels va sayt ichidagi bo\'limlarni bloklash.', 'Blocks Shorts, Reels and in-site sections.', 'Блокирует Shorts, Reels и разделы сайтов.')) + '</span><button type="button" class="fg-btn" data-fg-extinstall>⬇ ' + E(L('O\'rnatish', 'Install', 'Установить')) + '</button></div></div>';
   }
   // ⏳ Qo'shimcha ogohlantirishlar va 🔑 PIN-kod
@@ -1241,7 +1261,7 @@
     }
     var q = function (ru, en) { return '<span class="fg-q">' + E(ru) + '</span> / <span class="fg-q">' + E(en) + '</span>'; };
     openSheet('<h3>🧩 ' + E(L('Kengaytmani o\'rnatish', 'Install the extension', 'Установка расширения')) + '</h3>' +
-      '<p class="fg-p">' + E(L('5 daqiqalik ish. Chrome, Edge, Brave, Opera va Yandex brauzerlarida ishlaydi. Faqat kompyuterda.', 'Takes 5 minutes. Works in Chrome, Edge, Brave, Opera and Yandex. Computer only.', 'Займёт 5 минут. Работает в Chrome, Edge, Brave, Opera и Яндекс. Только на компьютере.')) + '</p>' +
+      '<p class="fg-p">' + E(L('5 daqiqalik ish. Chrome, Edge, Brave, Opera va Yandex brauzerlarida (Windows va Linux) ishlaydi. Faqat kompyuterda.', 'Takes 5 minutes. Works in Chrome, Edge, Brave, Opera and Yandex (Windows and Linux). Computer only.', 'Займёт 5 минут. Работает в Chrome, Edge, Brave, Opera и Яндекс. Только на компьютере.')) + '</p>' +
       '<div class="fg-guide">' +
       step(1, E(L('ZIP faylni yuklab oling', 'Download the ZIP', 'Скачайте ZIP')), '<a class="fg-btn sm" href="' + EXT_URL + '" download="focusgate-extension.zip">⬇ focusgate-extension.zip</a>') +
       step(2, E(L('ZIP ni oching (papkaga chiqaring)', 'Extract the ZIP', 'Распакуйте ZIP')),
@@ -2015,6 +2035,9 @@
     if ((b = t.closest('[data-fg-weekly]'))) { openWeekly(); return; }
     if ((b = t.closest('[data-fg-allapps]'))) { openAllApps(); return; }
     if ((b = t.closest('[data-fg-extinstall]'))) { if (DOWNLOADS_ON) openExtInstall(); return; }
+    if ((b = t.closest('[data-fg-os]'))) { UI.os = b.dataset.fgOs; render(); return; }
+    if ((b = t.closest('[data-fg-copycmd]'))) { try { navigator.clipboard.writeText(LINUX_CMD); toast('📋 ' + L('Nusxa olindi — terminalga qo\'ying (Ctrl+Shift+V)', 'Copied — paste into the terminal (Ctrl+Shift+V)', 'Скопировано — вставьте в терминал (Ctrl+Shift+V)')); } catch (e) {} return; }
+    if ((b = t.closest('[data-fg-linuxsheet]'))) { openSheet('<h3>🐧 ' + E(L('Linux uchun Focusgate', 'Focusgate for Linux', 'Focusgate для Linux')) + '</h3><div class="fg-connect in">' + linuxSteps(sbOk()) + '</div>'); return; }
     if ((b = t.closest('[data-fg-addsite]'))) { openSitePicker(); return; }
     if ((b = t.closest('[data-fg-codego]'))) { codeGo(b); return; }
     if ((b = t.closest('[data-fg-join]'))) { joinFocus(b.dataset.fgJoin, +b.dataset.min); return; }
