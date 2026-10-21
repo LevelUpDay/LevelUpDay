@@ -501,6 +501,14 @@
     var sl = (S.health && S.health[today()] && S.health[today()].sleep) || null;
     chips.push('<button class="x-tchip" data-tc="sleep"><span>😴</span><b>' + (sl ? sl + L(' s', 'h', ' ч') : '—') + '</b></button>');
     chips.push('<button class="x-tchip" data-tc="matrix"><span>▦</span><b>' + L('Matritsa', 'Matrix', 'Матрица') + '</b></button>');
+    // 📱 Focusgate: bugungi ekran vaqti (qurilma ulangan bo'lsa); maqsaddan oshsa — qizil
+    try {
+      var FGa = window.LUDFocusgate;
+      if (FGa && FGa.real()) {
+        var fm = FGa.todayMin(), fgl = FGa.goalMin(), fh = Math.floor(fm / 60), fmm = Math.round(fm % 60);
+        chips.push('<button class="x-tchip' + (fgl && fm > fgl ? ' x-tchip-over' : '') + '" data-tc="screen" title="Focusgate"><span>📱</span><b>' + (fh ? fh + L(' s ', 'h ', ' ч ') : '') + fmm + L(' d', 'm', ' м') + '</b></button>');
+      }
+    } catch (e) {}
     var nn = notesList().length;
     chips.push('<button class="x-tchip" data-tc="notes"><span>📝</span><b>' + L('List', 'List', 'Список') + '</b>' + (nn ? '<em>' + nn + '</em>' : '') + '</button>');
     el.innerHTML = chips.join('');
@@ -511,6 +519,7 @@
     if (k === 'boss') { xOpenHub('boss'); return; }
     if (k === 'matrix') { xOpenMatrix(); return; }
     if (k === 'notes') { openNotes(); return; }
+    if (k === 'screen') { try { window.LUDFocusgate.open(); } catch (e) {} return; }
     var node = document.getElementById(k === 'quests' ? 'quests-card' : 'x-sleep-card'); if (!node) return;
     if (k === 'quests') { S.questsCollapsed = false; try { renderQuests(); } catch (e) {} }
     var ov = xModal('<div class="x-today-sheet"></div>', 'x-today-box');

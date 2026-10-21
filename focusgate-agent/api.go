@@ -16,7 +16,7 @@ import (
 const (
 	FunctionURL = "https://zzcvpenkevxlurgpjltz.supabase.co/functions/v1/focusgate"
 	AppURL      = "https://levelupday.github.io/LevelUpDay/"
-	Version     = "0.6.3"
+	Version     = "0.6.4"
 )
 
 var ErrUnauthorized = errors.New("unauthorized")

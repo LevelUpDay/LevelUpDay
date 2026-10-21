@@ -1,4 +1,4 @@
-// LevelUpDay Focusgate — brauzer kengaytmasi (Chrome / Edge, Manifest V3).
+// LevelUpDay Focusgate — brauzer kengaytmasi (Chrome / Edge / Brave / Opera; Firefox uchun: build-firefox.py, Manifest V3).
 //  • Faol tabdagi saytda o'tgan vaqtni hisoblaydi (bo'sh turilganda/oyna fokusda bo'lmaganda to'xtaydi)
 //  • Bloklangan saytni (doimiy / jadval / kunlik limit / fokus) "bloklandi" sahifasiga yo'naltiradi
 //  • Har daqiqada LevelUpDay bilan sinxronlanadi: foydalanish → server, sozlamalar ← server (Windows agenti bilan bir xil)
@@ -29,7 +29,7 @@ async function api(body) {
 // ---------- Ulash ----------
 function browserName() {
   const ua = navigator.userAgent || '';
-  const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /YaBrowser/.test(ua) ? 'Yandex' : 'Chrome';
+  const b = /Firefox\//.test(ua) ? 'Firefox' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /YaBrowser/.test(ua) ? 'Yandex' : 'Chrome';
   const os = /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'Mac' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : '';
   return b + (os ? ' · ' + os : '');
 }

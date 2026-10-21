@@ -343,10 +343,12 @@ func trackLoop() {
 	lastApp, lastActive := "", map[string]time.Time{} // ochilishlar soni: boshqa ilovadan o'tilsa (30 s dan ko'p tanaffus bilan)
 	for now := range tick.C {
 		st.mu.Lock()
-		cfg := st.Config
+		cfg, cats := st.Config, st.AppCats
 		st.mu.Unlock()
-		if cfg.TrackOn() && IdleSeconds() < 120 {
-			if fg, ok := GetForeground(); ok && !noTrack[fg.Exe] && !strings.HasPrefix(fg.Exe, "focusgate") {
+		if !cfg.TrackOn() {
+			lastApp = ""
+		} else if fg, ok := GetForeground(); ok && ActiveUse(IdleSeconds(), fg.Exe, fg.Title, cfg.Rules, cats) {
+			if !noTrack[fg.Exe] && !strings.HasPrefix(fg.Exe, "focusgate") {
 				app, label := fg.Exe, FileDescription(fg.Path)
 				if Browsers[fg.Exe] {
 					if s, ok := SiteOf(fg.Title, cfg.Rules); ok {

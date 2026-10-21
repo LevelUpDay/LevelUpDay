@@ -1,18 +1,18 @@
 {
-  "version": "0.6.3",
-  "sha256": "dfb846e728011535c589a9aa2544fc043cd77e19c323e32d3a77a564979843f0",
+  "version": "0.6.4",
+  "sha256": "cd3a1c556cbee0af4df534402bd3e8a112e22e07c9b91b8370fd2db3b7e722c7",
   "url": "https://levelupday.github.io/LevelUpDay/downloads/Focusgate.exe",
-  "notes": "Linux uchun Focusgate qo'shildi",
+  "notes": "Video va o'yinlarda vaqt to'g'ri hisoblanadi; Linux qo'llab-quvvatlash",
   "ext": "0.6.3",
   "linux": {
     "amd64": {
-      "version": "0.6.3",
-      "sha256": "d814b41d348856bfc6f1aad074ecd3bf99aef9b567a7a95b548fd18d4486854b",
+      "version": "0.6.4",
+      "sha256": "3e6a38d65440077a9cdf68d3a2c3790b411feeb6526974570c0935ebbc24d184",
       "url": "https://levelupday.github.io/LevelUpDay/downloads/focusgate-linux-amd64"
     },
     "arm64": {
-      "version": "0.6.3",
-      "sha256": "6b1fee9491ddcc558fdf6bab673af1d742a29b8c5530cda7716b8704ca4a93bd",
+      "version": "0.6.4",
+      "sha256": "51f43ae67708f39a1185c05cefce559951a76f973dba164240890f5f9e272a57",
       "url": "https://levelupday.github.io/LevelUpDay/downloads/focusgate-linux-arm64"
     }
   }

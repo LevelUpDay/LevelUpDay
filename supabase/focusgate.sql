@@ -77,3 +77,20 @@ begin
 end; $$;
 revoke all on function public.fg_rename_device(uuid, text) from public, anon;
 grant execute on function public.fg_rename_device(uuid, text) to authenticated;
+
+-- 📡 Jonli yangilanish signali (sayt Realtime orqali kuzatadi; fg_devices katta bo'lgani uchun alohida yengil jadval)
+create table if not exists public.fg_live (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  at timestamptz not null default now()
+);
+alter table public.fg_live enable row level security;
+create policy fg_live_sel on public.fg_live for select using (user_id = auth.uid());
+create or replace function public._fg_live_touch() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.fg_live(user_id, at) values (new.user_id, now())
+  on conflict (user_id) do update set at = excluded.at
+  where public.fg_live.at < now() - interval '5 seconds';
+  return null;
+end; $$;
+create trigger fg_live_touch after insert or update on public.fg_devices for each row execute function public._fg_live_touch();
+alter publication supabase_realtime add table public.fg_live;
