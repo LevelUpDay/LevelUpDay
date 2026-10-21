@@ -9,7 +9,7 @@
 // ============================================================
 (function () {
   'use strict';
-  window.APP_VERSION = 'v104'; // sw.js CACHE_VERSION bilan bir xil
+  window.APP_VERSION = 'v105'; // sw.js CACHE_VERSION bilan bir xil
 
   function L(uz, en, ru) { try { return _cl(uz, en, ru); } catch (e) { return uz; } }
   function H(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -326,6 +326,7 @@
         try {
           if (typeof p.coins === 'number') S.coins = p.coins;
           if (typeof p.total_coins === 'number') S.totalCoins = p.total_coins;
+          if (typeof p.season_coins === 'number' && typeof p.coins === 'number') S.reytingSeasonCoinsBase = Math.max(0, p.coins - p.season_coins); // promo tangasi oylik reytingga ham kiradi
           if (typeof p.xp === 'number') S.xp = p.xp;
           if (typeof p.gems === 'number') S.gems = p.gems;
           var gain = [d.coins ? '+' + d.coins + ' 🪙' : '', d.xp ? '+' + d.xp + ' XP' : '', d.gems ? '+' + d.gems + ' 💎' : ''].filter(Boolean).join(' ');

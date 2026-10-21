@@ -28202,7 +28202,7 @@ function startRealtimeSync() {
       var p = payload.new;
       if (!p) return;
       if (p.updated_at && window._lastProfilePushAt && Date.parse(p.updated_at) === Date.parse(window._lastProfilePushAt)) return; // o'zimiz yuborgan yozuv
-      if ((p.coins || 0) === (S.coins || 0) && (p.xp || 0) === (S.xp || 0) && (p.streak || 0) === (S.streak || 0) && (p.total_coins || 0) === (S.totalCoins || 0) && (p.gems == null || (p.gems || 0) === (S.gems || 0))) return;
+      if ((p.coins || 0) === (S.coins || 0) && (p.xp || 0) === (S.xp || 0) && (p.streak || 0) === (S.streak || 0) && (p.total_coins || 0) === (S.totalCoins || 0) && (p.gems == null || (p.gems || 0) === (S.gems || 0))) { _seasonFromServer(p); return; }
       // Kechikib qaytgan o'z yozuvimiz yoki hali yuborilmagan mahalliy o'zgarish bo'lsa — tangani ustidan yozmaymiz
       if (_cloudSyncTimer || _profileEchoSeen(p) || !_cloudOwnerOk()) return;
       S.coins = p.coins || 0;
@@ -28211,6 +28211,7 @@ function startRealtimeSync() {
       S.xp = p.xp || 0;
       S.streak = p.streak || 0;
       S.bestStreak = p.best_streak || S.streak || 0;
+      _seasonFromServer(p);
       try { saveToLocalStorage(S); } catch (e) {}
       _rtRenderSoon();
     })
@@ -34630,6 +34631,7 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
     if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
     try { await _cloudRefreshTodos(); } catch (e) {}
     try { if (fixInvalidNick()) { save(); updateHeaderUserTitle(); renderProfile(); scheduleCloudSync(true); } } catch (e) {}
+    try { var _pr = await supabase.from('profiles').select('coins,season_coins').eq('id', S.cloudUserId).maybeSingle(); if (_pr && _pr.data && _seasonFromServer(_pr.data)) { save(); render(); } } catch (e) {}
     scheduleAppStateSync(true);
   }
 };
@@ -34990,6 +34992,14 @@ function scheduleAppStateSync(immediate) {
 // true qaytarsa — yozish xavfsiz (bulut o'qildi yoki qator yo'q).
 /* cloudPullAppState: blok boshiga (global var sifatida) ko'chirildi */
 
+// Oylik reyting tangasi serverda o'zgarsa (admin sovg'asi, promo-kod) — balans bir xil bo'lganda bazani moslaymiz
+function _seasonFromServer(p) {
+  if (!p || p.season_coins == null || (p.coins || 0) !== (S.coins || 0)) return false;
+  var base = Math.max(0, (S.coins || 0) - (p.season_coins || 0));
+  if (base === (S.reytingSeasonCoinsBase || 0)) return false;
+  S.reytingSeasonCoinsBase = base;
+  return true;
+}
 function _cloudApplyProfileRow(p) {
   if (!S.profile) S.profile = {};
   if (p.name) S.profile.name = p.name;
