@@ -136,13 +136,16 @@
   function devIcon(d) { var k = devKind(d); return k === 'ext' ? '🧩' : k === 'phone' ? '📱' : '💻'; }
   function devName(d) { if (d && d.label) return String(d.label); return String((d && d.name) || 'Windows').replace(/\((kengaytma|extension|расширение)\)/, '(' + L('kengaytma', 'extension', 'расширение') + ')'); }
   function devById(id) { for (var i = 0; i < FG.devices.length; i++) if (FG.devices[i].id === id) return FG.devices[i]; return null; }
+  // Statistika filtri: kompyuterga bog'langan kengaytmaning ma'lumoti o'sha kompyuter ichida hisoblanadi
+  function inDev(rowDev, dev) { if (!dev || dev === 'all' || rowDev === dev) return true; var x = devById(rowDev); return !!(x && x.parent_id === dev && devKind(x) === 'ext'); }
+  function statDevs() { return FG.devices.filter(function (d) { return devKind(d) !== 'ext'; }); }
   // Bir ilovaning soatlar bo'yicha vaqti (daqiqa) — tanlangan kun va qurilma uchun
   function appHours(id, off, dev) {
     var d = dayStr(off), out = new Array(24).fill(0), best = null, site = id.indexOf('site:') === 0;
     if (!real()) return out;
     FG.rows.forEach(function (r) {
-      if (r.day !== d || r.app !== id || (dev && dev !== 'all' && r.device_id !== dev)) return;
-      if (site && (!dev || dev === 'all')) { if (!best || (r.seconds || 0) > (best.seconds || 0)) best = r; return; }
+      if (r.day !== d || r.app !== id || !inDev(r.device_id, dev)) return;
+      if (site) { if (!best || (r.seconds || 0) > (best.seconds || 0)) best = r; return; }
       (r.hours || []).forEach(function (v, i) { if (i < 24) out[i] += (v || 0) / 60; });
     });
     if (best) (best.hours || []).forEach(function (v, i) { if (i < 24) out[i] += (v || 0) / 60; });
@@ -172,7 +175,7 @@
     var siteBest = {};
     FG.rows.forEach(function (r) {
       if (r.day !== d || isSec(r.app)) return;
-      if (dev !== 'all' && r.device_id !== dev) return;
+      if (!inDev(r.device_id, dev)) return;
       var site = r.app.indexOf('site:') === 0;
       var x = by[r.app] || (by[r.app] = { label: r.label, s: 0, o: 0 });
       if (r.label) x.label = r.label;
@@ -507,7 +510,7 @@
 
   // 🎛 Filtrlar qatori: sana (kalendar) · qurilma · o'lchov · turi · kategoriya · tozalash
   function filterBar(dm) {
-    if (UI.dev !== 'all' && !devById(UI.dev)) UI.dev = 'all';
+    if (UI.dev !== 'all' && !statDevs().some(function (d) { return d.id === UI.dev; })) UI.dev = 'all';
     var dirty = UI.day !== 0 || UI.dev !== 'all' || UI.metric !== 'time' || UI.kind !== 'all' || UI.cat !== 'all';
     var opt = function (v, cur, label) { return '<option value="' + E(v) + '"' + (v === cur ? ' selected' : '') + '>' + E(label) + '</option>'; };
     var h = '';
@@ -515,9 +518,9 @@
     h += '<div class="fg-filters"><div class="fg-day fg-date"><button type="button" data-fg-day="-1" ' + (UI.day <= -(HIST_DAYS - 1) ? 'disabled' : '') + ' aria-label="‹">‹</button>' +
       '<label class="fg-date-l">📅 <b>' + E(dayLabel(UI.day)) + '</b><input type="date" data-fg-date min="' + dayStr(-(HIST_DAYS - 1)) + '" max="' + dayStr(0) + '" value="' + dayStr(UI.day) + '"></label>' +
       '<button type="button" data-fg-day="1" ' + (UI.day >= 0 ? 'disabled' : '') + ' aria-label="›">›</button></div>';
-    if (real() && FG.devices.length > 1) {
+    if (real() && statDevs().length > 1) {
       var all = sumArr(dayModel(UI.day, 'all').apps.map(function (a) { return a.m; }));
-      h += '<select class="fg-sel" data-fg-fdev>' + opt('all', UI.dev, '🌐 ' + L('Barcha qurilmalar', 'All devices', 'Все устройства') + ' · ' + fmt(all)) + FG.devices.map(function (d, i) {
+      h += '<select class="fg-sel" data-fg-fdev>' + opt('all', UI.dev, '🌐 ' + L('Barcha qurilmalar', 'All devices', 'Все устройства') + ' · ' + fmt(all)) + statDevs().map(function (d, i) {
         return opt(d.id, UI.dev, devIcon(d) + ' ' + (i + 1) + ' · ' + devName(d) + ' · ' + fmt(sumArr(dayModel(UI.day, d.id).apps.map(function (a) { return a.m; }))));
       }).join('') + '</select>';
     }
@@ -638,7 +641,7 @@
   }
   function historyCard() {
     if (!real()) return '';
-    var d = dayStr(UI.day), list = (FG.events || []).filter(function (e) { return evDay(e) === d && (UI.dev === 'all' || e.device_id === UI.dev); });
+    var d = dayStr(UI.day), list = (FG.events || []).filter(function (e) { return evDay(e) === d && inDev(e.device_id, UI.dev); });
     var blocks = list.filter(function (e) { return e.kind !== 'warn'; }).length;
     var h = '<div class="fg-card fg-hist"><div class="fg-card-h"><b>🛡 ' + E(L('Bloklash tarixi', 'Block history', 'История блокировок')) + '</b><small>' + E(dayLabel(UI.day)) + '</small></div>';
     if (!list.length) return h + '<div class="fg-empty sm">' + E(L('Bu kunda hech narsa bloklanmadi 🌿', 'Nothing was blocked on this day 🌿', 'В этот день ничего не блокировалось 🌿')) + '</div></div>';
@@ -1536,7 +1539,7 @@
       '<div class="fg-pick-new" hidden></div>' +
       '<div class="fg-pkbox">' + (g0.length ? '<div class="fg-pkg"><div class="fg-pick-t">🗂 ' + E(L('Kategoriyalar', 'Categories', 'Категории')) + '</div><div class="fg-card fg-pkl">' + g0.map(row).join('') + '</div></div>' : '') + (g1.length ? '<div class="fg-pkg"><div class="fg-pick-t">💻 ' + E(L('Ilovalar', 'Apps', 'Приложения')) + ' <em>' + g1.length + '</em></div><div class="fg-card fg-pkl">' + g1.map(row).join('') + '</div></div>' : '') +
       '<div class="fg-pkg"><div class="fg-pick-t">🌐 ' + E(L('Saytlar', 'Websites', 'Сайты')) + ' <em>' + g2.length + '</em></div><div class="fg-card fg-pkl">' + g2.map(row).join('') + '</div></div></div>' +
-      (FG.devices.length > 1 && !opts.plain ? '<div class="fg-pick-t">🔗 ' + E(L('Qaysi qurilmalarda hisoblansin', 'Count on which devices', 'На каких устройствах считать')) + '</div><div class="fg-card fg-pkdevs">' + FG.devices.map(function (d, i) {
+      (targetDevs().length > 1 && !opts.plain ? '<div class="fg-pick-t">🔗 ' + E(L('Qaysi qurilmalarda hisoblansin', 'Count on which devices', 'На каких устройствах считать')) + '</div><div class="fg-card fg-pkdevs">' + targetDevs().map(function (d, i) {
         var on = !Array.isArray(opts.devs) || !opts.devs.length || opts.devs.indexOf(d.id) !== -1;
         return '<label class="fg-pkdev"><input type="checkbox" data-pk-dev="' + E(d.id) + '"' + (on ? ' checked' : '') + '><span>' + devIcon(d) + ' ' + (i + 1) + ' · ' + E(devName(d)) + '</span></label>';
       }).join('') + '<small class="fg-pkdev-n">' + E(L('Bloklash (vaqt tugaganda) barcha qurilmalarda ishlaydi.', 'Blocking (when time runs out) applies on all devices.', 'Блокировка (когда время кончится) действует на всех устройствах.')) + '</small></div>' : '') +
@@ -1763,8 +1766,8 @@
       }).join('') + '</div>' +
       (rg.length ? '<div class="fg-ranges">' + rg.map(function (r) { return '<span>' + pad(r.a) + '–' + pad(r.b % 24 === 0 && r.b ? 24 : r.b).replace('24:00', '00:00') + ' <b>' + E(fmt(r.m)) + '</b></span>'; }).join('') + '</div>'
         : '<div class="fg-empty sm">' + E(L('Bu kunda ishlatilmagan', 'Not used on this day', 'В этот день не использовалось')) + '</div>') + '</div>';
-    if (real() && FG.devices.length > 1) {
-      var per = FG.devices.map(function (d, i) { var m = appHours(id, UI.day, d.id).reduce(function (s, v) { return s + v; }, 0); return { d: d, i: i, m: m }; }).filter(function (x) { return x.m >= 0.5; });
+    if (real() && statDevs().length > 1) {
+      var per = statDevs().map(function (d, i) { var m = appHours(id, UI.day, d.id).reduce(function (s, v) { return s + v; }, 0); return { d: d, i: i, m: m }; }).filter(function (x) { return x.m >= 0.5; });
       if (per.length) {
         var pm = Math.max.apply(null, per.map(function (x) { return x.m; }));
         h += '<div class="fg-lbl">' + E(L('Qurilmalar bo\'yicha', 'By device', 'По устройствам')) + '</div><div class="fg-card fg-perdev">' + per.map(function (x) {
