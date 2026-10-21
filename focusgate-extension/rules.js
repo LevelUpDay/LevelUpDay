@@ -62,8 +62,21 @@ export function isSection(key) { return key.indexOf('#') !== -1; }
 function hm(s) { const m = /^(\d{1,2}):(\d{2})/.exec(s || ''); return m ? +m[1] * 60 + +m[2] : 0; }
 function weekday(d) { const wd = d.getDay(); return wd === 0 ? 7 : wd; }
 // Kunlik limit bugun necha daqiqa (r.perDay: "1".."7" → daqiqa)
-export function ruleMinutes(r, d = new Date()) { const v = r.perDay && r.perDay[String(weekday(d))]; return v != null ? +v : (r.minutes || 0); }
+export function ruleMinutes(r, d = new Date()) {
+  const v = r.perDay && r.perDay[String(weekday(d))]; let m = v != null ? +v : (r.minutes || 0);
+  if (m > 0 && r.extra && r.extra.day === dayKey(d)) m += +r.extra.min || 0; // tangaga sotib olingan qo'shimcha vaqt
+  return m;
+}
 export function modeActive(m, d = new Date()) { return !!(m && (m.on || (m.sched && inSchedule(m, d)))); }
+// Jadval: asosiy oraliq yoki qo'shimcha oraliqlardan biri (r.ranges)
+export function inRule(r, d) { return inSchedule(r, d) || (r.ranges || []).some((w) => inSchedule({ days: r.days, from: w.from, to: w.to }, d)); }
+// Fokus: qo'lda boshlangan yoki takrorlanadigan reja (cfg.focusPlans)
+export function focusOn(cfg, d = new Date()) {
+  if ((cfg.focusUntil || 0) > d.getTime()) return true;
+  return (cfg.focusPlans || []).some((p) => { if (!p.on || !(p.min > 0)) return false; const s = hm(p.at), e = s + p.min; return inSchedule({ days: p.days, from: p.at, to: String(Math.floor(e / 60) % 24).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0') }, d); });
+}
+// Kalit so'z: manzil yoki sarlavhada (kamida 3 harf)
+export function keywordHit(cfg, text) { const t = String(text || '').toLowerCase(); return (cfg.keywords || []).map((k) => String(k).toLowerCase().trim()).find((k) => k.length >= 3 && t.includes(k)) || ''; }
 const BROWSER_EXE = /^(chrome|msedge|firefox|brave|opera|opera_gx|vivaldi|browser|arc|yandex)\.exe$/;
 // Fokusda "faqat ruxsat etilganlar": sayt ruxsat etilganmi
 export function allowedSite(cfg, key) {
@@ -94,13 +107,20 @@ export function check(cfg, key, used, now = new Date()) {
   const usedOf = typeof used === 'function' ? used : () => used || 0;
   const ms = now.getTime();
   if (!cfg.strict && (cfg.pauseUntil || 0) > ms) return null;
-  if ((cfg.focusUntil || 0) > ms && (cfg.focusApps || []).some((f) => f.on && matches(cfg, f.app, key))) return { reason: 'focus' };
-  if ((cfg.focusUntil || 0) > ms && cfg.allowOnly && !allowedSite(cfg, key)) return { reason: 'allow' };
-  for (const m of cfg.modes || []) if (modeActive(m, now) && (m.apps || []).some((f) => f.app && matches(cfg, f.app, key))) return { reason: 'mode', rule: { label: m.name } };
+  const fo = focusOn(cfg, now);
+  if (fo && (cfg.focusApps || []).some((f) => f.on && matches(cfg, f.app, key))) return { reason: 'focus' };
+  if (fo && cfg.allowOnly && !allowedSite(cfg, key)) return { reason: 'allow' };
+  for (const m of cfg.modes || []) {
+    if (!modeActive(m, now)) continue;
+    const inList = (m.apps || []).some((f) => f.app && matches(cfg, f.app, key));
+    if (m.allow ? !inList : inList) return { reason: m.allow ? 'allow' : 'mode', rule: { label: m.name } };
+  }
+  for (const o of cfg.over || []) if (o.app && matches(cfg, o.app, key)) return { reason: o.reason, rule: { label: o.label } };
+  const today = dayKey(now);
   for (const r of cfg.rules || []) {
-    if (!r.on || !r.app || !forMe(cfg, r) || !matches(cfg, r.app, key)) continue;
+    if (!r.on || !r.app || r.skip === today || !forMe(cfg, r) || !matches(cfg, r.app, key)) continue;
     if (r.kind === 'always') return { reason: 'always', rule: r };
-    if (r.kind === 'schedule' && inSchedule(r, now)) return { reason: 'schedule', rule: r };
+    if (r.kind === 'schedule' && inRule(r, now)) return { reason: 'schedule', rule: r };
     const lim = r.kind === 'daily' ? ruleMinutes(r, now) : 0;
     if (lim > 0 && usedOf(r.app.startsWith('cat:') ? r.app : key) >= lim * 60) return { reason: 'daily', rule: Object.assign({}, r, { minutes: lim }) };
   }

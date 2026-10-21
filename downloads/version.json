@@ -1,18 +1,18 @@
 {
-  "version": "0.6.4",
-  "sha256": "cd3a1c556cbee0af4df534402bd3e8a112e22e07c9b91b8370fd2db3b7e722c7",
+  "version": "0.6.5",
+  "sha256": "dd6f7d5b22afad6e4567f85f7391302ce1710c4c3b073de94ee834c5887b15ce",
   "url": "https://levelupday.github.io/LevelUpDay/downloads/Focusgate.exe",
-  "notes": "Video va o'yinlarda vaqt to'g'ri hisoblanadi; Linux qo'llab-quvvatlash",
-  "ext": "0.6.3",
+  "notes": "Haftalik limit, ochilishlar soni, tanaffus, kalit so'zlar, takrorlanadigan fokus",
+  "ext": "0.6.5",
   "linux": {
     "amd64": {
-      "version": "0.6.4",
-      "sha256": "3e6a38d65440077a9cdf68d3a2c3790b411feeb6526974570c0935ebbc24d184",
+      "version": "0.6.5",
+      "sha256": "c6dcd7033794bb542059b4bdaf1cc2e4a3b531f279c9ed66cbf283cc770489f3",
       "url": "https://levelupday.github.io/LevelUpDay/downloads/focusgate-linux-amd64"
     },
     "arm64": {
-      "version": "0.6.4",
-      "sha256": "51f43ae67708f39a1185c05cefce559951a76f973dba164240890f5f9e272a57",
+      "version": "0.6.5",
+      "sha256": "e96b6f900a3d6d0254b1bd64614f12121ad9547efed11c8d1b4d622cb88256b5",
       "url": "https://levelupday.github.io/LevelUpDay/downloads/focusgate-linux-arm64"
     }
   }

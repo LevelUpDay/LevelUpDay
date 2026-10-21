@@ -533,6 +533,7 @@
     document.addEventListener('keydown', onKey, true);
   }
   window.xRenderToday = safe(renderToday);
+  window.xTodaysOpenTasks = function () { try { return todaysOpenTasks(); } catch (e) { return []; } };
 
   // 📝 Tez eslatmalar (List): tanga/XP yo'q — shunchaki yozib qo'yish, tahrirlash va o'chirish. S.xNotes = [{id, t, at}]
   function notesList() { if (!Array.isArray(S.xNotes)) S.xNotes = []; return S.xNotes; }

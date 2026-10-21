@@ -92,6 +92,15 @@ func matchApp(cfg *Config, st *State, ruleApp, app string) bool {
 
 // usedFor — qoida uchun bugun sarflangan soniyalar (kategoriya bo'lsa — undagi barcha ilovalar yig'indisi).
 func usedFor(cfg *Config, st *State, ruleApp string, t time.Time) int {
+	n := usedDay(cfg, st, ruleApp, t)
+	// Kun boshlanishi (masalan 04:00): yarim tundan keyin ham kechagi limit davom etadi
+	if cfg.DayStart > 0 && cfg.DayStart <= 6 && t.Hour() < cfg.DayStart {
+		n += usedDay(cfg, st, ruleApp, t.Add(-24*time.Hour))
+	}
+	return n
+}
+
+func usedDay(cfg *Config, st *State, ruleApp string, t time.Time) int {
 	if !strings.HasPrefix(ruleApp, "cat:") {
 		return st.Seconds(t, ruleApp)
 	}

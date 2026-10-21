@@ -3,7 +3,7 @@
 //  • Bloklangan saytni (doimiy / jadval / kunlik limit / fokus) "bloklandi" sahifasiga yo'naltiradi
 //  • Har daqiqada LevelUpDay bilan sinxronlanadi: foydalanish → server, sozlamalar ← server (Windows agenti bilan bir xil)
 //  • Ulash: LevelUpDay'da "Ulash" tasdiqlanadi (#fgpair=KOD)
-import { siteOf, check, dayKey, catOf, isSection, mindfulSite, ruleMinutes, forMe } from './rules.js';
+import { siteOf, check, dayKey, catOf, isSection, mindfulSite, ruleMinutes, forMe, keywordHit } from './rules.js';
 
 const FN = 'https://zzcvpenkevxlurgpjltz.supabase.co/functions/v1/focusgate';
 const APP = 'https://levelupday.github.io/LevelUpDay/';
@@ -116,15 +116,50 @@ async function refreshCurrent() {
 // ---------- Bloklash ----------
 async function usedToday(key) {
   const usage = (await S.get('usage')) || {}, remote = (await S.get('remote')) || {};
-  const local = ((usage[dayKey()] || {})[key] || {}).s || 0;
+  let local = ((usage[dayKey()] || {})[key] || {}).s || 0;
+  // Kun boshlanishi (cfg.dayStart, masalan 4): yarim tundan keyin ham kechagi limit davom etadi
+  const ds = +((await cfgOf()).dayStart) || 0;
+  if (ds > 0 && new Date().getHours() < ds) { const y = new Date(Date.now() - 864e5); local += ((usage[dayKey(y)] || {})[key] || {}).s || 0; }
   const { cur } = await chrome.storage.session.get('cur');
   const live = cur && cur.key === key ? Math.round((Date.now() - cur.since) / 1000) : 0;
   return Math.max(local + live, remote[key] || 0);
+}
+const ADULT = /(^|\.)(pornhub|xvideos|xnxx|xhamster|redtube|youporn|spankbang|onlyfans|chaturbate|brazzers|stripchat|bongacams|livejasmin|eporner|tnaflix|beeg|rule34|nhentai|hentaihaven)\./;
+// ▶️ YouTube cheklangan rejimi (xavfsiz qidiruv bilan birga): har bir so'rovga "YouTube-Restrict: Moderate" sarlavhasi
+async function syncSafe(cfg) {
+  if (!chrome.declarativeNetRequest) return;
+  const rules = cfg.safeSearch ? [{ id: 9001, priority: 1, action: { type: 'modifyHeaders', requestHeaders: [{ header: 'YouTube-Restrict', operation: 'set', value: 'Moderate' }] },
+    condition: { requestDomains: ['youtube.com', 'm.youtube.com', 'youtubei.googleapis.com', 'youtube.googleapis.com', 'www.youtube-nocookie.com'], resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest'] } }] : [];
+  try { await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [9001], addRules: rules }); } catch (e) {}
 }
 async function enforce(tabId, url) {
   if (!url || url.startsWith(BLOCKED)) return;
   const cfg = await cfgOf();
   if (!(await S.get('token'))) return;
+  // 🔍 Xavfsiz qidiruv: Google / Bing / DuckDuckGo natijalarida majburiy
+  if (cfg.safeSearch && /^https?:/.test(url)) {
+    try {
+      const u = new URL(url), h = u.hostname.replace(/^www\./, '');
+      const set = /^google\.[a-z.]+$/.test(h) && u.pathname === '/search' && u.searchParams.get('safe') !== 'active' ? ['safe', 'active']
+        : h === 'bing.com' && u.pathname === '/search' && u.searchParams.get('adlt') !== 'strict' ? ['adlt', 'strict']
+        : h === 'duckduckgo.com' && u.searchParams.get('q') && u.searchParams.get('kp') !== '1' ? ['kp', '1'] : null;
+      if (set) { u.searchParams.set(set[0], set[1]); chrome.tabs.update(tabId, { url: u.toString() }).catch(() => {}); return; }
+    } catch (e) {}
+  }
+  const paused = !cfg.strict && (cfg.pauseUntil || 0) > Date.now();
+  // 🔞 Kattalar kontenti va 🔤 kalit so'zlar (manzilda)
+  if (!paused && /^https?:/.test(url)) {
+    let host = ''; try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) {}
+    const kw = keywordHit(cfg, decodeURIComponent(url).replace(/[-_+/.]/g, ' ') + ' ' + host);
+    const adult = cfg.adult && (ADULT.test(host) || /porn|xxx/.test(host));
+    if (kw || adult) {
+      const k = adult ? 'adult' : 'kw:' + kw, l = adult ? host : '«' + kw + '»';
+      const q = new URLSearchParams({ k, l, r: adult ? 'adult' : 'keyword', u: url });
+      chrome.tabs.update(tabId, { url: BLOCKED + '?' + q.toString() }).catch(() => {});
+      event('site_block', k, l, adult ? 'adult' : 'keyword');
+      return;
+    }
+  }
   const site = siteOf(url, cfg.rules);
   if (!site) return;
   // 🌬 Ongli ochish: avval "nafas oling" sahifasi; "Ha" desa — N daqiqa ruxsat
@@ -161,12 +196,12 @@ async function warnCheck() {
   const warned = (await S.get('warned')) || {}, d = dayKey();
   let changed = false;
   for (const r of cfg.rules || []) {
-    const lim = r.kind === 'daily' && r.on && r.app && r.app.startsWith('site:') && forMe(cfg, r) ? ruleMinutes(r) : 0;
+    const lim = r.kind === 'daily' && r.on && r.skip !== d && r.app && r.app.startsWith('site:') && forMe(cfg, r) ? ruleMinutes(r) : 0;
     if (!lim) continue;
     const used = await usedToday(r.app), left = lim * 60 - used;
     if (left <= 0) continue;
     let best = -1;
-    for (const p of cfg.warnAt || []) { const k = d + '|' + r.app + '|p' + p; if (p > 0 && p < 100 && used * 100 >= lim * 60 * p && !warned[k]) { warned[k] = 1; changed = true; best = Math.max(best, p); } }
+    for (const p of (r.warnAt && r.warnAt.length ? r.warnAt : cfg.warnAt) || []) { const k = d + '|' + r.app + '|p' + p; if (p > 0 && p < 100 && used * 100 >= lim * 60 * p && !warned[k]) { warned[k] = 1; changed = true; best = Math.max(best, p); } }
     const k5 = d + '|' + r.app;
     if (lim > 5 && left <= 300 && !warned[k5]) { warned[k5] = 1; changed = true; best = 0; }
     if (best >= 0) event('warn', r.app, r.label || r.app, best ? 'p' + best : 'daily');
@@ -227,7 +262,8 @@ async function sync() {
     let r;
     const resetSeen = (await S.get('resetSeen')) || 0;
     const pcId = await findAgent().catch(() => null);
-    try { r = await api({ action: 'sync', token, version: VERSION, usage: rows, events, today: dayKey(), reset_seen: resetSeen, pc_id: pcId }); }
+    let incog = null; try { incog = await chrome.extension.isAllowedIncognitoAccess(); } catch (e) {}
+    try { r = await api({ action: 'sync', token, version: VERSION, usage: rows, events, today: dayKey(), reset_seen: resetSeen, pc_id: pcId, incognito: incog }); }
     catch (e) {
       const back = (await S.get('events')) || []; await S.set({ events: events.concat(back).slice(-200) });
       // Saytda uzildi — eski qoidalar bilan bloklashda davom etmaymiz
@@ -240,6 +276,7 @@ async function sync() {
     // _me / _pc — qoidalar qaysi qurilmalarga tegishli ekanini tekshirish uchun (rules.js → forMe)
     const dv = r.device || {};
     await S.set({ cfg: Object.assign({}, r.config || {}, { _me: dv.id || null, _pc: dv.parent || pcId || null }), remote: r.site_usage || {}, device: r.device || null, syncedAt: Date.now() });
+    syncSafe(r.config || {}).catch(() => {});
     await enforceAll();
     await warnCheck().catch(() => {});
     notifyPopup();

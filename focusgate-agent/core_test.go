@@ -376,3 +376,63 @@ func TestActiveUse(t *testing.T) {
 		t.Fatal("games")
 	}
 }
+
+func TestNewRuleKinds(t *testing.T) {
+	st := NewState()
+	now := time.Date(2026, 10, 21, 13, 0, 0, 0, time.Local)
+	day := DayKey(now)
+	st.Add(now, "discord.exe", "Discord", 3600)
+	cfg := Config{Rules: []Rule{{ID: "a", App: "discord.exe", Kind: "daily", Minutes: 50, On: true}}}
+	if !Check(&cfg, st, "discord.exe", now).Blocked {
+		t.Fatal("daily")
+	}
+	cfg.Rules[0].Extra = &Extra{Day: day, Min: 15}
+	if Check(&cfg, st, "discord.exe", now).Blocked {
+		t.Fatal("extra minutes")
+	}
+	cfg.Rules[0].Extra = nil
+	cfg.Rules[0].Skip = day
+	if Check(&cfg, st, "discord.exe", now).Blocked {
+		t.Fatal("skip today")
+	}
+	// jadval: qo'shimcha oraliq
+	cfg = Config{Rules: []Rule{{ID: "s", App: "steam.exe", Kind: "schedule", From: "09:00", To: "11:00", Ranges: []Win{{"12:30", "14:00"}}, On: true}}}
+	if !Check(&cfg, st, "steam.exe", now).Blocked {
+		t.Fatal("ranges")
+	}
+	// server bloklari
+	cfg = Config{Over: []Over{{App: "cat:social", Reason: "weekly", Label: "Social"}}}
+	if v := Check(&cfg, st, "telegram.exe", now); !v.Blocked || v.Reason != "weekly" {
+		t.Fatal("over")
+	}
+	// takrorlanadigan fokus
+	cfg = Config{FocusPlans: []Plan{{At: "12:30", Min: 60, On: true}}, FocusApps: []FocusApp{{App: "steam.exe", On: true}}}
+	if !Check(&cfg, st, "steam.exe", now).Blocked || Check(&cfg, st, "steam.exe", now.Add(2*time.Hour)).Blocked {
+		t.Fatal("plan")
+	}
+	// oq ro'yxat rejimi
+	cfg = Config{Modes: []Mode{{Name: "Dars", Allow: true, On: true, Apps: []FocusApp{{App: "code.exe"}}}}}
+	if !AllowBlocks(&cfg, st, "steam.exe", now) || AllowBlocks(&cfg, st, "code.exe", now) || Check(&cfg, st, "code.exe", now).Blocked {
+		t.Fatal("allow mode")
+	}
+	// tanaffus
+	cfg = Config{Rules: []Rule{{ID: "b", App: "code.exe", Kind: "break", Minutes: 1, Break: 5, On: true}}}
+	var hit *Rule
+	for i := 0; i <= 61; i++ {
+		if r := BreakTick(&cfg, st, "code.exe", now.Add(time.Duration(i)*time.Second)); r != nil {
+			hit = r
+		}
+	}
+	if hit == nil || !Check(&cfg, st, "code.exe", now.Add(2*time.Minute)).Blocked || Check(&cfg, st, "code.exe", now.Add(7*time.Minute)).Blocked {
+		t.Fatal("break")
+	}
+	// kun boshlanishi: 02:00 da kechagi sarf ham hisoblanadi
+	early := time.Date(2026, 10, 22, 2, 0, 0, 0, time.Local)
+	cfg = Config{DayStart: 4, Rules: []Rule{{ID: "a", App: "discord.exe", Kind: "daily", Minutes: 50, On: true}}}
+	if !Check(&cfg, st, "discord.exe", early).Blocked {
+		t.Fatal("day start")
+	}
+	if KeywordHit(&Config{Keywords: []string{"casino"}}, "Best Casino Online - Chrome") != "casino" {
+		t.Fatal("keyword")
+	}
+}
