@@ -25,6 +25,36 @@ type Rule struct {
 	On      bool   `json:"on"`
 	PerDay  map[string]int `json:"perDay"` // kunlik limit hafta kuni bo'yicha: "1".."7" → daqiqa (yo'q — Minutes)
 	Devs    []string       `json:"devs"`   // qaysi qurilmalarda (fg_devices.id); bo'sh — hammasida
+	Ranges  []Win          `json:"ranges"` // jadval: qo'shimcha vaqt oraliqlari (09–12 va 14–18)
+	Skip    string         `json:"skip"`   // "2026-10-21" — shu kuni qoida ishlamaydi ("bugun uchun o'chirish")
+	Extra   *Extra         `json:"extra"`  // tangaga sotib olingan qo'shimcha daqiqalar (faqat o'sha kuni)
+	WarnAt  []int          `json:"warnAt"` // shu limit uchun ogohlantirish foizlari (bo'sh — umumiy)
+	Break   int            `json:"break"`  // kind=break: Minutes uzluksiz ishlatilgach — shuncha daqiqa tanaffus
+}
+
+type Win struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type Extra struct {
+	Day string `json:"day"`
+	Min int    `json:"min"`
+}
+
+// Over — server hisoblagan bloklar (haftalik limit, ochilishlar soni, umumiy ekran vaqti — barcha qurilmalar bo'yicha)
+type Over struct {
+	App    string `json:"app"`
+	Reason string `json:"reason"`
+	Label  string `json:"label"`
+}
+
+// Plan — takrorlanadigan fokus: kunlar, boshlanish vaqti, davomiyligi
+type Plan struct {
+	Days []int  `json:"days"`
+	At   string `json:"at"`
+	Min  int    `json:"min"`
+	On   bool   `json:"on"`
 }
 
 // forDevice — qoida shu qurilmada ishlaydimi (ID hali noma'lum bo'lsa — ishlaydi, xavfsizroq)
@@ -53,6 +83,7 @@ type Mode struct {
 	Apps  []FocusApp `json:"apps"`
 	On    bool       `json:"on"`
 	Sched bool       `json:"sched"`
+	Allow bool       `json:"allow"` // oq ro'yxat rejimi: yoqilganda faqat Apps ishlaydi
 	Days  []int      `json:"days"`
 	From  string     `json:"from"`
 	To    string     `json:"to"`
@@ -81,6 +112,11 @@ type Config struct {
 	MindfulSec int               `json:"mindfulSec"` // savoldan oldin kutish (standart 10 s)
 	WarnAt     []int             `json:"warnAt"`     // qo'shimcha ogohlantirish: limitning 50%, 80% ...
 	StatsResetAt int64           `json:"statsResetAt"` // saytda "statistikani tozalash" bosilgan vaqt (ms)
+	DayStart   int               `json:"dayStart"`   // limitlar shu soatda yangilanadi (0–6; 0 — yarim tunda)
+	Over       []Over            `json:"over"`       // serverdan
+	Keywords   []string          `json:"keywords"`   // sarlavha/manzilda shu so'z bo'lsa — tab yopiladi
+	FocusPlans []Plan            `json:"focusPlans"` // takrorlanadigan fokus
+	Eye        bool              `json:"eye"`        // 20-20-20 eslatmasi
 	Lang       string            `json:"lang"` // LevelUpDay'da tanlangan til: uz | en | ru // foydalanuvchi o'zgartirgan kategoriyalar: ilova → kategoriya
 }
 
@@ -396,12 +432,61 @@ func inWindow(days []int, fromS, toS string, t time.Time) bool {
 
 // RuleMinutes — kunlik limit bugun necha daqiqa (hafta kuni bo'yicha alohida bo'lishi mumkin).
 func RuleMinutes(r *Rule, t time.Time) int {
+	m := r.Minutes
 	if r.PerDay != nil {
-		if m, ok := r.PerDay[itoa(weekday(t))]; ok {
-			return m
+		if v, ok := r.PerDay[itoa(weekday(t))]; ok {
+			m = v
 		}
 	}
-	return r.Minutes
+	if r.Extra != nil && r.Extra.Day == DayKey(t) && m > 0 {
+		m += r.Extra.Min
+	}
+	return m
+}
+
+// inRule — jadval qoidasi hozir ishlayaptimi (asosiy oraliq yoki qo'shimchalaridan biri)
+func inRule(r *Rule, t time.Time) bool {
+	if inSchedule(r, t) {
+		return true
+	}
+	for _, w := range r.Ranges {
+		if inWindow(r.Days, w.From, w.To, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// planOn — takrorlanadigan fokus rejasi hozir davom etyaptimi
+func planOn(cfg *Config, t time.Time) bool {
+	for _, p := range cfg.FocusPlans {
+		if p.On && p.Min > 0 && p.Min < 24*60 {
+			s := hm(p.At)
+			if inWindow(p.Days, p.At, itoa((s+p.Min)/60%24)+":"+pad2s((s+p.Min)%60), t) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func pad2s(n int) string {
+	if n < 10 {
+		return "0" + itoa(n)
+	}
+	return itoa(n)
+}
+
+// KeywordHit — brauzer sarlavhasida taqiqlangan so'z bormi
+func KeywordHit(cfg *Config, title string) string {
+	t := strings.ToLower(title)
+	for _, k := range cfg.Keywords {
+		k = strings.ToLower(strings.TrimSpace(k))
+		if len(k) >= 3 && strings.Contains(t, k) {
+			return k
+		}
+	}
+	return ""
 }
 
 // ModeActive — rejim hozir yoqilganmi (qo'lda yoki jadval bo'yicha).
@@ -410,7 +495,7 @@ func ModeActive(m *Mode, t time.Time) bool {
 }
 
 // FocusOn — fokus sessiyasi davom etmoqdami.
-func FocusOn(cfg *Config, t time.Time) bool { return cfg.FocusUntil > t.UnixMilli() }
+func FocusOn(cfg *Config, t time.Time) bool { return cfg.FocusUntil > t.UnixMilli() || planOn(cfg, t) }
 
 // Allowed — "faqat ruxsat etilganlar" fokus rejimida ilova ruxsat etilganmi.
 func Allowed(cfg *Config, st *State, app string) bool {
@@ -427,7 +512,29 @@ func Allowed(cfg *Config, st *State, app string) bool {
 
 // AllowBlocks — fokusdagi oq ro'yxat rejimida shu ilova to'xtatilishi kerakmi.
 func AllowBlocks(cfg *Config, st *State, app string, t time.Time) bool {
-	if !cfg.AllowOnly || !FocusOn(cfg, t) || (!cfg.Strict && cfg.PauseUntil > t.UnixMilli()) {
+	if !cfg.Strict && cfg.PauseUntil > t.UnixMilli() {
+		return false
+	}
+	if Protected[app] || strings.HasPrefix(app, "focusgate") {
+		return false
+	}
+	// Oq ro'yxat rejimi (jadval bo'yicha ham): faqat shu rejimdagi ilovalar ishlaydi
+	for i := range cfg.Modes {
+		m := &cfg.Modes[i]
+		if !m.Allow || !ModeActive(m, t) {
+			continue
+		}
+		ok := false
+		for _, f := range m.Apps {
+			if matchApp(cfg, st, f.App, app) {
+				ok = true
+			}
+		}
+		if !ok {
+			return true
+		}
+	}
+	if !cfg.AllowOnly || !FocusOn(cfg, t) {
 		return false
 	}
 	return !Allowed(cfg, st, app)
@@ -452,7 +559,7 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 	if Protected[app] {
 		return Verdict{}
 	}
-	if cfg.FocusUntil > ms {
+	if FocusOn(cfg, t) {
 		for _, f := range cfg.FocusApps {
 			if f.On && matchApp(cfg, st, f.App, app) {
 				return Verdict{true, "focus", nil}
@@ -461,7 +568,7 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 	}
 	for i := range cfg.Modes {
 		m := &cfg.Modes[i]
-		if !ModeActive(m, t) {
+		if m.Allow || !ModeActive(m, t) {
 			continue
 		}
 		for _, f := range m.Apps {
@@ -470,18 +577,28 @@ func Check(cfg *Config, st *State, app string, t time.Time) Verdict {
 			}
 		}
 	}
-	me := st.devID()
+	for i := range cfg.Over {
+		o := &cfg.Over[i]
+		if matchApp(cfg, st, o.App, app) {
+			return Verdict{true, o.Reason, &Rule{App: o.App, Label: o.Label}}
+		}
+	}
+	me, today := st.devID(), DayKey(t)
 	for i := range cfg.Rules {
 		r := &cfg.Rules[i]
-		if !r.On || !r.forDevice(me) || !matchApp(cfg, st, r.App, app) {
+		if !r.On || r.Skip == today || !r.forDevice(me) || !matchApp(cfg, st, r.App, app) {
 			continue
 		}
 		switch r.Kind {
 		case "always":
 			return Verdict{true, "always", r}
 		case "schedule":
-			if inSchedule(r, t) {
+			if inRule(r, t) {
 				return Verdict{true, "schedule", r}
+			}
+		case "break":
+			if st.breakUntil(r.ID).After(t) {
+				return Verdict{true, "break", r}
 			}
 		case "daily":
 			if m := RuleMinutes(r, t); m > 0 && usedFor(cfg, st, r.App, t) >= m*60 {
@@ -516,7 +633,7 @@ func WarnDue(cfg *Config, st *State, t time.Time) []Warn {
 	me := st.devID()
 	for _, r := range cfg.Rules {
 		mins := RuleMinutes(&r, t)
-		if !r.On || r.Kind != "daily" || mins <= 0 || !r.forDevice(me) {
+		if !r.On || r.Kind != "daily" || mins <= 0 || !r.forDevice(me) || r.Skip == DayKey(t) {
 			continue
 		}
 		used := usedFor(cfg, st, r.App, t)
@@ -527,7 +644,11 @@ func WarnDue(cfg *Config, st *State, t time.Time) []Warn {
 		st.mu.Lock()
 		// Eng katta yetilgan foiz bitta xabar bo'ladi (50% va 80% bir vaqtda yetilsa — faqat 80%)
 		best := -1
-		for _, p := range cfg.WarnAt {
+		wa := cfg.WarnAt
+		if len(r.WarnAt) > 0 {
+			wa = r.WarnAt
+		}
+		for _, p := range wa {
 			if p <= 0 || p >= 100 || used*100 < mins*60*p {
 				continue
 			}
@@ -650,4 +771,52 @@ func ActiveUse(idle uint32, exe, title string, rules []Rule, cats map[string]str
 		return idle < 30*60
 	}
 	return false
+}
+
+// ---------- ☕ Majburiy tanaffus (kind=break) ----------
+type brk struct{ start, last, until time.Time }
+
+var (
+	brkMu sync.Mutex
+	brks  = map[string]*brk{}
+)
+
+func (s *State) breakUntil(id string) time.Time {
+	brkMu.Lock()
+	defer brkMu.Unlock()
+	if b := brks[id]; b != nil {
+		return b.until
+	}
+	return time.Time{}
+}
+
+// BreakTick — har soniyada faol ilova uchun: uzluksiz ishlatish Minutes ga yetsa — Break daqiqa bloklanadi.
+// 2 daqiqadan ko'p uzilish bo'lsa — hisob boshidan.
+func BreakTick(cfg *Config, st *State, app string, t time.Time) (started *Rule) {
+	brkMu.Lock()
+	defer brkMu.Unlock()
+	for i := range cfg.Rules {
+		r := &cfg.Rules[i]
+		if r.Kind != "break" || !r.On || r.Minutes <= 0 || r.Break <= 0 || r.Skip == DayKey(t) || !matchApp(cfg, st, r.App, app) {
+			continue
+		}
+		b := brks[r.ID]
+		if b == nil {
+			b = &brk{}
+			brks[r.ID] = b
+		}
+		if b.until.After(t) {
+			continue
+		}
+		if t.Sub(b.last) > 2*time.Minute {
+			b.start = t
+		}
+		b.last = t
+		if t.Sub(b.start) >= time.Duration(r.Minutes)*time.Minute {
+			b.until = t.Add(time.Duration(r.Break) * time.Minute)
+			b.start = b.until
+			started = r
+		}
+	}
+	return started
 }

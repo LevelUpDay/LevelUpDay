@@ -24,9 +24,9 @@ const APP_URL = "https://levelupday.github.io/LevelUpDay/focusgate";
 // ---------- ✈️ Telegram: bloklash / ogohlantirish xabarlari ----------
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!));
 const TX: Record<string, Record<string, string>> = {
-  uz: { head: "🛡 <b>Focusgate</b>", block: "yopildi", site: "sayt tabi yopildi", warn: "kunlik limitga 5 daqiqa qoldi", warnp: "kunlik limitning {p}% ishlatildi", daily: "bugungi limit tugadi", always: "doimiy bloklangan", schedule: "jadval bo'yicha bloklangan", focus: "fokus vaqtida", session: "seans vaqti tugadi", mode: "rejim bo'yicha bloklangan", allow: "fokusda faqat ruxsat etilganlar", mindful: "«kerak emas» deb yopdingiz 👏", btn: "📊 Focusgate'ni ochish", more: "yana" },
-  en: { head: "🛡 <b>Focusgate</b>", block: "was closed", site: "tab was closed", warn: "5 minutes left of your daily limit", warnp: "{p}% of the daily limit used", daily: "daily limit reached", always: "always blocked", schedule: "blocked by schedule", focus: "during focus", session: "session time is up", mode: "blocked by a mode", allow: "only allowed apps during focus", mindful: "you chose not to open it 👏", btn: "📊 Open Focusgate", more: "more" },
-  ru: { head: "🛡 <b>Focusgate</b>", block: "закрыто", site: "вкладка закрыта", warn: "до дневного лимита 5 минут", warnp: "использовано {p}% дневного лимита", daily: "дневной лимит исчерпан", always: "заблокировано навсегда", schedule: "заблокировано по расписанию", focus: "во время фокуса", session: "время сессии вышло", mode: "заблокировано режимом", allow: "в фокусе только разрешённые", mindful: "вы решили не открывать 👏", btn: "📊 Открыть Focusgate", more: "ещё" },
+  uz: { head: "🛡 <b>Focusgate</b>", block: "yopildi", site: "sayt tabi yopildi", warn: "kunlik limitga 5 daqiqa qoldi", warnp: "kunlik limitning {p}% ishlatildi", daily: "bugungi limit tugadi", always: "doimiy bloklangan", schedule: "jadval bo'yicha bloklangan", focus: "fokus vaqtida", session: "seans vaqti tugadi", mode: "rejim bo'yicha bloklangan", allow: "fokusda faqat ruxsat etilganlar", mindful: "«kerak emas» deb yopdingiz 👏", break: "majburiy tanaffus", weekly: "haftalik limit tugadi", opens: "bugungi ochilishlar tugadi", total: "umumiy ekran vaqti limiti", keyword: "taqiqlangan so'z", adult: "kattalar kontenti", btn: "📊 Focusgate'ni ochish", more: "yana", off: "⚠️ <b>{d}</b> bilan aloqa uzildi — Focusgate yopilgan yoki kengaytma o'chirilgan bo'lishi mumkin." },
+  en: { head: "🛡 <b>Focusgate</b>", block: "was closed", site: "tab was closed", warn: "5 minutes left of your daily limit", warnp: "{p}% of the daily limit used", daily: "daily limit reached", always: "always blocked", schedule: "blocked by schedule", focus: "during focus", session: "session time is up", mode: "blocked by a mode", allow: "only allowed apps during focus", mindful: "you chose not to open it 👏", break: "mandatory break", weekly: "weekly limit reached", opens: "today's opens used up", total: "total screen-time limit", keyword: "blocked keyword", adult: "adult content", btn: "📊 Open Focusgate", more: "more", off: "⚠️ Lost contact with <b>{d}</b> — Focusgate may have been closed or the extension turned off." },
+  ru: { head: "🛡 <b>Focusgate</b>", block: "закрыто", site: "вкладка закрыта", warn: "до дневного лимита 5 минут", warnp: "использовано {p}% дневного лимита", daily: "дневной лимит исчерпан", always: "заблокировано навсегда", schedule: "заблокировано по расписанию", focus: "во время фокуса", session: "время сессии вышло", mode: "заблокировано режимом", allow: "в фокусе только разрешённые", mindful: "вы решили не открывать 👏", break: "обязательный перерыв", weekly: "недельный лимит исчерпан", opens: "открытия на сегодня закончились", total: "общий лимит экранного времени", keyword: "запрещённое слово", adult: "контент для взрослых", btn: "📊 Открыть Focusgate", more: "ещё", off: "⚠️ Связь с <b>{d}</b> потеряна — возможно, Focusgate закрыт или расширение выключено." },
 };
 async function tgNotify(sb: any, userId: string, events: { id: number; kind: string; app: string; label: string | null; reason: string | null }[]) {
   if (!BOT_TOKEN || !events.length) return;
@@ -86,6 +86,35 @@ async function weeklyReport(sb: any) {
     if (res && res.ok) sent++;
   }
   return sent;
+}
+
+// 🧮 overOf — haftalik limit (dushanbadan), bugungi ochilishlar soni, umumiy ekran vaqti: chegaradan oshganlar ro'yxati.
+// Saytlar har kuni qurilmalar bo'yicha eng kattasi, dasturlar — yig'indi. Kategoriya: faqat cfg.cats dagi moslik.
+async function overOf(sb: any, uid: string, conf: any, today: string) {
+  const rules = (conf.rules || []).filter((r: any) => r && r.on && r.app && (r.kind === "weekly" || r.kind === "opens") && r.skip !== today && (+r.minutes || 0) > 0);
+  const totalMin = +conf.totalMin || 0;
+  if ((!rules.length && !totalMin) || !DAY_RE.test(today)) return [];
+  const d = new Date(today + "T00:00:00Z"), wd = (d.getUTCDay() + 6) % 7, monday = new Date(d.getTime() - wd * 864e5).toISOString().slice(0, 10);
+  const { data: rows } = await sb.from("fg_usage").select("day,app,seconds,opens").eq("user_id", uid).gte("day", monday).lte("day", today).not("app", "like", "%#%").limit(5000);
+  const week: Record<string, number> = {}, dayS: Record<string, number> = {}, opens: Record<string, number> = {}, siteDay: Record<string, number> = {};
+  for (const r of rows || []) {
+    const s = r.seconds || 0;
+    if (r.app.startsWith("site:")) { const k = r.day + "|" + r.app; siteDay[k] = Math.max(siteDay[k] || 0, s); }
+    else { week[r.app] = (week[r.app] || 0) + s; if (r.day === today) dayS[r.app] = (dayS[r.app] || 0) + s; }
+    if (r.day === today) opens[r.app] = (opens[r.app] || 0) + (r.opens || 0);
+  }
+  for (const k of Object.keys(siteDay)) { const [day, app] = [k.slice(0, 10), k.slice(11)]; week[app] = (week[app] || 0) + siteDay[k]; if (day === today) dayS[app] = (dayS[app] || 0) + siteDay[k]; }
+  const cats = conf.cats || {};
+  const sum = (m: Record<string, number>, app: string) => app.startsWith("cat:") ? Object.keys(m).filter((a) => cats[a] === app.slice(4)).reduce((n, a) => n + m[a], 0) : (m[app] || 0);
+  const out: { app: string; reason: string; label: string }[] = [];
+  for (const r of rules) {
+    if (r.kind === "weekly" && sum(week, r.app) >= r.minutes * 60) out.push({ app: r.app, reason: "weekly", label: r.label || r.app });
+    if (r.kind === "opens" && sum(opens, r.app) >= r.minutes) out.push({ app: r.app, reason: "opens", label: r.label || r.app });
+  }
+  if (totalMin > 0 && Object.values(dayS).reduce((n, v) => n + v, 0) >= totalMin * 60) {
+    for (const c of ["social", "games", "fun"]) out.push({ app: "cat:" + c, reason: "total", label: "Total" });
+  }
+  return out;
 }
 
 const CORS = {
@@ -228,7 +257,8 @@ Deno.serve(async (req) => {
       const { error } = await sb.from("fg_usage").upsert(rows, { onConflict: "user_id,device_id,day,app" });
       if (error) return json({ error: "usage_failed", detail: error.message }, 500);
     }
-    const upd: Record<string, unknown> = { last_seen: new Date().toISOString(), agent_version: body.version ? String(body.version).slice(0, 20) : null, kind, ip_hash: ipHash };
+    const upd: Record<string, unknown> = { last_seen: new Date().toISOString(), agent_version: body.version ? String(body.version).slice(0, 20) : null, kind, ip_hash: ipHash, offline_alert_at: null };
+    if (typeof body.incognito === "boolean") upd.incognito = body.incognito;
     // 🧩 Kengaytma qaysi kompyuterda: 1) shu kompyuterdagi Focusgate agenti aytdi (pc_id), 2) bir xil tarmoq, faqat bitta kompyuter bo'lsa
     if (kind === "ext" && dev.link_src !== "manual" && dev.link_src !== "none") {
       let parent: string | null = null, src = "";
@@ -253,7 +283,7 @@ Deno.serve(async (req) => {
     // Faqat avtomatik qo'yilgan nomlar yangilanadi.
     if (typeof body.name === "string") {
       const nn = body.name.replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 60);
-      if (/^Windows · /.test(nn) && /^Windows · /.test(String(dev.name || "")) && nn !== dev.name) { upd.name = nn; dev.name = nn; }
+      if (/^(Windows|Linux) · /.test(nn) && /^(Windows|Linux) · /.test(String(dev.name || "")) && nn !== dev.name) { upd.name = nn; dev.name = nn; }
     }
     // O'rnatilgan dasturlar ro'yxati (agent bir necha soatda bir yuboradi)
     if (Array.isArray(body.apps)) {
@@ -307,7 +337,10 @@ Deno.serve(async (req) => {
         others[r.app] = r.app.startsWith("site:") ? Math.max(others[r.app] || 0, v) : (others[r.app] || 0) + v;
       }
     }
-    return json({ config: cfg?.config || {}, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.label || dev.name, kind, parent: (upd.parent_id as string | undefined) || dev.parent_id || null }, now, site_usage, others });
+    // 🧮 Barcha qurilmalar bo'yicha hisoblanadigan bloklar: haftalik limit, ochilishlar soni, umumiy ekran vaqti
+    const conf = Object.assign({}, cfg?.config || {});
+    try { conf.over = await overOf(sb, dev.user_id, conf, String(body.today || "")); } catch (_) { /* hisoblab bo'lmasa — bloklarsiz */ }
+    return json({ config: conf, config_at: cfg?.updated_at || null, device: { id: dev.id, name: dev.label || dev.name, kind, parent: (upd.parent_id as string | undefined) || dev.parent_id || null }, now, site_usage, others });
   }
 
   // ---------- 🧹 Statistikani tozalash (sayt, foydalanuvchi JWT) ----------
@@ -363,6 +396,32 @@ Deno.serve(async (req) => {
     }).catch(() => null);
     if (r && r.status === 403) await sb.from("telegram_links").update({ enabled: false }).eq("user_id", uid);
     return json({ ok: true, sent: !!(r && r.ok) });
+  }
+
+  // ---------- 🚨 Qurilma oflayn bo'lib qoldi (faqat cron: x-cron-secret, har 10 daqiqa) → Telegram ----------
+  if (action === "offline_check") {
+    const { data: pc } = await sb.rpc("_push_config");
+    if (!pc?.cron_secret || req.headers.get("x-cron-secret") !== pc.cron_secret) return json({ error: "forbidden" }, 403);
+    const now = Date.now();
+    const { data: devs } = await sb.from("fg_devices").select("id,user_id,name,label,kind,last_seen,offline_alert_at")
+      .in("kind", ["pc", "ext"]).is("offline_alert_at", null)
+      .lt("last_seen", new Date(now - 12 * 60000).toISOString()).gt("last_seen", new Date(now - 60 * 60000).toISOString()).limit(200);
+    let sent = 0;
+    for (const d of devs || []) {
+      await sb.from("fg_devices").update({ offline_alert_at: new Date().toISOString() }).eq("id", d.id);
+      const { data: c } = await sb.from("fg_config").select("config").eq("user_id", d.user_id).maybeSingle();
+      const conf = c?.config || {};
+      if (conf.offlineAlert === false || !(conf.rules || []).some((r: any) => r && r.on)) continue; // limitlari yo'q — kerak emas
+      const { data: link } = await sb.from("telegram_links").select("chat_id,enabled,prefs,lang").eq("user_id", d.user_id).maybeSingle();
+      if (!BOT_TOKEN || !link || !link.enabled || (link.prefs && link.prefs.fg === false)) continue;
+      const t = TX[["ru", "en"].includes(String(link.lang)) ? String(link.lang) : "uz"];
+      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: link.chat_id, text: `${t.head}\n\n${t.off.replace("{d}", esc(String(d.label || d.name || "")))}`, parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: t.btn, url: APP_URL }]] } }),
+      }).catch(() => null);
+      if (res && res.ok) sent++;
+    }
+    return json({ ok: true, checked: (devs || []).length, sent });
   }
 
   // ---------- 📊 Haftalik hisobot (faqat cron: x-cron-secret) ----------

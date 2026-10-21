@@ -173,6 +173,14 @@ func reasonText(v Verdict) string {
 		return Tr("r_mode", v.Rule.Label)
 	case "allow":
 		return Tr("r_allow")
+	case "break":
+		return Tr("r_break")
+	case "weekly":
+		return Tr("r_weekly")
+	case "opens":
+		return Tr("r_opens")
+	case "total":
+		return Tr("r_total")
 	}
 	return Tr("r_blocked")
 }
@@ -340,6 +348,7 @@ func startPairing() {
 func trackLoop() {
 	tick := time.NewTicker(time.Second)
 	saveT := time.Now()
+	var eyeStart, eyeLast time.Time
 	lastApp, lastActive := "", map[string]time.Time{} // ochilishlar soni: boshqa ilovadan o'tilsa (30 s dan ko'p tanaffus bilan)
 	for now := range tick.C {
 		st.mu.Lock()
@@ -359,6 +368,20 @@ func trackLoop() {
 					label = prettyExe(fg.Exe)
 				}
 				st.Add(now, app, label, 1)
+				if r := BreakTick(&cfg, st, app, now); r != nil {
+					notify("!break:"+r.ID, Tr("break_title", label), Tr("break_body", itoa(r.Break)))
+				}
+				// 👁 20-20-20: har 20 daqiqa uzluksiz ekranda — 20 soniya uzoqqa qarash
+				if cfg.Eye {
+					if now.Sub(eyeLast) > 2*time.Minute {
+						eyeStart = now
+					}
+					eyeLast = now
+					if now.Sub(eyeStart) >= 20*time.Minute {
+						eyeStart = now
+						notify("!eye", Tr("eye_title"), Tr("eye_body"))
+					}
+				}
 				if app != lastApp {
 					if t0, ok := lastActive[app]; !ok || now.Sub(t0) > 30*time.Second {
 						st.AddOpen(now, app, label)
@@ -447,6 +470,15 @@ func enforceLoop() {
 		// 🌬 Ongli ochish: ro'yxatdagi dastur ochilsa — yig'iladi, N soniyadan keyin "rostdan kerakmi?" so'raladi
 		if fg, ok := GetForeground(); ok && !Browsers[fg.Exe] && IsMindful(&cfg, st, fg.Exe) {
 			mindfulAsk(&cfg, fg, procs)
+		}
+		// 🔤 Taqiqlangan so'z sarlavhada (kalit so'z bloki) — tab yopiladi
+		if fg, ok := GetForeground(); ok && Browsers[fg.Exe] && (cfg.Strict || cfg.PauseUntil <= now.UnixMilli()) {
+			if k := KeywordHit(&cfg, fg.Title); k != "" {
+				CloseTab()
+				notify("kw:"+k, Tr("closed", "«"+k+"»"), Tr("r_keyword"))
+				event(now, "site_block", "kw:"+k, k, "keyword")
+				continue
+			}
 		}
 		// Saytlar: faol brauzer tabi bloklangan saytda bo'lsa — tab yopiladi
 		if fg, ok := GetForeground(); ok && Browsers[fg.Exe] {

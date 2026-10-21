@@ -94,3 +94,13 @@ begin
 end; $$;
 create trigger fg_live_touch after insert or update on public.fg_devices for each row execute function public._fg_live_touch();
 alter publication supabase_realtime add table public.fg_live;
+
+-- 🕶 Kengaytma inkognitoda ruxsat etilganmi, 🚨 oflayn ogohlantirish yuborilgan vaqt
+alter table public.fg_devices add column if not exists incognito boolean, add column if not exists offline_alert_at timestamptz;
+select cron.schedule('fg-offline-check', '*/10 * * * *', $c$
+  select net.http_post(url := 'https://zzcvpenkevxlurgpjltz.supabase.co/functions/v1/focusgate',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'push_cron_secret')),
+    body := '{"action":"offline_check"}'::jsonb, timeout_milliseconds := 30000);
+$c$);
+-- 🤝 Do'st qulfi: do'st so'rovni tasdiqlaydi / rad etadi
+create policy fglr_upd on public.fg_lock_requests for update using (friend_id = auth.uid() and status = 'pending') with check (friend_id = auth.uid() and status in ('approved', 'denied'));
