@@ -634,8 +634,8 @@
     { id: 'b_gem', kind: 'badge', v: '💎', icon: '💎', n: ['Olmos nishon', 'Diamond badge', 'Значок алмаз'], gems: 25 },
     { id: 'b_crown', kind: 'badge', v: '👑', icon: '👑', n: ['Toj nishon', 'Crown badge', 'Значок корона'], gems: 40 },
     // 🧩 Interfeys uslubi: yangi komponentlar (widgets.js) — standart va bepul;
-    // eski (klassik) toast/slayder/oynalar — do'kondan sotib olinadi. S.shop.uistyle
-    { id: 'ui_classic', kind: 'uistyle', v: 'classic', icon: '🗂', n: ['Klassik interfeys', 'Classic UI', 'Классический интерфейс'], coins: 150,
+    // eski (klassik) toast/slayder/oynalar — ham bepul (hammada bor). S.shop.uistyle
+    { id: 'ui_classic', kind: 'uistyle', v: 'classic', icon: '🗂', n: ['Klassik interfeys', 'Classic UI', 'Классический интерфейс'], coins: 0, free: true,
       d: ['Eski toast, slayder va tasdiqlash oynalari', 'The old toasts, sliders and confirm dialogs', 'Старые уведомления, слайдеры и окна'] },
     // ➕ Yangi interfeys uslublari — kartalar/tugmalar ko'rinishi (html[data-x-ui])
     { id: 'ui_glass', kind: 'uistyle', v: 'glass', icon: '🪟', n: ['Shisha', 'Glass', 'Стекло'], coins: 250,
@@ -694,7 +694,12 @@
     SHOP.push(it);
   })();
   function isHex(v) { return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v); }
-  function shopState() { S.shop = S.shop || { owned: [], frame: null, nick: null, title: null, theme: null, effect: null, badge: null }; if (!Array.isArray(S.shop.owned)) S.shop.owned = []; return S.shop; }
+  function shopState() {
+    S.shop = S.shop || { owned: [], frame: null, nick: null, title: null, theme: null, effect: null, badge: null }; if (!Array.isArray(S.shop.owned)) S.shop.owned = [];
+    // 🆓 Bepul buyumlar (Classic UI) — hammada bor
+    SHOP.forEach(function (x) { if (x.free && S.shop.owned.indexOf(x.id) === -1) S.shop.owned.push(x.id); });
+    return S.shop;
+  }
   // 🎁 Har bir darajada bepul sovg'alar (fonlar, effektlar, uslublar...). Daraja olinganda S.shop.owned ga qo'shiladi.
   var LEVEL_GIFTS = {
     1: ['n_mint'],

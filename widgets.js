@@ -32,7 +32,7 @@
   function shopSt() { try { return (typeof S !== 'undefined' && S && S.shop && typeof S.shop === 'object') ? S.shop : null; } catch (e) { return null; } }
   function classic() {
     var x = shopSt();
-    return !!(x && x.uistyle === 'ui_classic' && Array.isArray(x.owned) && x.owned.indexOf('ui_classic') !== -1);
+    return !!(x && x.uistyle === 'ui_classic'); // Classic UI bepul — sotib olish shart emas
   }
   function active() { return !classic(); }
 
