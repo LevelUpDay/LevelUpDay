@@ -1,8 +1,8 @@
-//go:build !windows
+//go:build !windows && !linux
 
 package main
 
 import "fmt"
 
-// Focusgate agenti faqat Windows uchun. Bu fayl yadroni Linux'da test qilish uchun kerak.
-func main() { fmt.Println("LevelUpDay Focusgate faqat Windows'da ishlaydi.") }
+// Focusgate agenti Windows va Linux uchun. Boshqa tizimlarda (macOS) hozircha ishlamaydi.
+func main() { fmt.Println("LevelUpDay Focusgate faqat Windows va Linux'da ishlaydi.") }
