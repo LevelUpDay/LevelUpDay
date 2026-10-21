@@ -335,11 +335,12 @@ begin
   update promo_codes set uses = uses + 1 where code = c.code;
   perform set_config('app.coin_restore', '1', true);
   update profiles set coins = coalesce(coins, 0) + c.coins, total_coins = coalesce(total_coins, 0) + greatest(0, c.coins),
+         season_coins = greatest(0, coalesce(season_coins, 0) + c.coins),
          gems = coalesce(gems, 0) + c.gems, xp = coalesce(xp, 0) + c.xp, last_reason = '🎁 promo ' || c.code
    where id = me returning * into p;
   perform set_config('app.coin_restore', '0', true);
   return jsonb_build_object('ok', true, 'coins', c.coins, 'gems', c.gems, 'xp', c.xp,
-    'profile', jsonb_build_object('coins', p.coins, 'total_coins', p.total_coins, 'xp', p.xp, 'gems', p.gems, 'level', p.level));
+    'profile', jsonb_build_object('coins', p.coins, 'total_coins', p.total_coins, 'season_coins', p.season_coins, 'xp', p.xp, 'gems', p.gems, 'level', p.level));
 end; $$;
 
 -- 🐞 Mijoz xatosini yozish (mehmonlar ham; kuniga ko'pi bilan 3000 xil xato)
@@ -454,6 +455,7 @@ begin
   if abs(v_c) > 100000 or abs(v_x) > 200000 or abs(v_g) > 10000 then raise exception 'too_big'; end if;
   perform set_config('app.coin_restore', '1', true); perform set_config('app.admin_op', '1', true);
   update profiles set coins = greatest(0, coalesce(coins, 0) + v_c), total_coins = coalesce(total_coins, 0) + greatest(0, v_c),
+         season_coins = greatest(0, coalesce(season_coins, 0) + v_c),
          xp = greatest(0, coalesce(xp, 0) + v_x), gems = greatest(0, coalesce(gems, 0) + v_g), last_reason = left('👑 ' || btrim(p_reason), 120)
    where id = p_uid returning * into p;
   if not found then raise exception 'not_found'; end if;
