@@ -5619,7 +5619,7 @@ var I18N = {
       task_remind_hint: "Vazifa bajarilmagan bo'lsa, shu vaqtda eslatamiz (ilova ochiq yoki fonda bo'lsa).",
       pf_kpi_gems: "💎 Olmoslar",
       pf_kpi_best_streak: "🔥 Rekord streak",
-      badge_earned_toast: "🏅 Yangi yutuq qo'lga kiritildi! +2 💎",
+      badge_earned_toast: "🏅 Yangi yutuq qo'lga kiritildi! +1 💎",
       reyting_info_note: "⚠️ Mukofot faqat Dunyo (Worldwide) bo'yicha «Tanga — shu oy» reytingiga qarab, har oyning 1-sanasida beriladi. Mukofot miqdori shu oyda tanga topgan faol ishtirokchilar soniga bog'liq — odam qancha ko'p bo'lsa, 1-o'rin shuncha qadrli. Yangi oyda faqat oylik tanga hisobi 0 dan boshlanadi; HP, Streak va 💎 olmos saqlanib qoladi.",
       tab_reyting: "🏆 Reyting",
       reyting_metric_gems: "💎 Olmos",
@@ -5664,7 +5664,7 @@ var I18N = {
       task_remind_hint: "If the task isn't done yet, we'll remind you at this time (while the app is open or in the background).",
       pf_kpi_gems: "💎 Gems",
       pf_kpi_best_streak: "🔥 Best streak",
-      badge_earned_toast: "🏅 New achievement earned! +2 💎",
+      badge_earned_toast: "🏅 New achievement earned! +1 💎",
       reyting_info_note: "⚠️ The prize is given only for the Worldwide «Coins — this month» ranking, on the 1st of every month. Its size depends on how many active players earned coins this month — the more players, the more 1st place is worth. Each new month only the monthly coin score resets to 0; HP, Streak and 💎 gems carry over.",
       tab_reyting: "🏆 Leaderboard",
       reyting_metric_gems: "💎 Gems",
@@ -5709,7 +5709,7 @@ var I18N = {
       task_remind_hint: "Если задача не выполнена, напомним в это время (пока приложение открыто или в фоне).",
       pf_kpi_gems: "💎 Алмазы",
       pf_kpi_best_streak: "🔥 Рекорд серии",
-      badge_earned_toast: "🏅 Новое достижение! +2 💎",
+      badge_earned_toast: "🏅 Новое достижение! +1 💎",
       reyting_info_note: "⚠️ Награда выдаётся только по мировому рейтингу «Монеты — этот месяц», 1-го числа каждого месяца. Её размер зависит от числа активных участников, заработавших монеты в этом месяце — чем больше участников, тем ценнее 1-е место. В новом месяце обнуляется только месячный счёт монет; HP, серия и 💎 алмазы сохраняются.",
       tab_reyting: "🏆 Рейтинг",
       reyting_metric_gems: "💎 Алмазы",
@@ -23892,7 +23892,7 @@ function getBadgeGroupMeta() {
   return out;
 }
 
-var BADGE_GEM_REWARD = 2;
+var BADGE_GEM_REWARD = 1;
 var _badgeFilter = 'all', _badgeGroup = 'all';
 function badgeSetFilter(f) { _badgeFilter = f; renderBadges(); }
 function badgeSetGroup(g) { _badgeGroup = g; renderBadges(); }
@@ -23913,7 +23913,7 @@ function renderBadges() {
     var earned = b.check(S);
     if (earned && !S.badgesUnlocked[b.id]) {
       S.badgesUnlocked[b.id] = true;
-      // 🏅 Har bir yutuq uchun 2 💎
+      // 🏅 Har bir yutuq uchun 1 💎
       gemsAdd(BADGE_GEM_REWARD, 'badge', '🏅 ' + b.icon + ' ' + b.label, true);
       addTarixLog('in', '🏅 ' + b.icon + ' ' + b.label + ' (+' + BADGE_GEM_REWARD + ' 💎)', 0, 'badge_reward_' + b.id);
       newlyEarned.push(b);
