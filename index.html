@@ -2829,6 +2829,8 @@
           </div>
           <div id="friends-list-empty" style="display:none;text-align:center;padding:30px 10px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="friends_list_empty">Hali do'stlaringiz yo'q. "Qo'shish" bo'limidan izlang!</div>
           <div id="friends-list-filter-empty" style="display:none;text-align:center;padding:20px 10px;color:var(--text-dim);font-size:var(--fs-sm)" data-i18n="friends_filter_empty">Bu filtrga mos do'st topilmadi</div>
+          <div id="fr-nudges"></div>
+          <div id="fr-list-tools" class="fr-tools"></div>
           <div id="friends-list-container" style="display:flex;flex-direction:column;gap:10px"></div>
           <button type="button" id="friends-banned-link" onclick="openBannedListModal()" style="display:none;margin-top:14px;width:100%;padding:9px;border-radius:var(--radius-md);border:1px dashed var(--border);background:transparent;color:var(--text-dim);font-size:var(--fs-xs);font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif"></button>
         </div>
@@ -2840,6 +2842,9 @@
             <input type="text" id="friends-search-input" placeholder="Masalan: NODIR-2210" data-i18n-ph="friends_search_ph" oninput="friendsOnSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();friendsRetrySearch();}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" />
           </div>
           <div id="friends-search-results" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
+          <div id="fr-invite"></div>
+          <div id="fr-suggest"></div>
+          <div id="fr-inc-bulk"></div>
 
           <div style="font-size:var(--fs-2xs);color:var(--text-dim);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:10px" data-i18n="friends_incoming_title">📥 Kelgan so'rovlar</div>
           <div id="friends-incoming-empty" style="display:none;color:var(--text-dim);font-size:var(--fs-xs);margin-bottom:14px" data-i18n="friends_incoming_empty">Hozircha so'rov yo'q</div>
