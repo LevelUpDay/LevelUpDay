@@ -28484,6 +28484,11 @@ function startRealtimeSync() {
       event: '*', schema: 'public', table: 'friendships',
       filter: 'friend_id=eq.' + S.cloudUserId
     }, function () { friendsSyncFromCloud(); })
+    // --- 👋 Do'stdan turtki / olqish ---
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'friend_nudges',
+      filter: 'to_id=eq.' + S.cloudUserId
+    }, function () { friendsSyncFromCloud(); })
     // --- Party takliflari: menga kelgan yoki men (lider sifatida) yuborgan ---
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'party_invites',
@@ -31817,14 +31822,18 @@ var friendsSyncFromCloud = async function() {
     var F = S.friends;
     if (d.friend_code) F.myId = d.friend_code;
     F.list = (d.friends || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, cosmetics: x.cosmetics || null, lastActive: x.lastActive ? Date.parse(x.lastActive) : 0, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now() };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, level: x.level || 1, cosmetics: x.cosmetics || null, lastActive: x.lastActive ? Date.parse(x.lastActive) : 0, addedAt: x.addedAt ? new Date(x.addedAt).getTime() : Date.now(), streak: x.streak || 0, friendCode: x.code || '' };
     });
     F.incoming = (d.incoming || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id, level: x.level || 0, _mutualCount: x.mutual || 0, friendCode: x.code || '' };
     });
     F.outgoing = (d.outgoing || []).map(function (x) {
-      return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id };
+      return { id: x.id, name: x.name, avatarUrl: x.photo || null, cosmetics: x.cosmetics || null, reason: x.reason || '', sentAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now(), _requestId: x.request_id, level: x.level || 0, _mutualCount: x.mutual || 0, friendCode: x.code || '' };
     });
+    // 🔒 "So'rovlarni qabul qilish" — endi serverda saqlanadi va tekshiriladi
+    if (typeof d.accept_requests === 'boolean') F.acceptRequestsEnabled = d.accept_requests;
+    F.sentToday = (d.sent_today && typeof d.sent_today === 'object') ? d.sent_today : {};
+    try { frHandleNudges(d.nudges || []); } catch (e) {}
     F.banned = (d.blocked || []).map(function (x) {
       return { id: x.id, name: x.name, avatarUrl: x.photo || null, bannedAt: x.createdAt ? new Date(x.createdAt).getTime() : Date.now() };
     });
@@ -31832,6 +31841,7 @@ var friendsSyncFromCloud = async function() {
     var overlay = document.getElementById('friends-modal-overlay');
     if (overlay && overlay.classList.contains('open')) { try { renderFriendsAll(); } catch (e) {} }
     else { try { updateFriendsBadges(); } catch (e) {} }
+    try { frRenderNudges(); frHandleInvite(); } catch (e) {}
   } catch (e) {
     console.warn('[Friends sync] xatolik:', e.message);
   } finally {
@@ -32053,10 +32063,18 @@ var friendsSendRequest = async function(userId, reason) {
   var res = await supabase.rpc('send_friend_request', { target_id: userId, p_reason: (reason || '').trim().slice(0, FRIENDS_REASON_MAX_LEN) });
   if (res.error || !(res.data && res.data.ok)) {
     var err = res.error ? res.error.message : (res.data && res.data.error);
-    toast('❌ ' + (err || 'Xatolik'));
+    var known = {
+      requests_off: _cl("Bu foydalanuvchi hozir do'stlik so'rovlarini qabul qilmaydi", "This user isn't accepting friend requests right now", "Пользователь сейчас не принимает заявки"),
+      declined_recently: _cl("So'rovingiz yaqinda rad etilgan — 3 kundan keyin qayta urinib ko'ring", "Your request was declined recently — try again in 3 days", "Заявку недавно отклонили — попробуйте через 3 дня"),
+      blocked: _cl("Bu foydalanuvchiga so'rov yuborib bo'lmaydi", "You can't send a request to this user", "Нельзя отправить заявку этому пользователю"),
+      'too many pending requests': _cl("Javobsiz so'rovlar juda ko'p (30). Avval ba'zilarini bekor qiling", "Too many pending requests (30). Cancel some first", "Слишком много заявок без ответа (30)"),
+      'already friends': _cl("Siz allaqachon do'stsiz", "You're already friends", "Вы уже друзья")
+    };
+    toast((known[err] ? 'ℹ️ ' + known[err] : '❌ ' + (err || 'Xatolik')));
     return;
   }
   await friendsSyncFromCloud();
+  try { if (_friendsSuggestions) { _friendsSuggestions = _friendsSuggestions.filter(function (x) { return x.id !== userId; }); } } catch (e) {}
   if (incomingIdx !== -1 || (res.data && res.data.auto_accepted)) {
     toast('🤝 ' + t('friends_mutual_matched_toast').replace('{name}', name));
     try { confetti(); } catch (e) {}
@@ -32598,6 +32616,7 @@ function updateFriendsBadges() {
   var cn = (F.challengesIncoming || []).filter(function (c) { return !F.seenChallengeIds[c.id]; }).length;
   var challengeBadge = document.getElementById('friends-challenge-badge');
   if (challengeBadge) { challengeBadge.textContent = cn; challengeBadge.style.display = cn ? 'inline-flex' : 'none'; }
+  if ((F.nudges || []).length && headerBadge) { var nn = n + F.nudges.length; headerBadge.textContent = nn; headerBadge.style.display = 'flex'; }
   var pn = (F.partyInvitesIncoming || []).filter(function (inv) { return !F.seenPartyInviteIds[inv.id]; }).length;
   var partyBadge = document.getElementById('friends-party-badge');
   if (partyBadge) { partyBadge.textContent = pn; partyBadge.style.display = pn ? 'inline-flex' : 'none'; }
@@ -32609,11 +32628,18 @@ function renderFriendsMyCard() {
   var avatarEl = document.getElementById('friends-my-avatar');
   var nameEl = document.getElementById('friends-my-name');
   var idEl = document.getElementById('friends-my-id');
-  if (avatarEl) avatarEl.textContent = lv.icon;
+  var myPhoto = (S.profile && S.profile.photo) || null;
+  if (avatarEl) {
+    if (myPhoto) avatarEl.innerHTML = '<img src="' + esc(myPhoto) + '" alt="">';
+    else avatarEl.textContent = lv.icon;
+  }
   if (nameEl) nameEl.textContent = getDisplayUsername();
-  if (idEl) idEl.textContent = S.friends.myId;
+  // Mehmon: mahalliy tasodifiy kod hech kimga ko'rinmaydi — uni ulashish befoyda edi
+  var guest = !(S.cloudLinked && S.cloudUserId);
+  if (idEl) idEl.textContent = guest ? _cl("Kirish kerak", "Sign in", "Войдите") : S.friends.myId;
 }
 function friendsCopyMyId() {
+  if (!(S.cloudLinked && S.cloudUserId)) { toast('🔐 ' + _cl("Do'st qo'shish uchun avval akkauntga kiring (Profil → Sozlamalar)", "Sign in to add friends (Profile → Settings)", "Войдите, чтобы добавлять друзей")); return; }
   var id = S.friends.myId;
   var done = function () { toast(t('friends_id_copied_toast')); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -32625,7 +32651,8 @@ function friendCardHtml(f, actionsHtml, viewable, showStatus) {
   var mutualChip = (f._mutualCount) ? ' <span class="friend-mutual-chip">' + t('friends_mutual_chip').replace('{n}', f._mutualCount) + '</span>' : '';
   var infoBlock = '<div style="min-width:0;flex:1">'
     + '<div class="friend-name">' + _cosName(esc(f.name), f) + mutualChip + '</div>'
-    + '<div class="friend-sub">' + (f.level ? '⭐ Lv ' + esc(String(f.level)) : '') + (showStatus ? ((f.level ? ' · ' : '') + (friendsIsOnline(f.id) ? '<span class="fr-on">' + _cl("onlayn", "online", "онлайн") + '</span>' : '<span class="fr-off">' + _cl("oflayn", "offline", "офлайн") + '</span>')) : '') + (f.reason ? ((f.level || showStatus) ? ' · ' : '') + '💬 ' + esc(f.reason.length > 40 ? f.reason.slice(0, 40) + '…' : f.reason) : '') + '</div>'
+    + (showStatus && frNote(f.id) ? '<div class="fr-note-line">📝 ' + esc(frNote(f.id)) + '</div>' : '')
+    + '<div class="friend-sub">' + (f.level ? '⭐ Lv ' + esc(String(f.level)) : '') + (showStatus && f.streak ? ' · 🔥 ' + esc(String(f.streak)) : '') + (showStatus ? ((f.level ? ' · ' : '') + (friendsIsOnline(f.id) ? '<span class="fr-on">' + _cl("onlayn", "online", "онлайн") + '</span>' : '<span class="fr-off">' + (f.lastActive ? frAgo(f.lastActive) : _cl("oflayn", "offline", "офлайн")) + '</span>')) : '') + (f.reason ? ((f.level || showStatus) ? ' · ' : '') + '💬 ' + esc(f.reason.length > 40 ? f.reason.slice(0, 40) + '…' : f.reason) : '') + '</div>'
     + '</div>';
   // ✅ TUZATILDI: rasm/emoji yo'q holat uchun endi bo'sh doira o'rniga
   // barqaror gradient + bosh harflar (Avatar Fallback) chiqadi.
@@ -32669,11 +32696,16 @@ function renderFriendsList() {
     return;
   }
   if (empty) empty.style.display = 'none';
+  frRenderListTools();
+  var fq = (_frListQuery || '').toLowerCase();
   var filtered = list.filter(function (f) {
+    if (fq && (f.name || '').toLowerCase().indexOf(fq) === -1 && (frNote(f.id) || '').toLowerCase().indexOf(fq) === -1) return false;
     if (_friendsListFilter === 'online') return friendsIsOnline(f.id);
     if (_friendsListFilter === 'offline') return !friendsIsOnline(f.id);
+    if (_friendsListFilter === 'fav') return frIsFav(f.id);
     return true;
   });
+  filtered = frSortList(filtered);
   if (!filtered.length) {
     box.innerHTML = '';
     if (filterEmpty) filterEmpty.style.display = '';
@@ -32682,7 +32714,10 @@ function renderFriendsList() {
   if (filterEmpty) filterEmpty.style.display = 'none';
   box.innerHTML = filtered.map(function (f) {
     // O'chirish endi profil oynasi ichida — ro'yxatda tez amallar: chorlov va profil
-    var actions = '<button type="button" class="fr-act fr-act-duel" onclick="friendsChallengeFriend(\'' + f.id + '\')" title="' + esc(t('friends_tab_challenge')) + '">⚔️</button>'
+    var sent = (S.friends.sentToday || {})[f.id] || [];
+    var actions = '<button type="button" class="fr-act fr-fav' + (frIsFav(f.id) ? ' on' : '') + '" onclick="frToggleFav(\'' + f.id + '\')" title="' + esc(_cl("Sevimli", "Favorite", "Избранное")) + '" aria-pressed="' + frIsFav(f.id) + '">' + (frIsFav(f.id) ? '★' : '☆') + '</button>'
+      + '<button type="button" class="fr-act' + (sent.indexOf('nudge') !== -1 ? ' done' : '') + '" onclick="frNudge(\'' + f.id + '\',\'nudge\')" title="' + esc(_cl("Turtki: vazifalarni eslatish", "Nudge: remind about tasks", "Пнуть: напомнить о задачах")) + '">👋</button>'
+      + '<button type="button" class="fr-act fr-act-duel" onclick="friendsChallengeFriend(\'' + f.id + '\')" title="' + esc(t('friends_tab_challenge')) + '">⚔️</button>'
       + '<button type="button" class="fr-act" onclick="showFriendProfileModal(\'' + f.id + '\')" title="' + esc(t('friends_view_profile_title')) + '">👤</button>';
     return friendCardHtml(f, actions, true, true);
   }).join('');
@@ -32707,6 +32742,249 @@ function renderFriendsStats() {
     cell('⚔️', duels, _cl("Faol chorlov", "Active duels", "Активные дуэли")) +
     cell('💎', (typeof gemsAvailable === 'function' ? gemsAvailable() : (S.gems || 0)), _cl("Tikish uchun", "To wager", "Для ставок"), 'fr-stat-gems');
 }
+// ============================================================
+// 👥 DO'STLAR v2: saralash/qidirish, sevimlilar, shaxsiy izoh, "oxirgi faollik",
+// turtki/olqish (friend_nudges), tavsiyalar (umumiy do'stlar), taklif havolasi,
+// hammasini qabul/rad qilish, profilda "Siz vs do'st" taqqoslash
+// ============================================================
+var _frListQuery = '';
+var _friendsSuggestions = null, _frSuggestAt = 0, _frSuggestBusy = false;
+var _frNudgesShown = {};
+function frIsFav(id) { return Array.isArray(S.frFav) && S.frFav.indexOf(id) !== -1; }
+function frToggleFav(id) {
+  if (!Array.isArray(S.frFav)) S.frFav = [];
+  var i = S.frFav.indexOf(id);
+  if (i === -1) S.frFav.push(id); else S.frFav.splice(i, 1);
+  save(); renderFriendsList();
+}
+function frNote(id) { return (S.frNotes && S.frNotes[id]) || ''; }
+function frSetNote(id, v) {
+  if (!S.frNotes || typeof S.frNotes !== 'object') S.frNotes = {};
+  v = String(v || '').trim().slice(0, 60);
+  if (v) S.frNotes[id] = v; else delete S.frNotes[id];
+  save(); renderFriendsList();
+}
+function frAgo(ms) {
+  var s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 3600) return _cl(Math.max(1, Math.floor(s / 60)) + ' daq oldin', Math.max(1, Math.floor(s / 60)) + 'm ago', Math.max(1, Math.floor(s / 60)) + ' мин назад');
+  if (s < 86400) return _cl(Math.floor(s / 3600) + ' soat oldin', Math.floor(s / 3600) + 'h ago', Math.floor(s / 3600) + ' ч назад');
+  if (s < 86400 * 30) return _cl(Math.floor(s / 86400) + ' kun oldin', Math.floor(s / 86400) + 'd ago', Math.floor(s / 86400) + ' дн назад');
+  return _cl("ancha oldin", "a while ago", "давно");
+}
+function frSortList(arr) {
+  var mode = S.frSort || 'active';
+  return arr.slice().sort(function (a, b) {
+    var fa = frIsFav(a.id) ? 1 : 0, fb = frIsFav(b.id) ? 1 : 0;
+    if (fa !== fb) return fb - fa; // sevimlilar doim tepada
+    if (mode === 'name') return (a.name || '').localeCompare(b.name || '');
+    if (mode === 'level') return (b.level || 0) - (a.level || 0);
+    if (mode === 'streak') return (b.streak || 0) - (a.streak || 0);
+    if (mode === 'new') return (b.addedAt || 0) - (a.addedAt || 0);
+    var oa = friendsIsOnline(a.id) ? 1 : 0, ob = friendsIsOnline(b.id) ? 1 : 0;
+    return (ob - oa) || ((b.lastActive || 0) - (a.lastActive || 0));
+  });
+}
+function frRenderListTools() {
+  var box = document.getElementById('fr-list-tools');
+  if (!box) return;
+  var n = (S.friends.list || []).length;
+  box.style.display = n ? '' : 'none';
+  if (!box.firstChild) {
+    var opt = function (v, l) { return '<option value="' + v + '">' + l + '</option>'; };
+    box.innerHTML = '<input type="search" id="fr-list-q" class="fr-tools-q" maxlength="30" placeholder="🔍 ' + esc(_cl("Do'stlar orasidan qidirish", "Search friends", "Поиск среди друзей")) + '" autocomplete="off">'
+      + '<select id="fr-list-sort" class="fr-tools-sort" aria-label="' + esc(_cl("Saralash", "Sort", "Сортировка")) + '">'
+      + opt('active', _cl("⏱ Faollik", "⏱ Activity", "⏱ Активность")) + opt('name', _cl("🔤 Ism", "🔤 Name", "🔤 Имя")) + opt('level', _cl("⭐ Daraja", "⭐ Level", "⭐ Уровень"))
+      + opt('streak', _cl("🔥 Streak", "🔥 Streak", "🔥 Серия")) + opt('new', _cl("🆕 Yangi qo'shilgan", "🆕 Newest", "🆕 Новые")) + '</select>'
+      + '<button type="button" id="fr-list-fav" class="fr-tools-fav" title="' + esc(_cl("Faqat sevimlilar", "Favorites only", "Только избранные")) + '">★</button>';
+    var q = box.querySelector('#fr-list-q');
+    q.oninput = function () { _frListQuery = q.value.trim(); renderFriendsList(); };
+    var so = box.querySelector('#fr-list-sort');
+    so.onchange = function () { S.frSort = so.value; save(); renderFriendsList(); };
+    box.querySelector('#fr-list-fav').onclick = function () { friendsSetListFilter(_friendsListFilter === 'fav' ? 'all' : 'fav'); };
+  }
+  var sel = box.querySelector('#fr-list-sort'); if (sel && sel.value !== (S.frSort || 'active')) sel.value = S.frSort || 'active';
+  var fb = box.querySelector('#fr-list-fav'); if (fb) fb.classList.toggle('on', _friendsListFilter === 'fav');
+}
+
+// ---------- 👋 Turtki / 👏 olqish / ✋ besh qo'l ----------
+var FR_NUDGE = {
+  nudge: { e: '👋', send: function () { return _cl("Turtki yuborildi — u vazifalarini eslaydi", "Nudge sent — they'll remember their tasks", "Толчок отправлен"); },
+    got: function (n) { return _cl(n + " sizni turtdi — bugungi vazifalarni bajaring!", n + " nudged you — time to do today's tasks!", n + " подталкивает вас — пора делать задачи!"); } },
+  cheer: { e: '👏', send: function () { return _cl("Olqish yuborildi", "Cheer sent", "Аплодисменты отправлены"); },
+    got: function (n) { return _cl(n + " sizni olqishladi!", n + " cheered you on!", n + " аплодирует вам!"); } },
+  highfive: { e: '✋', send: function () { return _cl("Besh qo'l yuborildi", "High five sent", "Дай пять отправлено"); },
+    got: function (n) { return _cl(n + " sizga besh qo'l berdi!", n + " gave you a high five!", n + " даёт вам пять!"); } }
+};
+async function frNudge(id, kind) {
+  if (!S.cloudLinked || !S.cloudUserId) { toast(_cl("Avval tizimga kiring", "Please sign in first", "Сначала войдите в аккаунт")); return; }
+  var sent = (S.friends.sentToday || {})[id] || [];
+  if (sent.indexOf(kind) !== -1) { toast('⏳ ' + _cl("Bugun allaqachon yuborilgan", "Already sent today", "Уже отправлено сегодня")); return; }
+  try { SFX.click(); } catch (e) {}
+  var r = await supabase.rpc('friend_nudge', { p_to: id, p_kind: kind });
+  if (r.error || !(r.data && r.data.ok)) {
+    var er = r.error ? r.error.message : (r.data && r.data.error);
+    toast(er === 'too_soon' ? '⏳ ' + _cl("Bugun allaqachon yuborilgan", "Already sent today", "Уже отправлено сегодня") : '❌ ' + (er || 'Xatolik'));
+    return;
+  }
+  if (!S.friends.sentToday) S.friends.sentToday = {};
+  (S.friends.sentToday[id] = S.friends.sentToday[id] || []).push(kind);
+  toast(FR_NUDGE[kind].e + ' ' + FR_NUDGE[kind].send());
+  renderFriendsList();
+  var pm = document.querySelector('#friend-profile-modal [data-frn="' + kind + '"]'); if (pm) pm.classList.add('done');
+}
+function frHandleNudges(list) {
+  S.friends.nudges = (list || []).map(function (x) { return { id: x.id, fromId: x.fromId, name: x.name || '—', avatarUrl: x.photo || null, kind: x.kind, at: x.createdAt ? Date.parse(x.createdAt) : Date.now() }; });
+  var seen = {}; try { seen = JSON.parse(localStorage.getItem('frNudgeToasted') || '{}') || {}; } catch (e) {}
+  var fresh = S.friends.nudges.filter(function (n) { return !seen[n.id] && !_frNudgesShown[n.id]; });
+  fresh.slice(0, 3).forEach(function (n, i) {
+    _frNudgesShown[n.id] = 1; seen[n.id] = Date.now();
+    var k = FR_NUDGE[n.kind] || FR_NUDGE.nudge;
+    setTimeout(function () { try { toast(k.e + ' ' + k.got(n.name)); } catch (e) {} }, 600 + i * 2200);
+  });
+  fresh.slice(3).forEach(function (n) { seen[n.id] = Date.now(); });
+  var cut = Date.now() - 8 * 864e5;
+  Object.keys(seen).forEach(function (k) { if (seen[k] < cut) delete seen[k]; });
+  try { localStorage.setItem('frNudgeToasted', JSON.stringify(seen)); } catch (e) {}
+  frRenderNudges();
+}
+function frRenderNudges() {
+  var box = document.getElementById('fr-nudges');
+  var list = (S.friends && S.friends.nudges) || [];
+  var hb = document.getElementById('friends-req-badge');
+  if (hb) {
+    var n = (S.friends.incoming || []).filter(function (r) { return !S.friends.seenRequestIds[r.id]; }).length + list.length;
+    hb.textContent = n; hb.style.display = n ? 'flex' : 'none';
+  }
+  if (!box) return;
+  if (!list.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="fr-nudge-box"><div class="fr-nudge-h"><b>🔔 ' + esc(_cl("Sizga kelganlar", "For you", "Для вас")) + '</b><button type="button" class="fr-nudge-ok" onclick="frNudgesSeen()">✓ ' + esc(_cl("Ko'rdim", "Got it", "Понятно")) + '</button></div>'
+    + list.slice(0, 6).map(function (n) {
+      var k = FR_NUDGE[n.kind] || FR_NUDGE.nudge, isFr = (S.friends.list || []).some(function (f) { return f.id === n.fromId; });
+      return '<div class="fr-nudge-it">' + friendsAvatarHtml({ id: n.fromId, name: n.name, avatarUrl: n.avatarUrl }) + '<span class="fr-nudge-t">' + k.e + ' ' + esc(k.got(n.name)) + '<small>' + esc(frAgo(n.at)) + '</small></span>'
+        + (isFr ? '<button type="button" class="fr-act" title="' + esc(_cl("Javoban olqish", "Cheer back", "Ответить")) + '" onclick="frNudge(\'' + esc(n.fromId) + '\',\'' + (n.kind === 'nudge' ? 'cheer' : 'highfive') + '\')">' + (n.kind === 'nudge' ? '👏' : '✋') + '</button>' : '') + '</div>';
+    }).join('') + '</div>';
+}
+async function frNudgesSeen() {
+  S.friends.nudges = []; frRenderNudges();
+  try { await supabase.rpc('friend_nudges_seen'); } catch (e) {}
+}
+
+// ---------- ➕ Qo'shish bo'limi: taklif havolasi, tavsiyalar, hammasini qabul/rad ----------
+function frInviteLink() {
+  return location.origin + location.pathname.replace(/index\.html$/, '') + '?fr=' + encodeURIComponent(S.friends.myId || '');
+}
+function frShareInvite() {
+  if (!(S.cloudLinked && S.cloudUserId)) { friendsCopyMyId(); return; }
+  var url = frInviteLink();
+  var text = _cl("LevelUpDay'da do'st bo'laylik! Kodim: ", "Let's be friends on LevelUpDay! My code: ", "Давай дружить в LevelUpDay! Мой код: ") + S.friends.myId;
+  if (navigator.share) { navigator.share({ title: 'LevelUpDay', text: text, url: url }).catch(function () {}); return; }
+  var done = function () { toast('🔗 ' + _cl("Taklif havolasi nusxalandi", "Invite link copied", "Ссылка скопирована")); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text + '\n' + url).then(done).catch(done); else done();
+}
+function frLoadSuggestions(force) {
+  if (!(S.cloudLinked && S.cloudUserId) || _frSuggestBusy) return;
+  if (!force && _friendsSuggestions && Date.now() - _frSuggestAt < 120000) return;
+  _frSuggestBusy = true;
+  supabase.rpc('friend_suggestions', { p_limit: 8 }).then(function (r) {
+    _frSuggestBusy = false; _frSuggestAt = Date.now();
+    if (r.error) return;
+    _friendsSuggestions = (r.data || []).map(_friendsNormRow).filter(Boolean);
+    frRenderAddExtras();
+  }, function () { _frSuggestBusy = false; });
+}
+function frRenderAddExtras() {
+  var F = S.friends, linked = !!(S.cloudLinked && S.cloudUserId);
+  var inv = document.getElementById('fr-invite');
+  if (inv) inv.innerHTML = linked ? '<div class="fr-invite"><span>📨 ' + esc(_cl("Do'stingizni taklif qiling — havola orqali bir bosishda qo'shiladi", "Invite a friend — they can add you in one tap", "Пригласите друга — добавит в один клик")) + '</span><button type="button" class="friend-req-btn accept" onclick="frShareInvite()">🔗 ' + esc(_cl("Ulashish", "Share", "Поделиться")) + '</button></div>' : '';
+  var sg = document.getElementById('fr-suggest');
+  if (sg) {
+    if (linked && _friendsActiveTab === 'add') frLoadSuggestions(false);
+    var has = function (arr, id) { return (arr || []).some(function (x) { return x.id === id; }); };
+    var list = (_friendsSuggestions || []).filter(function (u) { return !has(F.list, u.id) && !has(F.outgoing, u.id) && !has(F.incoming, u.id) && !has(F.banned, u.id); });
+    sg.innerHTML = list.length ? '<div class="fr-sec-t">✨ ' + esc(_cl("Tanishlaringiz bo'lishi mumkin", "People you may know", "Возможно, вы знакомы")) + '</div><div class="fr-sugg">'
+      + list.map(function (u) {
+        return '<div class="fr-sugg-it" role="button" tabindex="0" onclick="showFriendProfileModal(\'' + esc(u.id) + '\')">' + friendsAvatarHtml(u) + '<b>' + esc(u.name) + '</b><small>' + esc(t('friends_mutual_chip').replace('{n}', u._mutualCount || 1)) + '</small>'
+          + '<button type="button" class="friend-req-btn accept" onclick="event.stopPropagation();friendsOpenAddReasonModal(\'' + esc(u.id) + '\')">＋</button></div>';
+      }).join('') + '</div>' : '';
+  }
+  var bk = document.getElementById('fr-inc-bulk');
+  if (bk) bk.innerHTML = (F.incoming || []).length > 1 ? '<div class="fr-bulk"><button type="button" class="friend-req-btn accept" onclick="frRespondAll(true)">✓ ' + esc(_cl("Hammasini qabul qilish", "Accept all", "Принять все")) + ' (' + F.incoming.length + ')</button><button type="button" class="friend-req-btn decline" onclick="frRespondAll(false)">✕ ' + esc(_cl("Hammasini rad etish", "Decline all", "Отклонить все")) + '</button></div>' : '';
+}
+async function frRespondAll(accept) {
+  var list = (S.friends.incoming || []).filter(function (r) { return r._requestId; });
+  if (!list.length) return;
+  var go = async function () {
+    var ok = 0;
+    for (var i = 0; i < list.length; i++) {
+      try { var r = await supabase.rpc('friend_respond', { p_request_id: list[i]._requestId, p_accept: accept }); if (!r.error && r.data && r.data.ok) ok++; } catch (e) {}
+    }
+    await friendsSyncFromCloud();
+    if (accept && ok) { try { confetti(); } catch (e) {} }
+    toast((accept ? '🎉 ' + _cl(ok + " ta yangi do'st", ok + " new friends", ok + " новых друзей") : '✕ ' + _cl(ok + " ta so'rov rad etildi", ok + " requests declined", "Отклонено: " + ok)));
+  };
+  if (accept) go(); else showConfirmModal(esc(_cl("Barcha kelgan so'rovlarni rad etasizmi?", "Decline all incoming requests?", "Отклонить все входящие заявки?")), go, { icon: '✕' });
+}
+// ?fr=KOD havolasi: kirgan bo'lsa — qidiruvga qo'yib, profilni ochamiz
+(function () {
+  try {
+    var code = new URLSearchParams(location.search).get('fr');
+    if (!code) return;
+    sessionStorage.setItem('ludFrInvite', String(code).slice(0, 20));
+    var u = new URL(location.href); u.searchParams.delete('fr');
+    history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
+  } catch (e) {}
+})();
+function frHandleInvite() {
+  var code = null; try { code = sessionStorage.getItem('ludFrInvite'); } catch (e) {}
+  if (!code || !(S.cloudLinked && S.cloudUserId) || !S.friends) return;
+  try { sessionStorage.removeItem('ludFrInvite'); } catch (e) {}
+  if (String(code).toUpperCase() === String(S.friends.myId || '').toUpperCase()) return;
+  openFriendsModal(); friendsShowTab('add');
+  var inp = document.getElementById('friends-search-input');
+  if (inp) { inp.value = code; friendsRetrySearch(); }
+  toast('🤝 ' + _cl("Taklif havolasi: do'stni topdik — \"So'rov yuborish\"ni bosing", "Invite link: tap \"Send request\" to add them", "Ссылка-приглашение: нажмите «Отправить заявку»"));
+}
+
+// async funksiyalar blok ichida global bo'lmaydi — onclick'lar uchun oynaga chiqaramiz
+window.frNudge = frNudge; window.frNudgesSeen = frNudgesSeen; window.frRespondAll = frRespondAll;
+
+// ---------- 👤 Profil: shaxsiy izoh, turtki va "Siz vs do'st" ----------
+(function () {
+  var _prev = window.showFriendProfileModal || showFriendProfileModal;
+  showFriendProfileModal = function (id) {
+    _prev(id);
+    var ov = document.getElementById('friend-profile-modal');
+    if (!ov || friendsRelationStatus(id) !== 'friend') return;
+    var box = ov.firstElementChild, last = box && box.lastElementChild;
+    if (!box || !last) return;
+    var sent = (S.friends.sentToday || {})[id] || [];
+    var wrap = document.createElement('div');
+    wrap.innerHTML = '<div class="fr-pm-acts">' + ['nudge', 'cheer', 'highfive'].map(function (k) {
+        var lb = { nudge: _cl("Turtki", "Nudge", "Толчок"), cheer: _cl("Olqish", "Cheer", "Браво"), highfive: _cl("Besh qo'l", "High five", "Дай пять") }[k];
+        return '<button type="button" class="fr-pm-btn' + (sent.indexOf(k) !== -1 ? ' done' : '') + '" data-frn="' + k + '" onclick="frNudge(\'' + esc(id) + '\',\'' + k + '\')"><span>' + FR_NUDGE[k].e + '</span>' + esc(lb) + '</button>';
+      }).join('') + '</div>'
+      + '<div id="fr-pm-cmp" class="fr-cmp"></div>'
+      + '<label class="fr-pm-note"><span>📝 ' + esc(_cl("Shaxsiy izoh (faqat sizga ko'rinadi)", "Private note (only you see it)", "Личная заметка (видна только вам)")) + '</span>'
+      + '<input type="text" maxlength="60" id="fr-pm-note-in" value="' + esc(frNote(id)) + '" placeholder="' + esc(_cl("Masalan: sinfdoshim, IELTS sherigim", "e.g. classmate, IELTS buddy", "Напр.: одноклассник")) + '"></label>';
+    while (wrap.firstChild) box.insertBefore(wrap.firstChild, last);
+    var ni = document.getElementById('fr-pm-note-in');
+    if (ni) ni.onchange = function () { frSetNote(id, ni.value); toast('📝 ' + _cl("Saqlandi", "Saved", "Сохранено")); };
+    if (typeof supabase === 'undefined' || !supabase || !S.cloudLinked) return;
+    supabase.from('profiles').select('xp,best_streak,streak,total_coins,tasks_completed').eq('id', id).maybeSingle().then(function (r) {
+      var el = document.getElementById('fr-pm-cmp'), d = r && !r.error && r.data;
+      if (!el || !d) return;
+      var mine = { xp: S.xp || 0, best_streak: S.bestStreak || S.streak || 0, total_coins: S.totalCoins || 0, tasks_completed: (typeof _cloudTasksCompletedCount === 'function' ? _cloudTasksCompletedCount() : 0) };
+      var rows = [['⭐', 'XP', 'xp'], ['🔥', _cl("Eng uzun streak", "Best streak", "Лучшая серия"), 'best_streak'], ['🪙', _cl("Jami tanga", "Total coins", "Всего монет"), 'total_coins'], ['✅', _cl("Bajarilgan", "Tasks done", "Выполнено"), 'tasks_completed']];
+      el.innerHTML = '<div class="fr-cmp-h"><span>' + esc(_cl("Siz", "You", "Вы")) + '</span><b>⚔️</b><span>' + esc((friendsFindPersonById(id) || {}).name || '') + '</span></div>' + rows.map(function (x) {
+        var a = Number(mine[x[2]]) || 0, b = Number(d[x[2]]) || 0, tot = Math.max(1, a + b), pa = Math.round(a / tot * 100);
+        return '<div class="fr-cmp-r"><div class="fr-cmp-l"><b class="' + (a >= b ? 'w' : '') + '">' + a + '</b><small>' + x[0] + ' ' + esc(x[1]) + '</small><b class="' + (b > a ? 'w' : '') + '">' + b + '</b></div>'
+          + '<div class="fr-cmp-bar"><i style="width:' + pa + '%"></i></div></div>';
+      }).join('');
+    }, function () {});
+  };
+  window.showFriendProfileModal = showFriendProfileModal;
+})();
+
 function friendsRemoveFriend(userId) {
   showHoldConfirmModal(esc(t('friends_remove_confirm')), function () {
     (S.friends.parties || []).forEach(function (p) {
@@ -32769,7 +33047,7 @@ function _friendsNormRow(u) {
     id: String(id), name: String(name || '—'),
     avatarUrl: u.photo || u.avatar_url || u.avatarUrl || null,
     level: u.level || 1, cosmetics: u.cosmetics || null,
-    friendCode: u.friend_code || u.friendCode || ''
+    friendCode: u.friend_code || u.friendCode || '', _mutualCount: u.mutual || 0
   };
 }
 // oninput: debounce bilan qidiradi
@@ -32800,6 +33078,9 @@ async function friendsRunSearch(q) {
   // search_users (security definer) RPC ham bo'lsa — natijalar birlashtiriladi; yo'q bo'lsa e'tiborsiz
   var rpcP = (async function () {
     if (_friendsSearchRpcOff || typeof supabase.rpc !== 'function') return { data: null, error: { message: 'no rpc' } };
+    // v2: bloklar/ban hisobga olinadi + umumiy do'stlar soni
+    var r2 = await supabase.rpc('search_users_v2', { p_query: q });
+    if (r2 && !r2.error && Array.isArray(r2.data)) { r2.v2 = true; return r2; }
     var r = await supabase.rpc('search_users', { p_query: q });
     // Funksiya yo'q / imzo mos emas bo'lsa — bu sessiyada qayta chaqirmaymiz
     if (r && r.error && (r.error.code === 'PGRST202' || r.error.code === '42883' || /could not find the function/i.test(r.error.message || ''))) _friendsSearchRpcOff = true;
@@ -32808,6 +33089,8 @@ async function friendsRunSearch(q) {
   var out = await Promise.all([restP, rpcP]);
   if (myReqId !== _friendsSearchReqId) return; // eskirgan so'rov, e'tiborsiz qoldiramiz
   var rest = out[0] || {}, rpc = out[1] || {};
+  // v2 ishlasa — faqat uning natijasi (REST qidiruvi sizni bloklaganlarni ham ko'rsatardi)
+  if (rpc.v2) rest = { data: [] };
   if (rest.error && rpc.error) {
     console.warn('[Friends search] xatolik:', rest.error && rest.error.message, '|', rpc.error && rpc.error.message);
     _friendsSearchState = { q: q, status: 'error', error: (rest.error && rest.error.message) || '' };
@@ -32903,6 +33186,7 @@ function renderFriendsOutgoing() {
 // ---------------- KELGAN SO'ROVLAR ----------------
 function renderFriendsIncoming() {
   var list = S.friends.incoming || [];
+  try { frRenderAddExtras(); } catch (e) {}
   var box = document.getElementById('friends-incoming-list');
   var empty = document.getElementById('friends-incoming-empty');
   if (!box) return;
@@ -34085,7 +34369,7 @@ function friendsMockStats(id) {
 
 // ---------------- FOYDALANUVCHINI TOPISH / MUNOSABAT HOLATI ----------------
 function friendsFindPersonById(id) {
-  var pools = [S.friends.list, S.friends.incoming, S.friends.outgoing, S.friends.banned, _friendsSearchResults];
+  var pools = [S.friends.list, S.friends.incoming, S.friends.outgoing, S.friends.banned, _friendsSearchResults, _friendsSuggestions || []];
   for (var i = 0; i < pools.length; i++) {
     var arr = pools[i] || [];
     var f = arr.find(function (x) { return x.id === id; });
@@ -34171,7 +34455,7 @@ function showFriendProfileModal(id) {
     + '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:16px;padding-top:4px">'
     + '<div style="width:72px;height:72px;border-radius:50%;' + (bigAvatar.style || 'background:var(--accent);') + 'display:flex;align-items:center;justify-content:center;font-size:var(--fs-3xl);border:2px solid var(--accent);overflow:hidden">' + bigAvatar.inner + '</div>'
     + '<div style="font-family:Syne,sans-serif;font-size:var(--fs-md);font-weight:700;color:var(--text);margin-top:10px">' + esc(base.name || '?') + '</div>'
-    + '<div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-top:2px">' + esc(base.id) + '</div>'
+    + (base.friendCode ? '<div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-top:2px">' + esc(base.friendCode) + '</div>' : '')
     + '<div style="display:flex;align-items:center;gap:6px;margin-top:8px">'
     + '<span style="font-size:var(--fs-2xs);font-weight:700;color:#fff;background:var(--accent);border-radius:var(--radius-full);padding:2px 9px">' + lv.icon + ' ' + t('pp_level_badge') + ' ' + lv.level + '</span>'
     + '</div>'
@@ -34372,6 +34656,15 @@ function toggleFriendsAcceptRequests() {
   S.friends.acceptRequestsEnabled = !S.friends.acceptRequestsEnabled;
   save();
   updateFriendsAcceptReqSwitchUI();
+  if (S.cloudLinked && S.cloudUserId && typeof supabase !== 'undefined' && supabase) {
+    var want = S.friends.acceptRequestsEnabled;
+    supabase.rpc('set_friend_prefs', { p_accept: want }).then(function (r) {
+      if (r && (r.error || !(r.data && r.data.ok))) {
+        S.friends.acceptRequestsEnabled = !want; save(); updateFriendsAcceptReqSwitchUI();
+        toast('⚠️ ' + _cl("Saqlab bo'lmadi — internetni tekshiring", "Couldn't save — check your connection", "Не удалось сохранить"));
+      }
+    });
+  }
   try { SFX.click(); } catch (e) {}
   toast(S.friends.acceptRequestsEnabled ? t('friends_accept_requests_on_toast') : t('friends_accept_requests_off_toast'));
 }
