@@ -28,8 +28,17 @@ const TX: Record<string, Record<string, string>> = {
   en: { head: "🛡 <b>Focusgate</b>", block: "was closed", site: "tab was closed", warn: "5 minutes left of your daily limit", warnp: "{p}% of the daily limit used", daily: "daily limit reached", always: "always blocked", schedule: "blocked by schedule", focus: "during focus", session: "session time is up", mode: "blocked by a mode", allow: "only allowed apps during focus", mindful: "you chose not to open it 👏", break: "mandatory break", weekly: "weekly limit reached", opens: "today's opens used up", total: "total screen-time limit", keyword: "blocked keyword", adult: "adult content", btn: "📊 Open Focusgate", more: "more", off: "⚠️ Lost contact with <b>{d}</b> — Focusgate may have been closed or the extension turned off." },
   ru: { head: "🛡 <b>Focusgate</b>", block: "закрыто", site: "вкладка закрыта", warn: "до дневного лимита 5 минут", warnp: "использовано {p}% дневного лимита", daily: "дневной лимит исчерпан", always: "заблокировано навсегда", schedule: "заблокировано по расписанию", focus: "во время фокуса", session: "время сессии вышло", mode: "заблокировано режимом", allow: "в фокусе только разрешённые", mindful: "вы решили не открывать 👏", break: "обязательный перерыв", weekly: "недельный лимит исчерпан", opens: "открытия на сегодня закончились", total: "общий лимит экранного времени", keyword: "запрещённое слово", adult: "контент для взрослых", btn: "📊 Открыть Focusgate", more: "ещё", off: "⚠️ Связь с <b>{d}</b> потеряна — возможно, Focusgate закрыт или расширение выключено." },
 };
-async function tgNotify(sb: any, userId: string, events: { id: number; kind: string; app: string; label: string | null; reason: string | null }[]) {
-  if (!BOT_TOKEN || !events.length) return;
+// 🌙 Tungi jim rejim (conf.quiet {from,to}, conf.tzOff — brauzerdagi getTimezoneOffset daqiqalarda)
+function quietNow(conf: any) {
+  const q = conf && conf.quiet; if (!q || !q.from || !q.to || q.from === q.to) return false;
+  const hm = (x: string) => { const m = /^(\d{1,2}):(\d{2})/.exec(x || ""); return m ? +m[1] * 60 + +m[2] : 0; };
+  const d = new Date(), n = (((d.getUTCHours() * 60 + d.getUTCMinutes() - (+conf.tzOff || 0)) % 1440) + 1440) % 1440, f = hm(q.from), t = hm(q.to);
+  return f < t ? n >= f && n < t : n >= f || n < t;
+}
+async function tgNotify(sb: any, userId: string, events: { id: number; kind: string; app: string; label: string | null; reason: string | null }[], conf: any = {}) {
+  if (!BOT_TOKEN || !events.length || quietNow(conf)) return;
+  events = events.filter((e) => e.kind === "warn" ? conf.notifWarn !== false : conf.notifBlock !== false);
+  if (!events.length) return;
   const { data: link } = await sb.from("telegram_links").select("chat_id,enabled,prefs,lang").eq("user_id", userId).maybeSingle();
   if (!link || !link.enabled || (link.prefs && link.prefs.fg === false)) return;
   // Bir dastur haqida 20 daqiqada ko'pi bilan bir marta
@@ -316,7 +325,7 @@ Deno.serve(async (req) => {
       })).filter((e: any) => e.app);
       if (evs.length) {
         const { data: ins } = await sb.from("fg_events").insert(evs).select("id,kind,app,label,reason");
-        try { await tgNotify(sb, dev.user_id, ins || []); } catch (_) { /* Telegram xatosi sinxronlashni to'xtatmasin */ }
+        try { await tgNotify(sb, dev.user_id, ins || [], cfg?.config || {}); } catch (_) { /* Telegram xatosi sinxronlashni to'xtatmasin */ }
       }
     }
     // Bugun saytlarda o'tgan vaqt — barcha qurilmalar bo'yicha eng kattasi (kengaytma limitni to'g'ri hisoblashi uchun)
@@ -396,6 +405,37 @@ Deno.serve(async (req) => {
     }).catch(() => null);
     if (r && r.status === 403) await sb.from("telegram_links").update({ enabled: false }).eq("user_id", uid);
     return json({ ok: true, sent: !!(r && r.ok) });
+  }
+
+  // ---------- 🎯 Fokus boshlandi → do'stlarga Telegram (sayt, foydalanuvchi JWT; 30 daqiqada bir marta) ----------
+  if (action === "focus_started") {
+    const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    const { data: u } = await sb.auth.getUser(jwt);
+    const uid = u?.user?.id;
+    if (!uid || !BOT_TOKEN) return json({ ok: true, sent: 0 });
+    const { data: c } = await sb.from("fg_config").select("config").eq("user_id", uid).maybeSingle();
+    const conf = c?.config || {};
+    if (conf.share === false || conf.focusPing === false || Date.now() - (+conf.focusPingAt || 0) < 30 * 60000) return json({ ok: true, sent: 0 });
+    await sb.from("fg_config").update({ config: Object.assign({}, conf, { focusPingAt: Date.now() }) }).eq("user_id", uid);
+    const { data: me } = await sb.from("profiles").select("name").eq("id", uid).maybeSingle();
+    const { data: f1 } = await sb.from("friendships").select("friend_id").eq("user_id", uid);
+    const { data: f2 } = await sb.from("friendships").select("user_id").eq("friend_id", uid);
+    const ids = [...new Set([...(f1 || []).map((x: any) => x.friend_id), ...(f2 || []).map((x: any) => x.user_id)])];
+    if (!ids.length) return json({ ok: true, sent: 0 });
+    const { data: links } = await sb.from("telegram_links").select("user_id,chat_id,enabled,prefs,lang").in("user_id", ids).eq("enabled", true);
+    const min = Math.max(1, Math.min(600, Math.round(+body.minutes || 25)));
+    const FT: Record<string, string[]> = { uz: ["🎯 <b>{n}</b> {m} daqiqalik fokusni boshladi — qo'shiling, birga +20% bonus!", "🤝 Qo'shilish"], en: ["🎯 <b>{n}</b> started a {m}-minute focus — join for a +20% bonus together!", "🤝 Join"], ru: ["🎯 <b>{n}</b> начал(а) фокус на {m} мин — присоединяйтесь, вместе +20%!", "🤝 Присоединиться"] };
+    let sent = 0;
+    for (const l of links || []) {
+      if (l.prefs && (l.prefs.fg === false || l.prefs.fgfriends === false)) continue;
+      const t = FT[["ru", "en"].includes(String(l.lang)) ? String(l.lang) : "uz"];
+      const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: l.chat_id, text: t[0].replace("{n}", esc(String(me?.name || "?"))).replace("{m}", String(min)), parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: t[1], url: APP_URL }]] } }),
+      }).catch(() => null);
+      if (r && r.ok) sent++;
+    }
+    return json({ ok: true, sent });
   }
 
   // ---------- 🚨 Qurilma oflayn bo'lib qoldi (faqat cron: x-cron-secret, har 10 daqiqa) → Telegram ----------

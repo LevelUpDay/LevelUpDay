@@ -277,6 +277,9 @@ async function sync() {
     const dv = r.device || {};
     await S.set({ cfg: Object.assign({}, r.config || {}, { _me: dv.id || null, _pc: dv.parent || pcId || null }), remote: r.site_usage || {}, device: r.device || null, syncedAt: Date.now() });
     syncSafe(r.config || {}).catch(() => {});
+    // 🔄 Saytdan masofaviy buyruq (Sozlamalar → Qurilmalar): kengaytmani qayta yuklash
+    const cmd = (r.config || {}).cmd;
+    if (cmd && cmd.id && Date.now() - (+cmd.at || 0) < 3600e3 && cmd.id !== (await S.get('lastCmd'))) { await S.set({ lastCmd: cmd.id }); if (cmd.act === 'restart' || cmd.act === 'update') setTimeout(() => chrome.runtime.reload(), 500); }
     await enforceAll();
     await warnCheck().catch(() => {});
     notifyPopup();
