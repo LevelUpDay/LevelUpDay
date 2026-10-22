@@ -511,8 +511,18 @@
     } catch (e) {}
     var nn = notesList().length;
     chips.push('<button class="x-tchip" data-tc="notes"><span>📝</span><b>' + L('List', 'List', 'Список') + '</b>' + (nn ? '<em>' + nn + '</em>' : '') + '</button>');
+    // ↕️ Foydalanuvchi tartibi (bosib turib sudrab o'zgartiriladi) — S.xTodayOrder
+    var ord = Array.isArray(S.xTodayOrder) ? S.xTodayOrder : [];
+    var keyOf = function (h) { var m = /data-tc="([^"]+)"/.exec(h); return m ? m[1] : ''; };
+    chips.sort(function (a, b) { var ia = ord.indexOf(keyOf(a)), ib = ord.indexOf(keyOf(b)); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
     el.innerHTML = chips.join('');
-    el.querySelectorAll('[data-tc]').forEach(function (b) { b.onclick = function () { todayOpen(b.dataset.tc); }; });
+    el.querySelectorAll('[data-tc]').forEach(function (b) { b.onclick = function () { if (Date.now() - (el._dragEnd || 0) < 300) return; todayOpen(b.dataset.tc); }; });
+    if (typeof Sortable !== 'undefined' && !el._sort) {
+      el._sort = Sortable.create(el, {
+        animation: 160, delay: 250, delayOnTouchOnly: false, touchStartThreshold: 6, draggable: '.x-tchip', ghostClass: 'x-tchip-ghost',
+        onEnd: function () { el._dragEnd = Date.now(); S.xTodayOrder = Array.prototype.map.call(el.querySelectorAll('[data-tc]'), function (x) { return x.dataset.tc; }); save(); }
+      });
+    }
   }
   // Yashirin kartani oynaga ko'chirib ochamiz, yopilganda joyiga qaytaramiz (render funksiyalari id bo'yicha topadi)
   function todayOpen(k) {

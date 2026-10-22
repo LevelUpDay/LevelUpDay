@@ -1447,3 +1447,4 @@ html.x-dragging body { touch-action: none; overscroll-behavior: none; }
 .x-nt-empty { text-align: center; color: var(--muted, #999); padding: 18px 0; font-size: 14px; }
 .x-nt-clear { margin-top: 14px; width: 100%; height: 42px; border-radius: 12px; border: 1px solid color-mix(in srgb, #ef4444 45%, transparent); background: color-mix(in srgb, #ef4444 10%, transparent); color: #ef4444; font: 700 14px/1 inherit; font-family: inherit; cursor: pointer; }
 .x-tchip-over { border-color: #ef4444; color: #ef4444; }
+.x-tchip-ghost { opacity: .4; }
