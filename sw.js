@@ -10,7 +10,7 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v111';
+const CACHE_VERSION = 'v112';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 // Fon tovushlari (sounds/*.mp3, ~0.8 MB) — alohida, versiyalar o'rtasida o'chirilmaydigan kesh
 const SOUND_CACHE = 'lud-sounds-v2';
@@ -184,24 +184,42 @@ self.addEventListener('fetch', (event) => {
   if (isNavigation) {
     // 🧭 Bo'lim manzillari (/LevelUpDay/profile ...) — aslida bitta sahifa: index.html qaytaramiz
     var seg = url.pathname.replace(/\/$/, '').split('/').pop().toLowerCase();
+    // ⚡ Tez ochilish: sahifa va kod shu versiya keshidan (CACHE_VERSION) darhol beriladi.
+    // Yangi versiya chiqsa — brauzer yangi sw.js ni o'rnatadi, u hamma fayllarni oldindan yuklab oladi
+    // va ilova o'zi bir marta qayta yuklanadi (script.js → controllerchange). Eski HTML + yangi JS aralashmaydi.
     if (url.origin === self.location.origin && ROUTE_SLUGS.indexOf(seg) !== -1) {
-      event.respondWith(networkFirstFallingBackToCache(new Request(new URL('./', self.registration.scope).href)));
+      event.respondWith(cacheFirstVersioned(new Request(new URL('./', self.registration.scope).href)));
       return;
     }
-    event.respondWith(networkFirstFallingBackToCache(request));
+    event.respondWith(url.origin === self.location.origin ? cacheFirstVersioned(request) : networkFirstFallingBackToCache(request));
     return;
   }
 
-  // 1.1 Ilovaning o'z kodi (JS/CSS/manifest): ham Network-First — yangilanish chiqqanda
-  // telefon eski script.js ni keshdan olib qolmasligi (HTML bilan nomuvofiqlik) uchun.
+  // 1.1 Ilovaning o'z kodi (JS/CSS/manifest): versiyalangan keshdan (har ochilishda 4 MB qayta yuklanmasin)
   if (url.origin === self.location.origin && /\.(js|css|json|webmanifest)$/.test(url.pathname) && !url.pathname.endsWith('/sw.js')) {
-    event.respondWith(networkFirstFallingBackToCache(request));
+    event.respondWith(cacheFirstVersioned(request));
     return;
   }
 
   // 2. Tashqi rasmlar (masalan, flagcdn.com bayroqlari) va statik fayllar: Cache-First
   event.respondWith(cacheFirstWithNetworkFallbackAndCache(request));
 });
+
+// Versiyalangan kesh: bor bo'lsa — darhol (tarmoq kutilmaydi); yo'q bo'lsa — tarmoqdan olib keshga yoziladi.
+// Navigatsiya so'rovlarida "?src=..." kabi parametrlar bo'lsa ham index.html topiladi.
+async function cacheFirstVersioned(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const hit = await cache.match(request, { ignoreSearch: true }) ||
+    (request.mode === 'navigate' ? await cache.match(new URL('./', self.registration.scope).href) || await cache.match('./index.html') : null);
+  if (hit) return hit;
+  try {
+    const res = await fetch(request);
+    if (res && res.ok && request.method === 'GET') cache.put(request, res.clone()).catch(() => {});
+    return res;
+  } catch (e) {
+    return networkFirstFallingBackToCache(request);
+  }
+}
 
 // HTML uchun: Network-First (Internet bo'lsa yangi kod, bo'lmasa kesh)
 //
