@@ -16,6 +16,7 @@
 //   lava     — Lava Lamp       (birlashib-ajraladigan lava pufaklari)
 //   synth    — Synthwave       (retro quyosh + oldinga yuguruvchi neon to'r)
 //   silk     — Liquid Silk     (oqib turuvchi ipak burmalari)
+//   relief   — Relief          (sekin siljiydigan topografik xarita; kursor tepalik ko'taradi)
 // Har bir animatsion dizayn: bitta fixed <canvas id="design-bg"> (UI ortida,
 // pointer-events:none) + xom WebGL fragment shader. WebGL bo'lmasa — statik
 // CSS gradient. Tanlov localStorage 'appTheme' da, animatsiya — 'designAnim'.
@@ -27,7 +28,7 @@
 (function () {
   'use strict';
 
-  var IDS = ['galaxy', 'default', 'rings', 'blinds', 'grid', 'prism', 'hex', 'slats', 'chroma', 'astral', 'orbits', 'aurora', 'ocean', 'lava', 'synth', 'silk'];
+  var IDS = ['galaxy', 'default', 'rings', 'blinds', 'grid', 'prism', 'hex', 'slats', 'chroma', 'astral', 'orbits', 'aurora', 'ocean', 'lava', 'synth', 'silk', 'relief'];
   var LS_KEY = 'appTheme', ANIM_KEY = 'designAnim';
   var root = document.documentElement;
 
@@ -56,7 +57,10 @@
     ocean: { n: ['Deep Ocean', 'Deep Ocean', 'Глубокий океан'], d: ['Suv ostida o\'ynoqi nurlar va pufakchalar', 'Dancing underwater light and rising bubbles', 'Подводные блики и пузырьки'], base: '#010812', meta: '#03182a', scale: 0.5, idleHover: 0.4, price: { coins: 400 } },
     lava: { n: ['Lava Lamp', 'Lava Lamp', 'Лава-лампа'], d: ['Sekin birlashib-ajraladigan issiq lava pufaklari', 'Warm blobs that slowly merge and split', 'Тёплые капли, что сливаются и делятся'], base: '#0c0206', meta: '#1e0510', scale: 0.5, idleHover: 0.5, price: { gems: 35 } },
     synth: { n: ['Synthwave', 'Synthwave', 'Синтвейв'], d: ['Retro quyosh va oldinga yuguruvchi neon yo\'l', 'Retro sun over an endless neon grid', 'Ретро-солнце над бесконечной неоновой сеткой'], base: '#0a0216', meta: '#1a0630', scale: 0.6, idleHover: 0.3, price: { gems: 45 } },
-    silk: { n: ['Liquid Silk', 'Liquid Silk', 'Жидкий шёлк'], d: ['Oqib turuvchi binafsha-oltin ipak burmalari', 'Flowing folds of violet and gold silk', 'Струящиеся складки фиолетово-золотого шёлка'], base: '#07030f', meta: '#160a2a', scale: 0.5, idleHover: 0.5, price: { gems: 40 } }
+    silk: { n: ['Liquid Silk', 'Liquid Silk', 'Жидкий шёлк'], d: ['Oqib turuvchi binafsha-oltin ipak burmalari', 'Flowing folds of violet and gold silk', 'Струящиеся складки фиолетово-золотого шёлка'], base: '#07030f', meta: '#160a2a', scale: 0.5, idleHover: 0.5, price: { gems: 40 } },
+    // 🗺 Neon/galaktika emas: tuproq ranglaridagi gorizontal chiziqlar xaritasi, har 5-chizig'i qalinroq (xaritadagidek),
+    // kursor ostida tepalik "nafas olib" ko'tarilib-tushadi, bosganda — yer silkinishidek to'lqin
+    relief: { n: ['Relief', 'Relief', 'Рельеф'], d: ['Sekin siljiydigan topografik xarita — tegsangiz tepalik ko\'tarilib tushadi', 'A slowly drifting topographic map — touch it and a hill rises and falls', 'Медленно плывущая топографическая карта — коснитесь, и холм поднимется и опустится'], base: '#0b120f', meta: '#0f1a15', scale: 0.55, idleHover: 0.45, price: { gems: 26 } }
   };
   // 🏷 Barcha narxlar 64% arzonlashtirilgan (asl narx × 0.36 — ikki marta 40% chegirma): tanga 5 ga yaxlitlanadi, olmos kamida 1
   Object.keys(D).forEach(function (k) {
@@ -813,8 +817,51 @@
     '}'
   ].join('\n');
 
+  // --- Relief: fbm balandlik maydoni → izochiziqlar (fwidth bilan bir xil qalinlik), soya (hillshade), qog'oz donadorligi
+  var FS_RELIEF = HEAD + EXTRA + [
+    'float vn(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.0-2.0*f);',
+    '  return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),u.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),u.x),u.y);}',
+    'float fbm(vec2 p){float s=0.0,a=0.5;for(int i=0;i<4;i++){s+=a*vn(p);p=rot2(p,0.6)*1.97+11.7;a*=0.42;}return s;}',
+    'float height(vec2 uv,vec2 m,float t){',
+    '  vec2 q=uv*1.1;',
+    '  vec2 w=vec2(fbm(q*0.7-t),fbm(q*0.7+3.1+t));',
+    '  float h=fbm(q+vec2(t,-t*0.6)+0.45*w);',
+    '  float md=length(uv-m);',
+    '  h+=0.20*uHover*exp(-md*md*7.0)*(0.7+0.3*sin(uTime*1.1));',
+    '  for(int j=0;j<4;j++){vec4 b=uBursts[j];',
+    '    if(b.z>=0.0&&b.z<1.8){float bd=length(uv-toUv(b.xy));h+=0.06*exp(-pow((bd-b.z*0.45)/0.07,2.0))*exp(-b.z*1.6)*b.w;}}',
+    '  return h;}',
+    'void main(){',
+    '  vec2 uv=toUv(gl_FragCoord.xy); float t=uTime*0.03;',
+    '  vec2 m=toUv(uMouse);',
+    '  float h=height(uv,m,t);',
+    '  float hx=height(uv+vec2(0.006,0.004),m,t);',
+    '  float lv=h*30.0;',
+    '  float k=floor(lv+0.5); float d=abs(lv-k);',
+    '#ifdef GL_OES_standard_derivatives',
+    '  float fw=max(fwidth(lv),1e-4);',
+    '#else',
+    '  float fw=abs(hx-h)*30.0*0.9+0.004;',
+    '#endif',
+    '  float major=1.0-step(0.5,mod(k,5.0));',
+    '  float ln=1.0-smoothstep(fw*(0.35+0.45*major),fw*(0.95+0.8*major),d);',
+    '  vec3 lo=vec3(0.043,0.071,0.059),hi=vec3(0.105,0.150,0.118);',
+    '  vec3 col=mix(lo,hi,smoothstep(0.25,0.8,h));',
+    '  float shade=clamp((h-hx)*60.0,-1.0,1.0);',
+    '  col*=1.0+0.35*shade;',
+    '  vec3 sage=vec3(0.50,0.60,0.49),bone=vec3(0.86,0.80,0.70),clay=vec3(0.85,0.45,0.30);',
+    '  float near=exp(-pow(length(uv-m)*5.5,2.0))*uHover;',
+    '  vec3 lc=mix(sage*0.75,bone,major);',
+    '  lc=mix(lc,clay,near*0.75);',
+    '  col=mix(col,lc,ln*(0.36+0.42*major));',
+    '  col+=(hash(gl_FragCoord.xy)-0.5)*0.025;',
+    '  col*=vign(uv);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);',
+    '}'
+  ].join('\n');
+
   var SHADERS = { rings: FS_RINGS, blinds: FS_BLINDS, grid: FS_GRID, prism: FS_PRISM, hex: FS_HEX, slats: FS_SLATS, chroma: FS_CHROMA, astral: FS_ASTRAL, orbits: FS_ORBITS,
-    aurora: FS_AURORA, ocean: FS_OCEAN, lava: FS_LAVA, synth: FS_SYNTH, silk: FS_SILK };
+    aurora: FS_AURORA, ocean: FS_OCEAN, lava: FS_LAVA, synth: FS_SYNTH, silk: FS_SILK, relief: FS_RELIEF };
 
   var R = {
     canvas: null, gl: null, kind: null, gl2: false, prog: null, progId: null, buf: null, u: null, failed: false, lost: false,

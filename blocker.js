@@ -295,6 +295,15 @@
       var c = res[1] && res[1].data && res[1].data.config;
       // Yaqinda saqlangan bo'lsa — serverdan kelgan (eskirgan bo'lishi mumkin) nusxa ustiga yozilmaydi
       if (!FG.cfg || Date.now() - (FG.dirtyAt || 0) > 10000) FG.cfg = Object.assign({ track: true, notif: true, strict: false, rules: [], focusApps: [], focusUntil: 0 }, c || {});
+      // 📥 Mehmon holatida import qilingan Focusgate sozlamalari — akkaunt ulangach qo'llanadi
+      try {
+        var pend = localStorage.getItem('ludFgImport');
+        if (pend && S.cloudUserId) {
+          localStorage.removeItem('ludFgImport');
+          var ic = JSON.parse(pend);
+          if (ic && Array.isArray(ic.rules) && !FG.cfg.strict) { var kp = { pin: FG.cfg.pin, strict: FG.cfg.strict, lockFriend: FG.cfg.lockFriend, parent: FG.cfg.parent }; FG.cfg = Object.assign({}, FG.cfg, cleanCfg(ic), kp); setTimeout(saveCfg, 0); }
+        }
+      } catch (e) {}
       setTimeout(function () { try { strictTick(); } catch (e) {} }, 0);
       try { if (!_ruleSnap) logRuleChanges({ rules: FG.cfg.rules || [] }); applyCustomCats(); } catch (e) {}
       (FG.cfg.rules || []).forEach(function (r, i) { if (!r.id) r.id = 'r' + Date.now().toString(36) + i; });

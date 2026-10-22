@@ -103,6 +103,7 @@ var syncTasksToLocalStorage = async function() {
 };
 
 var saveToLocalStorage = async function(state) {
+  if (window._ludImporting) return; // import yozgan holat eski xotiradagi S bilan bosilmasin
   try {
     const clone = Object.assign({}, state);
     delete clone.tasks;      // tasks alohida 'todolist_tasks' kalitida saqlanadi
@@ -222,6 +223,22 @@ var performExport = async function(exportTypes, pin) {
       }
     }
 
+    // 📦 'todolist_'siz kalitlar (pomodoro tarixi, dizayn, ovoz, til…), mukofotlar va Focusgate sozlamalari
+    var lsWant = [];
+    if (isAll || exportTypes.indexOf('stats') !== -1) lsWant = lsWant.concat(EXPORT_LS_GROUPS.stats);
+    if (isAll || exportTypes.indexOf('settings') !== -1) lsWant = lsWant.concat(EXPORT_LS_GROUPS.settings);
+    var lsOut = {};
+    lsWant.forEach(function (k) { try { var v = localStorage.getItem(k); if (v != null) lsOut[k] = v; } catch (e) {} });
+    var fgOut = (isAll || exportTypes.indexOf('focusgate') !== -1) ? await _exportFgConfig() : null;
+    var rewardsOut = null;
+    if (!isAll && exportTypes.indexOf('rewards') !== -1) {
+      try {
+        var stR = JSON.parse(allKeys[LOCAL_STATE_KEY] || 'null'), dR = (stR && stR.data) || {};
+        rewardsOut = { rewards: dR.rewards || [], rewardClaims: dR.rewardClaims || {}, rewardPenalties: dR.rewardPenalties || {},
+          purchase: allKeys[PURCHASE_HISTORY_KEY] || null, usage: allKeys[USAGE_HISTORY_KEY] || null };
+      } catch (e) {}
+    }
+
     if (isAll) {
       // Barchasi — 'todolist_' bilan boshlanuvchi HAMMA kalitlar (sozlamalar,
       // streaklar, kalendar loglari va h.k. ham kiradi).
@@ -231,14 +248,19 @@ var performExport = async function(exportTypes, pin) {
       if (needState && allKeys[LOCAL_STATE_KEY]) backup.data.state = allKeys[LOCAL_STATE_KEY];
       if (needTasks && allKeys[LOCAL_TASKS_KEY]) backup.data.tasks = allKeys[LOCAL_TASKS_KEY];
       if (examsPayload) backup.data.exams = JSON.stringify(examsPayload);
+      if (rewardsOut) backup.data.rewards = JSON.stringify(rewardsOut);
     }
+    if (Object.keys(lsOut).length) backup.data.__ls = lsOut;
+    if (fgOut) backup.data.__fg = fgOut;
 
     var labels = exportTypes.map(function(tId){ return EXPORT_TYPE_LABELS[tId] || tId; });
     backup.meta = {
       type: labels.join(' + '),
       taskCount: needTasks ? taskCount : undefined,
       coins: needState ? (coinCount || 0) : undefined,
-      examCount: examsPayload ? examCount : undefined
+      examCount: examsPayload ? examCount : undefined,
+      rewardCount: rewardsOut ? (rewardsOut.rewards || []).length : undefined,
+      parts: _backupParts(backup.data, isAll)
     };
 
     // JSON faylga yozish
@@ -8743,7 +8765,7 @@ function cloudPendingCount() { return Object.keys(_pendingTodoUpserts).length + 
 // Navbatga yig'ilgan o'zgarishlarni (yozish/o'chirish) 1.5s kutib, bitta
 // batch so'rov sifatida Supabase'ga yuboradi.
 function scheduleTodosCloudSync(immediate) {
-  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (!S.cloudLinked || !S.cloudUserId || window._ludImporting) return;
   if (!_cloudOwnerOk()) return; // bulut hali o'qilmagan / boshqa akkaunt holati — tasklarni yozmaymiz (navbat saqlanadi)
   if (_todosCloudSyncTimer) clearTimeout(_todosCloudSyncTimer);
   var run = async function () {
@@ -8832,7 +8854,10 @@ function showExportSelectModal() {
     { id: 'ielts', label: '📚 IELTS/SAT', color: '#60A5FA', border: 'rgba(59,130,246,0.4)', bg: 'rgba(59,130,246,0.08)' },
     { id: 'stats', label: '📊 ' + _cl("Statistika", "Statistics", "Статистика"), color: '#D8B4FE', border: 'rgba(168,85,247,0.4)', bg: 'rgba(168,85,247,0.08)' },
     { id: 'tasks', label: '✅ ' + _cl("Vazifalar", "Tasks", "Задачи"), color: '#FDBA74', border: 'rgba(249,115,22,0.4)', bg: 'rgba(249,115,22,0.08)' },
-    { id: 'all', label: '🎯 Barchasi', color: '#86EFAC', border: 'rgba(34,197,94,0.4)', bg: 'rgba(34,197,94,0.08)' }
+    { id: 'rewards', label: '🎁 ' + _cl("Mukofotlar", "Rewards", "Награды"), color: '#F9A8D4', border: 'rgba(236,72,153,0.4)', bg: 'rgba(236,72,153,0.08)' },
+    { id: 'settings', label: '🎨 ' + _cl("Sozlamalar (dizayn, ovoz, pomodoro)", "Settings (design, sound, pomodoro)", "Настройки (дизайн, звук, помодоро)"), color: '#FDE68A', border: 'rgba(234,179,8,0.4)', bg: 'rgba(234,179,8,0.08)' },
+    { id: 'focusgate', label: '🛡 Focusgate (' + _cl("limitlar, kategoriyalar", "limits, categories", "лимиты, категории") + ')', color: '#67E8F9', border: 'rgba(6,182,212,0.4)', bg: 'rgba(6,182,212,0.08)' },
+    { id: 'all', label: '🎯 ' + _cl("Barchasi", "Everything", "Всё"), color: '#86EFAC', border: 'rgba(34,197,94,0.4)', bg: 'rgba(34,197,94,0.08)' }
   ];
 
   var rowsHtml = OPTS.map(function(o) {
@@ -8907,7 +8932,43 @@ function showExportSelectModal() {
   });
 }
 
-var EXPORT_TYPE_LABELS = { ielts: 'IELTS/SAT', stats: 'Statistika', tasks: 'Vazifalar', all: 'Barchasi' };
+var EXPORT_TYPE_LABELS = { ielts: 'IELTS/SAT', stats: 'Statistika', tasks: 'Vazifalar', rewards: 'Mukofotlar', settings: 'Sozlamalar', focusgate: 'Focusgate', all: 'Barchasi' };
+// 'todolist_' prefiksisiz, lekin foydalanuvchiga tegishli kalitlar (qurilmaga xos — auth, navbat, kesh — kirmaydi)
+var EXPORT_LS_GROUPS = {
+  stats: ['pomoLogs', 'pomoBreakStats'],
+  settings: ['pomoSettings', 'pomoActivities', 'pomoBgCustom', 'appTheme', 'designAnim', 'sfxVolume', 'soundEnabled', 'calmMusic', 'lang', 'user_layout_preference', 'reytingSubjectFilter', 'luCmdRecent']
+};
+var _FG_EXPORT_SKIP = ['over', 'cmd', 'tasks', 'lang', 'statsResetAt', 'focusPingAt', 'pauseUntil', 'focusUntil', 'pin', 'parent', 'lockFriend', 'strict'];
+var _FG_KEEP = ['pin', 'parent', 'lockFriend', 'strict'];
+async function _exportFgConfig() {
+  try {
+    if (!S.cloudLinked || !S.cloudUserId || !window.supabase) return null;
+    var r = await supabase.from('fg_config').select('config').eq('user_id', S.cloudUserId).maybeSingle();
+    var c = r && r.data && r.data.config;
+    if (!c) return null;
+    c = JSON.parse(JSON.stringify(c));
+    _FG_EXPORT_SKIP.forEach(function (k) { delete c[k]; });
+    return c;
+  } catch (e) { return null; }
+}
+// Backup ichidagi bo'limlar: import oynasida ko'rsatiladi va alohida tanlab tiklanadi
+function _backupPartLabel(p) {
+  var m = { tasks: _cl('✅ Vazifalar', '✅ Tasks', '✅ Задачи'), state: _cl('📊 Statistika, tanga tarixi, odatlar', '📊 Stats, coin history, habits', '📊 Статистика, история монет, привычки'),
+    exams: '📚 IELTS/SAT', rewards: _cl('🎁 Mukofotlar', '🎁 Rewards', '🎁 Награды'), settings: _cl('🎨 Dizayn, ovoz, pomodoro', '🎨 Design, sound, pomodoro', '🎨 Дизайн, звук, помодоро'),
+    focusgate: _cl('🛡 Focusgate: limitlar, kategoriyalar', '🛡 Focusgate: limits, categories', '🛡 Focusgate: лимиты, категории') };
+  return m[p] || p;
+}
+function _backupParts(data, isAll) {
+  var out = [];
+  if (!data) return out;
+  if (data[LOCAL_TASKS_KEY] || data.tasks) out.push('tasks');
+  if (data[LOCAL_STATE_KEY] || data.state) out.push('state');
+  if (data.exams) out.push('exams');
+  if (data.rewards) out.push('rewards');
+  if (data.__ls && Object.keys(data.__ls).length) out.push('settings');
+  if (data.__fg) out.push('focusgate');
+  return out;
+}
 
 function requestExportWithSecurity(chosen) {
   if (pcHasPinSet()) {
@@ -8977,7 +9038,7 @@ function triggerImportAppData() {
 
 function normalizeImportedBackup(backup) {
   if (!backup || typeof backup !== 'object') return null;
-  var keys = {};
+  var keys = {}, ls = null, fg = null;
 
   var rawType = backup.exportType;
   var exportTypeArr = Array.isArray(rawType) ? rawType.slice() : [rawType || 'all'];
@@ -8997,6 +9058,14 @@ function normalizeImportedBackup(backup) {
     if (typeof backup.data.state === 'string' && !keys[LOCAL_STATE_KEY]) keys[LOCAL_STATE_KEY] = backup.data.state;
     if (typeof backup.data.tasks === 'string' && !keys[LOCAL_TASKS_KEY]) keys[LOCAL_TASKS_KEY] = backup.data.tasks;
     if (typeof backup.data.exams === 'string') keys['__exams__'] = backup.data.exams;
+    if (typeof backup.data.rewards === 'string') keys['__rewards__'] = backup.data.rewards;
+    if (backup.data.__ls && typeof backup.data.__ls === 'object') {
+      var lsAllowed = EXPORT_LS_GROUPS.stats.concat(EXPORT_LS_GROUPS.settings);
+      Object.keys(backup.data.__ls).forEach(function (k) {
+        if (lsAllowed.indexOf(k) !== -1 && typeof backup.data.__ls[k] === 'string') { ls = ls || {}; ls[k] = backup.data.__ls[k]; }
+      });
+    }
+    if (backup.data.__fg && typeof backup.data.__fg === 'object' && Array.isArray(backup.data.__fg.rules)) fg = backup.data.__fg;
   } else if (backup.keys && typeof backup.keys === 'object') {
     // Vaqtinchalik/eski "yangi format" — { keys: {...} }
     Object.keys(backup.keys).forEach(function(k){ keys[k] = backup.keys[k]; });
@@ -9006,10 +9075,20 @@ function normalizeImportedBackup(backup) {
     if (backup.state) keys[LOCAL_STATE_KEY] = JSON.stringify(backup.state);
   }
 
-  if (Object.keys(keys).length === 0) return null;
+  if (Object.keys(keys).length === 0 && !ls && !fg) return null;
 
+  var parts = [];
+  if (typeof keys[LOCAL_TASKS_KEY] === 'string') parts.push('tasks');
+  if (typeof keys[LOCAL_STATE_KEY] === 'string') parts.push('state');
+  if (keys['__exams__']) parts.push('exams');
+  if (keys['__rewards__']) parts.push('rewards');
+  if (ls) parts.push('settings');
+  if (fg) parts.push('focusgate');
   return {
     keys: keys,
+    ls: ls,
+    fg: fg,
+    parts: parts,
     exportType: exportTypeArr,
     isAll: isAll,
     meta: backup.meta || {},
@@ -9082,6 +9161,9 @@ function showImportConfirmModal(backup) {
       '🪙 ' + t('data_import_confirm_coins') + ': <b style="color:var(--text)">' + coinCount + '</b>' +
       (examCount !== null ? '<br>📚 ' + t('data_import_confirm_exams') + ': <b style="color:var(--text)">' + examCount + '</b>' : '') +
     '</div>' +
+    ((backup.parts || []).length > 1 ? '<div style="text-align:left;margin-bottom:12px"><div style="font-size:var(--fs-2xs);color:var(--text-muted);margin-bottom:4px">' + _cl('Nimalarni tiklash?', 'What to restore?', 'Что восстановить?') + '</div>' +
+      backup.parts.map(function (p) { return '<label style="display:flex;gap:8px;align-items:center;padding:5px 2px;font-size:var(--fs-sm);color:var(--text);cursor:pointer"><input type="checkbox" data-ipart="' + p + '" checked style="width:16px;height:16px;accent-color:#7C5CFC;flex-shrink:0">' + _backupPartLabel(p) + '</label>'; }).join('') + '</div>' : '') +
+    (S.cloudLinked && S.cloudUserId ? '<p style="font-size:var(--fs-2xs);color:var(--text-muted);margin-bottom:10px;line-height:1.5">☁️ ' + _cl('Akkauntga ham yoziladi — boshqa qurilmalarda ham shu holat bo\'ladi. Tanga, XP va olmos akkauntda qoladi.', 'It is also saved to your account, so other devices get it too. Coins, XP and gems stay as on your account.', 'Сохранится и в аккаунт — на других устройствах тоже. Монеты, XP и алмазы остаются как в аккаунте.') + '</p>' : '') +
     '<p style="font-size:var(--fs-xs);color:#F5A623;margin-bottom:20px;line-height:1.6">' + t('data_import_confirm_warn') + '</p>' +
     '<div style="display:flex;gap:10px">' +
       '<button id="import-cancel" style="flex:1;padding:12px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:var(--fs-base);cursor:pointer">' + t('btn_cancel') + '</button>' +
@@ -9094,9 +9176,115 @@ function showImportConfirmModal(backup) {
   ov.addEventListener('mousedown', function(e){ if (e.target === ov) ov.remove(); });
 
   document.getElementById('import-confirm').onclick = function(){
+    var off = Array.prototype.filter.call(box.querySelectorAll('[data-ipart]'), function (cb) { return !cb.checked; }).map(function (cb) { return cb.dataset.ipart; });
+    if (off.length && off.length >= (backup.parts || []).length) { toast(_cl('Kamida bittasini tanlang', 'Pick at least one', 'Выберите хотя бы одно')); return; }
     ov.remove();
+    _filterBackupParts(backup, off);
     applyImportedBackup(backup);
   };
+}
+
+// Import oynasida o'chirib qo'yilgan bo'limlarni backup'dan olib tashlaydi (qolganlari tegmaydi)
+function _filterBackupParts(backup, off) {
+  if (!off || !off.length) return;
+  backup.isAll = false; // qisman tiklash — mavjud ma'lumotlar tozalanmaydi
+  off.forEach(function (p) {
+    if (p === 'tasks') delete backup.keys[LOCAL_TASKS_KEY];
+    else if (p === 'state') Object.keys(backup.keys).forEach(function (k) { if (k.indexOf(BACKUP_KEY_PREFIX) === 0 && k !== LOCAL_TASKS_KEY) delete backup.keys[k]; });
+    else if (p === 'exams') delete backup.keys['__exams__'];
+    else if (p === 'rewards') delete backup.keys['__rewards__'];
+    else if (p === 'settings') backup.ls = null;
+    else if (p === 'focusgate') backup.fg = null;
+  });
+}
+
+// ☁️ Akkauntga ulangan bo'lsa — import qilingan holatni bulutga yozamiz. Aks holda qayta yuklangach
+// bulutdagi eski nusxa (app_state, todos) importni bosib ketardi va "hamma narsa import bo'lmayapti" bo'lardi.
+async function _importPushCloud(hasTasks, hasState) {
+  if (!(S.cloudLinked && S.cloudUserId && window.supabase && window._cloudPullDone && _cloudOwnerOk())) return true;
+  var uid = S.cloudUserId, ok = true, now = new Date().toISOString();
+  if (hasState) {
+    try {
+      var w = JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || 'null');
+      if (w && w.data) {
+        var d = {};
+        Object.keys(w.data).forEach(function (k) { if (_CLOUD_LOCAL_ONLY.indexOf(k) === -1) d[k] = w.data[k]; });
+        if (d.profile) { d.profile = Object.assign({}, d.profile); delete d.profile.photo; delete d.profile.loginMethod; }
+        d._ls = {};
+        _CLOUD_LS_KEYS.forEach(function (k) { try { var v = localStorage.getItem(k); if (v != null) d._ls[k] = v; } catch (e) {} });
+        var r = await supabase.from('app_state').upsert({ user_id: uid, data: d, updated_at: now }, { onConflict: 'user_id' }).select('updated_at').maybeSingle();
+        if (r.error) ok = false;
+        else { w.data._cloudSyncedAt = (r.data && Date.parse(r.data.updated_at)) || Date.now(); localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(w)); }
+      }
+    } catch (e) { ok = false; }
+    // 🎁 Mukofot tarixi (reward_log): bulutda yo'q yozuvlar qo'shiladi, mahalliy id'lar bulutdagisiga almashtiriladi
+    try {
+      var cl = await supabase.from('reward_log').select('id').eq('user_id', uid).limit(2000);
+      if (!cl.error) {
+        var have = {}; (cl.data || []).forEach(function (x) { have[x.id] = 1; });
+        var sync = async function (list, kind) {
+          var miss = list.filter(function (x) { return x && !have[x._cloudId || x.id]; }).slice(0, 500);
+          for (var i = 0; i < miss.length; i += 100) {
+            var part = miss.slice(i, i + 100);
+            var ins = await supabase.from('reward_log').insert(part.map(function (x) {
+              return { user_id: uid, kind: kind, reward_id: x.rewardId != null ? String(x.rewardId) : null, reward_title: x.rewardTitle || '', rtype: x.rtype || 'count',
+                amount: x.amount > 0 ? x.amount : 1, icon: x.icon || '🎁', coins_spent: x.coinsSpent != null ? x.coinsSpent : null,
+                penalty_coins: x.penaltyCoins != null ? x.penaltyCoins : null, created_at: x.timestamp || now };
+            })).select('id');
+            if (ins.error || !ins.data) return list;
+            part.forEach(function (x, j) { if (ins.data[j]) { x.id = ins.data[j].id; x._cloudId = ins.data[j].id; } });
+          }
+          return list;
+        };
+        savePurchaseHistory(await sync(loadPurchaseHistory(), 'purchase'));
+        saveUsageHistory(await sync(loadUsageHistory(), 'usage'));
+      }
+    } catch (e) {}
+  }
+  if (hasTasks) {
+    try {
+      var tasks = readLocalTasks(), order = [];
+      try { order = (JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || '{}').data || {}).taskOrder || []; } catch (e) {}
+      var rows = tasks.map(function (tk, i) {
+        var oi = order.indexOf(tk.id);
+        return { user_id: uid, task_id: Number(tk.id), order_index: oi === -1 ? order.length + i : oi, task_data: tk, updated_at: now };
+      }).filter(function (x) { return isFinite(x.task_id); });
+      for (var i = 0; i < rows.length; i += 200) {
+        var u = await supabase.from('todos').upsert(rows.slice(i, i + 200), { onConflict: 'user_id,task_id' });
+        if (u.error) { ok = false; break; }
+      }
+      if (ok) {
+        var cur = await supabase.from('todos').select('task_id').eq('user_id', uid);
+        var keep = {}; rows.forEach(function (x) { keep[x.task_id] = 1; });
+        var del = ((cur && cur.data) || []).map(function (x) { return x.task_id; }).filter(function (id) { return !keep[id]; });
+        for (var j = 0; j < del.length; j += 200) {
+          var dr = await supabase.from('todos').delete().eq('user_id', uid).in('task_id', del.slice(j, j + 200));
+          if (dr.error) { ok = false; break; }
+        }
+        _cloudTaskIdsSave(rows.map(function (x) { return x.task_id; }));
+        _lastSyncedTasks = {};
+        rows.forEach(function (x) { _lastSyncedTasks[x.task_id] = JSON.stringify(x.task_data); });
+        _cloudQueueReset(uid);
+      }
+    } catch (e) { ok = false; }
+  }
+  return ok;
+}
+
+// 🛡 Focusgate sozlamalari: akkaunt bo'lsa darhol serverga (PIN/qat'iy rejim/ota-ona nazorati joriydan qoladi),
+// bo'lmasa — keyingi ulanishda blocker.js qo'llaydi (ludFgImport)
+async function _importFgConfig(fg) {
+  if (!fg) return true;
+  if (!(S.cloudLinked && S.cloudUserId && window.supabase)) { try { localStorage.setItem('ludFgImport', JSON.stringify(fg)); } catch (e) {} return true; }
+  try {
+    var r = await supabase.from('fg_config').select('config').eq('user_id', S.cloudUserId).maybeSingle();
+    var cur = (r && r.data && r.data.config) || {};
+    if (cur.strict) { toast('🔐 Focusgate: ' + _cl('qat\'iy rejim yoqilgan — limitlar tiklanmadi', 'strict mode is on — limits were not restored', 'строгий режим — лимиты не восстановлены')); return false; }
+    var nc = Object.assign({}, cur, fg);
+    _FG_KEEP.forEach(function (k) { if (cur[k] !== undefined) nc[k] = cur[k]; else delete nc[k]; });
+    var u = await supabase.from('fg_config').upsert({ user_id: S.cloudUserId, config: nc, updated_at: new Date().toISOString() });
+    return !u.error;
+  } catch (e) { return false; }
 }
 
 // Export/Import PIN so'rovlari uchun CodeSlots. UIKit yuklanmagan bo'lsa —
@@ -9186,8 +9374,12 @@ function applyImportedBackup(backup) {
   }
 }
 
-function _finishApplyImportedBackup(backup) {
+async function _finishApplyImportedBackup(backup) {
   try {
+    window._ludImporting = true; // import tugaguncha eski holat bulutga/diskka yozilmasin
+    try { if (_appStateTimer) { clearTimeout(_appStateTimer); _appStateTimer = null; } } catch (e) {}
+    try { if (_cloudSyncTimer) { clearTimeout(_cloudSyncTimer); _cloudSyncTimer = null; } } catch (e) {}
+    try { if (_todosCloudSyncTimer) { clearTimeout(_todosCloudSyncTimer); _todosCloudSyncTimer = null; } } catch (e) {}
     // "isAll" normalizeImportedBackup() da hisoblab qo'yilgan — lekin
     // eski/qo'lda tuzilgan backuplar uchun ham xavfsiz fallback qilamiz.
     var isFullImport = typeof backup.isAll === 'boolean'
@@ -9211,6 +9403,44 @@ function _finishApplyImportedBackup(backup) {
         localStorage.setItem(k, backup.keys[k]);
       }
     });
+
+    // 🧷 Qurilma/akkauntga xos maydonlar (bulut ulanishi, egasi) va eksportda olib tashlangan profil maydonlari
+    // joriy holatdan qoladi — aks holda boshqa akkaunt backup'i bu qurilmani "o'ziniki" qilib qo'yardi, nik yo'qolardi
+    var hasStateInBackup = typeof backup.keys[LOCAL_STATE_KEY] === 'string' || typeof backup.keys['__rewards__'] === 'string' || typeof backup.keys['__exams__'] === 'string';
+    if (typeof backup.keys[LOCAL_STATE_KEY] === 'string') {
+      try {
+        var sw = JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || 'null');
+        if (sw && sw.data) {
+          _CLOUD_LOCAL_ONLY.forEach(function (k) { if (k === 'tasks') return; if (S[k] === undefined) delete sw.data[k]; else sw.data[k] = S[k]; });
+          // Akkauntda tanga/XP/olmos server manbasi (tarixi bilan) — fayldan olinmaydi
+          if (S.cloudLinked && S.cloudUserId) _CLOUD_ECON.forEach(function (k) { if (S[k] !== undefined) sw.data[k] = S[k]; });
+          var cp = S.profile || {};
+          sw.data.profile = sw.data.profile || {};
+          ['name', 'photo', 'country', 'language', 'loginMethod'].forEach(function (k) { if (cp[k] != null && !sw.data.profile[k]) sw.data.profile[k] = cp[k]; });
+          sw.updated_at = new Date().toISOString();
+          localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sw));
+        }
+      } catch (e) { console.warn('Import: holatni moslashda xatolik', e); }
+    }
+
+    // 🎁 Mukofotlar (alohida eksport): ro'yxat, olinganlar/jarimalar va xarid/foydalanish tarixi
+    if (typeof backup.keys['__rewards__'] === 'string') {
+      try {
+        var rw = JSON.parse(backup.keys['__rewards__']) || {};
+        var rwWrap = JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || 'null') || { data: {} };
+        if (!rwWrap.data) rwWrap.data = {};
+        if (Array.isArray(rw.rewards)) rwWrap.data.rewards = rw.rewards;
+        if (rw.rewardClaims) rwWrap.data.rewardClaims = rw.rewardClaims;
+        if (rw.rewardPenalties) rwWrap.data.rewardPenalties = rw.rewardPenalties;
+        rwWrap.updated_at = new Date().toISOString();
+        localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(rwWrap));
+        if (typeof rw.purchase === 'string') localStorage.setItem(PURCHASE_HISTORY_KEY, rw.purchase);
+        if (typeof rw.usage === 'string') localStorage.setItem(USAGE_HISTORY_KEY, rw.usage);
+      } catch (e) { console.warn('Import: mukofotlarda xatolik', e); }
+    }
+
+    // 🎨 Sozlamalar va pomodoro tarixi ('todolist_'siz kalitlar)
+    if (backup.ls) Object.keys(backup.ls).forEach(function (k) { try { localStorage.setItem(k, backup.ls[k]); } catch (e) {} });
 
     if (typeof backup.keys['__exams__'] === 'string') {
       try {
@@ -9260,6 +9490,7 @@ function _finishApplyImportedBackup(backup) {
       if (expectedTaskCount > 0 && verifyTasks.length !== expectedTaskCount) {
         console.warn('Import tekshiruvi mos kelmadi: kutilgan', expectedTaskCount, 'topilgan', verifyTasks.length);
         toast(t('data_import_error'));
+        window._ludImporting = false;
         return; // sahifani qayta yuklamaymiz — muvaffaqiyatsiz importdan keyin bo'sh holatga tushib qolmaslik uchun
       }
     }
@@ -9273,11 +9504,22 @@ function _finishApplyImportedBackup(backup) {
     try { if (typeof renderIeltsTab === 'function') renderIeltsTab(); } catch(e) {}
     try { if (typeof renderSatTab === 'function') renderSatTab(); } catch(e) {}
 
+    // ☁️ Akkaunt va Focusgate — reload'dan oldin bulutga yozamiz
+    var cloudOk = true;
+    if (S.cloudLinked && S.cloudUserId) toast('☁️ ' + _cl('Akkauntga yozilmoqda…', 'Saving to your account…', 'Сохранение в аккаунт…'));
+    try { cloudOk = await _importPushCloud(hasTasksInBackup, hasStateInBackup); } catch (e) { cloudOk = false; }
+    try { if (!(await _importFgConfig(backup.fg))) cloudOk = false; } catch (e) { cloudOk = false; }
+    if (!cloudOk) {
+      toast('⚠️ ' + _cl('Qurilmaga tiklandi, lekin akkauntga to\'liq yozilmadi — internetni tekshirib, qayta import qiling', 'Restored on this device, but not fully saved to your account — check your internet and import again', 'Восстановлено на устройстве, но не полностью в аккаунте — проверьте интернет и повторите'));
+      setTimeout(function () { location.reload(); }, 3500);
+      return;
+    }
     toast(t('data_import_success'));
     setTimeout(function() {
       location.reload();
     }, 900);
   } catch(err) {
+    window._ludImporting = false;
     console.warn('Import qo\u2019llash xatosi:', err);
     toast(t('data_import_error'));
   }
@@ -27987,7 +28229,7 @@ function _cloudDeviceType() {
 }
 var _cloudSyncTimer = null;
 function scheduleCloudSync(immediate) {
-  if (!S.cloudLinked || !S.cloudUserId) return;
+  if (!S.cloudLinked || !S.cloudUserId || window._ludImporting) return;
   // Bulutdan holat tiklanmaguncha profilni yozmaymiz (tasks_completed/coins
   // yangi qurilmada nol bo'lib bulutni bosib yubormasligi uchun).
   if (!window._cloudPullDone || !_cloudOwnerOk()) return;
@@ -34850,7 +35092,7 @@ function _cloudTaskIdsSet(id, on) {
 }
 var _cloudTodosBusy = false;
 async function _cloudRefreshTodos() {
-  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _cloudTodosBusy) return false;
+  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _cloudTodosBusy || window._ludImporting) return false;
   if (Object.keys(_pendingTodoUpserts).length || Object.keys(_pendingTodoDeletes).length || _todosCloudSyncTimer) return false;
   _cloudTodosBusy = true;
   try {
@@ -34895,6 +35137,7 @@ var _cloudRefreshBusy = false;
 var _cloudRefreshAgain = false;
 function _cloudRefreshAppState(showToast) {
   if (_cloudRefreshBusy) { _cloudRefreshAgain = true; return; }
+  if (window._ludImporting) return;
   if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone) return;
   _cloudRefreshBusy = true;
   // Mahalliy, hali yuborilmagan o'zgarish bo'lsa — avval uni yuboramiz (aks holda yo'qolardi)
@@ -34916,7 +35159,7 @@ function _cloudRefreshAppState(showToast) {
 // Yengil tekshiruv: faqat updated_at o'qiladi, o'zgargan bo'lsa to'liq tortiladi.
 var _catchUpAt = 0, _catchTodosAt = '', _catchBusy = false;
 async function _cloudCatchUp(force) {
-  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _catchBusy) return;
+  if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _catchBusy || window._ludImporting) return;
   if (!force && Date.now() - _catchUpAt < 4000) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   _catchBusy = true; _catchUpAt = Date.now();
@@ -34952,6 +35195,7 @@ window.addEventListener('pageshow', function (e) { if (e.persisted) _cloudCatchU
 setInterval(function () { if (document.visibilityState === 'visible') _cloudCatchUp(false); }, 20000);
 
 function scheduleAppStateSync(immediate) {
+  if (window._ludImporting) return;
   if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || !_cloudOwnerOk()) return;
   if (_appStateTimer) clearTimeout(_appStateTimer);
   var run = async function () {
