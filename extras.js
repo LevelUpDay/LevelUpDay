@@ -3450,6 +3450,8 @@
 
   function boot() {
     try { markMovedTabs(); buildBottomNav(); renderInstallUI(); handleLaunchAction(); } catch (e) { console.warn('[extras nav]', e); }
+    // Ko'rinish tayyor — yuklanish pardasini ochamiz (index.html)
+    try { requestAnimationFrame(function () { if (window.ludUiReady) window.ludUiReady(); }); } catch (e) { if (window.ludUiReady) window.ludUiReady(); }
     try { renderPushSettings(); setTimeout(window.xPushAuto, 4000); } catch (e) { console.warn('[push]', e); }
     try { setTimeout(window.xRenderTgSettings, 1500); } catch (e) {}
     try { setTimeout(window.xRenderTzSettings, 1600); } catch (e) {}
@@ -3475,7 +3477,9 @@
     var host = document.getElementById('profile-header-text'); if (host) mo.observe(host, { childList: true });
     setInterval(function () { try { renderTasksExtras(); } catch (e) {} }, 60000);
   }
-  if (document.readyState === 'complete') setTimeout(boot, 600); else window.addEventListener('load', function () { setTimeout(boot, 600); });
+  // Asosiy ilova (bootSharedApp) tayyor bo'lishi bilan — qat'iy 600 ms kutmasdan (parda tezroq ochiladi)
+  var bootWhenReady = function () { var n = 0; (function w() { if (window._appBooted || n++ > 80) boot(); else setTimeout(w, 25); })(); };
+  if (document.readyState === 'complete') bootWhenReady(); else window.addEventListener('load', bootWhenReady);
 })();
 
 // ============================================================

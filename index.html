@@ -15,21 +15,23 @@
 <script>
 /* ⏳ Akkauntga ulangan qurilmada: bulutdan yangi ma'lumot kelguncha eski (qurilmadagi) nusxani ko'rsatmaymiz —
    aks holda 1 soniya eski tanga/XP/vazifalar ko'rinib, keyin almashardi. Oflayn bo'lsa yoki 3.5 s o'tsa — baribir ochiladi. */
+/* Parda 2 ta shart bilan ochiladi: (1) ilova o'z ko'rinishini qurib bo'ldi (ludUiReady — aks holda bir zum
+   xom/eski HTML ko'rinardi); (2) faqat akkauntga shu qurilmada birinchi kirishda — bulutdan ma'lumot keldi (ludBootDone). */
 (function () {
+  var root = document.documentElement, ui = false, cloud = true, done = false;
+  var open = function () { if (done || !ui || !cloud) return; done = true; root.classList.remove('lud-boot'); };
   try {
     var st = localStorage.getItem('todolist_app_state') || '';
     var hasSess = false;
     for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('sb-') === 0 && k.indexOf('auth-token') !== -1) { hasSess = true; break; } }
-    if (st.indexOf('"cloudLinked":true') === -1 || !hasSess || navigator.onLine === false) return;
-    // Shu akkauntning ma'lumoti qurilmada allaqachon bor (avval yuklangan) — kutmasdan darhol ochamiz,
-    // bulut bilan solishtirish fonda bo'ladi. Parda faqat akkauntga birinchi kirishda.
     var mO = st.match(/"_stateOwner":"([^"]+)"/), mU = st.match(/"cloudUserId":"([^"]+)"/);
-    if (mO && mU && mO[1] === mU[1]) return;
-    var root = document.documentElement;
-    root.classList.add('lud-boot');
-    window.ludBootDone = function () { root.classList.remove('lud-boot'); };
-    setTimeout(window.ludBootDone, 3500);
+    // Shu akkauntning ma'lumoti qurilmada bor — bulutni kutmaymiz (solishtirish fonda bo'ladi)
+    if (st.indexOf('"cloudLinked":true') !== -1 && hasSess && navigator.onLine !== false && !(mO && mU && mO[1] === mU[1])) cloud = false;
   } catch (e) {}
+  root.classList.add('lud-boot');
+  window.ludUiReady = function () { ui = true; open(); };
+  window.ludBootDone = function () { cloud = true; open(); };
+  setTimeout(function () { ui = true; cloud = true; open(); }, cloud ? 2500 : 3500);
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
