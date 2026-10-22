@@ -26,6 +26,15 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').then(function (reg) {
       try { reg.update(); } catch (e) {}
     }).catch(function (err) { console.log('SW error:', err); });
+    // 🔄 Yangi versiya o'rnatildi (yangi SW boshqaruvni oldi) — sahifa keshdagi eski koddan ochilgan bo'lsa, bir marta yangilaymiz.
+    // Faqat ilova ochilganiga 20 soniya bo'lmagan bo'lsa (ishlayotgan paytda to'satdan qayta yuklanmasin) va sessiyada bir marta.
+    var _swHad = !!navigator.serviceWorker.controller, _swAt = Date.now();
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      try {
+        if (!_swHad || Date.now() - _swAt > 20000 || sessionStorage.getItem('ludSwReload')) return;
+        sessionStorage.setItem('ludSwReload', '1'); location.reload();
+      } catch (e) {}
+    });
   });
 }
 
