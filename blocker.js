@@ -12,7 +12,7 @@
   function L(uz, en, ru) { try { if (typeof _cl === 'function') return _cl(uz, en, ru); } catch (e) {} return uz; }
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
-  var AGENT_VERSION = '0.6.5'; // downloads/version.json bilan bir xil bo'lsin
+  var AGENT_VERSION = '0.6.6'; // downloads/version.json bilan bir xil bo'lsin
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
   // 🐧 Linux: bir qatorli o'rnatish (arxitekturani o'zi tanlaydi, sha256 ni tekshiradi) yoki to'g'ridan-to'g'ri fayl
   var LINUX_CMD = 'curl -fsSL https://levelupday.github.io/LevelUpDay/downloads/install-linux.sh | sh';
@@ -296,7 +296,7 @@
       // Yaqinda saqlangan bo'lsa — serverdan kelgan (eskirgan bo'lishi mumkin) nusxa ustiga yozilmaydi
       if (!FG.cfg || Date.now() - (FG.dirtyAt || 0) > 10000) FG.cfg = Object.assign({ track: true, notif: true, strict: false, rules: [], focusApps: [], focusUntil: 0 }, c || {});
       setTimeout(function () { try { strictTick(); } catch (e) {} }, 0);
-      try { if (!_ruleSnap) logRuleChanges({ rules: FG.cfg.rules || [] }); } catch (e) {}
+      try { if (!_ruleSnap) logRuleChanges({ rules: FG.cfg.rules || [] }); applyCustomCats(); } catch (e) {}
       (FG.cfg.rules || []).forEach(function (r, i) { if (!r.id) r.id = 'r' + Date.now().toString(36) + i; });
       try { if (FG.devices.length && FG.cfg.lang !== getLang()) setTimeout(saveCfg, 0); } catch (e) {}
       FG.rows = (res[2] && res[2].data) || []; _dmCache = {};
@@ -314,7 +314,8 @@
   var _saveT = 0;
   function saveCfg() {
     if (!real()) return;
-    try { FG.cfg.lang = getLang(); } catch (e) {} // Windows agenti va kengaytma shu tilda yozadi
+    try { FG.cfg.lang = FG.cfg.langOverride || getLang(); } catch (e) {} // agent va kengaytma shu tilda yozadi (Sozlamalarda alohida tanlash mumkin)
+    try { FG.cfg.tzOff = new Date().getTimezoneOffset(); bakPush(FG.cfg); } catch (e) {}
     try { logRuleChanges(FG.cfg); } catch (e) {}
     // 📝 Blok sahifasida "buning o'rniga" — bugungi ochiq vazifalar (3 ta)
     try { var tk = (window.xTodaysOpenTasks ? window.xTodaysOpenTasks() : []).slice(0, 3).map(function (t) { return { t: String(t.name || '').slice(0, 80) }; }); FG.cfg.tasks = tk; } catch (e) {}
@@ -1277,7 +1278,7 @@
   }
 
   // ---------- ⚙️ Sozlamalar ----------
-  function settingsRows() {
+  function settingsRows(only) {
     var c = cfg();
     var rows = [
       ['track', '👁', ['Foydalanish vaqtini kuzatish', 'Track usage time', 'Отслеживать время'], ['Dastur va saytlarda o\'tkazilgan vaqt hisoblanadi', 'Counts time spent in apps and sites', 'Считает время в приложениях и на сайтах'], c.track !== false],
@@ -1289,10 +1290,16 @@
       ['tg', '✈️', ['Telegram\'ga xabar', 'Telegram alerts', 'Сообщения в Telegram'], [FG.tg ? 'Dastur bloklansa yoki limit tugasa — botdan xabar' : 'Telegram ulanmagan — Profil → Sozlamalar → Telegram', FG.tg ? 'Message from the bot when something is blocked or a limit ends' : 'Telegram not connected — Profile → Settings → Telegram', FG.tg ? 'Сообщение от бота при блокировке или исчерпании лимита' : 'Telegram не подключён — Профиль → Настройки → Telegram'], !!(FG.tg && FG.tg.enabled && !(FG.tg.prefs && FG.tg.prefs.fg === false))],
       ['eye', '👁', ['Ko\'z uchun 20-20-20', 'Eye break 20-20-20', 'Глаза: 20-20-20'], ['Har 20 daqiqa uzluksiz ekranda — 20 soniya uzoqqa qarash eslatmasi (Focusgate dasturi)', 'Every 20 minutes on screen — a reminder to look away for 20 seconds (Focusgate app)', 'Каждые 20 минут — напоминание посмотреть вдаль 20 секунд'], !!c.eye],
       ['offlineAlert', '🚨', ['Qurilma o\'chsa — Telegram', 'Device went offline — Telegram', 'Устройство офлайн — Telegram'], ['Focusgate yopilsa yoki kengaytma o\'chirilsa (12 daqiqa aloqa yo\'q) — botdan xabar', 'If Focusgate is closed or the extension is turned off (12 min without contact) — a bot message', 'Если Focusgate закрыт или расширение выключено (12 мин без связи) — сообщение бота'], c.offlineAlert !== false],
+      ['notifBlock', '⛔', ['Bloklanganda xabar', 'Notify on block', 'Сообщать о блокировке'], ['Dastur yopilsa yoki sayt bloklansa (kompyuter va Telegram)', 'When an app is closed or a site blocked (computer and Telegram)', 'Когда приложение закрыто или сайт заблокирован'], c.notifBlock !== false],
+      ['notifWarn', '⏳', ['Limit ogohlantirishi', 'Limit warnings', 'Предупреждения о лимите'], ['Limit tugashiga oz qolganda', 'When a limit is about to run out', 'Когда лимит заканчивается'], c.notifWarn !== false],
+      ['focusPing', '📣', ['Fokusni do\'stlarga xabar qilish', 'Tell friends when I focus', 'Сообщать друзьям о фокусе'], ['Fokus boshlasangiz — Telegram\'dagi do\'stlarga "qo\'shiling" xabari', 'When you start focus — friends on Telegram get a "join" message', 'При старте фокуса друзья в Telegram получат приглашение'], c.focusPing !== false],
+      ['shareScreen', '📱', ['Ekran vaqtimni ko\'rsatish', 'Show my screen time', 'Показывать экранное время'], ['O\'chirilsa — do\'stlar faqat fokus vaqtingizni ko\'radi', 'Off — friends only see your focus time', 'Выкл — друзья видят только фокус'], c.shareScreen !== false],
+      ['parent', '👪', ['Ota-ona rejimi', 'Parent mode', 'Родительский режим'], ['Limitlar, Block va Sozlamalar faqat PIN bilan ochiladi (PIN ota-onada)', 'Limits, Block and Settings open only with the PIN (kept by a parent)', 'Лимиты, блокировки и настройки — только по PIN (у родителя)'], !!c.parent],
       ['tgweekly', '📊', ['Haftalik hisobot (Telegram)', 'Weekly report (Telegram)', 'Недельный отчёт (Telegram)'], ['Har yakshanba kechqurun: ekran vaqti, o\'tgan hafta bilan taqqoslash, top ilovalar', 'Every Sunday evening: screen time, week-over-week change, top apps', 'Каждое воскресенье вечером: экранное время, сравнение с прошлой неделей, топ приложений'], !!(FG.tg && FG.tg.enabled && !(FG.tg.prefs && (FG.tg.prefs.fg === false || FG.tg.prefs.fgweekly === false)))]
     ];
+    if (only) rows = only.map(function (k) { return rows.filter(function (r) { return r[0] === k; })[0]; }).filter(Boolean);
     return rows.map(function (r) {
-      return '<div class="fg-opt"><span class="fg-set-ic">' + r[1] + '</span><span class="fg-set-t"><b>' + E(T(r[2])) + '</b><small>' + E(T(r[3])) + '</small></span>' + sw(r[4], 'data-fg-set="' + r[0] + '"', (r[0] === 'tg' || r[0] === 'tgweekly') && !FG.tg) + '</div>';
+      return '<div class="fg-opt" data-name="' + E((T(r[2]) + ' ' + T(r[3])).toLowerCase()) + '"><span class="fg-set-ic">' + r[1] + '</span><span class="fg-set-t"><b>' + E(T(r[2])) + '</b><small>' + E(T(r[3])) + '</small></span>' + sw(r[4], 'data-fg-set="' + r[0] + '"', (r[0] === 'tg' || r[0] === 'tgweekly') && !FG.tg) + '</div>';
     }).join('');
   }
   // 🔗 Ulangan qurilmalar: har bir kompyuter ichida uning brauzer kengaytmasi (ulangan / ulanmagan),
@@ -1365,8 +1372,89 @@
   }
   function pageSettings() {
     loadLockReqs();
-    return lockReqsHtml() + '<div class="fg-card fg-set">' + settingsRows() + '</div>' + extraSettingsHtml() + (real() ? hiddenCardHtml() : '') + '<button type="button" class="fg-allbtn" data-fg-weekly><span>📊</span><b>' + E(L('Haftalik hisobot', 'Weekly report', 'Недельный отчёт')) + '</b><em>7 ' + E(L('kun', 'days', 'дн.')) + '</em><i>›</i></button>' + devicesHtml() + (real() ? '<div class="fg-card">' + codeFormHtml() + '</div>' : '') + getCards() +
-      '<div class="fg-hint">⚙️ ' + E(L('Bu sozlamalar Profil → Sozlamalar → Focusgate bo\'limida ham bor.', 'These settings also live in Profile → Settings → Focusgate.', 'Эти настройки также есть в Профиль → Настройки → Focusgate.')) + '</div>';
+    var sec = function (t, body) { return body ? '<div class="fg-sec"><div class="fg-group-t">' + t + '</div>' + body + '</div>' : ''; };
+    var card = function (x) { return x ? '<div class="fg-card fg-set">' + x + '</div>' : ''; };
+    return lockReqsHtml() +
+      '<input class="fg-in fg-lsearch" type="search" data-fg-setsearch placeholder="🔍 ' + E(L('Sozlamalardan qidirish…', 'Search settings…', 'Поиск по настройкам…')) + '">' +
+      (real() ? '<div class="fg-row2"><button type="button" class="fg-btn ghost" data-fg-diag>🩺 ' + E(L('Diagnostika', 'Diagnostics', 'Диагностика')) + '</button><button type="button" class="fg-btn ghost" data-fg-backup>💾 ' + E(L('Zaxira', 'Backup', 'Резерв')) + '</button><button type="button" class="fg-btn ghost" data-fg-cats>🗂 ' + E(L('Kategoriyalar', 'Categories', 'Категории')) + '</button></div>' : '') +
+      sec('👁 ' + E(L('Kuzatuv va bildirishnomalar', 'Tracking & notifications', 'Отслеживание и уведомления')), card(settingsRows(['track', 'notif', 'notifBlock', 'notifWarn', 'eye', 'tg', 'tgweekly', 'offlineAlert']) + quietRow())) +
+      sec('🔐 ' + E(L('Himoya va limitlar', 'Protection & limits', 'Защита и лимиты')), card(settingsRows(['strict', 'parent'])) + extraSettingsHtml()) +
+      sec('🏆 ' + E(L('Fokus va reyting', 'Focus & rankings', 'Фокус и рейтинг')), card(settingsRows(['linkFocus', 'reward', 'share', 'shareScreen', 'focusPing']))) +
+      sec('⚙️ ' + E(L('Boshqa', 'Other', 'Другое')), card(otherRows()) + (real() ? hiddenCardHtml() : '') + '<button type="button" class="fg-allbtn" data-fg-weekly><span>📊</span><b>' + E(L('Haftalik hisobot', 'Weekly report', 'Недельный отчёт')) + '</b><em>7 ' + E(L('kun', 'days', 'дн.')) + '</em><i>›</i></button>') +
+      sec('📱 ' + E(L('Qurilmalar', 'Devices', 'Устройства')), devHealthHtml() + devicesHtml() + (real() ? '<div class="fg-card">' + codeFormHtml() + '</div>' : '') + getCards()) +
+      '<div class="fg-hint">⚙️ ' + E(L('Bu sozlamalar Profil → Sozlamalar → Focusgate bo\'limida ham bor.', 'These settings also live in Profile → Settings → Focusgate.', 'Эти настройки есть и в Профиль → Настройки → Focusgate.')) + '</div>';
+  }
+  var EXT_VERSION = '0.6.6'; // downloads/version.json → ext
+  function selHtml(attr, val, opts) { return '<select class="fg-sel" ' + attr + '>' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + E(o[1]) + '</option>'; }).join('') + '</select>'; }
+  // 🌙 Tungi jim rejim (cfg.quiet; cfg.tzOff — server Telegram uchun)
+  function quietRow() {
+    if (!real()) return '';
+    var q = cfg().quiet;
+    return '<div class="fg-opt" data-name="tungi jim night quiet ночь"><span class="fg-set-ic">🌙</span><span class="fg-set-t"><b>' + E(L('Tungi jim rejim', 'Quiet hours', 'Тихие часы')) + '</b><small>' + E(L('Shu oraliqda bildirishnoma va Telegram xabari kelmaydi', 'No notifications or Telegram messages in this window', 'В это время без уведомлений и Telegram')) + '</small></span>' +
+      '<span class="fg-qt"><input type="time" class="fg-in" data-fg-qfrom value="' + E(q ? q.from : '') + '"><input type="time" class="fg-in" data-fg-qto value="' + E(q ? q.to : '') + '"></span></div>';
+  }
+  function otherRows() {
+    if (!real()) return '';
+    var c = cfg();
+    return '<div class="fg-opt" data-name="til language язык"><span class="fg-set-ic">🌐</span><span class="fg-set-t"><b>' + E(L('Dastur va kengaytma tili', 'App & extension language', 'Язык программы и расширения')) + '</b><small>' + E(L('Saytdagidan alohida tanlash mumkin', 'Can differ from the website', 'Можно отдельно от сайта')) + '</small></span>' + selHtml('data-fg-langov', c.langOverride || '', [['', L('Sayt bilan bir xil', 'Same as website', 'Как на сайте')], ['uz', "O'zbekcha"], ['en', 'English'], ['ru', 'Русский']]) + '</div>' +
+      '<div class="fg-opt" data-name="saqlash muddati keep retention хранение"><span class="fg-set-ic">🧹</span><span class="fg-set-t"><b>' + E(L('Statistikani saqlash muddati', 'Keep statistics for', 'Хранить статистику')) + '</b><small>' + E(L('Eskisi har kuni serverdan o\'chiriladi', 'Older data is deleted from the server daily', 'Старые данные удаляются ежедневно')) + '</small></span>' + selHtml('data-fg-keep', c.keepDays || '', [['', L('Cheklanmagan', 'Forever', 'Без ограничений')], [30, '30 ' + L('kun', 'days', 'дней')], [90, '90 ' + L('kun', 'days', 'дней')], [365, '1 ' + L('yil', 'year', 'год')]]) + '</div>';
+  }
+  // 📱 Qurilmalar holati: eskirgan versiya + masofaviy yangilash / qayta ishga tushirish (cfg.cmd)
+  function verLt(a, b) { a = String(a || '').replace(/^(ext|android)-/, '').split('.'); b = String(b).split('.'); for (var i = 0; i < 3; i++) { var x = +a[i] || 0, y = +b[i] || 0; if (x !== y) return x < y; } return false; }
+  function devHealthHtml() {
+    if (!real()) return '';
+    var old = FG.devices.filter(function (d) { var k = devKind(d); return d.agent_version && (k === 'pc' ? verLt(d.agent_version, AGENT_VERSION) : k === 'ext' ? verLt(d.agent_version, EXT_VERSION) : false); });
+    return '<div class="fg-card fg-set">' + (old.length ? '<div class="fg-extnote"><span>⬆️</span><div><b>' + E(L('Eskirgan versiya', 'Outdated version', 'Устаревшая версия')) + ': ' + E(old.map(function (d) { return devName(d) + ' (v' + String(d.agent_version).replace(/^ext-/, '') + ')'; }).join(', ')) + '</b><small>' + E(L('Kompyuter: "Yangilash" tugmasi. Kengaytma: yangi ZIP ni qayta o\'rnating (Chrome qo\'lda o\'rnatilganini o\'zi yangilamaydi).', 'Computer: press "Update". Extension: reinstall the new ZIP (Chrome doesn\'t auto-update unpacked extensions).', 'Компьютер: «Обновить». Расширение: переустановите новый ZIP.')) + '</small></div></div>' : '') +
+      '<div class="fg-opt"><span class="fg-set-ic">🔄</span><span class="fg-set-t"><b>' + E(L('Barcha qurilmalarda', 'On all devices', 'На всех устройствах')) + '</b><small>' + E(L('Buyruq 30 soniyada yetib boradi', 'The command arrives within 30 s', 'Команда дойдёт за 30 с')) + '</small></span><button type="button" class="fg-btn sm ghost" data-fg-cmd="restart">♻️ ' + E(L('Qayta ishga tushirish', 'Restart', 'Перезапустить')) + '</button><button type="button" class="fg-btn sm" data-fg-cmd="update">⬆️ ' + E(L('Yangilash', 'Update', 'Обновить')) + '</button></div></div>';
+  }
+  // 🩺 Diagnostika
+  function openDiag() {
+    var c = cfg(), pcs = FG.devices.filter(function (d) { return devKind(d) === 'pc'; }), exts = FG.devices.filter(function (d) { return devKind(d) === 'ext'; });
+    var ck = [];
+    ck.push([FG.devices.length > 0, L('Qurilma ulangan', 'A device is connected', 'Устройство подключено'), FG.devices.length + ' ' + L('ta', '', 'шт.')]);
+    pcs.forEach(function (d) { ck.push([devOn(d), '💻 ' + devName(d), devOn(d) ? L('ishlayapti', 'running', 'работает') : L('oflayn: ', 'offline: ', 'офлайн: ') + ago(d.last_seen)]); if (d.agent_version) ck.push([!verLt(d.agent_version, AGENT_VERSION), '   v' + d.agent_version, verLt(d.agent_version, AGENT_VERSION) ? L('yangilash kerak → ', 'update to ', 'обновить до ') + AGENT_VERSION : 'OK']); });
+    exts.forEach(function (d) { ck.push([devOn(d), '🧩 ' + devName(d), devOn(d) ? L('ishlayapti', 'running', 'работает') : ago(d.last_seen)]); ck.push([!!d.parent_id, '   ' + L('Kompyuterga bog\'langan', 'Linked to a computer', 'Привязано к компьютеру'), d.parent_id ? 'OK' : L('Qurilmalar bo\'limida bog\'lang', 'link it under Devices', 'привяжите в «Устройствах»')]); if (d.incognito === false) ck.push([false, '   🕶 ' + L('Inkognito', 'Incognito', 'Инкогнито'), L('ruxsat berilmagan', 'not allowed', 'не разрешено')]); });
+    if (pcs.length && !exts.length) ck.push([false, '🧩 ' + L('Brauzer kengaytmasi', 'Browser extension', 'Расширение'), L('o\'rnatilmagan — saytlar faqat sarlavhadan aniqlanadi', 'not installed — sites detected by title only', 'не установлено')]);
+    ck.push([!!FG.tg, '✈️ Telegram', FG.tg ? (FG.tg.enabled ? 'OK' : L('o\'chiq', 'off', 'выкл')) : L('ulanmagan', 'not linked', 'не подключён')]);
+    ck.push([!c.pauseUntil || c.pauseUntil < Date.now(), '⏸ ' + L('Pauza', 'Pause', 'Пауза'), c.pauseUntil > Date.now() ? L('hozir pauza!', 'paused now!', 'сейчас пауза!') : 'OK']);
+    ck.push([!!FG.at && Date.now() - FG.at < 120000, '🔄 ' + L('Sinxronlash', 'Sync', 'Синхронизация'), FG.at ? ago(new Date(FG.at).toISOString()) : '—']);
+    openSheet('<h3>🩺 ' + E(L('Diagnostika', 'Diagnostics', 'Диагностика')) + '</h3><div class="fg-card fg-diag">' + ck.map(function (x) { return '<div class="fg-opt"><span class="fg-set-ic">' + (x[0] ? '✅' : '⚠️') + '</span><span class="fg-set-t"><b>' + E(x[1]) + '</b><small>' + E(x[2]) + '</small></span></div>'; }).join('') + '</div>' +
+      '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Yopish', 'Close', 'Закрыть')) + '</button><button type="button" class="fg-btn" data-fg-diagre>↻ ' + E(L('Qayta tekshirish', 'Check again', 'Проверить снова')) + '</button></div>');
+  }
+  // 💾 Zaxira: eksport / import (JSON) va oxirgi 5 holatga qaytish (har saqlashda — localStorage)
+  function bakKey() { return 'fgCfgBak_' + (S.cloudUserId || ''); }
+  function bakList() { try { return JSON.parse(localStorage.getItem(bakKey()) || '[]'); } catch (e) { return []; } }
+  function cleanCfg(c) { var x = JSON.parse(JSON.stringify(c || {})); ['over', 'cmd', 'tasks', 'lang', 'statsResetAt', 'focusPingAt', 'pauseUntil', 'focusUntil'].forEach(function (k) { delete x[k]; }); return x; }
+  function bakPush(c) {
+    try { var l = bakList(), j = JSON.stringify((c.rules || []).concat([c.modes || [], c.keywords || [], c.focusPlans || []])); if (l.length && l[l.length - 1].sig === j) return; l.push({ at: Date.now(), sig: j, cfg: cleanCfg(c) }); localStorage.setItem(bakKey(), JSON.stringify(l.slice(-5))); } catch (e) {}
+  }
+  function openBackup() {
+    var l = bakList().slice().reverse();
+    var o = openSheet('<h3>💾 ' + E(L('Zaxira', 'Backup', 'Резерв')) + '</h3><div class="fg-row2"><button type="button" class="fg-btn" data-bexp>⬇ ' + E(L('Eksport (JSON)', 'Export (JSON)', 'Экспорт (JSON)')) + '</button><label class="fg-btn ghost">⬆ ' + E(L('Import', 'Import', 'Импорт')) + '<input type="file" accept=".json,application/json" data-bimp hidden></label></div>' +
+      '<div class="fg-lbl">↩️ ' + E(L('Oldingi holatga qaytish', 'Restore an earlier state', 'Вернуть прежнее состояние')) + '</div><div class="fg-card">' + (l.length ? l.map(function (b, i) { var d = new Date(b.at); return '<div class="fg-opt"><span class="fg-set-t"><b>' + E(d.toLocaleString()) + '</b><small>' + E((b.cfg.rules || []).length + ' ' + L('ta limit', 'limits', 'лимитов')) + '</small></span><button type="button" class="fg-btn sm ghost" data-brst="' + i + '">↩️</button></div>'; }).join('') : '<div class="fg-empty sm">—</div>') + '</div>');
+    o.querySelector('[data-bexp]').onclick = function () { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'focusgate', v: 1, at: Date.now(), config: cleanCfg(cfg()) }, null, 2)], { type: 'application/json' })); a.download = 'focusgate-' + dayStr(0) + '.json'; a.click(); };
+    var apply = function (nc) { guard(function () { var c = cfg(), keep = { pin: c.pin, strict: c.strict, lockFriend: c.lockFriend, parent: c.parent }; if (c.strict) { toast('🔐 ' + L('Qat\'iy rejimda tiklab bo\'lmaydi', 'Not in strict mode', 'Нельзя в строгом режиме')); return; } FG.cfg = Object.assign({}, c, nc, keep); saveCfg(); closeSheet(); rerender(); toast('💾 ' + L('Tiklandi', 'Restored', 'Восстановлено')); }); };
+    o.querySelector('[data-bimp]').onchange = function () { var f = this.files[0]; if (!f) return; f.text().then(function (t) { try { var j = JSON.parse(t), nc = j.config || j; if (!Array.isArray(nc.rules)) throw 0; apply(nc); } catch (e) { toast('⚠️ ' + L('Fayl noto\'g\'ri', 'Invalid file', 'Неверный файл')); } }); };
+    o.querySelectorAll('[data-brst]').forEach(function (b) { b.onclick = function () { apply(l[+b.dataset.brst].cfg); }; });
+  }
+  // 🗂 O'z kategoriyalarim (cfg.customCats) va ilovalarni ommaviy ko'chirish
+  function applyCustomCats() {
+    for (var i = CAT_LIST.length - 1; i >= 0; i--) if (CAT_LIST[i][4]) CAT_LIST.splice(i, 1);
+    (cfg().customCats || []).forEach(function (x) { var n = [x.n, x.n, x.n]; CAT_LIST.splice(CAT_LIST.length - 1, 0, [x.id, x.i || '🏷', n, x.c || '#64748b', 1]); CATS[x.id] = n; });
+  }
+  function openCats() {
+    var c = cfg(), apps = knownApps().concat(installed().filter(function (a) { return !knownApps().some(function (k) { return k.id === a.id; }); })).slice(0, 80);
+    var o = openSheet('<h3>🗂 ' + E(L('Kategoriyalar', 'Categories', 'Категории')) + '</h3>' +
+      '<div class="fg-chips">' + (c.customCats || []).map(function (x, i) { return '<button type="button" data-ccdel="' + i + '">' + E((x.i || '🏷') + ' ' + x.n) + ' ✕</button>'; }).join('') + '</div>' +
+      '<div class="fg-codeform-r"><input class="fg-in" data-ccico maxlength="2" value="🏷" style="max-width:56px"><input class="fg-in" data-ccname maxlength="20" placeholder="' + E(L('Yangi kategoriya nomi', 'New category name', 'Название категории')) + '"><button type="button" class="fg-btn" data-ccadd>＋</button></div>' +
+      '<div class="fg-lbl">' + E(L('Ilovalarni ko\'chirish: belgilang va kategoriyani tanlang', 'Move apps: tick them and pick a category', 'Перенос: отметьте приложения и выберите категорию')) + '</div><div class="fg-card fg-pkl fg-ccapps">' + apps.map(function (a) { return '<label class="fg-all-r"><input type="checkbox" data-ccapp="' + E(a.id) + '">' + tile(a, 'sm') + '<span class="fg-all-n"><b>' + E(a.n) + '</b><small>' + E(T(CATS[catOf(a.id)] || CATS.other)) + '</small></span></label>'; }).join('') + '</div>' +
+      '<div class="fg-acts">' + selHtml('data-ccto', '', CAT_LIST.map(function (x) { return [x[0], x[1] + ' ' + T(x[2])]; })) + '<button type="button" class="fg-btn" data-ccmove>' + E(L('Ko\'chirish', 'Move', 'Перенести')) + '</button></div>');
+    o.querySelector('[data-ccadd]').onclick = function () { var n = o.querySelector('[data-ccname]').value.trim(); if (!n) return; (c.customCats = c.customCats || []).push({ id: 'u' + Date.now().toString(36), n: n.slice(0, 20), i: o.querySelector('[data-ccico]').value || '🏷', c: 'hsl(' + Math.floor(Math.random() * 360) + ',60%,55%)' }); applyCustomCats(); saveCfg(); openCats(); };
+    o.querySelectorAll('[data-ccdel]').forEach(function (b) { b.onclick = function () { var x = c.customCats.splice(+b.dataset.ccdel, 1)[0]; Object.keys(c.cats || {}).forEach(function (k) { if (c.cats[k] === x.id) delete c.cats[k]; }); applyCustomCats(); saveCfg(); openCats(); }; });
+    o.querySelector('[data-ccmove]').onclick = function () { var to = o.querySelector('[data-ccto]').value, n = 0; c.cats = c.cats || {}; o.querySelectorAll('[data-ccapp]:checked').forEach(function (x) { c.cats[x.dataset.ccapp] = to; n++; }); if (!n) return; saveCfg(); _dmCache = {}; closeSheet(); rerender(); toast('🗂 ' + n + ' → ' + T(catInfo(to)[2])); };
+  }
+  function parentLockHtml() {
+    return '<div class="fg-card fg-empty">👪 <b>' + E(L('Ota-ona rejimi', 'Parent mode', 'Родительский режим')) + '</b><p class="fg-p">' + E(L('Bu bo\'limni o\'zgartirish uchun PIN-kod kerak.', 'This section needs the PIN to change.', 'Для изменений нужен PIN.')) + '</p><button type="button" class="fg-btn" data-fg-unlock>🔑 ' + E(L('Ochish', 'Unlock', 'Открыть')) + '</button></div>';
   }
 
   // ---------- 🏆 Reyting: dunyo va do'stlar ----------
@@ -1375,8 +1463,14 @@
     if (!sbOk() || SOC.loading || (!force && Date.now() - SOC.at < 60000)) return;
     SOC.loading = true;
     try {
-      var r = await Promise.all([supabase.rpc('fg_world_stats', { p_days: 7 }), supabase.rpc('fg_friends_board', { p_days: 7 }), supabase.rpc('fg_friends_focus')]);
-      SOC.world = r[0].data || null; SOC.board = r[1].data || []; SOC.focusing = r[2].data || [];
+      var pd = UI.cPeriod || 7;
+      var r = await Promise.all([supabase.rpc('fg_world_stats', { p_days: Math.min(90, pd), p_group: UI.cGroup || '' }), supabase.rpc('fg_friends_board', { p_days: pd }), supabase.rpc('fg_friends_focus'),
+        supabase.from('fg_challenges').select('*').gte('end_at', new Date(Date.now() - 7 * 864e5).toISOString()).order('created_at', { ascending: false }).limit(20)]);
+      SOC.world = r[0].data || null; SOC.board = r[1].data || []; SOC.focusing = r[2].data || []; SOC.ch = (r[3] && r[3].data) || [];
+      // 🏁 Challenge natijalari
+      SOC.chs = {};
+      await Promise.all(SOC.ch.map(function (c) { return supabase.rpc('fg_challenge_stats', { p_id: c.id }).then(function (x) { SOC.chs[c.id] = x.data || []; }); }));
+      try { chClaim(); weeklyWinCheck(); } catch (e) {}
       SOC.at = Date.now();
     } catch (e) {}
     SOC.loading = false;
@@ -1392,6 +1486,11 @@
     if (!sbOk()) return '<div class="fg-card fg-empty">🔐 ' + E(L('Reyting uchun akkauntga kiring.', 'Sign in to see the rankings.', 'Войдите, чтобы увидеть рейтинг.')) + '</div>';
     if (!SOC.at) return '<div class="fg-card fg-empty">⏳ ' + E(L('Yuklanmoqda…', 'Loading…', 'Загрузка…')) + '</div>';
     var w = SOC.world || {}, h = '';
+    var opt = function (a, v, cur, lb) { return '<option value="' + v + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + E(lb) + '</option>'; };
+    h += '<div class="fg-filters fg-cbar"><select class="fg-sel" data-fg-cperiod>' + [[1, L('Bugun', 'Today', 'Сегодня')], [7, L('7 kun', '7 days', '7 дней')], [30, L('30 kun', '30 days', '30 дней')], [365, L('Bir yil', 'One year', 'Год')]].map(function (x) { return opt(0, x[0], UI.cPeriod || 7, '📅 ' + x[1]); }).join('') + '</select>' +
+      '<select class="fg-sel" data-fg-cgroup>' + [['', L('Hamma', 'Everyone', 'Все')], ['ielts', 'IELTS'], ['sat', 'SAT'], ['cefr', 'CEFR']].map(function (x) { return opt(0, x[0], UI.cGroup || '', '🌍 ' + x[1]); }).join('') + '</select>' +
+      '<button type="button" class="fg-sel" data-fg-crefresh>↻ ' + E(SOC.at ? ago(new Date(SOC.at).toISOString()).replace(/^.*?(online now|hozir onlayn|сейчас онлайн)$/, L('hozir', 'now', 'сейчас')) : '') + '</button></div>';
+    h += leagueHtml() + challengesHtml();
     // 🌍 Dunyo
     var mine = w.my_min, avg = w.avg_min || 0, better = w.better_than_pct;
     h += '<div class="fg-card fg-world"><div class="fg-card-h"><b>🌍 ' + E(L('Dunyo bo\'yicha · 7 kun', 'Worldwide · 7 days', 'В мире · 7 дней')) + '</b><small>' + (w.users || 0) + ' ' + E(L('foydalanuvchi', 'users', 'польз.')) + '</small></div>' +
@@ -1406,26 +1505,159 @@
     h += '</div>';
     // 👥 Do'stlar
     var board = (SOC.board || []).slice(), mode = UI.board || 'focus';
-    board.sort(function (a, b) { return mode === 'focus' ? (b.focus_min - a.focus_min) || (a.screen_min - b.screen_min) : ((a.days ? a.screen_min : 1e9) - (b.days ? b.screen_min : 1e9)); });
-    h += '<div class="fg-card fg-board"><div class="fg-card-h"><b>👥 ' + E(L('Do\'stlar bilan musobaqa · 7 kun', 'Friends challenge · 7 days', 'Соревнование с друзьями · 7 дней')) + '</b>' +
-      '<div class="fg-seg"><button type="button" class="' + (mode === 'focus' ? 'on' : '') + '" data-fg-board="focus">🎯</button><button type="button" class="' + (mode === 'screen' ? 'on' : '') + '" data-fg-board="screen">📱</button></div></div>' +
-      '<div class="fg-board-sub">' + E(mode === 'focus' ? L('Kim ko\'proq fokus qildi', 'Who focused the most', 'Кто больше фокусировался') : L('Kim ekranga kamroq qaradi (kunlik o\'rtacha)', 'Who used screens the least (daily average)', 'У кого меньше экранного времени (в среднем)')) + '</div>';
+    if (mode === 'sessions' || mode === 'blocks') board.sort(function (a, b) { return (b[mode] || 0) - (a[mode] || 0); });
+    else board.sort(function (a, b) { return mode === 'focus' ? (b.focus_min - a.focus_min) || (a.screen_min - b.screen_min) : ((a.days && a.screen_min != null ? a.screen_min : 1e9) - (b.days && b.screen_min != null ? b.screen_min : 1e9)); });
+    var pl = { 1: L('bugun', 'today', 'сегодня'), 7: L('7 kun', '7 days', '7 дней'), 30: L('30 kun', '30 days', '30 дней'), 365: L('bir yil', 'one year', 'год') }[UI.cPeriod || 7];
+    var rk = rankDelta(mode, board.findIndex(function (p) { return p.me; }));
+    h += '<div class="fg-card fg-board"><div class="fg-card-h"><b>👥 ' + E(L('Do\'stlar bilan musobaqa', 'Friends challenge', 'Соревнование с друзьями') + ' · ' + pl) + (rk ? ' <span class="fg-rk ' + (rk > 0 ? 'up' : 'down') + '">' + (rk > 0 ? '▲' : '▼') + Math.abs(rk) + '</span>' : '') + '</b>' +
+      '<div class="fg-seg">' + [['focus', '🎯'], ['screen', '📱'], ['sessions', '🔁'], ['blocks', '🛡']].map(function (x) { return '<button type="button" class="' + (mode === x[0] ? 'on' : '') + '" data-fg-board="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></div>' +
+      '<div class="fg-board-sub">' + E({ focus: L('Kim ko\'proq fokus qildi', 'Who focused the most', 'Кто больше фокусировался'), screen: L('Kim ekranga kamroq qaradi (kunlik o\'rtacha)', 'Who used screens the least (daily average)', 'У кого меньше экранного времени (в среднем)'), sessions: L('Kim ko\'proq fokus sessiyasini yakunladi', 'Most focus sessions', 'Больше всего сессий фокуса'), blocks: L('Kim ko\'proq chalg\'ishni to\'xtatdi', 'Most distractions stopped', 'Больше всего остановленных отвлечений') }[mode]) + '</div>';
     board.forEach(function (p, i) {
       var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
-      var main = mode === 'focus' ? fmt(p.focus_min || 0) : (p.days ? fmt(p.screen_min) : '—');
+      var main = mode === 'focus' ? fmt(p.focus_min || 0) : mode === 'sessions' ? String(p.sessions || 0) : mode === 'blocks' ? '🛡 ' + (p.blocks || 0) : (p.days && p.screen_min != null ? fmt(p.screen_min) : p.screen_min == null && !p.me ? '🙈' : '—');
       var sub = mode === 'focus' ? (p.sessions || 0) + ' ' + L('sessiya', 'sessions', 'сессий') + (p.days ? ' · 📱 ' + fmt(p.screen_min) + '/' + L('kun', 'day', 'день') : '') : '🎯 ' + fmt(p.focus_min || 0) + (p.blocks ? ' · 🛡 ' + p.blocks : '');
       h += '<div class="fg-brow' + (p.me ? ' me' : '') + '"><span class="fg-rank">' + medal + '</span>' + avatar(p) + '<span class="fg-bname"><b>' + E(p.me ? L('Siz', 'You', 'Вы') : (p.name || '—')) + '</b><small>' + E(sub) + (p.has_fg ? '' : ' · ' + L('Focusgate yo\'q', 'no Focusgate', 'без Focusgate')) + '</small></span><em>' + E(main) + '</em></div>';
     });
+    if (board.length > 1) h += '<button type="button" class="fg-add sm" data-fg-share>📤 ' + E(L('Natijani ulashish', 'Share my result', 'Поделиться результатом')) + '</button>';
     if (board.length <= 1) h += '<div class="fg-empty sm">' + E(L('Do\'stlaringiz hali yo\'q yoki ular Focusgate ishlatmayapti. Taklif qiling — birga raqobatlashing!', 'No friends here yet. Invite them and compete together!', 'Друзей пока нет. Пригласите их и соревнуйтесь!')) + '<button type="button" class="fg-btn sm" data-fg-invite>👥 ' + E(L('Do\'stlar', 'Friends', 'Друзья')) + '</button></div>';
     h += '</div>';
     // 🤝 Hozir fokusda
-    h += focusingHtml(true);
+    h += focusingHtml(true) + badgesHtml() + recordsHtml();
     // Mukofotlar
     h += '<div class="fg-card fg-rewards"><b>🎁 ' + E(L('Nima uchun mukofot beriladi', 'How you earn rewards', 'За что награды')) + '</b><ul>' +
       '<li>🎯 ' + E(L('Fokus sessiyasini oxirigacha yakunlash: har daqiqa = 1 XP, har 5 daqiqa = 1 🪙', 'Finish a focus session: 1 XP per minute, 1 🪙 per 5 minutes', 'Завершить фокус: 1 XP за минуту, 1 🪙 за 5 минут')) + '</li>' +
       '<li>🤝 ' + E(L('Do\'st bilan birga fokus: +20% bonus', 'Focus with a friend: +20% bonus', 'Фокус с другом: +20% бонус')) + '</li>' +
       '<li>🌿 ' + E(L('Kun bo\'yi barcha limitlarda qolish: +10 🪙', 'Stay within all limits for a day: +10 🪙', 'День в пределах всех лимитов: +10 🪙')) + '</li></ul></div>';
     return h;
+  }
+  // ↕️ Do'stlar reytingida o'rin o'zgarishi (kecha ko'rilgan o'rin bilan)
+  function rankDelta(mode, idx) {
+    if (idx < 0) return 0;
+    var k = 'fgRank_' + (S.cloudUserId || '') + '_' + mode + '_' + (UI.cPeriod || 7), v = null, today = dayStr(0);
+    try { v = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) {}
+    var d = v && v.day !== today ? (v.rank - (idx + 1)) : (v && v.prev != null ? v.prev - (idx + 1) : 0);
+    try { if (!v || v.day !== today) localStorage.setItem(k, JSON.stringify({ day: today, rank: idx + 1, prev: v ? v.rank : null })); } catch (e) {}
+    return d;
+  }
+  // 🔥 Haftalik liga: shu haftadagi fokus soatlari bo'yicha daraja (o'tgan hafta bilan solishtirib)
+  var LEAGUES = [[0, '🥉', ['Bronza', 'Bronze', 'Бронза']], [180, '🥈', ['Kumush', 'Silver', 'Серебро']], [480, '🥇', ['Oltin', 'Gold', 'Золото']], [900, '💎', ['Olmos', 'Diamond', 'Алмаз']], [1500, '👑', ['Usta', 'Master', 'Мастер']]];
+  function weekFocus(back) {
+    var hist = fgS().fhist || [], d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7 - 7 * (back || 0));
+    var a = d.getTime(), b = a + 7 * 864e5; return hist.filter(function (x) { return x.t >= a && x.t < b; }).reduce(function (n, x) { return n + x.m; }, 0);
+  }
+  function leagueOf(m) { var r = LEAGUES[0]; LEAGUES.forEach(function (l) { if (m >= l[0]) r = l; }); return r; }
+  function leagueHtml() {
+    var m = weekFocus(0), lg = leagueOf(m), prev = leagueOf(weekFocus(1)), i = LEAGUES.indexOf(lg), nx = LEAGUES[i + 1];
+    return '<div class="fg-card fg-league"><span class="fg-league-ic">' + lg[1] + '</span><div><b>' + E(L('Haftalik liga: ', 'Weekly league: ', 'Недельная лига: ') + T(lg[2])) + (LEAGUES.indexOf(prev) !== i ? ' <small>(' + E(L('o\'tgan hafta: ', 'last week: ', 'прошлая: ') + T(prev[2])) + ')</small>' : '') + '</b><small>' + E(L('Shu hafta fokus: ', 'Focus this week: ', 'Фокус за неделю: ') + fmt(m) + (nx ? ' · ' + L(T(nx[2]) + ' uchun yana ' + fmt(nx[0] - m), fmt(nx[0] - m) + ' to ' + T(nx[2]), 'до «' + T(nx[2]) + '» ещё ' + fmt(nx[0] - m)) : '')) + '</small>' +
+      (nx ? '<span class="fg-prog"><i style="width:' + Math.min(100, (m - lg[0]) / (nx[0] - lg[0]) * 100) + '%"></i></span>' : '') + '</div></div>';
+  }
+  // ⚔️ Duel va 👥 guruh challenge'lari (fg_challenges)
+  function chWinner(c, st) {
+    var acc = st.filter(function (p) { return p.accepted || p.id === c.owner; });
+    if (c.kind === 'group') return acc.length >= 2 && acc.every(function (p) { return c.metric === 'focus' ? p.focus_min >= (c.goal_min || 0) : p.days > 0 && p.max_min <= (c.goal_min || 0); }) ? 'all' : null;
+    if (acc.length < 2) return null;
+    acc.sort(function (a, b) { return c.metric === 'focus' ? b.focus_min - a.focus_min : (a.days ? a.screen_min : 1e9) - (b.days ? b.screen_min : 1e9); });
+    return acc[0].id;
+  }
+  function challengesHtml() {
+    var list = SOC.ch || [], h = '<div class="fg-card fg-chal"><div class="fg-card-h"><b>⚔️ ' + E(L('Duel va challenge\'lar', 'Duels & challenges', 'Дуэли и челленджи')) + '</b><button type="button" class="fg-btn sm" data-fg-chnew>＋</button></div>';
+    if (!list.length) return h + '<div class="fg-empty sm">' + E(L('Do\'stingizni "7 kun kim kamroq ekran vaqti" duelga chaqiring yoki guruh bo\'lib maqsad qo\'ying.', 'Challenge a friend to "who has less screen time in 7 days" or set a group goal.', 'Вызовите друга на дуэль «у кого меньше экрана за 7 дней» или поставьте общую цель.')) + '</div></div>';
+    list.forEach(function (c) {
+      var st = (SOC.chs || {})[c.id] || [], me = st.filter(function (p) { return p.me; })[0], ended = new Date(c.end_at) < new Date(), w = chWinner(c, st);
+      var need = me && !me.accepted && c.owner !== S.cloudUserId && !ended;
+      var ttl = c.title || (c.kind === 'duel' ? (c.metric === 'focus' ? L('Kim ko\'proq fokus', 'Most focus', 'Кто больше фокуса') : L('Kim kamroq ekran', 'Least screen time', 'Кто меньше экрана')) : (c.metric === 'focus' ? L('Hamma kamida ' + fmt(c.goal_min) + ' fokus', 'Everyone focuses ' + fmt(c.goal_min) + '+', 'Каждый ' + fmt(c.goal_min) + '+ фокуса') : L('Hamma kuniga ' + fmt(c.goal_min) + ' dan kam ekran', 'Everyone under ' + fmt(c.goal_min) + '/day', 'Каждый меньше ' + fmt(c.goal_min) + ' в день')));
+      h += '<div class="fg-chrow"><div class="fg-chh"><b>' + (c.kind === 'duel' ? '⚔️ ' : '👥 ') + E(ttl) + '</b><small>' + E(ended ? (w === 'all' ? L('✅ Hamma uddaladi!', '✅ Everyone made it!', '✅ Все справились!') : w ? '🏆 ' + ((st.filter(function (p) { return p.id === w; })[0] || {}).name || '') : L('Tugadi', 'Ended', 'Завершён')) : L('tugaydi: ', 'ends: ', 'до: ') + new Date(c.end_at).toLocaleDateString()) + '</small></div>' +
+        st.map(function (p) { return '<div class="fg-chp' + (p.me ? ' me' : '') + '"><span>' + E(p.me ? L('Siz', 'You', 'Вы') : p.name || '—') + (p.accepted || p.id === c.owner ? '' : ' ⏳') + '</span><b>' + E(c.metric === 'focus' ? fmt(p.focus_min) : (p.days ? fmt(p.screen_min) + '/' + L('kun', 'day', 'день') : '—')) + '</b></div>'; }).join('') +
+        (need ? '<button type="button" class="fg-btn sm" data-fg-chjoin="' + c.id + '">🤝 ' + E(L('Qabul qilish', 'Accept', 'Принять')) + '</button>' : '') + '</div>';
+    });
+    return h + '</div>';
+  }
+  function openChallengeSheet() {
+    var fr = friendsOf();
+    if (!fr.length) { toast('👥 ' + L('Avval do\'st qo\'shing', 'Add a friend first', 'Сначала добавьте друга')); return; }
+    var o = openSheet('<h3>⚔️ ' + E(L('Yangi challenge', 'New challenge', 'Новый челлендж')) + '</h3>' +
+      '<div class="fg-seg wide"><button type="button" class="on" data-chk="duel">⚔️ ' + E(L('Duel (1:1)', 'Duel (1:1)', 'Дуэль (1:1)')) + '</button><button type="button" data-chk="group">👥 ' + E(L('Guruh maqsadi', 'Group goal', 'Общая цель')) + '</button></div>' +
+      '<div class="fg-lbl">' + E(L('Kim bilan?', 'With whom?', 'С кем?')) + '</div><div class="fg-days fg-chf">' + fr.map(function (f) { return '<button type="button" data-chf="' + E(f.id) + '">' + E(f.name) + '</button>'; }).join('') + '</div>' +
+      '<div class="fg-seg wide"><button type="button" class="on" data-chm="screen">📱 ' + E(L('Kamroq ekran', 'Less screen', 'Меньше экрана')) + '</button><button type="button" data-chm="focus">🎯 ' + E(L('Ko\'proq fokus', 'More focus', 'Больше фокуса')) + '</button></div>' +
+      '<div class="fg-times"><label>' + E(L('Necha kun', 'Days', 'Дней')) + '<input type="number" class="fg-in" data-chd min="1" max="30" value="7"></label><label data-chgl hidden>' + E(L('Maqsad (daq)', 'Goal (min)', 'Цель (мин)')) + '<input type="number" class="fg-in" data-chg min="10" max="3000" value="120"></label></div>' +
+      '<p class="fg-p">' + E(L('Duel g\'olibi va maqsadni uddalagan guruh a\'zolari +20 🪙 oladi.', 'The duel winner and every member of a successful group get +20 🪙.', 'Победитель дуэли и все участники успешной группы получают +20 🪙.')) + '</p>' +
+      '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button><button type="button" class="fg-btn" data-chok>' + E(L('Yuborish', 'Send', 'Отправить')) + '</button></div>');
+    var kind = 'duel', metric = 'screen';
+    o.querySelectorAll('[data-chk]').forEach(function (b) { b.onclick = function () { kind = b.dataset.chk; o.querySelectorAll('[data-chk]').forEach(function (x) { x.classList.toggle('on', x === b); }); o.querySelector('[data-chgl]').hidden = kind !== 'group'; if (kind === 'duel') o.querySelectorAll('[data-chf].on').forEach(function (x, i) { if (i) x.classList.remove('on'); }); }; });
+    o.querySelectorAll('[data-chm]').forEach(function (b) { b.onclick = function () { metric = b.dataset.chm; o.querySelectorAll('[data-chm]').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+    o.querySelectorAll('[data-chf]').forEach(function (b) { b.onclick = function () { if (kind === 'duel') o.querySelectorAll('[data-chf]').forEach(function (x) { if (x !== b) x.classList.remove('on'); }); b.classList.toggle('on'); }; });
+    o.querySelector('[data-chok]').onclick = async function () {
+      var ids = Array.prototype.map.call(o.querySelectorAll('[data-chf].on'), function (b) { return b.dataset.chf; });
+      if (!ids.length) { toast('👥 ' + L('Do\'st tanlang', 'Pick a friend', 'Выберите друга')); return; }
+      var days = Math.max(1, Math.min(30, Math.round(+o.querySelector('[data-chd]').value || 7)));
+      var row = { owner: S.cloudUserId, members: [S.cloudUserId].concat(ids), kind: kind, metric: metric, end_at: new Date(Date.now() + days * 864e5).toISOString() };
+      if (kind === 'group') row.goal_min = Math.max(10, Math.round(+o.querySelector('[data-chg]').value || 120));
+      this.disabled = true;
+      var r = await supabase.from('fg_challenges').insert(row);
+      if (r.error) { toast('⚠️ ' + r.error.message); this.disabled = false; return; }
+      closeSheet(); toast('⚔️ ' + L('Yuborildi! Do\'stlaringiz Compete bo\'limida qabul qiladi.', 'Sent! Friends accept it in Compete.', 'Отправлено! Друзья примут в разделе «Рейтинг».')); loadSocial(true);
+    };
+  }
+  // 🎁 Tugagan challenge: g'olib (yoki guruh) — +20 🪙, bir marta
+  function chClaim() {
+    var st = fgS(); st.chw = st.chw || {};
+    (SOC.ch || []).forEach(function (c) {
+      if (new Date(c.end_at) > new Date() || st.chw[c.id]) return;
+      var w = chWinner(c, (SOC.chs || {})[c.id] || []);
+      st.chw[c.id] = 1;
+      if (w === 'all' || w === S.cloudUserId) { S.coins = (S.coins || 0) + 20; try { addTarixLog('in', '⚔️ Focusgate challenge', 20, 'fg-ch-' + c.id); } catch (e) {} toast('🏆 ' + L('Challenge yutildi! +20 🪙', 'Challenge won! +20 🪙', 'Челлендж выигран! +20 🪙')); }
+    });
+    save();
+  }
+  // 🏅 Haftalik g'olib: o'tgan hafta do'stlar fokus reytingida 1-o'rin (kamida 3 kishi) — +30 🪙, bir marta
+  function weeklyWinCheck() {
+    if ((UI.cPeriod || 7) !== 7) return;
+    var st = fgS(), d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+    var wk = dayStr(-Math.round((Date.now() - d.getTime()) / 864e5)), board = (SOC.board || []).filter(function (p) { return p.has_fg; }).slice().sort(function (a, b) { return b.focus_min - a.focus_min; });
+    var me = board.findIndex(function (p) { return p.me; });
+    if (st.wsnap && st.wsnap.week !== wk && st.wsnap.rank === 1 && st.wsnap.n >= 3 && !(st.wwon || {})[st.wsnap.week]) {
+      st.wwon = st.wwon || {}; st.wwon[st.wsnap.week] = 1; S.coins = (S.coins || 0) + 30;
+      try { addTarixLog('in', '🏅 Focusgate: ' + L('haftaning g\'olibi', 'winner of the week', 'победитель недели'), 30, 'fg-week-' + st.wsnap.week); } catch (e) {}
+      toast('🏅 ' + L('Siz o\'tgan haftaning g\'olibisiz! +30 🪙', 'You won last week! +30 🪙', 'Вы победили на прошлой неделе! +30 🪙'));
+    }
+    if (me >= 0 && board[me].focus_min > 0) st.wsnap = { week: wk, rank: me + 1, n: board.length };
+    save();
+  }
+  // 🏅 Focusgate yutuqlari (mahalliy hisob va 30 kunlik statistika)
+  function badgesHtml() {
+    var st = fgS(), fm = st.focusMin || 0, goodStreak = 0, i, noShorts = true;
+    for (i = -1; i >= -29; i--) { var m = sumArr(dayModel(i, 'all', true).apps.map(function (a) { return a.m; })); if (!m) break; var lim = (cfg().rules || []).filter(function (r) { return r.on && r.kind === 'daily'; }); if (lim.every(function (r) { return usedMin(r.app, i) <= ruleMin(r, i); })) goodStreak++; else break; }
+    var sh = sections('site:youtube', 7); if ((sh.shorts || 0) > 60) noShorts = false;
+    var B = [['🌱', L('Birinchi fokus', 'First focus', 'Первый фокус'), (st.focusDone || 0) >= 1], ['🔥', L('7 kun limitda', '7 days within limits', '7 дней в лимите'), goodStreak >= 7], ['⏱', L('10 soat fokus', '10 h of focus', '10 ч фокуса'), fm >= 600], ['🏆', L('100 soat fokus', '100 h of focus', '100 ч фокуса'), fm >= 6000],
+      ['🚫', L('Shorts\'siz hafta', 'A week without Shorts', 'Неделя без Shorts'), noShorts && real()], ['🎯', L('50 sessiya', '50 sessions', '50 сессий'), (st.focusDone || 0) >= 50], ['💎', L('Olmos liga', 'Diamond league', 'Алмазная лига'), weekFocus(0) >= 900 || weekFocus(1) >= 900]];
+    return '<div class="fg-card"><b>🏅 ' + E(L('Focusgate yutuqlari', 'Focusgate badges', 'Значки Focusgate')) + ' · ' + B.filter(function (x) { return x[2]; }).length + '/' + B.length + '</b><div class="fg-badges">' + B.map(function (x) { return '<span class="' + (x[2] ? 'on' : '') + '" title="' + E(x[1]) + '"><i>' + x[0] + '</i><small>' + E(x[1]) + '</small></span>'; }).join('') + '</div></div>';
+  }
+  // 📈 Shaxsiy rekordlar (oxirgi 30 kun + fokus tarixi)
+  function recordsHtml() {
+    var best = null, i, hist = fgS().fhist || [];
+    for (i = -1; i >= -29; i--) { var m = sumArr(dayModel(i, 'all', true).apps.map(function (a) { return a.m; })); if (m > 5 && (!best || m < best[1])) best = [i, m]; }
+    var lf = hist.slice().sort(function (a, b) { return b.m - a.m; })[0], days = {}; hist.forEach(function (x) { var d = new Date(x.t); days[d.toDateString()] = 1; });
+    var run = 0, mx = 0; for (i = 0; i < 365; i++) { var d = new Date(); d.setDate(d.getDate() - i); if (days[d.toDateString()]) { run++; mx = Math.max(mx, run); } else if (i) run = 0; }
+    if (!best && !lf) return '';
+    return '<div class="fg-card"><b>📈 ' + E(L('Shaxsiy rekordlar', 'Personal records', 'Личные рекорды')) + '</b><div class="fg-facts">' +
+      (best ? '<div><span>📉</span><small>' + E(L('Eng kam ekran vaqti', 'Least screen time', 'Меньше всего экрана')) + '</small><b>' + E(fmt(best[1]) + ' · ' + dayLabel(best[0])) + '</b></div>' : '') +
+      (lf ? '<div><span>🎯</span><small>' + E(L('Eng uzun fokus', 'Longest focus', 'Самый долгий фокус')) + '</small><b>' + E(fmt(lf.m)) + '</b></div>' : '') +
+      (mx ? '<div><span>🔥</span><small>' + E(L('Fokus seriyasi (kun)', 'Focus streak (days)', 'Серия фокуса (дни)')) + '</small><b>' + mx + '</b></div>' : '') + '</div></div>';
+  }
+  // 📤 Natija kartasi (rasm): Telegram/Instagram'ga ulashish yoki yuklab olish
+  function shareCard() {
+    var me = (SOC.board || []).filter(function (p) { return p.me; })[0] || {}, cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1080;
+    var x = cv.getContext('2d'), g = x.createLinearGradient(0, 0, 1080, 1080); g.addColorStop(0, '#4f46e5'); g.addColorStop(1, '#0ea5e9'); x.fillStyle = g; x.fillRect(0, 0, 1080, 1080);
+    x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = 'bold 64px sans-serif'; x.fillText('🛡 Focusgate', 540, 170);
+    x.font = '40px sans-serif'; x.fillText(L('Mening haftam', 'My week', 'Моя неделя'), 540, 250);
+    var rows = [['🎯', L('Fokus', 'Focus', 'Фокус'), fmt(me.focus_min || 0)], ['📱', L('Ekran / kun', 'Screen / day', 'Экран / день'), me.days ? fmt(me.screen_min) : '—'], ['🛡', L('To\'sildi', 'Blocked', 'Остановлено'), String(me.blocks || 0)], [leagueOf(weekFocus(0))[1], L('Liga', 'League', 'Лига'), T(leagueOf(weekFocus(0))[2])]];
+    rows.forEach(function (r, i) { var y = 380 + i * 150; x.fillStyle = 'rgba(255,255,255,.14)'; x.fillRect(140, y - 80, 800, 120); x.fillStyle = '#fff'; x.textAlign = 'left'; x.font = '56px sans-serif'; x.fillText(r[0], 180, y); x.font = '40px sans-serif'; x.fillText(r[1], 280, y - 6); x.textAlign = 'right'; x.font = 'bold 52px sans-serif'; x.fillText(r[2], 900, y); });
+    x.textAlign = 'center'; x.font = '34px sans-serif'; x.fillText('levelupday.github.io/LevelUpDay', 540, 1020);
+    cv.toBlob(function (bl) {
+      var f = new File([bl], 'focusgate.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f], text: 'LevelUpDay Focusgate' }).catch(function () {}); return; }
+      var a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = 'focusgate.png'; a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+    }, 'image/png');
   }
   function focusingHtml(withStart) {
     var list = SOC.focusing || [];
@@ -1537,6 +1769,8 @@
     S.focusgate.sess = { id: null, start: Date.now(), end: c.focusUntil, min: min, joined: !!joinedFrom, awarded: false, stopped: false };
     S.focusgate.linkSrc = 'focusgate';
     save(); rerender();
+    // 📣 Do'stlarga Telegram: "fokus boshladi — qo'shiling" (30 daqiqada bir marta, Sozlamalarda o'chiriladi)
+    try { if (c.focusPing !== false && c.share !== false && !joinedFrom) supabase.functions.invoke('focusgate', { body: { action: 'focus_started', minutes: min } }).then(function () {}, function () {}); } catch (e) {}
     try { toast('🎯 ' + L('Fokus boshlandi — ' + min + ' daqiqa. Kompyuter 30 soniyada qabul qiladi.', 'Focus started — ' + min + ' min. Your PC picks it up within 30 s.', 'Фокус начат — ' + min + ' мин. ПК получит за 30 с.')); } catch (e) {}
     try {
       var r = await supabase.from('fg_sessions').insert({ planned_min: min, joined_from: joinedFrom || null }).select('id').single();
@@ -2448,6 +2682,8 @@
     var v = document.getElementById('view-blocker'); if (!v) return;
     if (!FG.loaded && sbOk()) { load(); }
     var page = UI.tab === 'limits' ? pageLimits() : UI.tab === 'block' ? pageBlock() : UI.tab === 'settings' ? pageSettings() : UI.tab === 'compete' ? pageCompete() : pageToday();
+    // 👪 Ota-ona rejimi: Limits / Block / Settings — PIN bilan ochiladi
+    if (real() && cfg().parent && pinOn() && Date.now() > (FG.pinOk || 0) && (UI.tab === 'limits' || UI.tab === 'block' || UI.tab === 'settings')) page = parentLockHtml();
     if (UI.tab === 'compete' && sbOk()) loadSocial();
     // Qidiruv matni va fokus qayta chizishda yo'qolmasin
     var si = v.querySelector('[data-fg-search]'), sq = si ? si.value : '', sf = si && document.activeElement === si;
@@ -2495,6 +2731,15 @@
     if ((b = t.closest('[data-fg-appopen]'))) { openApp(b.dataset.fgAppopen); return; }
     if ((b = t.closest('[data-fg-buy]'))) { e.stopPropagation(); buyExtra(+b.dataset.fgBuy); return; }
     if ((b = t.closest('[data-fg-tpls]'))) { openTemplates(); return; }
+    if ((b = t.closest('[data-fg-chnew]'))) { openChallengeSheet(); return; }
+    if ((b = t.closest('[data-fg-diag], [data-fg-diagre]'))) { if (b.hasAttribute('data-fg-diagre')) { closeSheet(); load(true).then(openDiag); return; } openDiag(); return; }
+    if ((b = t.closest('[data-fg-backup]'))) { openBackup(); return; }
+    if ((b = t.closest('[data-fg-cats]'))) { openCats(); return; }
+    if ((b = t.closest('[data-fg-unlock]'))) { openPinSheet('check', function () { FG.pinOk = Date.now() + 10 * 60000; rerender(); }); return; }
+    if ((b = t.closest('[data-fg-cmd]'))) { var cc = cfg(); cc.cmd = { id: 'c' + Date.now().toString(36), act: b.dataset.fgCmd, at: Date.now() }; saveCfg(); toast(b.dataset.fgCmd === 'update' ? '⬆️ ' + L('Yangilash buyrug\'i yuborildi', 'Update command sent', 'Команда обновления отправлена') : '♻️ ' + L('Qayta ishga tushirish buyrug\'i yuborildi', 'Restart command sent', 'Команда перезапуска отправлена')); return; }
+    if ((b = t.closest('[data-fg-chjoin]'))) { supabase.rpc('fg_challenge_join', { p_id: b.dataset.fgChjoin }).then(function () { loadSocial(true); }); return; }
+    if ((b = t.closest('[data-fg-crefresh]'))) { loadSocial(true); return; }
+    if ((b = t.closest('[data-fg-share]'))) { shareCard(); return; }
     if ((b = t.closest('[data-fg-kwadd]'))) { var ki = document.querySelector('#view-blocker [data-fg-kwin]'), kv = ki && ki.value.trim().toLowerCase(); if (!kv || kv.length < 3) { toast('🔤 ' + L('Kamida 3 harf', 'At least 3 letters', 'Минимум 3 буквы')); return; } var ck = cfg(); ck.keywords = (ck.keywords || []).filter(function (x) { return x !== kv; }).concat([kv.slice(0, 30)]); saveCfg(); rerender(); return; }
     if ((b = t.closest('[data-fg-kwdel]'))) { var kd = cfg(), kix = +b.dataset.fgKwdel; if (kd.strict) { toast('🔐 ' + L('Qat\'iy rejim', 'Strict mode', 'Строгий режим')); return; } guard(function () { (kd.keywords || []).splice(kix, 1); saveCfg(); rerender(); }); return; }
     if ((b = t.closest('[data-fg-planadd]'))) { if (!real()) { needConnect(); return; } openPlanSheet(); return; }
@@ -2538,6 +2783,7 @@
       else if (k === 'tg') { if (!FG.tg) return; var pr = Object.assign({}, FG.tg.prefs || {}); pr.fg = pr.fg === false; FG.tg.prefs = pr; supabase.from('telegram_links').update({ prefs: pr }).eq('user_id', S.cloudUserId).then(function () {}); }
       else if (k === 'tgweekly') { if (!FG.tg) return; var pw = Object.assign({}, FG.tg.prefs || {}); var wasOn = !(pw.fg === false || pw.fgweekly === false); pw.fgweekly = !wasOn; if (!wasOn) pw.fg = true; FG.tg.prefs = pw; supabase.from('telegram_links').update({ prefs: pw }).eq('user_id', S.cloudUserId).then(function () {}); }
       else if (real() && k === 'strict' && c.strict) { strictOffAsk(); }
+      else if (real() && k === 'parent') { if (c.parent) { guard(function () { c.parent = false; saveCfg(); rerender(); }); return; } if (!pinOn()) { toast('🔑 ' + L('Avval PIN-kod o\'rnating', 'Set a PIN first', 'Сначала задайте PIN')); openPinSheet('set'); return; } c.parent = true; saveCfg(); }
       else if (real() && (k === 'eye' || k === 'adult' || k === 'safeSearch')) { if (c[k] && (k === 'adult' || k === 'safeSearch')) { if (c.strict) { toast('🔐 ' + L('Qat\'iy rejim', 'Strict mode', 'Строгий режим')); return; } guard(function () { c[k] = false; saveCfg(); rerender(); }); return; } c[k] = !c[k]; saveCfg(); }
       else if (real()) { c[k] = !(k === 'strict' ? c.strict : c[k] !== false); if (k === 'strict') delete c.strictOffAt; saveCfg(); if (k === 'share') SOC.at = 0; }
       else { needConnect(); return; }
@@ -2632,6 +2878,11 @@
       if (looser) guard(apply); else apply();
       return;
     }
+    if (s.matches('[data-fg-qfrom], [data-fg-qto]')) { var qc = cfg(), qf = document.querySelector('#view-blocker [data-fg-qfrom]').value, qt = document.querySelector('#view-blocker [data-fg-qto]').value; if (qf && qt && qf !== qt) qc.quiet = { from: qf, to: qt }; else delete qc.quiet; saveCfg(); return; }
+    if (s.matches('[data-fg-langov]')) { var lc = cfg(); if (s.value) lc.langOverride = s.value; else delete lc.langOverride; saveCfg(); return; }
+    if (s.matches('[data-fg-keep]')) { var kc = cfg(), kv = +s.value || 0; if (kv && (!kc.keepDays || kv < kc.keepDays) && !confirm(L(kv + ' kundan eski statistika serverdan o\'chiriladi. Davom etilsinmi?', 'Statistics older than ' + kv + ' days will be deleted from the server. Continue?', 'Статистика старше ' + kv + ' дней будет удалена. Продолжить?'))) { rerender(); return; } if (kv) kc.keepDays = kv; else delete kc.keepDays; saveCfg(); return; }
+    if (s.matches('[data-fg-cperiod]')) { UI.cPeriod = +s.value; loadSocial(true); return; }
+    if (s.matches('[data-fg-cgroup]')) { UI.cGroup = s.value; loadSocial(true); return; }
     if (s.matches('[data-fg-cat], [data-fg-fcat]')) { UI.cat = s.value; render(); return; }
     if (s.matches('[data-fg-fdev]')) { UI.dev = s.value; render(); return; }
     if (s.matches('[data-fg-fmetric]')) { UI.metric = s.value === 'opens' ? 'opens' : 'time'; UI.hr = -1; render(); return; }
@@ -2655,6 +2906,11 @@
     var s = e.target; if (!s || !s.matches) return;
     if (s.matches('#view-blocker [data-fg-search]')) searchRun(s);
     // 🔍 Limitlar va saytlar ro'yxatida qidiruv (qayta chizmasdan)
+    if (s.matches('[data-fg-setsearch]')) {
+      var sq = s.value.trim().toLowerCase();
+      document.querySelectorAll('#view-blocker .fg-sec').forEach(function (sc) { var any = false; sc.querySelectorAll('.fg-opt').forEach(function (r) { var ok = !sq || r.textContent.toLowerCase().indexOf(sq) !== -1 || (r.dataset.name || '').indexOf(sq) !== -1; r.style.display = ok ? '' : 'none'; if (ok) any = true; }); sc.style.display = !sq || any ? '' : 'none'; });
+      return;
+    }
     if (s.matches('[data-fg-lsearch], [data-fg-ssearch]')) {
       var q = s.value.trim().toLowerCase(), sel = s.matches('[data-fg-lsearch]') ? '.fg-page .fg-row[data-name]' : '.fg-sites .fg-opt[data-name]';
       document.querySelectorAll('#view-blocker ' + sel).forEach(function (r) { r.style.display = !q || r.dataset.name.indexOf(q) !== -1 ? '' : 'none'; });

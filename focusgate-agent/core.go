@@ -50,6 +50,17 @@ type Over struct {
 }
 
 // Plan — takrorlanadigan fokus: kunlar, boshlanish vaqti, davomiyligi
+type Cmd struct {
+	ID  string `json:"id"`
+	Act string `json:"act"`
+	At  int64  `json:"at"` // ms
+}
+
+// QuietNow — tungi jim rejim hozir yoqilganmi
+func QuietNow(cfg *Config, t time.Time) bool {
+	return cfg.Quiet != nil && cfg.Quiet.From != cfg.Quiet.To && inWindow(nil, cfg.Quiet.From, cfg.Quiet.To, t)
+}
+
 type Plan struct {
 	Days []int  `json:"days"`
 	At   string `json:"at"`
@@ -117,6 +128,10 @@ type Config struct {
 	Keywords   []string          `json:"keywords"`   // sarlavha/manzilda shu so'z bo'lsa — tab yopiladi
 	FocusPlans []Plan            `json:"focusPlans"` // takrorlanadigan fokus
 	Eye        bool              `json:"eye"`        // 20-20-20 eslatmasi
+	Quiet      *Win              `json:"quiet"`      // tungi jim rejim: shu oraliqda bildirishnoma chiqmaydi
+	NotifBlock *bool             `json:"notifBlock"` // bloklanganda xabar (standart — ha)
+	NotifWarn  *bool             `json:"notifWarn"`  // limit ogohlantirishi (standart — ha)
+	Cmd        *Cmd              `json:"cmd"`        // saytdan buyruq: update | restart
 	Lang       string            `json:"lang"` // LevelUpDay'da tanlangan til: uz | en | ru // foydalanuvchi o'zgartirgan kategoriyalar: ilova → kategoriya
 }
 
@@ -143,6 +158,7 @@ type State struct {
 	Events     []Event                         `json:"events"`     // serverga hali yuborilmagan hodisalar
 	AppCats    map[string]string               `json:"appCats"`    // skanerda aniqlangan kategoriyalar (o'rnatilgan papka bo'yicha)
 	ResetSeen  int64                           `json:"resetSeen"`  // qaysi tozalashgacha mahalliy hisob o'chirilgan (ms)
+	LastCmd    string                          `json:"lastCmd"`    // saytdan kelgan oxirgi bajarilgan buyruq (cfg.cmd.id)
 	lastEvent  map[string]time.Time
 	mu         sync.Mutex
 }

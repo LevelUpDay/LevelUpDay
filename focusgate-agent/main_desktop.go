@@ -142,9 +142,19 @@ func copyFile(src, dst string) error {
 // notify — tizim bildirishnomasi (Windows: toast, Linux: freedesktop Notifications). "!" bilan boshlangan kalit — doim ko'rsatiladi.
 func notify(key, title, body string) {
 	st.mu.Lock()
-	notifOn := st.Config.NotifOn()
+	c := st.Config
 	st.mu.Unlock()
-	if !notifOn && !strings.HasPrefix(key, "!") {
+	if !strings.HasPrefix(key, "!") {
+		if !c.NotifOn() || QuietNow(&c, time.Now()) {
+			return
+		}
+		if strings.HasPrefix(key, "warn:") && c.NotifWarn != nil && !*c.NotifWarn {
+			return
+		}
+		if !strings.HasPrefix(key, "warn:") && c.NotifBlock != nil && !*c.NotifBlock {
+			return
+		}
+	} else if QuietNow(&c, time.Now()) && (strings.HasPrefix(key, "!eye") || strings.HasPrefix(key, "!break")) {
 		return
 	}
 	noteMu.Lock()
@@ -665,8 +675,31 @@ func doSync() {
 		st.DeviceID = res.Device.ID
 	}
 	name := st.DeviceName
+	cmd := st.Config.Cmd
+	run := cmd != nil && cmd.ID != "" && cmd.ID != st.LastCmd && time.Now().UnixMilli()-cmd.At < 3600*1000
+	if cmd != nil && cmd.ID != "" {
+		st.LastCmd = cmd.ID // eski buyruq yangi o'rnatilganda bajarilmasin
+	}
 	st.mu.Unlock()
 	setStatus(Tr("connected_st", name))
+	// 🔄 Saytdan masofaviy buyruq: yangilash yoki qayta ishga tushirish
+	if run {
+		_ = st.Save()
+		switch cmd.Act {
+		case "update":
+			go func() {
+				if CheckUpdate() {
+					systray.Quit()
+				}
+			}()
+		case "restart":
+			go func() {
+				if exec.Command(exePath, "--background", "--updated").Start() == nil {
+					systray.Quit()
+				}
+			}()
+		}
+	}
 }
 
 func syncLoop() {

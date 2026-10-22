@@ -104,3 +104,6 @@ select cron.schedule('fg-offline-check', '*/10 * * * *', $c$
 $c$);
 -- 🤝 Do'st qulfi: do'st so'rovni tasdiqlaydi / rad etadi
 create policy fglr_upd on public.fg_lock_requests for update using (friend_id = auth.uid() and status = 'pending') with check (friend_id = auth.uid() and status in ('approved', 'denied'));
+
+-- 🏆 Compete v2 (fg_friends_board 365 kun + shareScreen, fg_world_stats(p_days, p_group), fg_challenges + fg_challenge_join/stats)
+-- va 🧹 fg_retention_run (cron fg-retention, config.keepDays) — Supabase'da qo'llangan migratsiyalar: fg_compete_v2, fg_retention.

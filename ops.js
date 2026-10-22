@@ -9,7 +9,7 @@
 // ============================================================
 (function () {
   'use strict';
-  window.APP_VERSION = 'v110'; // sw.js CACHE_VERSION bilan bir xil
+  window.APP_VERSION = 'v111'; // sw.js CACHE_VERSION bilan bir xil
 
   function L(uz, en, ru) { try { return _cl(uz, en, ru); } catch (e) { return uz; } }
   function H(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
