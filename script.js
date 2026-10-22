@@ -34827,6 +34827,14 @@ var supabase = window.supabase.createClient(
 try {
 // async funksiyalar try{} ichida block-scoped bo'lib qolmasligi uchun global var qilib, blok boshiga ko'chirildi
 var cloudPullAppState = async function(force) {
+  // ⚡ Avval faqat vaqt belgisini so'raymiz: bulutdagi nusxa qurilmadagidan yangi bo'lmasa —
+  // butun holatni (katta JSON) har ochilishda qayta yuklab o'tirmaymiz
+  if (!force && S._cloudSyncedAt) {
+    var h = await supabase.from('app_state').select('updated_at').eq('user_id', S.cloudUserId).maybeSingle();
+    if (h.error) { console.warn('[app_state] o\'qishda xatolik:', h.error.message); return { ok: false }; }
+    if (!h.data) return { ok: true, had: false };
+    if ((Date.parse(h.data.updated_at) || 0) <= S._cloudSyncedAt) return { ok: true, had: true, applied: false };
+  }
   var r = await supabase.from('app_state').select('data,updated_at').eq('user_id', S.cloudUserId).maybeSingle();
   if (r.error) { console.warn('[app_state] o\'qishda xatolik:', r.error.message); return { ok: false }; }
   if (!r.data) return { ok: true, had: false };
@@ -35094,6 +35102,8 @@ var cloudBoot = async function(session, isOAuthReturn) {
 };
 var _cloudBootInner = async function(session, isOAuthReturn) {
   await _cloudWaitBooted();
+  // Qurilmadagi holat shu akkauntniki — ekranni darhol ochamiz, tekshiruv fonda davom etadi
+  if (S._stateOwner && S._stateOwner === session.user.id && S.cloudUserId === session.user.id) _ludBootReveal();
   if (_cloudAccountSwitchReset(session.user.id)) return;
   S.cloudLinked = true;
   S.cloudUserId = session.user.id;
@@ -35173,7 +35183,7 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
   if (!as.ok) { _cloudRetryBoot(S.cloudUserId); return; }
   if (as.ok) {
     if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
-    try { await _cloudRefreshTodos(); } catch (e) {}
+    try { await _cloudTodosIfChanged(); } catch (e) {}
     try { if (fixInvalidNick()) { save(); updateHeaderUserTitle(); renderProfile(); scheduleCloudSync(true); } } catch (e) {}
     try { var _pr = await supabase.from('profiles').select('coins,season_coins').eq('id', S.cloudUserId).maybeSingle(); if (_pr && _pr.data && _seasonFromServer(_pr.data)) { save(); render(); } } catch (e) {}
     scheduleAppStateSync(true);
@@ -35451,6 +35461,25 @@ function _cloudRefreshAppState(showToast) {
 // internet qaytganda va har 20 soniyada (realtime ishlamay qolgan holatlar uchun zaxira).
 // Yengil tekshiruv: faqat updated_at o'qiladi, o'zgargan bo'lsa to'liq tortiladi.
 var _catchUpAt = 0, _catchTodosAt = '', _catchBusy = false;
+// ⚡ Tasklar bulutda o'zgarganmi — faqat "oxirgi o'zgarish vaqti + soni" imzosi bilan tekshiramiz.
+// Imzo qurilmada saqlanadi: o'zgarmagan bo'lsa, ilova har ochilganda barcha tasklar qayta yuklanmaydi.
+function _todoSigKey() { return 'ludTodoSig_' + (S.cloudUserId || ''); }
+var _cloudTodoSig = async function () {
+  var t = await supabase.from('todos').select('updated_at').eq('user_id', S.cloudUserId).order('updated_at', { ascending: false }).limit(1);
+  var cnt = await supabase.from('todos').select('task_id', { count: 'exact', head: true }).eq('user_id', S.cloudUserId);
+  if ((t && t.error) || (cnt && cnt.error)) return null;
+  return ((t && t.data && t.data[0] && t.data[0].updated_at) || '') + '|' + ((cnt && cnt.count) || 0);
+};
+var _cloudTodosIfChanged = async function () {
+  var sig = await _cloudTodoSig();
+  if (!_catchTodosAt) { try { _catchTodosAt = localStorage.getItem(_todoSigKey()) || ''; } catch (e) {} }
+  if (sig && sig === _catchTodosAt) return false;
+  // Yuborilmagan mahalliy o'zgarish bor / band — hozir o'tkazib yuboramiz, imzoni saqlamaymiz (keyin qayta tekshiriladi)
+  if (_cloudTodosBusy || Object.keys(_pendingTodoUpserts).length || Object.keys(_pendingTodoDeletes).length || _todosCloudSyncTimer || !window._cloudPullDone) return false;
+  var ch = await _cloudRefreshTodos();
+  if (sig) { _catchTodosAt = sig; try { localStorage.setItem(_todoSigKey(), sig); } catch (e) {} }
+  return ch;
+};
 async function _cloudCatchUp(force) {
   if (!S.cloudLinked || !S.cloudUserId || !window._cloudPullDone || _catchBusy || window._ludImporting) return;
   if (!force && Date.now() - _catchUpAt < 4000) return;
@@ -35460,11 +35489,7 @@ async function _cloudCatchUp(force) {
     var a = await supabase.from('app_state').select('updated_at').eq('user_id', S.cloudUserId).maybeSingle();
     var ams = a && a.data && Date.parse(a.data.updated_at) || 0;
     if (ams > (S._cloudSyncedAt || 0) + 5) _cloudRefreshAppState(false);
-    var t = await supabase.from('todos').select('updated_at').eq('user_id', S.cloudUserId).order('updated_at', { ascending: false }).limit(1);
-    var tl = (t && t.data && t.data[0] && t.data[0].updated_at) || '';
-    var cnt = await supabase.from('todos').select('task_id', { count: 'exact', head: true }).eq('user_id', S.cloudUserId);
-    var sig = tl + '|' + ((cnt && cnt.count) || 0);
-    if (force || sig !== _catchTodosAt) { _catchTodosAt = sig; await _cloudRefreshTodos(); }
+    await _cloudTodosIfChanged();
     // Tanga/XP/streak (profiles) — realtime o'tkazib yuborgan bo'lsa
     if (!_cloudSyncTimer) {
       var p = await supabase.from('profiles').select('coins,total_coins,xp,streak,best_streak,gems').eq('id', S.cloudUserId).maybeSingle();
