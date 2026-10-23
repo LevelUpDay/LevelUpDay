@@ -29643,8 +29643,10 @@ try {
   window.pomoToggleNewForm = function (force) {
     var form = document.getElementById('pomo-new-form');
     var open = (typeof force === 'boolean') ? force : !form.classList.contains('open');
-    form.classList.toggle('open', open);
     var bd = document.getElementById('pomo-new-backdrop');
+    // Pomodoro sahnasi (yulduzlar, sahna nomi) ustida qolishi uchun body'ga ko'chiramiz
+    if (open && form.parentNode !== document.body) { if (bd) document.body.appendChild(bd); document.body.appendChild(form); }
+    form.classList.toggle('open', open);
     if (bd) bd.classList.toggle('open', open);
     if (open) {
       var nameInput = document.getElementById('pomo-new-name');
@@ -30759,11 +30761,16 @@ try {
       var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
       txt = (h ? h + ':' : '') + p2(m) + ':' + p2(s2);
     }
-    var hubBtn = document.getElementById('tab-hub');
-    if (hubBtn && !hubBtn.querySelector('.x-pomo-live')) {
-      var sp = document.createElement('span'); sp.className = 'x-pomo-live'; sp.setAttribute('aria-hidden', 'true');
-      hubBtn.appendChild(sp); _pomoIndTxt = null;
-    }
+    // Pomodoro asosiy menyuda bo'lsa — vaqt o'sha tugmada, aks holda Hub tugmasida
+    var pomoBtn = document.getElementById('tab-pomo'), hubBtn = document.getElementById('tab-hub');
+    var tgt = (pomoBtn && pomoBtn.offsetParent !== null) ? pomoBtn : hubBtn;
+    [pomoBtn, hubBtn].forEach(function (b) {
+      if (!b) return;
+      var ex = b.querySelector(':scope > .x-pomo-live');
+      b.classList.toggle('x-pomo-host', b === tgt);
+      if (b === tgt && !ex) { var sp = document.createElement('span'); sp.className = 'x-pomo-live'; sp.setAttribute('aria-hidden', 'true'); b.appendChild(sp); _pomoIndTxt = null; }
+      else if (b !== tgt && ex) ex.remove();
+    });
     var nodes = document.querySelectorAll('.x-pomo-live');
     var force = false;
     for (var i = 0; i < nodes.length; i++) { if (nodes[i].textContent !== txt) { force = true; break; } }
@@ -30771,7 +30778,7 @@ try {
     _pomoIndTxt = txt;
     var lbl = running ? (brk ? _cl("Pomodoro: tanaffus", "Pomodoro: on a break", "Pomodoro: перерыв") : _cl("Pomodoro ishlayapti", "Pomodoro is running", "Pomodoro идёт")) + ' · ' + txt : '';
     for (var j = 0; j < nodes.length; j++) nodes[j].textContent = txt;
-    document.querySelectorAll('#tab-hub, #x-bnav [data-bn="hub"], [data-sec-go="pomo"]').forEach(function (b) {
+    document.querySelectorAll('#tab-hub, #tab-pomo, #x-bnav [data-bn="hub"], #x-bnav [data-bn="pomo"], [data-sec-go="pomo"]').forEach(function (b) {
       // Faqat o'zimiz qo'ygan title'ni olib tashlaymiz (boshqa title'larga tegmaymiz)
       if (lbl) { b.setAttribute('title', lbl); b.setAttribute('data-x-pomo-title', ''); }
       else if (b.hasAttribute('data-x-pomo-title')) { b.removeAttribute('title'); b.removeAttribute('data-x-pomo-title'); }

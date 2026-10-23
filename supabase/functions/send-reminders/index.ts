@@ -4,7 +4,8 @@
 //  • 🍅 Pomodoro: pomo_now.fire_at kelganda (har daqiqalik cron, body {"mode":"pomo"})
 //  • Streak eslatmasi: 20:00 da, streak > 0 bo'lsa va bugun hech narsa bajarilmagan bo'lsa
 // Har bir xabar push_log orqali bir marta yuboriladi.
-// ✈️ Telegram (telegram_links): vazifa eslatmasi, boshlanish vaqti, 08:00 reja, 20:00 streak, 21:30 kun yakuni.
+// ✈️ Telegram (telegram_links): vazifa eslatmasi (✅/⏰ tugmalari), boshlanish vaqti, ertalabki reja, streak, kun yakuni,
+//    yakshanba haftalik hisobot, do'stlar xabarlari; vaqtlar va tinch soatlar telegram_links.times dan.
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
@@ -14,7 +15,7 @@ const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 let CFG: { vapid_public: string; vapid_private: string; cron_secret: string } | null = null;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
 const APP_URL = "https://levelupday.github.io/LevelUpDay/";
-type Link = { user_id: string; chat_id: number; tz: string; lang: string | null; prefs: Record<string, boolean> };
+type Link = { user_id: string; chat_id: number; tz: string; lang: string | null; prefs: Record<string, boolean>; times: Record<string, string> };
 
 type Sub = { endpoint: string; user_id: string; p256dh: string; auth: string; tz: string; lang: string | null; prefs: { tasks?: boolean; streak?: boolean } };
 
@@ -66,11 +67,21 @@ const TXT: Record<string, { task: string; streakT: string; streakB: (n: number) 
 };
 
 const TG: Record<string, any> = {
-  uz: { task: "⏰ <b>Eslatma</b>", start: "▶️ <b>Boshlash vaqti</b>", morning: (n: string) => `🌅 <b>Xayrli tong${n ? ", " + n : ""}!</b> Bugungi reja:`, streak: (k: number) => `🔥 <b>Streak yo'qolmasin!</b>\n${k} kunlik streak'ingiz bor — bugun kamida bitta vazifani bajaring.`, evening: "🌙 <b>Kun yakuni</b>", done: "bajarildi", left: "Qolganlari:", great: "Zo'r! Hammasi bajarildi 🎉", streakL: "Streak", btn: "📲 Ilovani ochish" },
-  en: { task: "⏰ <b>Reminder</b>", start: "▶️ <b>Time to start</b>", morning: (n: string) => `🌅 <b>Good morning${n ? ", " + n : ""}!</b> Today's plan:`, streak: (k: number) => `🔥 <b>Keep your streak!</b>\nYou're on a ${k}-day streak — finish at least one task today.`, evening: "🌙 <b>Day summary</b>", done: "done", left: "Still open:", great: "Great job! Everything is done 🎉", streakL: "Streak", btn: "📲 Open the app" },
-  ru: { task: "⏰ <b>Напоминание</b>", start: "▶️ <b>Пора начинать</b>", morning: (n: string) => `🌅 <b>Доброе утро${n ? ", " + n : ""}!</b> План на сегодня:`, streak: (k: number) => `🔥 <b>Не потеряйте серию!</b>\nУ вас серия ${k} дн. — выполните сегодня хотя бы одну задачу.`, evening: "🌙 <b>Итоги дня</b>", done: "выполнено", left: "Осталось:", great: "Отлично! Всё выполнено 🎉", streakL: "Серия", btn: "📲 Открыть приложение" },
+  uz: { task: "⏰ <b>Eslatma</b>", start: "▶️ <b>Boshlash vaqti</b>", morning: (n: string) => `🌅 <b>Xayrli tong${n ? ", " + n : ""}!</b> Bugungi reja:`, streak: (k: number) => `🔥 <b>Streak yo'qolmasin!</b>\n${k} kunlik streak'ingiz bor — bugun kamida bitta vazifani bajaring.`, evening: "🌙 <b>Kun yakuni</b>", done: "bajarildi", left: "Qolganlari:", great: "Zo'r! Hammasi bajarildi 🎉", streakL: "Streak", btn: "📲 Ilovani ochish", doneB: "✅ Bajardim", later: "⏰ Keyinroq", week: "📅 <b>Haftalik hisobot</b>", focus: "Fokus", days: "kun", fr: "👥 <b>{n}</b> sizga do'stlik so'rovi yubordi", ch: "⚔️ <b>{n}</b> sizni challenge'ga chaqirdi", sh: "🤝 <b>{n}</b> birga odat taklif qildi: {t}", duel: "⚔️ <b>{n}</b> sizni duelga chaqirdi", nudge: "👋 <b>{n}</b> sizga {k} yubordi", snooze: "⏰ <b>Yana eslatma</b>" },
+  en: { task: "⏰ <b>Reminder</b>", start: "▶️ <b>Time to start</b>", morning: (n: string) => `🌅 <b>Good morning${n ? ", " + n : ""}!</b> Today's plan:`, streak: (k: number) => `🔥 <b>Keep your streak!</b>\nYou're on a ${k}-day streak — finish at least one task today.`, evening: "🌙 <b>Day summary</b>", done: "done", left: "Still open:", great: "Great job! Everything is done 🎉", streakL: "Streak", btn: "📲 Open the app", doneB: "✅ Done", later: "⏰ Later", week: "📅 <b>Weekly report</b>", focus: "Focus", days: "days", fr: "👥 <b>{n}</b> sent you a friend request", ch: "⚔️ <b>{n}</b> challenged you", sh: "🤝 <b>{n}</b> invited you to a shared habit: {t}", duel: "⚔️ <b>{n}</b> challenged you to a duel", nudge: "👋 <b>{n}</b> sent you a {k}", snooze: "⏰ <b>Reminder again</b>" },
+  ru: { task: "⏰ <b>Напоминание</b>", start: "▶️ <b>Пора начинать</b>", morning: (n: string) => `🌅 <b>Доброе утро${n ? ", " + n : ""}!</b> План на сегодня:`, streak: (k: number) => `🔥 <b>Не потеряйте серию!</b>\nУ вас серия ${k} дн. — выполните сегодня хотя бы одну задачу.`, evening: "🌙 <b>Итоги дня</b>", done: "выполнено", left: "Осталось:", great: "Отлично! Всё выполнено 🎉", streakL: "Серия", btn: "📲 Открыть приложение", doneB: "✅ Готово", later: "⏰ Позже", week: "📅 <b>Отчёт за неделю</b>", focus: "Фокус", days: "дн.", fr: "👥 <b>{n}</b> отправил(а) заявку в друзья", ch: "⚔️ <b>{n}</b> бросил(а) вам вызов", sh: "🤝 <b>{n}</b> приглашает в общую привычку: {t}", duel: "⚔️ <b>{n}</b> вызвал(а) на дуэль", nudge: "👋 <b>{n}</b>: {k}", snooze: "⏰ <b>Снова напоминание</b>" },
 };
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!));
+const fillT = (t: string, o: Record<string, unknown>) => t.replace(/\{(\w+)\}/g, (_, k) => String(o[k] ?? ""));
+// Sozlanadigan vaqtlar (telegram_links.times) va "tinch soatlar"
+const tmOf = (lk: Link, k: string, def: number) => { const v = toMin((lk.times || {})[k]); return v === null ? def : v; };
+const inWin = (now: number, at: number, w = 10) => now >= at && now < at + w;
+function quiet(lk: Link, now: number) {
+  const a = toMin((lk.times || {}).quietFrom), b = toMin((lk.times || {}).quietTo);
+  if (a === null || b === null || a === b) return false;
+  return a < b ? now >= a && now < b : now >= a || now < b;
+}
+const taskKb = (t: any, G: any) => ({ inline_keyboard: [[{ text: G.doneB, callback_data: "d:" + t.id }, { text: "⏰ 15′", callback_data: `z:${t.id}:15` }, { text: "⏰ 1h", callback_data: `z:${t.id}:60` }], [{ text: G.btn, url: APP_URL }]] });
 const taskLine = (t: any, done = false) => `${done ? "✅" : "▫️"} ${t.startTime ? `<code>${esc(t.startTime)}</code> ` : ""}${t.emoji ? esc(t.emoji) + " " : ""}${esc(t.name)}`;
 async function tgCall(method: string, body: Record<string, unknown>) {
   const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -82,15 +93,15 @@ async function ensureWebhook(sb: any) {
   if (!BOT_TOKEN) return;
   const url = `${SB_URL}/functions/v1/telegram-bot`;
   const secret = hexOf(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("lud-wh:" + BOT_TOKEN))).slice(0, 48);
-  const sig = secret.slice(0, 16) + "|" + url;
+  const sig = secret.slice(0, 16) + "|" + url + "|v2";
   const { data: st } = await sb.from("telegram_state").select("v").eq("k", "webhook").maybeSingle();
   if (st?.v === sig) return;
-  const r = await tgCall("setWebhook", { url, secret_token: secret, allowed_updates: ["message"], drop_pending_updates: false });
+  const r = await tgCall("setWebhook", { url, secret_token: secret, allowed_updates: ["message", "callback_query"], drop_pending_updates: false });
   if (!r.json?.ok) { console.warn("setWebhook", r.json); return; }
   for (const [lc, cmds] of Object.entries({
-    "": [["today", "Bugungi vazifalar"], ["stop", "Eslatmalarni to'xtatish"], ["start", "Eslatmalarni yoqish"], ["help", "Yordam"]],
-    en: [["today", "Today's tasks"], ["stop", "Pause reminders"], ["start", "Resume reminders"], ["help", "Help"]],
-    ru: [["today", "Задачи на сегодня"], ["stop", "Пауза"], ["start", "Включить напоминания"], ["help", "Помощь"]],
+    "": [["today", "Bugungi vazifalar"], ["add", "Inbox'ga vazifa qo'shish"], ["stats", "Statistika"], ["week", "Haftalik hisobot"], ["goals", "Bugungi odatlar"], ["pomo", "Pomodoro holati"], ["settings", "Xabarlar sozlamasi"], ["stop", "Eslatmalarni to'xtatish"], ["start", "Eslatmalarni yoqish"], ["help", "Yordam"]],
+    en: [["today", "Today's tasks"], ["add", "Add to Inbox"], ["stats", "Stats"], ["week", "Weekly report"], ["goals", "Today's habits"], ["pomo", "Pomodoro status"], ["settings", "Notification settings"], ["stop", "Pause reminders"], ["start", "Resume reminders"], ["help", "Help"]],
+    ru: [["today", "Задачи на сегодня"], ["add", "Добавить во «Входящие»"], ["stats", "Статистика"], ["week", "Отчёт за неделю"], ["goals", "Привычки"], ["pomo", "Статус помодоро"], ["settings", "Настройки"], ["stop", "Пауза"], ["start", "Включить напоминания"], ["help", "Помощь"]],
   })) await tgCall("setMyCommands", { commands: (cmds as string[][]).map(([command, description]) => ({ command, description })), ...(lc ? { language_code: lc } : {}) });
   await sb.from("telegram_state").upsert({ k: "webhook", v: sig, updated_at: new Date().toISOString() });
 }
@@ -141,7 +152,7 @@ Deno.serve(async (req) => {
   let links: Link[] = [];
   if (BOT_TOKEN) {
     try { await ensureWebhook(sb); } catch (e) { console.warn("webhook", e); }
-    const { data: tl } = await sb.from("telegram_links").select("user_id,chat_id,tz,lang,prefs").eq("enabled", true);
+    const { data: tl } = await sb.from("telegram_links").select("user_id,chat_id,tz,lang,prefs,times").eq("enabled", true);
     links = (tl || []) as Link[];
   }
   if (!subs?.length && !links.length) return Response.json({ sent: 0 });
@@ -152,6 +163,22 @@ Deno.serve(async (req) => {
     sb.from("profiles").select("id,streak,name").in("id", users),
     sb.from("app_state").select("user_id,goals:data->goals").in("user_id", users),
   ]);
+  const linkIds = links.map((l) => l.user_id);
+  const since10 = new Date(Date.now() - 11 * 60000).toISOString();
+  const [{ data: pend }, { data: snz }, { data: frq }, { data: fgc }, { data: shh }, { data: dls }, { data: ndg }] = linkIds.length ? await Promise.all([
+    sb.from("tg_actions").select("user_id,task_id").eq("kind", "done").is("applied_at", null).in("user_id", linkIds),
+    sb.from("tg_snooze").select("user_id,task_id,fire_at").is("sent_at", null).lte("fire_at", new Date().toISOString()).in("user_id", linkIds),
+    sb.from("friend_requests").select("id,from_id,to_id").eq("status", "pending").gte("created_at", since10).in("to_id", linkIds),
+    sb.from("fg_challenges").select("id,owner,members,title").gte("created_at", since10).overlaps("members", linkIds),
+    sb.from("shared_habits").select("id,owner_id,friend_id,name,emoji").eq("status", "pending").gte("created_at", since10).in("friend_id", linkIds),
+    sb.from("duels").select("id,from_id,to_id").eq("status", "pending").gte("created_at", since10).in("to_id", linkIds),
+    sb.from("friend_nudges").select("id,from_id,to_id,kind").gte("created_at", since10).in("to_id", linkIds),
+  ]) : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
+  const pendDone = new Set((pend || []).map((r: any) => r.user_id + ":" + r.task_id));
+  const otherIds = [...new Set([...(frq || []).map((r: any) => r.from_id), ...(fgc || []).map((r: any) => r.owner), ...(shh || []).map((r: any) => r.owner_id), ...(dls || []).map((r: any) => r.from_id), ...(ndg || []).map((r: any) => r.from_id)])];
+  const { data: oth } = otherIds.length ? await sb.from("profiles").select("id,name").in("id", otherIds) : { data: [] };
+  const nm = (id: string) => esc(((oth || []).find((p: any) => p.id === id) || {}).name || "?");
+  if (snz?.length) for (const z of snz) await sb.from("tg_snooze").update({ sent_at: new Date().toISOString() }).eq("user_id", z.user_id).eq("task_id", z.task_id);
   const goalsBy = new Map<string, any[]>();
   (states || []).forEach((r: any) => { if (Array.isArray(r.goals)) goalsBy.set(r.user_id, r.goals.filter((g: any) => g && g.remind)); });
   const nameBy = new Map<string, string>((profs || []).map((p: any) => [p.id, String(p.name || "")]));
@@ -161,7 +188,7 @@ Deno.serve(async (req) => {
 
   // Foydalanuvchi bo'yicha yuboriladigan xabarlar
   const jobs: { user: string; key: string; payload: Record<string, string> }[] = [];
-  const tgJobs: { user: string; chat: number; key: string; text: string }[] = [];
+  const tgJobs: { user: string; chat: number; key: string; text: string; kb?: unknown }[] = [];
   for (const user of users) {
     const s = (subs || []).find((x: Sub) => x.user_id === user) as Sub | undefined;
     const link = links.find((l) => l.user_id === user);
@@ -170,31 +197,53 @@ Deno.serve(async (req) => {
     if (link) {
       const L = local(link.tz || s?.tz || "Asia/Tashkent"), G = TG[link.lang || s?.lang || "uz"] || TG.uz, pf = link.prefs || {};
       const due = tasks.filter((t) => dueToday(t, L.date, L.dow));
-      const push = (key: string, text: string) => tgJobs.push({ user, chat: link.chat_id, key: "tg:" + key, text });
+      const qt = quiet(link, L.min);
+      const push = (key: string, text: string, kb?: unknown) => tgJobs.push({ user, chat: link.chat_id, key: "tg:" + key, text, kb });
+      // ⏰ "Keyinroq" bosilgan eslatmalar
+      for (const z of (snz || []).filter((x: any) => x.user_id === user)) {
+        const t = tasks.find((x) => x && Number(x.id) === Number(z.task_id));
+        if (t && !doneToday(t, L.date) && !pendDone.has(user + ":" + t.id)) push(`z:${t.id}:${z.fire_at}`, `${G.snooze}\n${taskLine(t)}`, taskKb(t, G));
+      }
+      // 👥 Do'stlar: so'rov, challenge, birga odat, duel, turtki
+      if (pf.social !== false) {
+        for (const r of (frq || []).filter((x: any) => x.to_id === user)) push(`fr:${r.id}`, fillT(G.fr, { n: nm(r.from_id) }));
+        for (const c of (fgc || []).filter((x: any) => x.owner !== user && (x.members || []).includes(user))) push(`ch:${c.id}`, fillT(G.ch, { n: nm(c.owner) }) + (c.title ? `\n«${esc(c.title)}»` : ""));
+        for (const h of (shh || []).filter((x: any) => x.friend_id === user)) push(`sh:${h.id}`, fillT(G.sh, { n: nm(h.owner_id), t: esc((h.emoji || "") + " " + h.name) }));
+        for (const d of (dls || []).filter((x: any) => x.to_id === user)) push(`du:${d.id}`, fillT(G.duel, { n: nm(d.from_id) }));
+        for (const d of (ndg || []).filter((x: any) => x.to_id === user)) push(`nd:${d.id}`, fillT(G.nudge, { n: nm(d.from_id), k: d.kind === "cheer" ? "👏" : d.kind === "highfive" ? "✋" : "👋" }));
+      }
       for (const t of due) {
-        if (doneToday(t, L.date)) continue;
+        if (qt) break;
+        if (doneToday(t, L.date) || pendDone.has(user + ":" + t.id)) continue;
         const rm = toMin(t?.remindAt), st = toMin(t?.startTime);
         if (pf.tasks !== false && rm !== null && L.min >= rm && L.min - rm < 10)
-          push(`t:${t.id}:${L.date}`, `${G.task}\n${taskLine(t)}`);
+          push(`t:${t.id}:${L.date}`, `${G.task}\n${taskLine(t)}`, taskKb(t, G));
         // Boshlanishdan ~5 daqiqa oldin (eslatma xuddi shu vaqtga qo'yilmagan bo'lsa)
         if (pf.start !== false && st !== null && rm !== st && L.min >= st - 5 && L.min < st + 5)
-          push(`st:${t.id}:${L.date}`, `${G.start}\n${taskLine(t)}${t.endTime ? ` → <code>${esc(t.endTime)}</code>` : ""}`);
+          push(`st:${t.id}:${L.date}`, `${G.start}\n${taskLine(t)}${t.endTime ? ` → <code>${esc(t.endTime)}</code>` : ""}`, taskKb(t, G));
       }
-      if (pf.tasks !== false) for (const g of goalsBy.get(user) || []) {
+      if (pf.tasks !== false && !qt) for (const g of goalsBy.get(user) || []) {
         const rm = toMin(g.remind);
         if (rm !== null && goalDue(g, L.date, L.dow) && L.min >= rm && L.min - rm < 10)
           push(`g:${g.id}:${L.date}`, `${G.task}\n${g.emoji ? esc(g.emoji) + " " : "🎯 "}${esc(g.name)}${g.target > 1 ? ` — ${g.target} ${esc(g.unit || "")}` : ""}`);
       }
       const sorted = due.slice().sort((a, b) => String(a.startTime || "99").localeCompare(String(b.startTime || "99")));
-      if (pf.morning !== false && due.length && L.min >= 8 * 60 && L.min < 8 * 60 + 10) {
+      if (pf.morning !== false && !qt && due.length && inWin(L.min, tmOf(link, "morning", 8 * 60))) {
         const k = streakBy.get(user) || 0;
         push(`m:${L.date}`, `${G.morning(esc(nameBy.get(user) || ""))}\n\n${sorted.slice(0, 15).map((t) => taskLine(t, doneToday(t, L.date))).join("\n")}${due.length > 15 ? "\n…" : ""}${k ? `\n\n🔥 ${G.streakL}: <b>${k}</b>` : ""}`);
       }
       const streakN = streakBy.get(user) || 0;
-      if (pf.streak !== false && streakN > 0 && L.min >= 20 * 60 && L.min < 20 * 60 + 10 && !tasks.some((t) => t && t.doneDate === L.date))
+      if (pf.streak !== false && !qt && streakN > 0 && inWin(L.min, tmOf(link, "streak", 20 * 60)) && !tasks.some((t) => t && t.doneDate === L.date))
         push(`s:${L.date}`, G.streak(streakN));
-      if (pf.evening !== false && due.length && L.min >= 21 * 60 + 30 && L.min < 21 * 60 + 40) {
-        const open = sorted.filter((t) => !doneToday(t, L.date)), dn = due.length - open.length;
+      // 📅 Yakshanba — haftalik hisobot (Pomodoro fokus, streak)
+      if (pf.weekly !== false && !qt && L.dow === 0 && inWin(L.min, tmOf(link, "weekly", 20 * 60 + 30))) {
+        const { data: lg } = await sb.from("pomo_log").select("duration_ms,start_at").eq("user_id", user).gte("start_at", new Date(Date.now() - 7 * 864e5).toISOString()).limit(2000);
+        const mins = Math.round((lg || []).reduce((a: number, r: any) => a + (Number(r.duration_ms) || 0), 0) / 60000);
+        const dd = new Set((lg || []).map((r: any) => String(r.start_at).slice(0, 10))).size;
+        push(`w:${L.date}`, `${G.week}\n\n🍅 ${G.focus}: <b>${mins >= 60 ? Math.floor(mins / 60) + "h " + (mins % 60) + "m" : mins + "m"}</b> · ${dd}/7 ${G.days}\n🔥 ${G.streakL}: <b>${streakBy.get(user) || 0}</b>`);
+      }
+      if (pf.evening !== false && !qt && due.length && inWin(L.min, tmOf(link, "evening", 21 * 60 + 30))) {
+        const open = sorted.filter((t) => !doneToday(t, L.date) && !pendDone.has(user + ":" + t.id)), dn = due.length - open.length;
         push(`e:${L.date}`, `${G.evening}\n✅ <b>${dn}/${due.length}</b> ${G.done}\n\n${open.length ? `${G.left}\n${open.slice(0, 8).map((t) => taskLine(t)).join("\n")}${open.length > 8 ? "\n…" : ""}` : G.great}`);
       }
     }
@@ -228,7 +277,7 @@ Deno.serve(async (req) => {
     if (!ins?.length) continue;
     const lang = (links.find((l) => l.user_id === j.user)?.lang) || "uz";
     const r = await tgCall("sendMessage", { chat_id: j.chat, text: j.text, parse_mode: "HTML", disable_web_page_preview: true,
-      reply_markup: { inline_keyboard: [[{ text: (TG[lang] || TG.uz).btn, url: APP_URL }]] } });
+      reply_markup: j.kb || { inline_keyboard: [[{ text: (TG[lang] || TG.uz).btn, url: APP_URL }]] } });
     if (r.json?.ok) tgSent++;
     else if (r.status === 403) await sb.from("telegram_links").update({ enabled: false }).eq("chat_id", j.chat); // bot bloklangan
     else console.warn("tg send", r.status, r.json?.description);
