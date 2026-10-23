@@ -12259,9 +12259,24 @@ function ensureSubtasks(t) {
   return t.subtasks;
 }
 
+// "Bir martalik" sub-task qachon bajarilgan (eng birinchi sana) — bo'lmasa null
+function subtaskOnceDoneDate(s) {
+  var best = (s.done && s.doneDate) ? s.doneDate : null, log = S.subtaskDoneLog || {}, suf = '_' + s.id;
+  Object.keys(log).forEach(function (k) {
+    if (k.slice(-suf.length) !== suf || !Array.isArray(log[k])) return;
+    log[k].forEach(function (d) { if (d && (!best || d < best)) best = d; });
+  });
+  return best;
+}
 function subtaskDueToday(s, dateStr) {
   dateStr = dateStr || today();
-  if (!s.repeat || s.repeat === 'once') return true;
+  // 🐞 TUZATILDI: bir martalik sub-task bajarilgandan keyin har kuni qaytadan "bajarilmagan" bo'lib chiqardi.
+  // Endi: qo'shilgan kunidan oldin ko'rinmaydi; bajarilmaguncha har kuni turadi; bajarilgan kundan keyin yo'qoladi.
+  if (!s.repeat || s.repeat === 'once') {
+    if (s.addedDate && dateStr < s.addedDate) return false;
+    var dd = subtaskOnceDoneDate(s);
+    return !dd || dateStr <= dd;
+  }
   var dow = new Date(dateStr + 'T00:00:00').getDay();
   if (s.repeat === 'daily') return true;
   if (s.repeat === 'weekdays') return dow >= 1 && dow <= 5;
@@ -12471,7 +12486,7 @@ function saveSubtaskModal() {
   }
 
   ensureSubtasks(tk).push({
-    id: genSubtaskId(), name: name, done: false,
+    id: genSubtaskId(), name: name, done: false, addedDate: today(),
     diff: _stDiffFromCoins(stDiff), coins: stDiff,
     repeat: stRepeat,
     days: stRepeat==='custom-days' ? [...stDays] : null,
