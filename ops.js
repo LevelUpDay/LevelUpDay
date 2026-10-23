@@ -9,7 +9,7 @@
 // ============================================================
 (function () {
   'use strict';
-  window.APP_VERSION = 'v118'; // sw.js CACHE_VERSION bilan bir xil
+  window.APP_VERSION = 'v119'; // sw.js CACHE_VERSION bilan bir xil
 
   function L(uz, en, ru) { try { return _cl(uz, en, ru); } catch (e) { return uz; } }
   function H(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -291,6 +291,19 @@
         if (loc.indexOf(m.id) !== -1) { resend.push(m.id); return; } // bu qurilmada ko'rilgan — faqat serverga qayta belgilaymiz
         if (!have[m.id] && !_msgShown[m.id]) _msgQueue.push(m);
       });
+      // 🎁 Admin sovg'asi/tuzatish: serverdagi yangi balansni darhol olamiz (farq mahalliy holatga qo'shiladi)
+      var econNew = (st.messages || []).filter(function (m) { return m.kind === 'econ' && loc.indexOf(m.id) === -1; });
+      if (econNew.length && window._profMergeServer) {
+        try {
+          var pr = await supabase.from('profiles').select('coins,total_coins,xp,gems').eq('id', S.cloudUserId).maybeSingle();
+          if (pr && !pr.error && pr.data) {
+            // Qurilmada "asos" hali yo'q bo'lsa — sovg'adan oldingi server holatini xabardagi farqlardan tiklaymiz
+            var fb = { coins: pr.data.coins || 0, total_coins: pr.data.total_coins || 0, xp: pr.data.xp || 0, gems: pr.data.gems || 0 };
+            econNew.forEach(function (m) { var d = m.data || {}; fb.coins -= d.coins || 0; fb.xp -= d.xp || 0; fb.gems -= d.gems || 0; if ((d.coins || 0) > 0) fb.total_coins -= d.coins; });
+            window._profMergeServer(pr.data, fb); try { save(); render(); } catch (e2) {}
+          }
+        } catch (e1) {}
+      }
       if (resend.length) markSeen(resend);
       nextModal();
     } catch (e) {} finally { _stBusy = false; }
@@ -329,6 +342,7 @@
           if (typeof p.season_coins === 'number' && typeof p.coins === 'number') S.reytingSeasonCoinsBase = Math.max(0, p.coins - p.season_coins); // promo tangasi oylik reytingga ham kiradi
           if (typeof p.xp === 'number') S.xp = p.xp;
           if (typeof p.gems === 'number') S.gems = p.gems;
+          if (window._profBaseFromS) window._profBaseFromS(); // promo serverda qo'shildi — eski qiymat qaytarib yozilmasin
           var gain = [d.coins ? '+' + d.coins + ' 🪙' : '', d.xp ? '+' + d.xp + ' XP' : '', d.gems ? '+' + d.gems + ' 💎' : ''].filter(Boolean).join(' ');
           addTarixLog('in', '🎁 ' + L('Promo-kod', 'Promo code', 'Промокод') + ' ' + code, d.coins || 0);
           save(); render(); try { confetti(); } catch (e2) {}
