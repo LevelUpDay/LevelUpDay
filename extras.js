@@ -6129,6 +6129,37 @@
     }, function () { b.disabled = false; });
   }
 
+  // ---------- "Yangi chorlov" oynasi: ilovadagi barcha challenge turlari shu yerda ----------
+  // script.js ichidagi chaqiruvlar blok-ichki nomni ishlatadi — shuning uchun o'rash o'rniga oyna ochilishini kuzatamiz
+  (function () {
+    var ovEl = document.getElementById('friends-newchallenge-overlay');
+    if (!ovEl || !window.MutationObserver) return;
+    new MutationObserver(function () { if (ovEl.classList.contains('open')) enhanceNC(); }).observe(ovEl, { attributes: true, attributeFilter: ['class'] });
+  })();
+  function enhanceNC() {
+    var r;
+      try {
+        var ov = document.getElementById('friends-newchallenge-overlay'), box = ov && ov.querySelector('.modal'), sel = document.getElementById('fnc-friend-select');
+        if (!box) return r;
+        // UUID o'rniga ism va do'st kodi
+        if (sel) Array.prototype.forEach.call(sel.options, function (o) { var f = (S.friends.list || []).filter(function (x) { return String(x.id) === o.value; })[0]; if (f) o.textContent = (f.name || '—') + (f.friendCode ? ' · ' + f.friendCode : ''); });
+        var bar = box.querySelector('#chx-nc-types');
+        if (!bar) {
+          bar = document.createElement('div'); bar.id = 'chx-nc-types'; bar.className = 'modal-field';
+          bar.innerHTML = '<label>' + H(L('Challenge turi', 'Challenge type', 'Тип челленджа')) + '</label><div class="chx-nc">' + TYPES.map(function (t) { return '<button type="button" data-nct="' + t[0] + '" class="' + (t[0] === 'task' ? 'on' : '') + '" title="' + H(t[3]()) + '"><span>' + t[1] + '</span>' + H(t[2]()) + '</button>'; }).join('') + '</div>';
+          var h2 = box.querySelector('h2'); box.insertBefore(bar, h2 ? h2.nextSibling : box.firstChild);
+          bar.addEventListener('click', function (e) {
+            var b = e.target.closest('[data-nct]'); if (!b) return;
+            var k = b.getAttribute('data-nct'); if (k === 'task') return;
+            var fid = (document.getElementById('fnc-friend-select') || {}).value || null;
+            try { closeNewChallengeModal(); } catch (er) {}
+            startType(k, fid);
+          });
+        }
+      } catch (e) {}
+      return r;
+  }
+
   // ---------- do'st profilida "⚔️ Challenge" tugmasi ----------
   if (typeof window.showFriendProfileModal === 'function') {
     var _sp = window.showFriendProfileModal;
@@ -6146,6 +6177,14 @@
     };
   }
 
+  // script.js badge'ni o'zicha qayta yozsa — barcha turdagi takliflar sonini qaytaramiz
+  (function () {
+    var bEl = document.getElementById('friends-challenge-badge');
+    if (bEl && window.MutationObserver) new MutationObserver(function () {
+      var F = S.friends || {}, n = (F.challengesIncoming || []).filter(function (c) { return !(F.seenChallengeIds || {})[c.id]; }).length + unseen();
+      if (bEl.textContent !== String(n) && n > 0) badge();
+    }).observe(bEl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+  })();
   window.addEventListener('lud-challenges', function () { CH.at = 0; load(true); });
   window.addEventListener('lud-challenges-data', function () { render(); badge(); });
   function init() {

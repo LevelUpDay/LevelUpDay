@@ -1731,3 +1731,9 @@ html.x-dragging body { touch-action: none; overscroll-behavior: none; }
 .x-tg-tm { width: 96px !important; flex-shrink: 0; padding: 5px 6px !important; font-size: var(--fs-xs) !important; }
 .x-tg-q { justify-content: flex-start; margin: 4px 2px 8px; }
 .x-tg-q span { color: var(--text-muted); }
+/* "Yangi chorlov" oynasidagi barcha challenge turlari */
+.chx-nc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.chx-nc button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: var(--fs-2xs); font-weight: 600; cursor: pointer; }
+.chx-nc button span { font-size: 18px; }
+.chx-nc button.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.chx-nc button:hover { border-color: var(--accent); }
