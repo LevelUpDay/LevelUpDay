@@ -1,5 +1,6 @@
 // 🔔 send-reminders — har 5 daqiqada pg_cron chaqiradi.
 //  • Vazifa eslatmasi: task.remindAt (HH:MM) vaqti kelganda (foydalanuvchi soat mintaqasida)
+//  • Odat eslatmasi: goal.remind (HH:MM) — app_state.data.goals dan (bugun belgilanmagan bo'lsa)
 //  • Streak eslatmasi: 20:00 da, streak > 0 bo'lsa va bugun hech narsa bajarilmagan bo'lsa
 // Har bir xabar push_log orqali bir marta yuboriladi.
 // ✈️ Telegram (telegram_links): vazifa eslatmasi, boshlanish vaqti, 08:00 reja, 20:00 streak, 21:30 kun yakuni.
@@ -40,6 +41,22 @@ function dueToday(t: any, date: string, dow: number) {
   }
 }
 const doneToday = (t: any, date: string) => t.repeat === "once" ? !!t.done : t.doneDate === date;
+
+// 🎯 Odat (maqsad) eslatmasi — script.js → isGoalDueOnDate() bilan bir xil mantiq (soddalashtirilgan)
+function goalDue(g: any, date: string, dow: number) {
+  if (!g || g.done || g.archived || !g.remind) return false;
+  if (g.daysChecked && g.daysChecked[date]) return false;
+  if (g.startDate && date < g.startDate) return false;
+  if (g.endDate && date > g.endDate) return false;
+  if ((g.pauses || []).some((p: any) => date >= p.from && (!p.to || date < p.to))) return false;
+  const rep = g.repeat || "daily";
+  if (rep === "custom-days") return Array.isArray(g.days) && g.days.includes(dow);
+  if (rep === "interval") {
+    const o = Date.parse((g.intervalStart || g.startDate || date) + "T00:00:00Z"), d = Date.parse(date + "T00:00:00Z");
+    const diff = Math.round((d - o) / 864e5); return diff >= 0 && diff % Math.max(1, Number(g.interval) || 1) === 0;
+  }
+  return true;
+}
 
 const TXT: Record<string, { task: string; streakT: string; streakB: (n: number) => string }> = {
   uz: { task: "⏰ Eslatma", streakT: "🔥 Streak yo'qolmasin!", streakB: (n) => `${n} kunlik streak'ingiz bor — bugun kamida bitta vazifani bajaring.` },
@@ -97,10 +114,13 @@ Deno.serve(async (req) => {
   if (!subs?.length && !links.length) return Response.json({ sent: 0 });
 
   const users = [...new Set([...(subs || []).map((s: Sub) => s.user_id), ...links.map((l) => l.user_id)])];
-  const [{ data: todos }, { data: profs }] = await Promise.all([
+  const [{ data: todos }, { data: profs }, { data: states }] = await Promise.all([
     sb.from("todos").select("user_id,task_data").in("user_id", users),
     sb.from("profiles").select("id,streak,name").in("id", users),
+    sb.from("app_state").select("user_id,goals:data->goals").in("user_id", users),
   ]);
+  const goalsBy = new Map<string, any[]>();
+  (states || []).forEach((r: any) => { if (Array.isArray(r.goals)) goalsBy.set(r.user_id, r.goals.filter((g: any) => g && g.remind)); });
   const nameBy = new Map<string, string>((profs || []).map((p: any) => [p.id, String(p.name || "")]));
   const tasksBy = new Map<string, any[]>();
   (todos || []).forEach((r: any) => { if (!tasksBy.has(r.user_id)) tasksBy.set(r.user_id, []); tasksBy.get(r.user_id)!.push(r.task_data); });
@@ -127,6 +147,11 @@ Deno.serve(async (req) => {
         if (pf.start !== false && st !== null && rm !== st && L.min >= st - 5 && L.min < st + 5)
           push(`st:${t.id}:${L.date}`, `${G.start}\n${taskLine(t)}${t.endTime ? ` → <code>${esc(t.endTime)}</code>` : ""}`);
       }
+      if (pf.tasks !== false) for (const g of goalsBy.get(user) || []) {
+        const rm = toMin(g.remind);
+        if (rm !== null && goalDue(g, L.date, L.dow) && L.min >= rm && L.min - rm < 10)
+          push(`g:${g.id}:${L.date}`, `${G.task}\n${g.emoji ? esc(g.emoji) + " " : "🎯 "}${esc(g.name)}${g.target > 1 ? ` — ${g.target} ${esc(g.unit || "")}` : ""}`);
+      }
       const sorted = due.slice().sort((a, b) => String(a.startTime || "99").localeCompare(String(b.startTime || "99")));
       if (pf.morning !== false && due.length && L.min >= 8 * 60 && L.min < 8 * 60 + 10) {
         const k = streakBy.get(user) || 0;
@@ -149,6 +174,13 @@ Deno.serve(async (req) => {
         if (L.min >= rm && L.min - rm < 10) {
           jobs.push({ user, key: `t:${t.id}:${L.date}`, payload: { title: T.task, body: `${t.emoji ? t.emoji + " " : ""}${t.name}${t.startTime ? " · " + t.startTime : ""}`, tag: `task-${t.id}`, url: "./?tab=tasks" } });
         }
+      }
+    }
+    if (prefs.tasks !== false) {
+      for (const g of goalsBy.get(user) || []) {
+        const rm = toMin(g.remind);
+        if (rm === null || !goalDue(g, L.date, L.dow) || !(L.min >= rm && L.min - rm < 10)) continue;
+        jobs.push({ user, key: `g:${g.id}:${L.date}`, payload: { title: T.task, body: `${g.emoji ? g.emoji + " " : "🎯 "}${g.name}${g.target > 1 ? ` — ${g.target} ${g.unit || ""}` : ""}`, tag: `goal-${g.id}`, url: "./?tab=goals" } });
       }
     }
     const streak = streakBy.get(user) || 0;

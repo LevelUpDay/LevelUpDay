@@ -4346,11 +4346,12 @@
       var dn = []; try { dn = _chestDoneTodayNames(); } catch (e) {}
       var an = (S.isChestQuestActive && S.chestQuest) ? S.chestQuest.name : null;
       // 🐞 Bir xil nomli Chest vazifalar: bugun necha marta bajarilgan bo'lsa, shuncha vazifa "bajarildi" bo'ladi (hammasi emas)
-      var dnLeft = {}; dn.forEach(function (n) { dnLeft[n] = (dnLeft[n] || 0) + 1; });
-      (S.chestTasks || []).forEach(function (c) {
+      var cflags = []; try { cflags = chestDoneFlags(S.chestTasks || []); } catch (e) {}
+      var aq = (S.isChestQuestActive && S.chestQuest) ? S.chestQuest : null;
+      (S.chestTasks || []).forEach(function (c, ci) {
         if (!c) return;
-        var used = dnLeft[c.name] > 0; if (used) dnLeft[c.name]--;
-        var x = chestInfo(c, used ? [c.name] : [], an);
+        var used = !!cflags[ci];
+        var x = chestInfo(c, used ? [c.name] : [], aq && (aq.id != null ? aq.id === c.id : aq.name === c.name) ? c.name : null);
         if (!p.showDone && x.done) return;
         if (!matches(x, q)) return;
         out.chest.push(x);
@@ -4420,9 +4421,10 @@
         : '<span class="ib-st-chk static' + (dn ? ' on' : '') + '" aria-hidden="true">' + (dn ? CHECK_SVG : '') + '</span>';
       return '<div class="ib-st' + (dn ? ' done' : '') + (sb.skipped && !dn ? ' skipped' : '') + '">' + box +
         (sb.label ? '<i class="ib-st-dot" style="background:' + H(sb.label) + '"></i>' : '') +
-        '<span class="ib-st-n">' + hl(sb.name) + '</span>' + (sb.skipped && !dn ? '<span class="ib-st-tag">⏭</span>' : '') +
-        (sel ? '' : '<button type="button" class="ib-st-del" data-act="subdel" data-sid="' + H(sb.id) + '" aria-label="' + H(L("Sub-taskni o'chirish", 'Delete subtask', 'Удалить подзадачу')) + '" title="' + H(L("O'chirish", 'Delete', 'Удалить')) + '">✕</button>') + '</div>';
-    }).join('') + '</div>';
+        '<button type="button" class="ib-st-n" data-act="subedit" data-sid="' + H(sb.id) + '" title="' + H(L('Tahrirlash', 'Edit', 'Изменить')) + '">' + hl(sb.name) + '</button>' + (sb.skipped && !dn ? '<span class="ib-st-tag">⏭</span>' : '') +
+        (sel ? '' : '<button type="button" class="ib-st-ed" data-act="subedit" data-sid="' + H(sb.id) + '" aria-label="' + H(L("Sub-taskni tahrirlash", 'Edit subtask', 'Изменить подзадачу')) + '" title="' + H(L('Tahrirlash', 'Edit', 'Изменить')) + '">✏️</button>' +
+          '<button type="button" class="ib-st-del" data-act="subdel" data-sid="' + H(sb.id) + '" aria-label="' + H(L("Sub-taskni o'chirish", 'Delete subtask', 'Удалить подзадачу')) + '" title="' + H(L("O'chirish", 'Delete', 'Удалить')) + '">✕</button>') + '</div>';
+    }).join('') + (sel ? '' : '<button type="button" class="ib-st-add" data-act="subadd">＋ ' + H(L("Sub-task qo'shish", 'Add subtask', 'Добавить подзадачу')) + '</button>') + '</div>';
   }
   function goalHtml(x) {
     var g = x.o, ch = [], c = goalCoins(g);
@@ -4709,6 +4711,11 @@
     if (act === 'del') { try { deleteTask(id); } catch (er) { console.warn('[inbox] del', er); } return; }
     if (act === 'gdel') { try { deleteGoal(id); } catch (er) { console.warn('[inbox] gdel', er); } return; }
     if (act === 'cdel') { try { deleteChestTask(id); } catch (er) { console.warn('[inbox] cdel', er); } return; }
+    if (act === 'subedit' || act === 'subadd') {
+      if (sel) return;
+      try { openSubtaskModal(o.id, act === 'subedit' ? (function () { var q0 = (o.subtasks || []).find(function (q) { return q && String(q.id) === String(b.dataset.sid); }); return q0 ? q0.id : undefined; })() : undefined); } catch (er) { console.warn('[inbox] subedit', er); }
+      return;
+    }
     if (act === 'subdel') {
       var sd = (o.subtasks || []).find(function (q) { return q && String(q.id) === String(b.dataset.sid); });
       if (sd) { try { deleteSubtask(o.id, sd.id); } catch (er) { console.warn('[inbox] subdel', er); } }
@@ -5042,4 +5049,326 @@
   });
 
   window.xInbox = { open: open, close: close, isOpen: function () { return isOpen; }, render: render, openCount: openCount, _collect: collect };
+})();
+
+// ============================================================
+// 🎯 MAQSADLAR v2 — kunlik miqdor (8 stakan suv), kunlik izoh, statistika, andozalar,
+// rang/arxiv/qo'lda tartib, rejali pauza, vazifaga bog'lash, 👥 do'st bilan birga odat
+// (script.js → renderGoals/saveGoal/toggleTaskInternal ichidagi ilgaklar orqali)
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  var H = function (s) { return esc(s == null ? '' : String(s)); };
+  var COLORS = ['', '#7C5CFC', '#34D399', '#F5A623', '#F87171', '#60A5FA', '#EC4899', '#22D3EE'];
+  function G(id) { return (S.goals || []).find(function (x) { return String(x.id) === String(id); }); }
+  function tk() { return typeof trackDate === 'function' ? trackDate() : today(); }
+  function rerender() { try { save(); } catch (e) {} try { renderGoals(); } catch (e) {} try { renderGoalsCalendar(); } catch (e) {} try { render(); } catch (e) {} }
+  function modal(html, cls) {
+    var ov = document.createElement('div'); ov.className = 'x-ov gx-ov';
+    ov.innerHTML = '<div class="x-box ' + (cls || '') + '" role="dialog" aria-modal="true"><button class="x-close" aria-label="close">✕</button>' + html + '</div>';
+    document.body.appendChild(ov); requestAnimationFrame(function () { ov.classList.add('open'); });
+    var close = function () { ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 200); };
+    ov.querySelector('.x-close').onclick = close;
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    ov._close = close; return ov;
+  }
+
+  // ---------- Modal: qo'shimcha maydonlar ----------
+  var _editId = null;
+  function fieldsHtml(g) {
+    var tasks = (S.tasks || []).filter(function (t) { return t && !t.isFrozen; }).slice(0, 300);
+    return '<div class="modal-field"><label>🔢 ' + H(L('Kunlik miqdor (ixtiyoriy)', 'Daily amount (optional)', 'Дневная норма (необязательно)')) + '</label>' +
+      '<div class="gmx-row"><input type="number" id="gmx-target" min="1" max="999" inputmode="numeric" placeholder="' + H(L('masalan 8', 'e.g. 8', 'напр. 8')) + '" value="' + H(g && g.target > 1 ? g.target : '') + '">' +
+      '<input type="text" id="gmx-unit" maxlength="16" placeholder="' + H(L('stakan, bet, daqiqa…', 'glasses, pages, min…', 'стаканов, страниц…')) + '" value="' + H((g && g.unit) || '') + '"></div>' +
+      '<small class="gmx-hint">' + H(L("Bo'sh bo'lsa — oddiy ✓. Masalan 8 stakan suv: har stakanga +1, 8 ga yetganda kun belgilanadi.", 'Leave empty for a simple ✓. E.g. 8 glasses: +1 each, the day is marked at 8.', 'Пусто — простая ✓. Напр. 8 стаканов: +1 за каждый, день отмечается на 8.')) + '</small></div>' +
+      '<div class="modal-field"><label>🎨 ' + H(L('Rang', 'Color', 'Цвет')) + '</label><div class="gmx-colors">' + COLORS.map(function (c) {
+        return '<button type="button" class="gmx-col' + (((g && g.color) || '') === c ? ' sel' : '') + '" data-c="' + c + '" style="' + (c ? 'background:' + c : '') + '" aria-label="' + H(c || L("Rangsiz", 'None', 'Без цвета')) + '">' + (c ? '' : '∅') + '</button>';
+      }).join('') + '</div></div>' +
+      '<div class="modal-field"><label>🔗 ' + H(L("Vazifaga bog'lash", 'Link to a task', 'Связать с задачей')) + '</label><select id="gmx-link"><option value="">— ' + H(L("Bog'lanmagan", 'Not linked', 'Не связано')) + ' —</option>' +
+        tasks.map(function (t) { return '<option value="' + H(t.id) + '"' + (g && String(g.linkTask) === String(t.id) ? ' selected' : '') + '>' + H((t.emoji ? t.emoji + ' ' : '') + t.name) + '</option>'; }).join('') + '</select>' +
+      '<small class="gmx-hint">' + H(L("Bog'langan vazifa bajarilsa — odat ham avtomatik belgilanadi", 'When the linked task is completed, the habit is marked too', 'Когда задача выполнена — привычка отмечается сама')) + '</small></div>' +
+      '<label class="gmx-check"><input type="checkbox" id="gmx-grace"' + (!g || g.grace !== false ? ' checked' : '') + '> 🧊 ' + H(L("Streak himoyasi: oyiga 2 ta o'tkazib yuborilgan kun streakni uzmaydi", 'Streak shield: 2 missed days a month don\'t break the streak', 'Защита серии: 2 пропуска в месяц не обрывают серию')) + '</label>';
+  }
+  (function hookOpen() {
+    var orig = window.openGoalModal;
+    if (typeof orig !== 'function') return;
+    window.openGoalModal = openGoalModal = function (id) {
+      _editId = id || null;
+      var r = orig.apply(this, arguments);
+      var box = document.getElementById('gmx-fields');
+      if (box) {
+        box.innerHTML = fieldsHtml(id ? G(id) : null);
+        box.querySelectorAll('.gmx-col').forEach(function (b) { b.onclick = function () { box.querySelectorAll('.gmx-col').forEach(function (x) { x.classList.toggle('sel', x === b); }); }; });
+      }
+      return r;
+    };
+  })();
+  window.xGoalSaveExtras = function (g) {
+    var box = document.getElementById('gmx-fields'); if (!box || !box.firstChild) return;
+    var tg = parseInt((document.getElementById('gmx-target') || {}).value, 10);
+    g.target = tg > 1 ? Math.min(999, tg) : null;
+    g.unit = g.target ? String((document.getElementById('gmx-unit') || {}).value || '').trim().slice(0, 16) : null;
+    var sc = box.querySelector('.gmx-col.sel'); g.color = sc ? sc.dataset.c || null : (g.color || null);
+    var lk = (document.getElementById('gmx-link') || {}).value; g.linkTask = lk ? (isNaN(+lk) ? lk : +lk) : null;
+    g.grace = !!(document.getElementById('gmx-grace') || {}).checked;
+  };
+
+  // ---------- 🔢 Kunlik miqdor ----------
+  function count(g, d) { return (g.counts && g.counts[d]) || 0; }
+  window.gxInc = function (id, delta) {
+    var g = G(id); if (!g) return;
+    var d = tk(); if (!g.counts) g.counts = {};
+    var tgt = g.target || 1, prev = count(g, d), n = Math.max(0, Math.min(tgt * 3, prev + delta));
+    g.counts[d] = n; if (!n) delete g.counts[d];
+    var checked = !!(g.daysChecked && g.daysChecked[d]);
+    if (n >= tgt && !checked) { try { goalCheckToday(g.id); } catch (e) {} return; }
+    if (n < tgt && checked) { try { goalCheckToday(g.id); } catch (e) {} return; }
+    if (delta > 0) { try { SFX.click(); } catch (e) {} }
+    rerender();
+  };
+
+  // ---------- 📝 Kunlik izoh ----------
+  window.gxNote = function (id) {
+    var g = G(id); if (!g) return;
+    var d = tk(), cur = (g.notes && g.notes[d]) || '';
+    var moods = ['😄', '🙂', '😐', '😕', '😫'];
+    var ov = modal('<h3 class="gx-h">📝 ' + H(g.emoji || '🎯') + ' ' + H(g.name) + '</h3><p class="gx-sub">' + H(d) + '</p>' +
+      '<div class="gx-moods">' + moods.map(function (m) { return '<button type="button" class="gx-mood' + (cur.indexOf(m) === 0 ? ' sel' : '') + '" data-m="' + m + '">' + m + '</button>'; }).join('') + '</div>' +
+      '<textarea class="x-in gx-note" maxlength="200" rows="3" placeholder="' + H(L("Bugun qanday o'tdi? (ixtiyoriy)", 'How did it go today? (optional)', 'Как прошло сегодня? (необязательно)')) + '">' + H(cur.replace(/^(\S+)\s/, function (m0, e1) { return moods.indexOf(e1) !== -1 ? '' : m0; })) + '</textarea>' +
+      '<div class="gx-acts"><button type="button" class="x-btn" data-save>' + H(L('Saqlash', 'Save', 'Сохранить')) + '</button></div>');
+    var mood = moods.filter(function (m) { return cur.indexOf(m) === 0; })[0] || '';
+    ov.querySelectorAll('.gx-mood').forEach(function (b) { b.onclick = function () { mood = mood === b.dataset.m ? '' : b.dataset.m; ov.querySelectorAll('.gx-mood').forEach(function (x) { x.classList.toggle('sel', x.dataset.m === mood); }); }; });
+    ov.querySelector('[data-save]').onclick = function () {
+      var txt = String(ov.querySelector('.gx-note').value || '').trim(), v = (mood ? mood + ' ' : '') + txt;
+      if (!g.notes) g.notes = {};
+      if (v.trim()) g.notes[d] = v.trim().slice(0, 210); else delete g.notes[d];
+      ov._close(); rerender(); toast('📝 ' + L('Saqlandi', 'Saved', 'Сохранено'));
+    };
+  };
+
+  // ---------- 📊 Statistika ----------
+  window.gxStats = function (id) {
+    var g = G(id); if (!g) return;
+    var end = tk(), wd = [0, 0, 0, 0, 0, 0, 0].map(function () { return { due: 0, done: 0 }; }), grid = '', doneN = 0, dueN = 0;
+    var names = typeof getShortDaysArr === 'function' ? getShortDaysArr() : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+    for (var i = 89; i >= 0; i--) {
+      var d = addDays(end, -i), before = g.startDate && d < g.startDate, chk = !!(g.daysChecked && g.daysChecked[d]), due = !before && isGoalDueOnDate(g, d);
+      var dow = new Date(d + 'T00:00:00').getDay();
+      if (due && d !== end || chk) { wd[dow].due++; dueN++; if (chk) { wd[dow].done++; doneN++; } }
+      grid += '<i class="' + (chk ? 'on' : before ? 'na' : due && d !== end ? 'miss' : 'off') + '" title="' + d + (g.notes && g.notes[d] ? ' · ' + H(g.notes[d]) : '') + '"></i>';
+    }
+    var rates = wd.map(function (x, i) { return { i: i, r: x.due ? Math.round(x.done / x.due * 100) : null }; });
+    var known = rates.filter(function (x) { return x.r !== null; });
+    var best = known.slice().sort(function (a, b) { return b.r - a.r; })[0], worst = known.slice().sort(function (a, b) { return a.r - b.r; })[0];
+    var st = goalStreak(g), notes = Object.keys(g.notes || {}).sort().reverse().slice(0, 5);
+    modal('<h3 class="gx-h">📊 ' + H(g.emoji || '🎯') + ' ' + H(g.name) + '</h3>' +
+      '<div class="gx-kpis"><div><b>' + (dueN ? Math.round(doneN / dueN * 100) : 0) + '%</b><small>' + H(L('90 kunda', '90 days', '90 дней')) + '</small></div><div><b>🔥 ' + st.cur + '</b><small>' + H(L('Hozirgi', 'Current', 'Текущая')) + '</small></div><div><b>🏆 ' + st.best + '</b><small>' + H(L('Rekord', 'Best', 'Рекорд')) + '</small></div><div><b>' + doneN + '</b><small>' + H(L('Bajarilgan kun', 'Days done', 'Дней')) + '</small></div></div>' +
+      '<div class="gx-lbl">' + H(L('Hafta kunlari bo\'yicha', 'By weekday', 'По дням недели')) + '</div><div class="gx-wd">' + [1, 2, 3, 4, 5, 6, 0].map(function (i) {
+        var r = rates[i].r; return '<div class="gx-wd-c"><span class="gx-wd-bar"><i style="height:' + (r || 0) + '%"></i></span><b>' + (r === null ? '—' : r + '%') + '</b><small>' + H(String(names[i]).slice(0, 2)) + '</small></div>';
+      }).join('') + '</div>' +
+      (best && worst && best.i !== worst.i ? '<p class="gx-sub">💪 ' + H(L('Eng yaxshi kun', 'Best day', 'Лучший день')) + ': <b>' + H(names[best.i]) + '</b> · 😓 ' + H(L('Eng qiyin', 'Hardest', 'Сложнее всего')) + ': <b>' + H(names[worst.i]) + '</b></p>' : '') +
+      '<div class="gx-lbl">' + H(L('Oxirgi 90 kun', 'Last 90 days', 'Последние 90 дней')) + '</div><div class="gx-grid">' + grid + '</div>' +
+      (notes.length ? '<div class="gx-lbl">📝 ' + H(L('Izohlar', 'Notes', 'Заметки')) + '</div>' + notes.map(function (d) { return '<div class="gx-note-row"><small>' + d + '</small> ' + H(g.notes[d]) + '</div>'; }).join('') : ''), 'gx-stats');
+  };
+
+  // ---------- ⏸ Rejali pauza ----------
+  window.gxPlanPause = function (id) {
+    var g = G(id); if (!g) return;
+    var td = today();
+    var ov = modal('<h3 class="gx-h">⏸ ' + H(L('Rejali pauza', 'Planned pause', 'Плановая пауза')) + '</h3><p class="gx-sub">' + H(L("Ta'til yoki kasallik: shu kunlarda jarima va talab bo'lmaydi, streak uzilmaydi.", 'Vacation or sick days: no penalty or requirement, the streak is kept.', 'Отпуск или болезнь: без штрафов, серия сохраняется.')) + '</p>' +
+      '<div class="gmx-row"><label class="gx-dl">' + H(L('Dan', 'From', 'С')) + '<input type="date" class="x-in" id="gx-pf" min="' + td + '" value="' + td + '"></label><label class="gx-dl">' + H(L('Gacha', 'To', 'По')) + '<input type="date" class="x-in" id="gx-pt" min="' + td + '" value="' + addDays(td, 4) + '"></label></div>' +
+      ((g.pauses || []).filter(function (p) { return p.to && p.to > td; }).map(function (p, i) { return '<div class="gx-note-row">⏸ ' + p.from + ' → ' + addDays(p.to, -1) + '</div>'; }).join('')) +
+      '<div class="gx-acts"><button type="button" class="x-btn" data-ok>' + H(L('Rejalashtirish', 'Schedule', 'Запланировать')) + '</button></div>');
+    ov.querySelector('[data-ok]').onclick = function () {
+      var f = ov.querySelector('#gx-pf').value, t2 = ov.querySelector('#gx-pt').value;
+      if (!f || !t2 || t2 < f) { toast('⚠️ ' + L("Sanalar noto'g'ri", 'Invalid dates', 'Неверные даты')); return; }
+      if (!g.pauses) g.pauses = [];
+      g.pauses.push({ from: f, to: addDays(t2, 1), planned: true });
+      ov._close(); rerender(); toast('⏸ ' + f + ' → ' + t2);
+    };
+  };
+  window.gxArchive = function (id) {
+    var g = G(id); if (!g) return;
+    g.archived = !g.archived; rerender();
+    toast(g.archived ? '🗄 ' + L('Arxivga olindi', 'Archived', 'В архиве') : '↩ ' + L('Arxivdan chiqarildi', 'Restored', 'Восстановлено'));
+  };
+
+  // ---------- Kartaga qo'shimchalar ----------
+  window.xGoalCard = function (card, g, x) {
+    var d = tk();
+    var acts = card.firstElementChild && card.firstElementChild.lastElementChild;
+    if (acts) {
+      var mk = function (ic, title, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'gx-btn'; b.title = title; b.setAttribute('aria-label', title); b.textContent = ic; b.onclick = function (e) { e.stopPropagation(); fn(g.id); }; return b; };
+      var more = document.createElement('div'); more.className = 'gx-more';
+      more.appendChild(mk('📝', L('Bugungi izoh', "Today's note", 'Заметка'), window.gxNote));
+      more.appendChild(mk('📊', L('Statistika', 'Stats', 'Статистика'), window.gxStats));
+      if (!x.completed && g.repeat !== 'once') more.appendChild(mk('🗓', L('Rejali pauza', 'Planned pause', 'Плановая пауза'), window.gxPlanPause));
+      more.appendChild(mk(g.archived ? '↩' : '🗄', g.archived ? L('Arxivdan chiqarish', 'Unarchive', 'Из архива') : L('Arxivlash', 'Archive', 'В архив'), window.gxArchive));
+      card.firstElementChild.after(more);
+    }
+    var chips = card.children[1 + (acts ? 1 : 0)];
+    var addChip = function (html) { if (!chips) return; var s0 = document.createElement('span'); s0.className = 'gx-chip'; s0.innerHTML = html; chips.appendChild(s0); };
+    var st = goalStreak(g);
+    if (st.saved) addChip('🧊 ' + st.saved + '/' + 2);
+    if (g.linkTask != null) { var lt = (S.tasks || []).find(function (t) { return String(t.id) === String(g.linkTask); }); if (lt) addChip('🔗 ' + H(lt.name.length > 18 ? lt.name.slice(0, 18) + '…' : lt.name)); }
+    var pl = (g.pauses || []).filter(function (p) { return p.planned && p.from > d; })[0];
+    if (pl) addChip('🗓⏸ ' + H(pl.from));
+    if (g.notes && g.notes[d]) { var nl = document.createElement('div'); nl.className = 'gx-note-line'; nl.textContent = '📝 ' + g.notes[d]; card.appendChild(nl); }
+    // 🔢 Kunlik miqdor: ✓ tugmasi o'rniga − n/maqsad +
+    if (g.target > 1 && x.due && !x.completed && !x.paused && !x.expired) {
+      var cb = card.querySelector('button[onclick^="goalCheckToday"]');
+      if (cb) {
+        var n = count(g, d), pct = Math.min(100, Math.round(n / g.target * 100));
+        var w = document.createElement('div'); w.className = 'gx-counter' + (x.checked ? ' done' : '');
+        w.innerHTML = '<button type="button" class="gx-cbtn" data-d="-1" aria-label="−1">−</button><div class="gx-cmid"><b>' + n + ' / ' + g.target + '</b><small>' + H(g.unit || '') + (x.checked ? ' · ✓' : '') + '</small><span class="gx-cbar"><i style="width:' + pct + '%"></i></span></div><button type="button" class="gx-cbtn plus" data-d="1" aria-label="+1">＋</button>';
+        w.querySelectorAll('[data-d]').forEach(function (b) { b.onclick = function () { window.gxInc(g.id, +b.dataset.d); }; });
+        cb.replaceWith(w);
+      }
+    }
+  };
+
+  // ---------- Ro'yxat ustidagi asboblar: andozalar, qo'lda tartib, do'st bilan odat ----------
+  var _sortable = null;
+  window.xGoalsListDone = function (list) {
+    var bar = document.getElementById('goals-filter-bar'); if (!bar) return;
+    var tools = document.getElementById('gx-tools');
+    if (!tools) { tools = document.createElement('div'); tools.id = 'gx-tools'; tools.className = 'gx-tools'; bar.parentNode.insertBefore(tools, bar); }
+    tools.innerHTML = '<button type="button" class="gx-tool" data-t="tpl">📦 ' + H(L('Andozalar', 'Templates', 'Шаблоны')) + '</button>' +
+      '<button type="button" class="gx-tool' + (S.goalManualOrder ? ' on' : '') + '" data-t="ord">↕ ' + H(L("Qo'lda tartib", 'Manual order', 'Свой порядок')) + '</button>' +
+      '<button type="button" class="gx-tool" data-t="sh">👥 ' + H(L("Do'st bilan odat", 'Habit with a friend', 'Привычка с другом')) + '</button>';
+    tools.querySelector('[data-t="tpl"]').onclick = openTemplates;
+    tools.querySelector('[data-t="ord"]').onclick = function () { S.goalManualOrder = !S.goalManualOrder; if (S.goalManualOrder && !Array.isArray(S.goalOrder)) S.goalOrder = (S.goals || []).map(function (g) { return g.id; }); rerender(); toast(S.goalManualOrder ? '↕ ' + L('Kartani bosib turib sudrang', 'Hold and drag a card', 'Зажмите и перетащите') : L("Avtomatik tartib", 'Automatic order', 'Авто-порядок')); };
+    tools.querySelector('[data-t="sh"]').onclick = shInvite;
+    if (_sortable) { try { _sortable.destroy(); } catch (e) {} _sortable = null; }
+    if (S.goalManualOrder && window.Sortable && list.children.length > 1) {
+      _sortable = window.Sortable.create(list, { animation: 160, delay: 220, delayOnTouchOnly: true, filter: 'button, input', preventOnFilter: false, ghostClass: 'gx-ghost',
+        onEnd: function () {
+          var ids = Array.prototype.map.call(list.querySelectorAll('.goal-card'), function (c) { return isNaN(+c.dataset.id) ? c.dataset.id : +c.dataset.id; });
+          var rest = (S.goalOrder || []).filter(function (id) { return ids.indexOf(id) === -1; });
+          S.goalOrder = ids.concat(rest); try { save(); } catch (e) {}
+        } });
+    }
+    renderShared();
+  };
+
+  var TPL = [
+    ['⏰', ['Erta turish (7:00 gacha)', 'Wake up early (before 7)', 'Ранний подъём (до 7:00)'], {}],
+    ['🏃', ['Sport (Du/Ch/Ju)', 'Workout (Mon/Wed/Fri)', 'Спорт (Пн/Ср/Пт)'], { repeat: 'custom-days', days: [1, 3, 5], coins: 2 }],
+    ['📖', ['Kitob o\'qish', 'Read a book', 'Чтение книги'], { target: 20, unit: ['bet', 'pages', 'стр.'] }],
+    ['💧', ['Suv ichish', 'Drink water', 'Пить воду'], { target: 8, unit: ['stakan', 'glasses', 'стаканов'] }],
+    ['🧘', ['Meditatsiya', 'Meditation', 'Медитация'], {}],
+    ['📵', ['Yotishdan oldin telefonsiz', 'No phone before bed', 'Без телефона перед сном'], {}],
+    ['🇬🇧', ['Ingliz tili — 15 daqiqa', 'English — 15 minutes', 'Английский — 15 минут'], { coins: 2 }],
+    ['🚶', ['Qadamlar', 'Steps', 'Шаги'], { target: 8000, unit: ['qadam', 'steps', 'шагов'] }]
+  ];
+  function openTemplates() {
+    var have = {}; (S.goals || []).forEach(function (g) { have[String(g.name).toLowerCase()] = 1; });
+    var ov = modal('<h3 class="gx-h">📦 ' + H(L('Odat andozalari', 'Habit templates', 'Шаблоны привычек')) + '</h3><div class="gx-tpls">' + TPL.map(function (t0, i) {
+      var nm = L(t0[1][0], t0[1][1], t0[1][2]), ex = have[nm.toLowerCase()];
+      return '<button type="button" class="gx-tpl" data-i="' + i + '"' + (ex ? ' disabled' : '') + '><span>' + t0[0] + '</span><b>' + H(nm) + '</b>' + (t0[2].target ? '<small>' + t0[2].target + ' ' + H(L(t0[2].unit[0], t0[2].unit[1], t0[2].unit[2])) + '</small>' : '') + '<em>' + (ex ? '✓' : '＋') + '</em></button>';
+    }).join('') + '</div>');
+    ov.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-i]'); if (!b || b.disabled) return;
+      var t0 = TPL[+b.dataset.i], o = t0[2], nm = L(t0[1][0], t0[1][1], t0[1][2]);
+      var g = { id: Date.now(), name: nm, desc: '', duration: 0, emoji: t0[0], startDate: tk(), endDate: null, done: false, daysChecked: {}, coins: o.coins || 1,
+        repeat: o.repeat || 'daily', penalty: 0, remind: null, pauses: [], daysPenalty: {}, days: o.days || null, interval: null, intervalStart: null,
+        target: o.target || null, unit: o.unit ? L(o.unit[0], o.unit[1], o.unit[2]) : null, grace: true };
+      if (!S.goals) S.goals = []; S.goals.push(g);
+      b.disabled = true; b.querySelector('em').textContent = '✓';
+      rerender(); toast(t0[0] + ' ' + L("Qo'shildi", 'Added', 'Добавлено') + ': ' + nm);
+    });
+  }
+
+  // ---------- 🔗 Vazifa bajarilsa — odat belgilanadi ----------
+  window.xGoalLinkedTask = function (task) {
+    if (!task) return;
+    var d = tk(), changed = false;
+    (S.goals || []).forEach(function (g) {
+      if (g.linkTask == null || String(g.linkTask) !== String(task.id) || g.archived) return;
+      var chk = !!(g.daysChecked && g.daysChecked[d]);
+      if (!g.autoLinked) g.autoLinked = {};
+      if (task.done && !chk && isGoalDueOnDate(g, d) && !goalIsPaused(g)) { _goalToggleDateCore(g, d); g.autoLinked[d] = 1; changed = true; toast('🔗 ' + (g.emoji || '🎯') + ' ' + g.name + ' ✓'); }
+      else if (!task.done && chk && g.autoLinked[d]) { _goalToggleDateCore(g, d); delete g.autoLinked[d]; changed = true; }
+    });
+    if (changed) { try { save(); renderGoals(); } catch (e) {} }
+  };
+
+  // ---------- 👥 Do'st bilan birga odat (server: shared_habits) ----------
+  var SH = { list: null, at: 0, busy: false };
+  function cloud() { return !!(S.cloudLinked && S.cloudUserId && typeof supabase !== 'undefined' && supabase && supabase.rpc); }
+  function shLoad(force) {
+    if (!cloud() || SH.busy || (!force && SH.list && Date.now() - SH.at < 60000)) return;
+    SH.busy = true;
+    supabase.rpc('sh_list').then(function (r) { SH.busy = false; SH.at = Date.now(); if (r.error) return; SH.list = r.data || []; shBonus(); renderShared(); }, function () { SH.busy = false; });
+  }
+  function together(h) {
+    var me = {}, ot = {}, n = 0, d = today();
+    (h.me || []).forEach(function (x) { me[x] = 1; }); (h.other || []).forEach(function (x) { ot[x] = 1; });
+    if (!(me[d] && ot[d])) d = addDays(d, -1);
+    while (me[d] && ot[d] && n < 400) { n++; d = addDays(d, -1); }
+    return n;
+  }
+  // Ikkalangiz ham bugun belgilasangiz — bir marta +2 🪙
+  function shBonus() {
+    var d = today(); if (!S.shBonus) S.shBonus = {};
+    (SH.list || []).forEach(function (h) {
+      if (h.status !== 'active') return;
+      var k = h.id + '|' + d;
+      if (S.shBonus[k] || (h.me || []).indexOf(d) === -1 || (h.other || []).indexOf(d) === -1) return;
+      S.shBonus[k] = 1; S.coins = (S.coins || 0) + 2; S.totalCoins = (S.totalCoins || 0) + 2;
+      try { addTarixLog('in', '👥 ' + (h.emoji || '🤝') + ' ' + h.name + ' — ' + L('birga bajarildi', 'done together', 'вместе'), 2); } catch (e) {}
+      toast('👥 ' + L('Ikkalangiz ham bajardingiz! +2 🪙', 'You both did it! +2 🪙', 'Вы оба сделали! +2 🪙'));
+    });
+    var cut = addDays(d, -10); Object.keys(S.shBonus).forEach(function (k) { if (k.split('|')[1] < cut) delete S.shBonus[k]; });
+    try { save(); } catch (e) {}
+  }
+  function renderShared() {
+    var list = document.getElementById('goals-list'); if (!list) return;
+    var box = document.getElementById('gx-shared');
+    if (!box) { box = document.createElement('div'); box.id = 'gx-shared'; list.parentNode.insertBefore(box, list.nextSibling); }
+    if (!cloud()) { box.innerHTML = ''; return; }
+    if (!SH.list) { shLoad(false); box.innerHTML = ''; return; }
+    shLoad(false);
+    if (!SH.list.length) { box.innerHTML = ''; return; }
+    var d = today();
+    box.innerHTML = '<div class="gx-lbl gx-sh-t">👥 ' + H(L("Do'stlar bilan odatlar", 'Habits with friends', 'Привычки с друзьями')) + '</div>' + SH.list.map(function (h) {
+      var meOn = (h.me || []).indexOf(d) !== -1, otOn = (h.other || []).indexOf(d) !== -1, n = together(h);
+      var pend = h.status === 'pending';
+      return '<div class="gx-sh" data-id="' + H(h.id) + '"><div class="gx-sh-top"><span class="gx-sh-e">' + H(h.emoji || '🤝') + '</span><div class="gx-sh-n"><b>' + H(h.name) + '</b><small>' + H(L('bilan', 'with', 'с')) + ' ' + H(h.otherName || '—') + (n ? ' · 🔥 ' + n + ' ' + H(L('kun birga', 'days together', 'дн. вместе')) : '') + '</small></div>' +
+        (pend ? (h.mine ? '<span class="gx-chip">⏳ ' + H(L('Javob kutilmoqda', 'Waiting', 'Ожидание')) + '</span>' : '<button type="button" class="x-btn sm" data-sh="acc">' + H(L('Qabul', 'Accept', 'Принять')) + '</button><button type="button" class="x-btn sm ghost" data-sh="dec">✕</button>')
+          : '<button type="button" class="gx-btn" data-sh="end" title="' + H(L('Tugatish', 'End', 'Завершить')) + '">🏁</button>') + '</div>' +
+        (pend ? '' : '<div class="gx-sh-row"><button type="button" class="gx-sh-me' + (meOn ? ' on' : '') + '" data-sh="chk">' + (meOn ? '✓ ' : '') + H(L('Men', 'Me', 'Я')) + '</button><span class="gx-sh-ot' + (otOn ? ' on' : '') + '">' + (otOn ? '✓ ' : '⏳ ') + H(h.otherName || '') + '</span>' + (meOn && otOn ? '<span class="gx-chip ok">+2 🪙</span>' : '') + '</div>') + '</div>';
+    }).join('');
+    box.onclick = function (e) {
+      var b = e.target.closest('[data-sh]'); if (!b) return;
+      var card = b.closest('[data-id]'), id = card && card.dataset.id, h = (SH.list || []).find(function (x) { return x.id === id; }); if (!h) return;
+      var a = b.dataset.sh, call;
+      if (a === 'chk') { var on = (h.me || []).indexOf(d) === -1; call = supabase.rpc('sh_check', { p_id: id, p_day: d, p_on: on }); if (on) { try { SFX.coin(); } catch (e2) {} } }
+      else if (a === 'acc' || a === 'dec') call = supabase.rpc('sh_respond', { p_id: id, p_accept: a === 'acc' });
+      else if (a === 'end') { if (!confirm(L('Bu birgalikdagi odat tugatilsinmi?', 'End this shared habit?', 'Завершить совместную привычку?'))) return; call = supabase.rpc('sh_end', { p_id: id }); }
+      if (!call) return;
+      b.disabled = true;
+      call.then(function (r) { if (r.error || !(r.data && r.data.ok)) toast('⚠️ ' + ((r.error && r.error.message) || (r.data && r.data.error) || '?')); shLoad(true); });
+    };
+  }
+  function shInvite() {
+    if (!cloud()) { toast('🔐 ' + L('Avval akkauntga kiring', 'Sign in first', 'Сначала войдите')); return; }
+    var fr = ((S.friends && S.friends.list) || []).filter(function (f) { return f && f.id; });
+    if (!fr.length) { toast('👥 ' + L("Avval do'st qo'shing", 'Add a friend first', 'Сначала добавьте друга')); try { openFriendsModal(); } catch (e) {} return; }
+    var ov = modal('<h3 class="gx-h">👥 ' + H(L("Do'st bilan birga odat", 'Habit with a friend', 'Привычка с другом')) + '</h3><p class="gx-sub">' + H(L("Ikkalangiz har kuni belgilaysiz. Ikkalangiz ham bajargan kun — har biringizga +2 🪙 va umumiy 🔥 streak.", "You both check in daily. On days you both do it — +2 🪙 each and a shared 🔥 streak.", 'Отмечаете оба каждый день. Если оба сделали — +2 🪙 каждому и общая 🔥 серия.')) + '</p>' +
+      '<label class="gx-dl">' + H(L("Do'st", 'Friend', 'Друг')) + '<select class="x-in" id="gx-shf">' + fr.map(function (f) { return '<option value="' + H(f.id) + '">' + H(f.name || '—') + '</option>'; }).join('') + '</select></label>' +
+      '<div class="gmx-row"><input class="x-in" id="gx-she" maxlength="4" value="🤝" style="max-width:64px;text-align:center"><input class="x-in" id="gx-shn" maxlength="80" placeholder="' + H(L('Masalan: har kuni 20 daqiqa ingliz tili', 'e.g. 20 min of English daily', 'напр. 20 минут английского')) + '"></div>' +
+      '<div class="gx-acts"><button type="button" class="x-btn" data-ok>' + H(L('Taklif yuborish', 'Send invite', 'Пригласить')) + '</button></div>');
+    ov.querySelector('[data-ok]').onclick = function () {
+      var nm = String(ov.querySelector('#gx-shn').value || '').trim(); if (!nm) { ov.querySelector('#gx-shn').focus(); return; }
+      var bb = this; bb.disabled = true;
+      supabase.rpc('sh_invite', { p_friend: ov.querySelector('#gx-shf').value, p_name: nm, p_emoji: ov.querySelector('#gx-she').value || '🤝' }).then(function (r) {
+        bb.disabled = false;
+        if (r.error || !(r.data && r.data.ok)) { var er = (r.error && r.error.message) || (r.data && r.data.error); toast('⚠️ ' + (er === 'limit' ? L("Ko'pi bilan 10 ta birgalikdagi odat", 'Up to 10 shared habits', 'Не больше 10') : er)); return; }
+        ov._close(); toast('📨 ' + L('Taklif yuborildi', 'Invite sent', 'Приглашение отправлено')); shLoad(true);
+      });
+    };
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && document.documentElement.getAttribute('data-tab') === 'goals') shLoad(true); });
 })();
