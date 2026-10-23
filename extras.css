@@ -1077,7 +1077,7 @@ html.design-fx .fbx-item, html.design-fx .fbx-thread { background: color-mix(in 
 .ib-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ib-cats .ib-chip.on[style] { background: color-mix(in srgb, var(--tc) 22%, var(--surface)); border-color: var(--tc); color: var(--text); }
 .ib-cdot { width: 8px; height: 8px; border-radius: 50%; background: var(--tc, var(--accent)); flex-shrink: 0; }
-.ib-row2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ib-row2 { display: flex; align-items: center; justify-content: flex-start; gap: 8px 12px; flex-wrap: wrap; }
 .ib-sort { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); font-weight: 600; }
 .ib-sort select { height: 32px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12.5px; font-family: inherit; padding: 0 8px; cursor: pointer; }
 .ib-sort select option { background: var(--bg); color: var(--text); }
@@ -1448,3 +1448,57 @@ html.x-dragging body { touch-action: none; overscroll-behavior: none; }
 .x-nt-clear { margin-top: 14px; width: 100%; height: 42px; border-radius: 12px; border: 1px solid color-mix(in srgb, #ef4444 45%, transparent); background: color-mix(in srgb, #ef4444 10%, transparent); color: #ef4444; font: 700 14px/1 inherit; font-family: inherit; cursor: pointer; }
 .x-tchip-over { border-color: #ef4444; color: #ef4444; }
 .x-tchip-ghost { opacity: .4; }
+
+/* ===== 📥 Inbox v2 ===== */
+.ib-qa { display: flex; align-items: center; gap: 8px; padding: 0 12px; margin: 10px 0 12px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.ib-qa:focus-within { border-style: solid; border-color: var(--accent); }
+.ib-qa input { flex: 1; min-width: 0; height: 42px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 14.5px; font-family: inherit; }
+.ib-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.ib-sum-it { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-family: inherit; text-align: left; }
+.ib-sum-it b { font-family: Syne, sans-serif; font-size: 20px; color: var(--text); line-height: 1.1; }
+.ib-sum-it small { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+.ib-sum-it.ov:not(.z) { border-color: color-mix(in srgb, var(--red, #F87171) 55%, var(--border)); }
+.ib-sum-it.ov:not(.z) b { color: var(--red, #F87171); }
+.ib-sum-it.ok b { color: var(--green, #34D399); }
+.ib-sum-it:hover { border-color: var(--accent); }
+.ib-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 12px; }
+.ib-day { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; font-family: inherit; min-width: 0; }
+.ib-day small { font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ib-day b { font-size: 15px; color: var(--text); }
+.ib-day em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--accent); }
+.ib-day.busy em { color: var(--red, #F87171); }
+.ib-day.on { background: var(--accent); border-color: var(--accent); }
+.ib-day.on b, .ib-day.on small, .ib-day.on em { color: #fff; }
+.ib-views { margin-top: 2px; }
+.ib-sort select { max-width: 170px; }
+.ib-hl { background: color-mix(in srgb, var(--gold, #F5A623) 38%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.ib-unfz { border: 0; background: transparent; cursor: pointer; font-size: 18px; padding: 0; }
+.ib-unfz:hover { transform: scale(1.12); }
+.ib-selbar { flex-wrap: wrap; }
+.ib-bdate { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.ib-bdate input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+#ib-bcat { max-width: 140px; }
+.ib-item:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ib-item.ib-swiping { transition: none; position: relative; }
+.ib-item { transition: transform .18s ease; }
+.ib-item[data-sw="r"] { box-shadow: inset 4px 0 0 var(--green, #34D399); }
+.ib-item[data-sw="l"] { box-shadow: inset -4px 0 0 var(--gold, #F5A623); }
+.ib-item[draggable="true"] { cursor: grab; }
+.ib-item.ib-dragging { opacity: .45; }
+.ib-sec.ib-drop-on { outline: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 4px; border-radius: 12px; }
+.ib-sec.ib-drop-hover { outline-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.ib-share-m { position: fixed; z-index: 500; display: flex; flex-direction: column; padding: 6px; min-width: 210px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 14px 34px rgba(0,0,0,.4); }
+.ib-share-m button { text-align: left; padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.ib-share-m button:hover { background: var(--surface2); }
+.ib-tri { max-width: 420px; text-align: center; }
+.ib-tri-n { font-size: 12px; color: var(--text-muted); font-weight: 700; letter-spacing: .04em; }
+.ib-tri-t { font-family: Syne, sans-serif; font-size: 20px; font-weight: 700; color: var(--text); margin: 10px 0 6px; word-break: break-word; }
+.ib-tri-note { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.ib-tri-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.ib-tri-acts .x-btn:first-child { grid-column: 1 / -1; }
+.ib-tri-del { color: var(--red, #F87171) !important; }
+.ib-tri-end { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 40px; padding: 10px 0; }
+.ib-tri-end b { font-size: 18px; color: var(--text); }
+.ib-tri-end small { font-size: 13px; color: var(--text-muted); }
+@media (max-width: 520px) { .ib-sum-it b { font-size: 17px; } .ib-day small { font-size: 9px; } }
+.ib-qa input, .ib-qa input:focus, .ib-qa input:focus-visible { box-shadow: none !important; outline: none !important; border: 0 !important; background: transparent !important; }
