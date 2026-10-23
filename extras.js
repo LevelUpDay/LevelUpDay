@@ -5372,3 +5372,439 @@
   }
   document.addEventListener('visibilitychange', function () { if (!document.hidden && document.documentElement.getAttribute('data-tab') === 'goals') shLoad(true); });
 })();
+
+// ============================================================
+// 🍅 POMODORO v2 — kunlik maqsad, reja, sessiya izohi/baho, chalg'ish
+// sabablari, server alarm, do'stlar fokusda, yutuqlar, kengaytirilgan
+// statistika, shovqin mikseri, tanaffus mashqlari, presetlar, CSV.
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  var H = function (s) { return esc(s == null ? '' : String(s)); };
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function dkey(d) { d = d || new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function cloud() { return !!(S.cloudLinked && S.cloudUserId && typeof supabase !== 'undefined' && supabase && supabase.rpc); }
+  function logs() { try { return window.pomoGetLogs ? window.pomoGetLogs() : []; } catch (e) { return []; } }
+  function sets() { try { return window.pomoGetSettingsObj ? window.pomoGetSettingsObj() : {}; } catch (e) { return {}; } }
+  function fmtM(min) { min = Math.round(min); return min >= 60 ? Math.floor(min / 60) + L('s ', 'h ', 'ч ') + (min % 60) + L('d', 'm', 'м') : min + L(' daq', ' min', ' мин'); }
+  function addCoins(n, desc) {
+    S.coins = (S.coins || 0) + n; S.totalCoins = (S.totalCoins || 0) + n;
+    try { addTarixLog('in', desc, n); } catch (e) {}
+  }
+  function sv() { try { save(); } catch (e) {} }
+  function xModal(html, cls) {
+    var ov = document.createElement('div');
+    ov.className = 'x-ov';
+    ov.innerHTML = '<div class="x-box ' + (cls || '') + '"><button class="x-close" aria-label="close">✕</button>' + html + '</div>';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function () { ov.classList.add('open'); });
+    var close = function () { ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 180); };
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    ov.querySelector('.x-close').onclick = close;
+    ov._close = close;
+    return ov;
+  }
+  function minsOn(ds) { var m = 0; logs().forEach(function (l) { if (l.date === ds) m += (l.durationMs || 0) / 60000; }); return m; }
+  function liveMin() { var a = window.pomoActiveAct && window.pomoActiveAct(); if (!a || !a.running || !a.sessionStartAt) return 0; return Math.max(0, ((a.elapsedMs || 0) - (a.sessionBaseElapsed || 0)) / 60000); }
+  function goalMin() { var g = parseInt(sets().dailyGoalMin, 10); return g > 0 ? g : 0; }
+
+  // ---------- 1. Kunlik maqsad bonusi + 13. reja ----------
+  function checkGoal() {
+    var g = goalMin(); if (!g) return;
+    var d = dkey(); S.pomoGoalHit = S.pomoGoalHit || {};
+    if (S.pomoGoalHit[d] || minsOn(d) < g) return;
+    S.pomoGoalHit[d] = 1;
+    var b = Math.min(10, 2 + Math.floor(g / 30));
+    addCoins(b, '🍅 ' + L('Kunlik fokus maqsadi', 'Daily focus goal', 'Дневная цель фокуса'));
+    sv(); try { toast('🎯 ' + L('Kunlik fokus maqsadi bajarildi! +', 'Daily focus goal reached! +', 'Дневная цель достигнута! +') + b + ' 🪙'); } catch (e) {}
+    try { SFX.coin(); } catch (e) {}
+  }
+  function doneCount(d) { return ((S.pomoDone || {})[d || dkey()]) || 0; }
+  function planFor(d) { return ((S.pomoPlan || {})[d || dkey()]) || 0; }
+  function tomorrowKey() { var t = new Date(); t.setDate(t.getDate() + 1); return dkey(t); }
+
+  function renderBar() {
+    var panel = document.getElementById('pomo-manage-panel'); if (!panel) return;
+    var bar = document.getElementById('pmx-bar');
+    if (!bar) {
+      bar = document.createElement('div'); bar.id = 'pmx-bar';
+      var list = document.getElementById('pomo-activity-list');
+      panel.insertBefore(bar, list);
+      bar.addEventListener('click', onBarClick);
+    }
+    var d = dkey(), g = goalMin(), m = minsOn(d) + liveMin();
+    var pct = g ? Math.min(100, Math.round(m / g * 100)) : 0;
+    var pl = planFor(d), dn = doneCount(d), plT = planFor(tomorrowKey());
+    var h = '<div class="pmx-row">';
+    h += '<div class="pmx-goal' + (g && m >= g ? ' hit' : '') + '" data-a="goal" role="button" tabindex="0"><div class="pmx-ring" style="--p:' + pct + '"><span>' + (g ? pct + '%' : '🎯') + '</span></div><div><b>' + L('Bugun', 'Today', 'Сегодня') + ': ' + fmtM(m) + '</b><small>' + (g ? L('Maqsad', 'Goal', 'Цель') + ': ' + fmtM(g) : L('Kunlik maqsad qo\'yish', 'Set a daily goal', 'Задать цель на день')) + '</small></div></div>';
+    h += '<div class="pmx-plan" data-a="plan" role="button" tabindex="0"><b>🍅 ' + dn + (pl ? ' / ' + pl : '') + '</b><small>' + (pl ? L('Reja', 'Plan', 'План') : L('Reja yo\'q', 'No plan', 'Нет плана')) + (plT ? ' · ' + L('ertaga', 'tmrw', 'завтра') + ' ' + plT : '') + '</small>';
+    if (pl) h += '<div class="pmx-dots">' + Array.from({ length: Math.min(pl, 16) }, function (_, i) { return '<i class="' + (i < dn ? 'on' : '') + '"></i>'; }).join('') + '</div>';
+    h += '</div></div>';
+    h += '<div class="pmx-tools">'
+      + '<button type="button" data-a="stats">📊 ' + L('Tahlil', 'Insights', 'Анализ') + '</button>'
+      + '<button type="button" data-a="live">👥 ' + L('Do\'stlar', 'Friends', 'Друзья') + '<span id="pmx-live-n"></span></button>'
+      + '<button type="button" data-a="noise">🎚 ' + L('Shovqin', 'Noise', 'Шум') + (NZ.on ? ' •' : '') + '</button>'
+      + '<button type="button" data-a="ach">🏅 ' + L('Yutuqlar', 'Badges', 'Награды') + '</button>'
+      + '<button type="button" data-a="csv">⬇ CSV</button></div>';
+    bar.innerHTML = h;
+  }
+  function onBarClick(e) {
+    var el = e.target.closest('[data-a]'); if (!el) return;
+    var a = el.getAttribute('data-a');
+    if (a === 'goal') askGoal();
+    else if (a === 'plan') askPlan();
+    else if (a === 'stats') openStats();
+    else if (a === 'live') openLive();
+    else if (a === 'noise') openNoise();
+    else if (a === 'ach') openAch();
+    else if (a === 'csv') exportCsv();
+  }
+  function askGoal() {
+    var cur = goalMin();
+    var ov = xModal('<h3>🎯 ' + L('Kunlik fokus maqsadi', 'Daily focus goal', 'Дневная цель фокуса') + '</h3><p class="pmx-muted">' + L('Maqsadga yetganda bonus tanga olasiz (kuniga 1 marta).', 'Reach it to earn bonus coins (once a day).', 'Достигните её — получите бонус (раз в день).') + '</p>'
+      + '<div class="pmx-chips">' + [0, 30, 60, 90, 120, 180, 240].map(function (v) { return '<button type="button" data-v="' + v + '" class="' + (v === cur ? 'sel' : '') + '">' + (v ? fmtM(v) : L('O\'chiq', 'Off', 'Выкл')) + '</button>'; }).join('') + '</div>', 'pmx-box');
+    ov.querySelector('.pmx-chips').onclick = function (e) {
+      var b = e.target.closest('[data-v]'); if (!b) return;
+      var s = sets(); s.dailyGoalMin = +b.getAttribute('data-v'); window.pomoPersistSettings(); ov._close(); renderBar(); checkGoal();
+    };
+  }
+  function askPlan() {
+    var d = dkey(), t = tomorrowKey();
+    var ov = xModal('<h3>🍅 ' + L('Pomodoro rejasi', 'Pomodoro plan', 'План помодоро') + '</h3>'
+      + '<label class="pmx-lbl">' + L('Bugun', 'Today', 'Сегодня') + ' <input type="number" min="0" max="30" id="pmx-pl-d" value="' + planFor(d) + '"></label>'
+      + '<label class="pmx-lbl">' + L('Ertaga', 'Tomorrow', 'Завтра') + ' <input type="number" min="0" max="30" id="pmx-pl-t" value="' + planFor(t) + '"></label>'
+      + '<p class="pmx-muted">' + L('Bugun bajarildi', 'Done today', 'Сделано сегодня') + ': ' + doneCount(d) + ' 🍅</p>'
+      + '<div class="modal-actions"><button class="btn-save" id="pmx-pl-ok">' + L('Saqlash', 'Save', 'Сохранить') + '</button></div>', 'pmx-box');
+    ov.querySelector('#pmx-pl-ok').onclick = function () {
+      S.pomoPlan = S.pomoPlan || {};
+      var a = Math.max(0, Math.min(30, parseInt(ov.querySelector('#pmx-pl-d').value, 10) || 0));
+      var b = Math.max(0, Math.min(30, parseInt(ov.querySelector('#pmx-pl-t').value, 10) || 0));
+      if (a) S.pomoPlan[d] = a; else delete S.pomoPlan[d];
+      if (b) S.pomoPlan[t] = b; else delete S.pomoPlan[t];
+      var keys = Object.keys(S.pomoPlan).sort(); while (keys.length > 60) delete S.pomoPlan[keys.shift()];
+      sv(); ov._close(); renderBar();
+    };
+  }
+
+  // ---------- 2/12. Sozlamalar: long break interval, presetlar ----------
+  var PRESETS = [[25, 5, 15], [45, 10, 20], [50, 10, 20], [90, 20, 30]];
+  window.xPomoSettingsOpen = function (s, running) {
+    var panel = document.getElementById('pomo-settings-panel-timers'); if (!panel) return;
+    var box = document.getElementById('pmx-set');
+    if (!box) {
+      box = document.createElement('div'); box.id = 'pmx-set';
+      panel.insertBefore(box, panel.children[1] || null);
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-pre]'); if (!b || b.disabled) return;
+        var p = PRESETS[+b.getAttribute('data-pre')];
+        ['pomo-set-work', 'pomo-set-short-break', 'pomo-set-long-break'].forEach(function (id, i) { var el = document.getElementById(id); if (el && !el.disabled) el.value = p[i]; });
+      });
+    }
+    var le = parseInt(s.longEvery, 10) || 4;
+    box.innerHTML = '<div class="pmx-presets">' + PRESETS.map(function (p, i) { return '<button type="button" data-pre="' + i + '"' + (running ? ' disabled' : '') + '>' + p[0] + '/' + p[1] + '</button>'; }).join('') + '</div>'
+      + '<label class="pmx-lbl">' + L('Uzun tanaffus har', 'Long break every', 'Длинный перерыв каждые') + ' <select id="pmx-long-every">' + [2, 3, 4, 5, 6, 7, 8].map(function (n) { return '<option value="' + n + '"' + (n === le ? ' selected' : '') + '>' + n + ' 🍅</option>'; }).join('') + '</select></label>'
+      + '<label class="pmx-lbl">' + L('Kunlik maqsad (daq)', 'Daily goal (min)', 'Цель на день (мин)') + ' <input type="number" id="pmx-goal-in" min="0" max="720" step="5" value="' + goalMin() + '"></label>';
+  };
+  window.xPomoSettingsSave = function (st) {
+    var le = document.getElementById('pmx-long-every'), gi = document.getElementById('pmx-goal-in');
+    if (le) st.longEvery = Math.max(2, Math.min(8, parseInt(le.value, 10) || 4));
+    if (gi) st.dailyGoalMin = Math.max(0, Math.min(720, parseInt(gi.value, 10) || 0));
+    setTimeout(function () { renderBar(); checkGoal(); }, 0);
+  };
+
+  // ---------- 3. Vazifa kartasida jami fokus vaqti ----------
+  var _tfCache = null, _tfAt = 0;
+  window.xTaskFocusChip = function (t) {
+    if (!t || !t.pomoActId) return '';
+    if (!_tfCache || Date.now() - _tfAt > 3000) {
+      _tfCache = {}; _tfAt = Date.now();
+      logs().forEach(function (l) { if (l.actId) _tfCache[l.actId] = (_tfCache[l.actId] || 0) + (l.durationMs || 0); });
+    }
+    var ms = _tfCache[t.pomoActId] || 0;
+    if (ms < 60000) return '';
+    return '<span class="tk-chip tk-chip-info" title="' + H(L('Shu vazifaga jami fokus', 'Total focus on this task', 'Всего фокуса на задаче')) + '">⏱ ' + fmtM(ms / 60000) + '</span>';
+  };
+
+  // ---------- 4/5. Sessiya izohi, baho, chalg'ish sababi ----------
+  var REASONS = [['phone', '📱', L('Telefon', 'Phone', 'Телефон')], ['people', '🗣', L('Odam', 'People', 'Люди')], ['tired', '😴', L('Charchoq', 'Tired', 'Усталость')], ['food', '🍽', L('Ovqat', 'Food', 'Еда')], ['other', '…', L('Boshqa', 'Other', 'Другое')]];
+  function reasonLbl(k) { var r = REASONS.filter(function (x) { return x[0] === k; })[0]; return r ? r[1] + ' ' + r[2] : k; }
+  window.xPomoOnSession = function (plog, act) {
+    setTimeout(function () { checkGoal(); checkAch(); renderBar(); }, 0);
+    if (!plog || plog.durationMs < 5 * 60000) return;
+    var interrupted = act && act.phase === 'work' && (act.cycleMs || 0) > 60000;
+    setTimeout(function () { askReview(plog, interrupted); }, 250);
+  };
+  function askReview(plog, interrupted) {
+    var h = '<h3>📝 ' + L('Sessiya yakuni', 'Session summary', 'Итог сессии') + '</h3><p class="pmx-muted">' + H(plog.actName) + ' · ' + fmtM(plog.durationMs / 60000) + '</p>'
+      + '<div class="pmx-stars">' + [1, 2, 3, 4, 5].map(function (n) { return '<button type="button" data-r="' + n + '">★</button>'; }).join('') + '</div>';
+    if (interrupted) h += '<div class="pmx-sub">' + L('Nega to\'xtatdingiz?', 'Why did you stop?', 'Почему остановились?') + '</div><div class="pmx-chips pmx-reasons">' + REASONS.map(function (r) { return '<button type="button" data-k="' + r[0] + '">' + r[1] + ' ' + r[2] + '</button>'; }).join('') + '</div>';
+    h += '<textarea id="pmx-note" maxlength="200" rows="2" placeholder="' + H(L('Nima qildingiz? (ixtiyoriy)', 'What did you do? (optional)', 'Что сделали? (необязательно)')) + '"></textarea>'
+      + '<div class="modal-actions"><button class="btn-cancel" id="pmx-rv-skip">' + L('O\'tkazish', 'Skip', 'Пропустить') + '</button><button class="btn-save" id="pmx-rv-ok">' + L('Saqlash', 'Save', 'Сохранить') + '</button></div>';
+    var ov = xModal(h, 'pmx-box'), rating = 0, reason = null;
+    ov.querySelector('.pmx-stars').onclick = function (e) {
+      var b = e.target.closest('[data-r]'); if (!b) return; rating = +b.getAttribute('data-r');
+      ov.querySelectorAll('.pmx-stars button').forEach(function (x) { x.classList.toggle('on', +x.getAttribute('data-r') <= rating); });
+    };
+    var rs = ov.querySelector('.pmx-reasons');
+    if (rs) rs.onclick = function (e) { var b = e.target.closest('[data-k]'); if (!b) return; reason = b.getAttribute('data-k'); rs.querySelectorAll('button').forEach(function (x) { x.classList.toggle('sel', x === b); }); };
+    ov.querySelector('#pmx-rv-skip').onclick = ov._close;
+    ov.querySelector('#pmx-rv-ok').onclick = function () {
+      var note = ov.querySelector('#pmx-note').value.trim();
+      if (rating) plog.rating = rating;
+      if (note) plog.note = note.slice(0, 200);
+      if (reason) plog.reason = reason;
+      try { window.pomoLogsChanged(); } catch (e) {}
+      ov._close();
+    };
+  }
+
+  // ---------- 6. Server alarm (ilova yopiq bo'lsa ham push/Telegram) ----------
+  var _alarmT = null;
+  function schedAlarm(act) {
+    clearTimeout(_alarmT);
+    _alarmT = setTimeout(function () {
+      if (!cloud()) return;
+      act = act || (window.pomoActiveAct && window.pomoActiveAct());
+      if (!act || !act.running) { supabase.rpc('pomo_now_clear').then(function () {}, function () {}); return; }
+      var left = window.pomoPhaseLeftMs(act);
+      if (left < 5000) return;
+      var brk = act.phase === 'break';
+      supabase.rpc('pomo_now_set', {
+        p_act: String(act.name || '').slice(0, 60), p_phase: brk ? 'break' : 'work',
+        p_fire_at: new Date(Date.now() + left).toISOString(),
+        p_title: brk ? L('☕ Tanaffus tugadi', '☕ Break is over', '☕ Перерыв окончен') : L('🍅 Pomodoro tugadi', '🍅 Pomodoro done', '🍅 Помодоро завершён'),
+        p_body: brk ? L('Ishga qaytish vaqti: ', 'Back to work: ', 'Пора за работу: ') + (act.name || '') : (act.name || '') + ' — ' + L('tanaffus qiling', 'take a break', 'сделайте перерыв')
+      }).then(function () {}, function () {});
+    }, 400);
+  }
+  window.xPomoOnStart = function (act) { schedAlarm(act); setTimeout(renderBar, 0); };
+  window.xPomoOnStop = function () { schedAlarm(null); setTimeout(renderBar, 0); };
+  window.xPomoOnPhase = function (act, last, events) {
+    var n = (events || []).filter(function (x) { return x === 'work-done'; }).length;
+    if (n) {
+      var d = dkey(); S.pomoDone = S.pomoDone || {}; S.pomoDone[d] = (S.pomoDone[d] || 0) + n;
+      var ks = Object.keys(S.pomoDone).sort(); while (ks.length > 120) delete S.pomoDone[ks.shift()];
+      sv();
+      var pl = planFor(d);
+      if (pl && S.pomoDone[d] === pl) { try { toast('🏁 ' + L('Bugungi Pomodoro rejasi bajarildi!', 'Today\'s pomodoro plan done!', 'План помодоро на сегодня выполнен!')); } catch (e) {} }
+    }
+    schedAlarm(act); renderBar(); syncBreak();
+  };
+
+  // ---------- 7. Do'stlar hozir fokusda ----------
+  var LIVE = { list: [], at: 0 };
+  function loadLive(cb) {
+    if (!cloud()) { cb && cb(); return; }
+    supabase.rpc('pomo_friends_live').then(function (r) {
+      LIVE.list = (r && r.data) || []; LIVE.at = Date.now();
+      var n = document.getElementById('pmx-live-n'); if (n) n.textContent = LIVE.list.length ? ' ' + LIVE.list.length : '';
+      cb && cb();
+    }, function () { cb && cb(); });
+  }
+  function openLive() {
+    var ov = xModal('<h3>👥 ' + L('Hozir fokusda', 'Focusing now', 'Сейчас в фокусе') + '</h3><div id="pmx-live-list" class="pmx-muted">…</div>', 'pmx-box');
+    loadLive(function () {
+      var el = ov.querySelector('#pmx-live-list'); if (!el) return;
+      if (!cloud()) { el.textContent = L('Akkauntga kiring', 'Sign in first', 'Войдите в аккаунт'); return; }
+      if (!LIVE.list.length) { el.textContent = L('Hozir hech kim fokusda emas', 'Nobody is focusing right now', 'Сейчас никто не в фокусе'); return; }
+      el.className = 'pmx-live';
+      el.innerHTML = LIVE.list.map(function (f) {
+        var m = Math.max(0, Math.round((new Date(f.until) - Date.now()) / 60000));
+        return '<div class="pmx-live-it">' + (f.photo ? '<img src="' + H(f.photo) + '" alt="">' : '<span class="pmx-av">' + H((f.name || '?')[0]) + '</span>') + '<div><b>' + H(f.name) + '</b><small>' + (f.phase === 'break' ? '☕ ' : '🍅 ') + H(f.act || '') + ' · ' + m + L(' daq qoldi', ' min left', ' мин осталось') + '</small></div><button type="button" class="btn-save" data-join="' + H(f.act || 'Focus') + '">' + L('Qo\'shilish', 'Join', 'Присоединиться') + '</button></div>';
+      }).join('');
+      el.onclick = function (e) {
+        var b = e.target.closest('[data-join]'); if (!b) return;
+        joinFocus(b.getAttribute('data-join')); ov._close();
+      };
+    });
+  }
+  function joinFocus(name) {
+    var acts = window.pomoGetActs ? window.pomoGetActs() : [];
+    var a = window.pomoActiveAct && window.pomoActiveAct();
+    if (a && a.running) { try { toast(L('Taymer allaqachon ishlayapti', 'Timer already running', 'Таймер уже идёт')); } catch (e) {} return; }
+    var nm = '👥 ' + String(name).slice(0, 30), act = acts.filter(function (x) { return x.name === nm; })[0];
+    if (!act) {
+      act = { id: 'pomo_' + Date.now() + '_' + Math.floor(Math.random() * 1000), name: nm, limit: 120, elapsedMs: 0, cycleMs: 0, breakRemainingMs: 0, phase: 'work', running: false, lastTickAt: null, emoji: '👥', color: '#7C5CFC' };
+      acts.push(act);
+    }
+    window.pomoStartOrResume(act.id);
+    try { toast('🤝 ' + L('Birga fokus boshlandi', 'Focusing together', 'Фокус вместе начат')); } catch (e) {}
+  }
+
+  // ---------- 8. Yutuqlar ----------
+  var ACH = [
+    ['h10', '⏱', L('10 soat fokus', '10 focus hours', '10 часов фокуса'), 15],
+    ['h50', '🔥', L('50 soat fokus', '50 focus hours', '50 часов фокуса'), 40],
+    ['h100', '💎', L('100 soat fokus', '100 focus hours', '100 часов фокуса'), 80],
+    ['s7', '📅', L('7 kun ketma-ket', '7-day streak', '7 дней подряд'), 20],
+    ['s30', '🏆', L('30 kun ketma-ket', '30-day streak', '30 дней подряд'), 60],
+    ['early', '🌅', L('Erta qush (07:00 dan oldin)', 'Early bird (before 7:00)', 'Ранняя пташка (до 7:00)'), 10],
+    ['deep', '🧠', L('2 soatlik uzluksiz sessiya', '2h unbroken session', 'Сессия 2 часа без перерыва'), 15]
+  ];
+  function achStats() {
+    var tot = 0, days = {}, early = false, deep = false;
+    logs().forEach(function (l) {
+      tot += (l.durationMs || 0); if (l.date) days[l.date] = 1;
+      if (l.startAt && new Date(l.startAt).getHours() < 7 && l.durationMs >= 10 * 60000) early = true;
+      if (l.durationMs >= 120 * 60000) deep = true;
+    });
+    var best = 0, run = 0, prev = null;
+    Object.keys(days).sort().forEach(function (d) {
+      if (prev) { var p = new Date(prev + 'T00:00:00'); p.setDate(p.getDate() + 1); run = dkey(p) === d ? run + 1 : 1; } else run = 1;
+      best = Math.max(best, run); prev = d;
+    });
+    return { h: tot / 3600000, best: best, early: early, deep: deep };
+  }
+  function achOk(id, st) { return { h10: st.h >= 10, h50: st.h >= 50, h100: st.h >= 100, s7: st.best >= 7, s30: st.best >= 30, early: st.early, deep: st.deep }[id]; }
+  function checkAch() {
+    var st = achStats(), got = S.pomoAch = S.pomoAch || {}, ch = false;
+    ACH.forEach(function (a) {
+      if (got[a[0]] || !achOk(a[0], st)) return;
+      got[a[0]] = Date.now(); ch = true;
+      addCoins(a[3], '🏅 ' + a[2]);
+      try { toast('🏅 ' + a[1] + ' ' + a[2] + ' +' + a[3] + ' 🪙'); } catch (e) {}
+    });
+    if (ch) { sv(); try { SFX.coin(); } catch (e) {} }
+  }
+  function openAch() {
+    checkAch();
+    var st = achStats(), got = S.pomoAch || {};
+    xModal('<h3>🏅 ' + L('Pomodoro yutuqlari', 'Pomodoro badges', 'Награды помодоро') + '</h3><p class="pmx-muted">' + L('Jami', 'Total', 'Всего') + ': ' + st.h.toFixed(1) + L(' soat', ' h', ' ч') + ' · ' + L('eng uzun seriya', 'best streak', 'лучшая серия') + ': ' + st.best + '</p><div class="pmx-ach">'
+      + ACH.map(function (a) { return '<div class="pmx-ach-it' + (got[a[0]] ? ' on' : '') + '"><span>' + a[1] + '</span><b>' + H(a[2]) + '</b><small>' + (got[a[0]] ? '✓' : '+' + a[3] + ' 🪙') + '</small></div>'; }).join('') + '</div>', 'pmx-box');
+  }
+
+  // ---------- 9. Kengaytirilgan statistika ----------
+  function openStats() {
+    var L2 = logs(), heat = [], i, j, mx = 0;
+    for (i = 0; i < 7; i++) { heat.push([]); for (j = 0; j < 24; j++) heat[i].push(0); }
+    var now = new Date(), wk0 = new Date(now); wk0.setHours(0, 0, 0, 0); wk0.setDate(wk0.getDate() - ((wk0.getDay() + 6) % 7));
+    var pw0 = new Date(wk0); pw0.setDate(pw0.getDate() - 7);
+    var thisW = 0, lastW = 0, share = {}, reasons = {}, rs = 0, rn = 0, notes = [];
+    var since = Date.now() - 90 * 864e5;
+    L2.forEach(function (l) {
+      var st = l.startAt || 0, ms = l.durationMs || 0;
+      if (st >= since) { var dt = new Date(st); var wd = (dt.getDay() + 6) % 7; heat[wd][dt.getHours()] += ms / 60000; }
+      if (st >= wk0.getTime()) thisW += ms; else if (st >= pw0.getTime()) lastW += ms;
+      if (st >= since) share[l.actName || '?'] = (share[l.actName || '?'] || 0) + ms;
+      if (l.reason) reasons[l.reason] = (reasons[l.reason] || 0) + 1;
+      if (l.rating) { rs += l.rating; rn++; }
+      if (l.note) notes.push(l);
+    });
+    heat.forEach(function (r) { r.forEach(function (v) { mx = Math.max(mx, v); }); });
+    var wd = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'].map(function (x, k) { return L(x, ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'][k], ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][k]); });
+    var hm = '<div class="pmx-heat"><span></span>' + Array.from({ length: 24 }, function (_, h) { return '<span class="pmx-hh">' + (h % 3 ? '' : h) + '</span>'; }).join('');
+    heat.forEach(function (r, k) { hm += '<span class="pmx-hd">' + wd[k] + '</span>' + r.map(function (v, h) { return '<i style="--a:' + (mx ? (v / mx).toFixed(2) : 0) + '" title="' + wd[k] + ' ' + h + ':00 · ' + Math.round(v) + 'm"></i>'; }).join(''); });
+    hm += '</div>';
+    var tot = Object.keys(share).reduce(function (a, k) { return a + share[k]; }, 0);
+    var sh = Object.keys(share).sort(function (a, b) { return share[b] - share[a]; }).slice(0, 6).map(function (k) { var p = Math.round(share[k] / tot * 100); return '<div class="pmx-bar-it"><span>' + H(k) + '</span><div><i style="width:' + p + '%"></i></div><b>' + p + '%</b></div>'; }).join('');
+    var diff = lastW ? Math.round((thisW - lastW) / lastW * 100) : null;
+    var rsn = Object.keys(reasons).sort(function (a, b) { return reasons[b] - reasons[a]; }).map(function (k) { return '<span class="pmx-tag">' + reasonLbl(k) + ' ×' + reasons[k] + '</span>'; }).join('');
+    var h = '<h3>📊 ' + L('Fokus tahlili', 'Focus insights', 'Анализ фокуса') + '</h3>'
+      + '<div class="pmx-kpis"><div><b>' + fmtM(thisW / 60000) + '</b><small>' + L('Shu hafta', 'This week', 'Эта неделя') + '</small></div><div><b>' + fmtM(lastW / 60000) + '</b><small>' + L('O\'tgan hafta', 'Last week', 'Прошлая неделя') + '</small></div><div><b class="' + (diff == null ? '' : diff >= 0 ? 'up' : 'down') + '">' + (diff == null ? '—' : (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff) + '%') + '</b><small>' + L('Farq', 'Change', 'Изменение') + '</small></div><div><b>' + (rn ? (rs / rn).toFixed(1) + ' ★' : '—') + '</b><small>' + L('O\'rtacha baho', 'Avg rating', 'Средняя оценка') + '</small></div></div>'
+      + '<div class="pmx-sub">🕒 ' + L('Qaysi soatlarda fokus (90 kun)', 'When you focus (90 days)', 'Когда вы в фокусе (90 дней)') + '</div>' + (mx ? hm : '<p class="pmx-muted">—</p>')
+      + '<div class="pmx-sub">📁 ' + L('Faoliyatlar ulushi', 'Activity share', 'Доля занятий') + '</div>' + (sh || '<p class="pmx-muted">—</p>')
+      + '<div class="pmx-sub">📵 ' + L('Chalg\'ituvchilar', 'Distractions', 'Отвлечения') + '</div>' + (rsn ? '<div class="pmx-tags">' + rsn + '</div>' : '<p class="pmx-muted">—</p>')
+      + (notes.length ? '<div class="pmx-sub">📝 ' + L('Oxirgi izohlar', 'Recent notes', 'Последние заметки') + '</div><div class="pmx-notes">' + notes.slice(-5).reverse().map(function (l) { return '<div><small>' + H(l.date) + ' · ' + H(l.actName) + (l.rating ? ' · ' + l.rating + '★' : '') + '</small>' + H(l.note) + '</div>'; }).join('') + '</div>' : '');
+    xModal(h, 'pmx-box pmx-wide');
+  }
+
+  // ---------- 10. Shovqin mikseri (WebAudio) ----------
+  var NZ = { ctx: null, nodes: {}, vol: { white: 0, pink: 0, brown: 0 }, on: false };
+  try { var _nv = JSON.parse(localStorage.getItem('ludPomoNoise') || 'null'); if (_nv) NZ.vol = Object.assign(NZ.vol, _nv); } catch (e) {}
+  function noiseBuf(ctx, kind) {
+    var len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    var b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, last = 0;
+    for (var i = 0; i < len; i++) {
+      var w = Math.random() * 2 - 1;
+      if (kind === 'white') d[i] = w * 0.5;
+      else if (kind === 'pink') {
+        b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852; b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898;
+        d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11; b6 = w * 0.115926;
+      } else { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
+    }
+    return buf;
+  }
+  function noiseApply() {
+    var any = Object.keys(NZ.vol).some(function (k) { return NZ.vol[k] > 0; });
+    if (any && !NZ.ctx) { try { NZ.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
+    if (!NZ.ctx) return;
+    Object.keys(NZ.vol).forEach(function (k) {
+      var v = NZ.vol[k], n = NZ.nodes[k];
+      if (v > 0 && !n) {
+        var src = NZ.ctx.createBufferSource(); src.buffer = noiseBuf(NZ.ctx, k); src.loop = true;
+        var g = NZ.ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(NZ.ctx.destination); src.start();
+        n = NZ.nodes[k] = { src: src, g: g };
+      }
+      if (n) n.g.gain.setTargetAtTime(v / 100 * 0.6, NZ.ctx.currentTime, 0.1);
+      if (n && v <= 0) { (function (nn, kk) { setTimeout(function () { if (NZ.vol[kk] <= 0) { try { nn.src.stop(); } catch (e) {} delete NZ.nodes[kk]; } }, 400); })(n, k); }
+    });
+    if (NZ.ctx.state === 'suspended') NZ.ctx.resume();
+    NZ.on = any;
+    try { localStorage.setItem('ludPomoNoise', JSON.stringify(NZ.vol)); } catch (e) {}
+  }
+  function openNoise() {
+    var lb = { white: L('Oq shovqin', 'White noise', 'Белый шум'), pink: L('Pushti shovqin', 'Pink noise', 'Розовый шум'), brown: L('Jigarrang shovqin', 'Brown noise', 'Коричневый шум') };
+    var ov = xModal('<h3>🎚 ' + L('Shovqin mikseri', 'Noise mixer', 'Микшер шума') + '</h3><p class="pmx-muted">' + L('Fokus uchun fon shovqinlarini aralashtiring.', 'Mix background noise for focus.', 'Смешайте фоновый шум для фокуса.') + '</p>'
+      + Object.keys(lb).map(function (k) { return '<label class="pmx-nz">' + lb[k] + '<input type="range" min="0" max="100" data-k="' + k + '" value="' + NZ.vol[k] + '"></label>'; }).join('')
+      + '<div class="modal-actions"><button class="btn-cancel" id="pmx-nz-off">' + L('Hammasini o\'chirish', 'Mute all', 'Выключить всё') + '</button></div>', 'pmx-box');
+    ov.addEventListener('input', function (e) { var k = e.target.getAttribute('data-k'); if (!k) return; NZ.vol[k] = +e.target.value; noiseApply(); });
+    ov.querySelector('#pmx-nz-off').onclick = function () { Object.keys(NZ.vol).forEach(function (k) { NZ.vol[k] = 0; }); ov.querySelectorAll('input').forEach(function (x) { x.value = 0; }); noiseApply(); renderBar(); };
+    var oc = ov._close; ov._close = function () { oc(); renderBar(); };
+    ov.querySelector('.x-close').onclick = ov._close;
+  }
+
+  // ---------- 11. Tanaffus mashqlari ----------
+  var EX = [
+    ['🧘', L('Nafas: 4 s olib, 4 s ushlab, 4 s chiqaring', 'Breathe: in 4s, hold 4s, out 4s', 'Дыхание: вдох 4с, пауза 4с, выдох 4с'), 1],
+    ['🙆', L('Yelka va bo\'yinni aylantiring (10 marta)', 'Roll shoulders and neck (10×)', 'Вращайте плечами и шеей (10×)')],
+    ['👀', L('20-20-20: 20 s davomida 6 m uzoqqa qarang', '20-20-20: look 6 m away for 20 s', '20-20-20: смотрите вдаль 20 с')],
+    ['💧', L('Bir stakan suv iching', 'Drink a glass of water', 'Выпейте стакан воды')],
+    ['🚶', L('Turib, 1-2 daqiqa yuring', 'Stand up and walk 1–2 min', 'Встаньте и пройдитесь 1–2 мин')],
+    ['🤸', L('10 ta o\'tirib-turish', '10 squats', '10 приседаний')],
+    ['✋', L('Bilak va barmoqlarni cho\'zing', 'Stretch wrists and fingers', 'Растяните запястья и пальцы')]
+  ];
+  var _exIdx = -1;
+  function syncBreak() {
+    var hero = document.getElementById('pomo-hero'); if (!hero) return;
+    var a = window.pomoActiveAct && window.pomoActiveAct();
+    var on = !!(a && a.running && a.phase === 'break');
+    var el = document.getElementById('pmx-break');
+    if (!on) { if (el) el.remove(); _exIdx = -1; return; }
+    if (el) return;
+    if (_exIdx < 0) _exIdx = Math.floor(Math.random() * EX.length);
+    var ex = EX[_exIdx];
+    el = document.createElement('div'); el.id = 'pmx-break';
+    el.innerHTML = (ex[2] ? '<div class="pmx-breath"><i></i></div>' : '<span class="pmx-ex-ic">' + ex[0] + '</span>') + '<div><b>' + L('Tanaffus mashqi', 'Break exercise', 'Упражнение') + '</b><small>' + H(ex[1]) + '</small></div><button type="button" aria-label="next">↻</button>';
+    el.querySelector('button').onclick = function () { _exIdx = (_exIdx + 1) % EX.length; el.remove(); syncBreak(); };
+    var ctr = document.getElementById('pomo-hero-controls');
+    hero.insertBefore(el, ctr ? ctr.nextSibling : null);
+  }
+
+  // ---------- 14. CSV ----------
+  function exportCsv() {
+    var q = function (v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var rows = [['date', 'activity', 'start', 'end', 'minutes', 'rating', 'reason', 'note']];
+    logs().slice().sort(function (a, b) { return (a.startAt || 0) - (b.startAt || 0); }).forEach(function (l) {
+      rows.push([l.date, l.actName, l.startAt ? new Date(l.startAt).toISOString() : '', l.stopAt ? new Date(l.stopAt).toISOString() : '', ((l.durationMs || 0) / 60000).toFixed(1), l.rating || '', l.reason || '', l.note || '']);
+    });
+    var blob = new Blob(['﻿' + rows.map(function (r) { return r.map(q).join(','); }).join('\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'pomodoro-' + dkey() + '.csv';
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  // ---------- ishga tushirish ----------
+  function tick() {
+    var ov = document.getElementById('pomo-modal-overlay');
+    if (ov && ov.classList.contains('open')) { renderBar(); syncBreak(); if (Date.now() - LIVE.at > 60000) loadLive(); }
+    checkGoal();
+  }
+  function init() {
+    renderBar(); checkAch();
+    setInterval(tick, 15000);
+    var mo = document.getElementById('pomo-modal-overlay');
+    if (mo && window.MutationObserver) new MutationObserver(function () { if (mo.classList.contains('open')) { renderBar(); syncBreak(); loadLive(); } }).observe(mo, { attributes: true, attributeFilter: ['class'] });
+    setTimeout(function () { var a = window.pomoActiveAct && window.pomoActiveAct(); if (a && a.running) schedAlarm(a); }, 4000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else setTimeout(init, 0);
+})();

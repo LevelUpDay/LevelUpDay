@@ -14255,6 +14255,7 @@ function makeTaskEl(t, future) {
           ${coinsV ? `<span class="tk-chip tk-chip-coin">+${coinsV} 🪙</span>` : ''}
           ${t.remindAt ? `<span class="tk-chip tk-chip-remind">⏰ ${esc(t.remindAt)}</span>` : ''}
           ${subsDueOrDone.length ? `<span class="tk-chip tk-chip-subs${subsDoneN === subsDueOrDone.length ? ' all' : ''}">☑ ${subsDoneN}/${subsDueOrDone.length}</span>` : ''}
+          ${typeof window.xTaskFocusChip === 'function' ? window.xTaskFocusChip(t) : ''}
         </div>
       </div>
       ${(!future && !t.done) ? `<button type="button" class="tk-pomo-btn" onclick="taskOpenFocus(${t.id}, event)" title="${_cl("Fokus rejimida shu vazifa ustida ishlash", "Focus on this task (Focus mode)", "Работать над задачей в режиме фокуса")}" aria-label="${_cl("Fokus rejimida shu vazifa ustida ishlash", "Focus on this task (Focus mode)", "Работать над задачей в режиме фокуса")}">🎯</button>` : ''}
@@ -29038,10 +29039,13 @@ try {
   function pomoWorkMs()       { return Math.max(1, pomoGetSettings().workMin || 1) * 60 * 1000; }
   function pomoShortBreakMs() { return Math.max(1, pomoGetSettings().shortBreakMin || 1) * 60 * 1000; }
   function pomoLongBreakMs()  { return Math.max(1, pomoGetSettings().longBreakMin || 1) * 60 * 1000; }
+  // Nechta pomodorodan keyin uzoq tanaffus (2–8, standart 4)
+  function pomoLongEvery() { var n = parseInt(pomoGetSettings().longEvery, 10); return n >= 2 && n <= 8 ? n : 4; }
+  window.pomoLongEvery = pomoLongEvery;
   function pomoComputeBreakForCompletedWork(act) {
-    act.pomoCount = ((act.pomoCount || 0) % 4) + 1;
-    var s = pomoGetSettings();
-    var isLong = !!s.useSequence && act.pomoCount === 4;
+    var s = pomoGetSettings(), every = pomoLongEvery();
+    act.pomoCount = ((act.pomoCount || 0) % every) + 1;
+    var isLong = !!s.useSequence && act.pomoCount === every;
     act.lastBreakIsLong = isLong; // UI'da qisqa/uzoq tanaffusni farqlash uchun (pomoRenderHero)
     return isLong ? pomoLongBreakMs() : pomoShortBreakMs();
   }
@@ -29320,14 +29324,16 @@ try {
   async function pushPomoLogToCloud(entry) {
     if (!window.S || !window.S.cloudLinked || !window.S.cloudUserId || typeof window.supabase === 'undefined') return;
     try {
-      await window.supabase.from('pomo_log').insert({
+      var ins = await window.supabase.from('pomo_log').insert({
         user_id: window.S.cloudUserId,
         act_name: entry.actName || '',
         start_at: new Date(entry.startAt).toISOString(),
         stop_at: new Date(entry.stopAt).toISOString(),
         duration_ms: entry.durationMs || 0,
         catch_up_ms: entry.catchUpMs || 0
-      });
+      }).select('id').maybeSingle();
+      // Bulut id'sini mahalliy yozuvga bog'laymiz — keyingi sinxronda ikki nusxa bo'lib qolmasin
+      if (ins && !ins.error && ins.data && entry.localRef) { entry.localRef._cloudId = ins.data.id; pomoSaveLogs(); }
     } catch (e) { console.warn('[pomo_log] yozish xatosi:', e.message); }
   }
 
@@ -29348,8 +29354,17 @@ try {
       if (!logRes.error) {
         var cloudRows = logRes.data || [];
         var byId = {};
+        // 🐞 Bir seans ikki marta (mahalliy id + bulut id) ko'rinmasin: boshlanish vaqti bo'yicha moslaymiz
+        var byStart = {};
+        pomoLogs.forEach(function (l) { var k0 = Math.round((l.startAt || 0) / 1000) + '|' + Math.round((l.durationMs || 0) / 1000); if (byStart[k0] && !l._cloudId) return; byStart[k0] = l; });
+        pomoLogs = Object.keys(byStart).map(function (k0) { return byStart[k0]; });
+        cloudRows.forEach(function (r) {
+          var k1 = Math.round(new Date(r.start_at).getTime() / 1000) + '|' + Math.round((r.duration_ms || 0) / 1000), loc = byStart[k1];
+          if (loc && !loc._cloudId) loc._cloudId = r.id;
+        });
         pomoLogs.forEach(function (l) { byId[l._cloudId || l.id] = l; });
         cloudRows.forEach(function (r) {
+          if (byId[r.id] && byId[r.id].actId) return; // mahalliy nusxa (faoliyat bog'langan) saqlanadi
           byId[r.id] = {
             id: r.id, _cloudId: r.id, actId: null, actName: r.act_name,
             startAt: new Date(r.start_at).getTime(), stopAt: new Date(r.stop_at).getTime(),
@@ -29358,6 +29373,12 @@ try {
         });
         pomoLogs = Object.keys(byId).map(function (k) { return byId[k]; }).sort(function (a, b) { return b.startAt - a.startAt; });
         pomoSaveLogs();
+        // ☁️ Faqat qurilmada qolgan eski seanslarni bir marta bulutga yuboramiz (boshqa qurilmada ham ko'rinsin)
+        var unsynced = pomoLogs.filter(function (l) { return !l._cloudId && l.startAt && l.stopAt; }).slice(0, 300);
+        for (var ui = 0; ui < unsynced.length; ui++) {
+          var u0 = unsynced[ui];
+          await pushPomoLogToCloud({ actName: u0.actName, startAt: u0.startAt, stopAt: u0.stopAt, durationMs: u0.durationMs, catchUpMs: u0.catchUpMs, localRef: u0 });
+        }
       }
 
       var statRes = await window.supabase.from('pomo_break_stats').select('*').eq('user_id', window.S.cloudUserId).maybeSingle();
@@ -29375,6 +29396,14 @@ try {
   }
 
   window.pushPomoLogToCloud = pushPomoLogToCloud;
+  // 🍅 Pomodoro v2 (extras.js) uchun o'qish/yozish nuqtalari
+  window.pomoGetLogs = function () { return pomoLogs; };
+  window.pomoLogsChanged = function () { pomoSaveLogs(); try { if (typeof pomoStatsRender === 'function') pomoStatsRender(); } catch (e) {} };
+  window.pomoGetSettingsObj = function () { return pomoGetSettings(); };
+  window.pomoPersistSettings = function () { pomoSaveSettingsToStorage(); };
+  window.pomoGetActs = function () { return pomoActivities; };
+  window.pomoActiveAct = function () { return pomoFindAct(pomoActiveId) || pomoAdoptRunning(); };
+  window.pomoPhaseLeftMs = function (act) { if (!act) return 0; return act.phase === 'break' ? (act.breakRemainingMs || 0) : Math.max(0, pomoWorkMs() - (act.cycleMs || 0)); };
   window.pushPomoBreakStatDelta = pushPomoBreakStatDelta;
   window.pomoSyncFromCloud = pomoSyncFromCloud;
 
@@ -29418,7 +29447,7 @@ try {
     var durationMs = Math.max(0, (act.elapsedMs || 0) - (act.sessionBaseElapsed || 0));
     var catchUpMs = Math.min(durationMs, act.sessionCatchUpMs || 0);
     if (durationMs > 1000) { // 1 soniyadan kam bo'lgan tasodifiy bosishlarni tarixga yozmaymiz
-      pomoLogs.push({
+      var _plog = {
         id: 'plog_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
         actId: act.id,
         actName: act.name,
@@ -29427,13 +29456,15 @@ try {
         durationMs: durationMs,
         catchUpMs: catchUpMs,
         date: pomoDateKey(act.sessionStartAt)
-      });
+      };
+      pomoLogs.push(_plog);
       pomoSaveLogs();
       if (typeof pomoStatsRender === 'function') pomoStatsRender();
       // ☁️ Bulutga ham yozamiz — boshqa qurilmada ham tarixda ko'rinishi uchun
       if (typeof window.pushPomoLogToCloud === 'function') {
-        window.pushPomoLogToCloud({ actName: act.name, startAt: act.sessionStartAt, stopAt: Date.now(), durationMs: durationMs, catchUpMs: catchUpMs });
+        window.pushPomoLogToCloud({ actName: act.name, startAt: act.sessionStartAt, stopAt: Date.now(), durationMs: durationMs, catchUpMs: catchUpMs, localRef: _plog });
       }
+      try { if (typeof window.xPomoOnSession === 'function') window.xPomoOnSession(_plog, act); } catch (e) {}
     }
     act.sessionStartAt = null;
     act.sessionBaseElapsed = null;
@@ -29789,7 +29820,7 @@ try {
     if (!timeUnchanged && act.phase !== 'break') {
       act.cycleMs = ((newMs % pomoWorkMs()) + pomoWorkMs()) % pomoWorkMs();
       var completedCycles = Math.floor(newMs / pomoWorkMs());
-      act.pomoCount = completedCycles > 0 ? ((completedCycles - 1) % 4) + 1 : 0;
+      act.pomoCount = completedCycles > 0 ? ((completedCycles - 1) % pomoLongEvery()) + 1 : 0;
     }
     var pomoReduceFromLogsAmt = 0;
     if (act.running && act.sessionStartAt) {
@@ -30154,6 +30185,7 @@ try {
       el.style.cursor = running ? 'not-allowed' : '';
     });
 
+    try { if (window.xPomoSettingsOpen) window.xPomoSettingsOpen(s, running); } catch (e) {}
     window.pomoSettingsShowTab('general');
     document.getElementById('pomo-settings-modal-overlay').classList.add('open');
   };
@@ -30180,7 +30212,7 @@ try {
       shortMin = Math.max(1, Math.min(60, parseInt(shortEl && shortEl.value, 10) || POMO_DEFAULT_SETTINGS.shortBreakMin));
       longMin = Math.max(1, Math.min(120, parseInt(longEl && longEl.value, 10) || POMO_DEFAULT_SETTINGS.longBreakMin));
     }
-    pomoSettingsState = {
+    pomoSettingsState = Object.assign({}, prevSettings, {
       workMin: workMin,
       shortBreakMin: shortMin,
       longBreakMin: longMin,
@@ -30191,7 +30223,8 @@ try {
       browserNotifyEnabled: !!(_pomoSettingsDraft && _pomoSettingsDraft.browserNotifyEnabled),
       showSpotifyPlaylist: !!(_pomoSettingsDraft && _pomoSettingsDraft.showSpotifyPlaylist),
       autoStartWork: !(_pomoSettingsDraft && _pomoSettingsDraft.autoStartWork === false)
-    };
+    });
+    try { if (window.xPomoSettingsSave) window.xPomoSettingsSave(pomoSettingsState, running); } catch (e) {}
     pomoSaveSettingsToStorage();
     pomoRenderActivityList();
     pomoUpdateFloatUI();
@@ -30476,6 +30509,7 @@ try {
     pomoShowFloat();
     pomoFgSync(act);
     pomoRenderActivityList();
+    try { if (window.xPomoOnStart) window.xPomoOnStart(act); } catch (e) {}
   };
 
   // 🍅 Vaqt bloki boshlanganda Pomodoro'ni avtomatik yoqish
@@ -30547,6 +30581,7 @@ try {
     pomoMaybeStopTicking();
     pomoRenderHistoryIfOpen();
     pomoFgSync(null);
+    try { if (typeof window.xPomoOnStop === 'function') window.xPomoOnStop(act); } catch (e) {}
   };
 
   /* ---------------- Tanaffusni o'tkazib yuborish ---------------- */
@@ -30569,6 +30604,7 @@ try {
     pomoRenderCalendarIfOpen();
     pomoStartTicking();
     if (typeof toast === 'function') toast(t('pomo_toast_break_skipped'));
+    try { if (window.xPomoOnStart) window.xPomoOnStart(act); } catch (e) {}
   };
 
   /* ---------------- Taymer tick (setInterval, drift-korreksiyali) ---------------- */
@@ -30630,7 +30666,7 @@ try {
       pomoPlaySound(); // bir nechta faza o'tib ketgan bo'lsa ham, faqat bitta ovoz — spam qilmaslik uchun
       var last = events[events.length - 1];
       if (last === 'work-done') {
-        var isLongNow = pomoGetSettings().useSequence && act.pomoCount === 4;
+        var isLongNow = pomoGetSettings().useSequence && act.pomoCount === pomoLongEvery();
         var workDoneMsg = isLongNow ? t('pomo_toast_long_break_started') : t('pomo_toast_short_break_started');
         if (typeof toast === 'function') toast(workDoneMsg);
         pomoMaybeShowBrowserNotification(t('pomo_notif_work_done_title'), workDoneMsg);
@@ -30654,6 +30690,7 @@ try {
     }
     pomoMaybeStopTicking();
     pomoFgSync(act);
+    if (events.length) { try { if (typeof window.xPomoOnPhase === 'function') window.xPomoOnPhase(act, events[events.length - 1], events); } catch (e) {} }
   }
   function pomoStartTicking() {
     if (!pomoTickHandle) pomoTickHandle = setInterval(pomoTick, 1000);
@@ -31109,7 +31146,7 @@ try {
             if (logAct.phase !== 'break') {
               logAct.cycleMs = ((logAct.elapsedMs % pomoWorkMs()) + pomoWorkMs()) % pomoWorkMs();
               var logCompletedCycles = Math.floor(logAct.elapsedMs / pomoWorkMs());
-              logAct.pomoCount = logCompletedCycles > 0 ? ((logCompletedCycles - 1) % 4) + 1 : 0;
+              logAct.pomoCount = logCompletedCycles > 0 ? ((logCompletedCycles - 1) % pomoLongEvery()) + 1 : 0;
             }
             pomoSaveActivities();
             pomoRenderActivityList();
@@ -31741,14 +31778,17 @@ try {
         var durationMs = Math.max(0, (act.elapsedMs || 0) - (act.sessionBaseElapsed || 0));
         var catchUpMsPart = Math.min(durationMs, act.sessionCatchUpMs || 0);
         if (durationMs > 1000) {
-          pomoLogs.push({
+          var _mlog = {
             id: 'plog_' + midnight + '_' + Math.floor(Math.random() * 1000),
             actId: act.id, actName: act.name,
             startAt: act.sessionStartAt, stopAt: midnight,
             durationMs: durationMs, catchUpMs: catchUpMsPart,
             date: pomoDateKey(act.sessionStartAt)
-          });
+          };
+          pomoLogs.push(_mlog);
           pomoSaveLogs();
+          // 🐞 Yarim tunda bo'lingan qism ham bulutga yoziladi (avval faqat qurilmada qolardi)
+          if (typeof window.pushPomoLogToCloud === 'function') window.pushPomoLogToCloud({ actName: act.name, startAt: _mlog.startAt, stopAt: midnight, durationMs: durationMs, catchUpMs: catchUpMsPart, localRef: _mlog });
         }
       }
 
@@ -34854,6 +34894,26 @@ function _fpFillStat(boxId, icon, label, value) {
       var aw = document.getElementById('fp-achwall');
       if (aw && d.cosmetics && typeof d.cosmetics === 'object') { var awh = _fpAchWall(d.cosmetics); if (awh) aw.innerHTML = awh; }
     }, function () {});
+  };
+  window.showFriendProfileModal = showFriendProfileModal;
+})();
+
+// ↔️ Profil modali: keng ekranda ikki ustunli joylashuv (chap — profil va statistika, o'ng — amallar)
+(function () {
+  var _prev = window.showFriendProfileModal || showFriendProfileModal;
+  showFriendProfileModal = function (id) {
+    _prev(id);
+    var ov = document.getElementById('friend-profile-modal');
+    var box = ov && ov.firstElementChild;
+    if (!box || box.classList.contains('fp-wide')) return;
+    var kids = Array.prototype.slice.call(box.children).filter(function (el) { return el.id !== 'fp-close'; });
+    if (kids.length < 3) return;
+    var left = document.createElement('div'), right = document.createElement('div');
+    left.className = 'fp-left'; right.className = 'fp-right';
+    kids.forEach(function (el, i) { (i < 3 ? left : right).appendChild(el); });
+    if (kids[1]) kids[1].classList.add('fp-stats');
+    box.classList.add('fp-wide');
+    box.appendChild(left); box.appendChild(right);
   };
   window.showFriendProfileModal = showFriendProfileModal;
 })();
