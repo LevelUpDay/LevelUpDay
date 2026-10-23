@@ -113,9 +113,9 @@ html.lu-still .lu-sb-pulse { animation: none; }
 .fxp-trail path { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; filter: drop-shadow(0 0 4px var(--accent)); stroke-dasharray: 46 200; stroke-dashoffset: 46; animation: fxp-trail 1.9s cubic-bezier(.45,0,.55,1) infinite; }
 @keyframes fxp-trail { 0% { stroke-dashoffset: 46; opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { stroke-dashoffset: -170; opacity: 0; } }
 /* Spotlight preview */
-.fxp-spot .fxp-card { position: relative; width: 70%; height: 38px; border-radius: 9px; background: var(--surface2, #23202e); border: 1px solid var(--border, #333); overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 0 10px; box-sizing: border-box; }
-.fxp-spot .fxp-card b { display: block; height: 4px; border-radius: 3px; background: color-mix(in srgb, var(--text, #fff) 22%, transparent); width: 70%; }
-.fxp-spot .fxp-card b + b { width: 45%; }
+.fxp-spot .fxp-card, .fxp-fade .fxp-card { position: relative; width: 70%; height: 38px; border-radius: 9px; background: var(--surface2, #23202e); border: 1px solid var(--border, #333); overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 0 10px; box-sizing: border-box; }
+.fxp-spot .fxp-card b, .fxp-fade .fxp-card b { display: block; height: 4px; border-radius: 3px; background: color-mix(in srgb, var(--text, #fff) 22%, transparent); width: 70%; }
+.fxp-spot .fxp-card b + b, .fxp-fade .fxp-card b + b { width: 45%; }
 .fxp-spot .fxp-card::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; background: radial-gradient(60px circle at var(--px, 20%) 50%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 70%); animation: fxp-spot 2.6s ease-in-out infinite; }
 @property --px { syntax: '<percentage>'; inherits: false; initial-value: 20%; }
 @keyframes fxp-spot { 0%, 100% { --px: 15%; } 50% { --px: 85%; } }
@@ -233,3 +233,56 @@ html.lu-still.lu-fx-neon :is(.add-task-btn, .btn-save, .ct-btn-save, .pe-btn.mai
 .fxp-fly i:nth-child(6) { left: 88%; top: 70%; animation-delay: -2.5s, -1s; } .fxp-fly i:nth-child(7) { left: 22%; top: 48%; animation-delay: -3.5s, -.6s; }
 @keyframes fxp-fly { 0% { transform: translate(0, 0); } 50% { transform: translate(10px, -8px); } 100% { transform: translate(-6px, 6px); } }
 @keyframes fxp-blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+
+/* ============================================================
+   🪞 Yaltiroq tugmalar · 🌫️ Silliq o'tishlar · ✅ Bajarildi! · 📶 Progress nuri
+   ============================================================ */
+html.lu-fx-shine :is(.add-task-btn, .btn-save, .ct-btn-save) { position: relative; overflow: hidden; isolation: isolate; }
+html.lu-fx-shine :is(.add-task-btn, .btn-save, .ct-btn-save)::after, .fxp-shine .fxp-btn::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 45%; pointer-events: none; z-index: 1;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,.28) 50%, transparent);
+  transform: skewX(-18deg); animation: lu-shine 4.2s ease-in-out infinite;
+}
+html.lu-fx-shine :is(.add-task-btn, .btn-save, .ct-btn-save):hover::after { animation-duration: 1.2s; }
+@keyframes lu-shine { 0%, 62% { left: -60%; } 100% { left: 130%; } }
+
+.lu-fade-in { animation: lu-fade-in .38s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes lu-fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.lu-done-burst { position: fixed; z-index: 2147483000; width: 0; height: 0; pointer-events: none; }
+.lu-done-burst b { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--green, #34D399); animation: lu-done-ring .6s ease-out forwards; }
+.lu-done-burst em { position: absolute; left: -12px; top: -14px; width: 24px; text-align: center; font-style: normal; font-weight: 800; font-size: 18px; color: var(--green, #34D399); animation: lu-done-chk .7s cubic-bezier(.2,1.6,.4,1) forwards; }
+.lu-done-burst i { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: var(--green, #34D399); transform: rotate(var(--a)) translateY(0); animation: lu-done-dot .6s ease-out forwards; }
+@keyframes lu-done-ring { from { transform: scale(.4); opacity: .9; } to { transform: scale(1.9); opacity: 0; } }
+@keyframes lu-done-chk { 0% { transform: scale(.2) translateY(0); opacity: 0; } 40% { transform: scale(1.25) translateY(-8px); opacity: 1; } 100% { transform: scale(1) translateY(-22px); opacity: 0; } }
+@keyframes lu-done-dot { from { transform: rotate(var(--a)) translateY(-6px); opacity: 1; } to { transform: rotate(var(--a)) translateY(-26px); opacity: 0; } }
+
+html.lu-fx-shimmer :is(.progress-fill, .lvp-fill, .chest-progress-fill, .party-progress-fill, .duel-progress-fill, .rw-need-fill, .wr-bar-fill) { position: relative; overflow: hidden; }
+html.lu-fx-shimmer :is(.progress-fill, .lvp-fill, .chest-progress-fill, .party-progress-fill, .duel-progress-fill, .rw-need-fill, .wr-bar-fill)::after, .fxp-bar i::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); background-size: 50% 100%; background-repeat: no-repeat;
+  animation: lu-shim 2.2s linear infinite;
+}
+@keyframes lu-shim { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+
+/* Do'kon preview'lari */
+.fxp-shine .fxp-btn { position: relative; overflow: hidden; }
+.fxp-fade .fxp-card { animation: fxp-fade 2.8s ease-in-out infinite; }
+@keyframes fxp-fade { 0%, 15% { opacity: 0; transform: translateY(12px); } 35%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; transform: none; } }
+.fxp-done { display: grid; place-items: center; }
+.fxp-done .fxp-chk { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--green, #34D399); color: #062; font-weight: 800; font-size: 15px; z-index: 1; animation: fxp-done-c 2.4s ease-in-out infinite; }
+.fxp-done b { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px; border-radius: 50%; border: 2px solid var(--green, #34D399); animation: fxp-done-r 2.4s ease-out infinite; }
+.fxp-done i { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: var(--green, #34D399); animation: fxp-done-d 2.4s ease-out infinite; }
+.fxp-done i:nth-of-type(1) { --a: 0deg; } .fxp-done i:nth-of-type(2) { --a: 45deg; } .fxp-done i:nth-of-type(3) { --a: 90deg; } .fxp-done i:nth-of-type(4) { --a: 135deg; }
+.fxp-done i:nth-of-type(5) { --a: 180deg; } .fxp-done i:nth-of-type(6) { --a: 225deg; } .fxp-done i:nth-of-type(7) { --a: 270deg; } .fxp-done i:nth-of-type(8) { --a: 315deg; }
+@keyframes fxp-done-c { 0%, 20% { transform: scale(.6); opacity: .3; } 32% { transform: scale(1.2); opacity: 1; } 45%, 100% { transform: scale(1); opacity: 1; } }
+@keyframes fxp-done-r { 0%, 25% { transform: scale(.5); opacity: 0; } 30% { opacity: .9; } 70%, 100% { transform: scale(2); opacity: 0; } }
+@keyframes fxp-done-d { 0%, 25% { transform: rotate(var(--a)) translateY(-8px); opacity: 0; } 30% { opacity: 1; } 70%, 100% { transform: rotate(var(--a)) translateY(-30px); opacity: 0; } }
+.fxp-shim { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 10px; padding: 0 18%; box-sizing: border-box; }
+.fxp-bar { display: block; width: 100%; height: 8px; border-radius: 6px; background: color-mix(in srgb, var(--text) 12%, transparent); overflow: hidden; }
+.fxp-bar i { position: relative; display: block; height: 100%; width: 72%; border-radius: 6px; background: var(--accent); overflow: hidden; }
+.fxp-bar.s i { width: 45%; background: var(--green, #34D399); }
+@media (prefers-reduced-motion: reduce) {
+  html.lu-fx-shine :is(.add-task-btn, .btn-save, .ct-btn-save)::after, html.lu-fx-shimmer :is(.progress-fill, .lvp-fill)::after, .lu-fade-in, .lu-done-burst { animation: none !important; display: none; }
+}
+html.lu-still :is(.add-task-btn, .btn-save, .ct-btn-save)::after, html.lu-still :is(.progress-fill, .lvp-fill, .chest-progress-fill)::after { animation-play-state: paused; }

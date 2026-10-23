@@ -28228,6 +28228,30 @@ function _cloudDeviceType() {
   return 'desktop';
 }
 var _cloudSyncTimer = null;
+// 🧮 Profil "asosi": serverdagi tanga/XP/olmos bo'yicha oxirgi bizga ma'lum qiymat (qurilmada saqlanadi).
+// Server bundan farq qilsa — demak boshqa manba o'zgartirgan; farq mahalliy holatga qo'shiladi (3 tomonlama birlashtirish).
+var _PROF_F = [['coins', 'coins'], ['total_coins', 'totalCoins'], ['xp', 'xp'], ['gems', 'gems']];
+function _profBaseKey() { return 'ludProfBase_' + (S.cloudUserId || ''); }
+function _profBaseGet() { try { var v = JSON.parse(localStorage.getItem(_profBaseKey()) || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } }
+function _profBaseSet(o) {
+  if (!S.cloudUserId || !o) return;
+  var b = {}; _PROF_F.forEach(function (f) { if (o[f[0]] != null) b[f[0]] = Number(o[f[0]]) || 0; });
+  try { localStorage.setItem(_profBaseKey(), JSON.stringify(b)); } catch (e) {}
+}
+function _profBaseFromS() { _profBaseSet({ coins: S.coins || 0, total_coins: S.totalCoins || 0, xp: S.xp || 0, gems: S.gems || 0 }); }
+function _profMergeServer(srv, fallbackBase) {
+  var base = _profBaseGet() || fallbackBase || null, ch = [];
+  if (base) _PROF_F.forEach(function (f) {
+    if (srv[f[0]] == null || base[f[0]] == null) return;
+    var d = (Number(srv[f[0]]) || 0) - base[f[0]];
+    if (d) { S[f[1]] = (Number(S[f[1]]) || 0) + d; ch.push(f[0] + (d > 0 ? '+' : '') + d); }
+  });
+  _profBaseSet(srv);
+  if (ch.length) { try { saveToLocalStorage(S); renderGemsPill(); _rtRenderSoon(); } catch (e) {} }
+  return ch;
+}
+window._profMergeServer = _profMergeServer; window._profBaseFromS = _profBaseFromS;
+
 function scheduleCloudSync(immediate) {
   if (!S.cloudLinked || !S.cloudUserId || window._ludImporting) return;
   // Bulutdan holat tiklanmaguncha profilni yozmaymiz (tasks_completed/coins
@@ -28237,6 +28261,12 @@ function scheduleCloudSync(immediate) {
   var run = async function () {
     _cloudSyncTimer = null;
     if (!S.cloudLinked || !S.cloudUserId || !_cloudOwnerOk()) return;
+    // 🎁 Serverda boshqa manbadan (admin sovg'asi, promo, boshqa qurilma) o'zgarish bo'lsa — o'sha farqni
+    // mahalliy qiymatga qo'shamiz. Aks holda eski mahalliy raqam yuborilib, sovg'a bir necha soniyada "yo'qolardi".
+    try {
+      var cur = await supabase.from('profiles').select('coins,total_coins,xp,gems').eq('id', S.cloudUserId).maybeSingle();
+      if (cur && !cur.error && cur.data) _profMergeServer(cur.data);
+    } catch (e) {}
     var photoUrl = (S.profile && S.profile.photo) || null;
     try { if (typeof cloudResolveAvatarUrl === 'function') photoUrl = await cloudResolveAvatarUrl(); } catch (e) {}
     var stamp = new Date().toISOString();
@@ -28312,7 +28342,7 @@ function scheduleCloudSync(immediate) {
         window._noLastReasonColumn = true; delete row.last_reason;
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
       }
-      if (!r.error) { window._cloudLastOkAt = Date.now(); window._cloudLastErr = null; }
+      if (!r.error) { window._cloudLastOkAt = Date.now(); window._cloudLastErr = null; _profBaseSet({ coins: row.coins, total_coins: row.total_coins, xp: row.xp, gems: row.gems }); }
       if (r.error && row.gems !== undefined && /gems/i.test(r.error.message || '')) {
         window._noGemsColumn = true; delete row.gems;
         return supabase.from('profiles').upsert(row).then(function (r2) { if (r2.error) console.warn('[Cloud sync] xatolik:', r2.error.message); });
@@ -28455,7 +28485,9 @@ function startRealtimeSync() {
       if (p.updated_at && window._lastProfilePushAt && Date.parse(p.updated_at) === Date.parse(window._lastProfilePushAt)) return; // o'zimiz yuborgan yozuv
       if ((p.coins || 0) === (S.coins || 0) && (p.xp || 0) === (S.xp || 0) && (p.streak || 0) === (S.streak || 0) && (p.total_coins || 0) === (S.totalCoins || 0) && (p.gems == null || (p.gems || 0) === (S.gems || 0))) { _seasonFromServer(p); return; }
       // Kechikib qaytgan o'z yozuvimiz yoki hali yuborilmagan mahalliy o'zgarish bo'lsa — tangani ustidan yozmaymiz
-      if (_cloudSyncTimer || _profileEchoSeen(p) || !_cloudOwnerOk()) return;
+      if (_profileEchoSeen(p) || !_cloudOwnerOk()) return;
+      // Mahalliy o'zgarish hali yuborilmagan — ustidan yozmaymiz, faqat serverdagi farqni qo'shamiz
+      if (_cloudSyncTimer) { _profMergeServer(p); return; }
       S.coins = p.coins || 0;
       S.totalCoins = p.total_coins || 0;
       if (p.gems != null) S.gems = p.gems || 0;
@@ -28463,6 +28495,7 @@ function startRealtimeSync() {
       S.streak = p.streak || 0;
       S.bestStreak = p.best_streak || S.streak || 0;
       _seasonFromServer(p);
+      _profBaseSet(p);
       try { saveToLocalStorage(S); } catch (e) {}
       _rtRenderSoon();
     })
@@ -35497,6 +35530,7 @@ async function _cloudCatchUp(force) {
       if (pd && _cloudOwnerOk() && !_profileEchoSeen(pd) && ((pd.coins || 0) !== (S.coins || 0) || (pd.xp || 0) !== (S.xp || 0) || (pd.streak || 0) !== (S.streak || 0) || (pd.gems != null && (pd.gems || 0) !== (S.gems || 0)))) {
         S.coins = pd.coins || 0; S.totalCoins = pd.total_coins || 0; S.xp = pd.xp || 0; S.streak = pd.streak || 0; S.bestStreak = pd.best_streak || S.streak || 0;
         if (pd.gems != null) S.gems = pd.gems || 0;
+        _profBaseSet(pd);
         try { saveToLocalStorage(S); } catch (e) {}
         _rtRenderSoon();
       }
@@ -35582,6 +35616,7 @@ function _cloudApplyProfileRow(p) {
   if (p.gems != null) S.gems = p.gems || 0;
   S.streak = p.streak || 0;
   S.bestStreak = p.best_streak || p.streak || 0;
+  _profBaseSet(p);
   S.profile.photo = p.photo || S.profile.photo || null;
   S.profile.country = p.country || S.profile.country || null;
   S.profile.targetSubjects = (p.target_subjects && p.target_subjects.length) ? p.target_subjects : (S.profile.targetSubjects || []);
