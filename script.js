@@ -9748,7 +9748,9 @@ function grantTaskReward(tsk, dateStr) {
     S.spinDoubleNextTaskActive = false;
     setTimeout(function(){ toast(t('spin_double_consumed_toast')); }, 500);
   }
-  amt = amt * mult;
+  // ⚡ Spin busti: 2 soat davomida vazifa tangalari ×1.5 (×2 bilan qo'shilmaydi)
+  if (!f.rewardMult && mult === 1 && amt > 0 && S.spinBoostUntil && Date.now() < S.spinBoostUntil) mult = 1.5;
+  amt = Math.round(amt * mult);
   f.rewardMult = mult;
   f.rewardAmt = amt; f.rewardGiven = true;
   S.coins = (S.coins||0) + amt;
@@ -17970,7 +17972,14 @@ function showReytingInfoModal() {
   overlay.addEventListener('click', function(e){ if (e.target === overlay) closeIt(); });
 }
 
+// _cl hali e'lon qilinmagan bo'lishi mumkin (bu kod yuklanishda ishlaydi) — xavfsiz tarjima
+function _spinL(uz, en, ru) {
+  if (typeof _cl === 'function') return _cl(uz, en, ru);
+  var l = 'uz'; try { l = (typeof getLang === 'function' ? getLang() : localStorage.getItem('lang')) || 'uz'; } catch (e) {}
+  return l === 'ru' ? ru : l === 'en' ? en : uz;
+}
 function getSpinPrizes() {
+  var _cl = _spinL;
   var noLuck = t('spin_no_luck');
   var unit = t('coins_suffix_short');
   var freezeLbl = t('spin_prize_freeze_label');
@@ -17978,13 +17987,14 @@ function getSpinPrizes() {
   var respinLbl = t('spin_prize_respin_label');
   var xpLbl = t('spin_prize_xp_label');
   var doubleLbl = t('spin_prize_double_label');
+  // 🎰 v2: "omad yo'q" ulushidan yangi sovrinlarga joy berildi (jami og'irlik o'zgarmadi)
   return [
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:471},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:471},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:471},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:472},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:472},
-    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:472},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:400},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:400},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:400},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:400},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:400},
+    {label:noLuck, type:'coins', coins:0, color:'#2D2D3A', weight:399},
     {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
     {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
     {label:'1'+unit, type:'coins', coins:1, color:'#7C5CFC', weight:535},
@@ -18024,17 +18034,37 @@ function getSpinPrizes() {
     {label:xpLbl, type:'xp', coins:0, color:'#22D3EE', weight:70},
     {label:doubleLbl, type:'double', coins:0, color:'#FB923C', weight:60},
     {label:doubleLbl, type:'double', coins:0, color:'#FB923C', weight:60},
-    // 💎 1 olmos — aniq 1.30% (130 / 10000); og'irlik "omad yo'q" bo'limlaridan olindi
     {label:'1 💎', type:'gem', coins:0, gems:1, color:'#0EA5E9', weight:130},
+    // ➕ Yangi sovrinlar
+    {label:'🎁 ' + _cl('Sirli quti', 'Mystery box', 'Тайный ящик'), type:'mystery', coins:0, color:'#8B5CF6', weight:150},
+    {label:'⚡ ×1.5 · 2' + _cl(' soat', 'h', ' ч'), type:'boost', coins:0, color:'#EAB308', weight:90},
+    {label:'🎟 ' + _cl('Bilet', 'Ticket', 'Билет'), type:'ticket', coins:0, color:'#14B8A6', weight:80},
+    {label:'⭐ +50 XP', type:'xp50', coins:0, color:'#06B6D4', weight:55},
+    {label:'3 💎', type:'gem', coins:0, gems:3, color:'#0284C7', weight:30},
+    {label:'💰 ' + _cl('JEKPOT', 'JACKPOT', 'ДЖЕКПОТ'), type:'jackpot', coins:0, color:'#F5A623', weight:25},
   ];
 }
 var SPIN_PRIZES = getSpinPrizes();
 
-function pickWeightedSpinIndex() {
+// Sovrin noyobligi (karta chegarasi va natija oynasi uchun)
+function spinRarity(p) {
+  if (!p) return 'common';
+  if (p.type === 'jackpot' || (p.type === 'coins' && p.coins >= 50) || (p.type === 'gem' && (p.gems || 1) >= 3)) return 'legend';
+  if ((p.type === 'coins' && p.coins >= 20) || p.type === 'gem' || p.type === 'mystery' || p.type === 'xp50') return 'epic';
+  if ((p.type === 'coins' && p.coins >= 7) || p.type === 'boost' || p.type === 'ticket' || p.type === 'freeze' || p.type === 'reward') return 'rare';
+  return p.type === 'coins' && !p.coins ? 'none' : 'common';
+}
+function isNoLuck(p) { return p && p.type === 'coins' && !p.coins; }
+
+// golden: "omad yo'q" chiqmaydi (7-kunlik seriya yoki 3 marta ketma-ket omadsizlikdan keyin)
+function pickWeightedSpinIndex(opts) {
+  opts = opts || {};
+  var ok = function (p) { return !(opts.noNoLuck && isNoLuck(p)) && !(opts.minCoins && p.type === 'coins' && p.coins < opts.minCoins); };
   var totalW = 0;
-  for (var i = 0; i < SPIN_PRIZES.length; i++) totalW += (SPIN_PRIZES[i].weight || 1);
+  for (var i = 0; i < SPIN_PRIZES.length; i++) if (ok(SPIN_PRIZES[i])) totalW += (SPIN_PRIZES[i].weight || 1);
   var r = Math.random() * totalW;
   for (var j = 0; j < SPIN_PRIZES.length; j++) {
+    if (!ok(SPIN_PRIZES[j])) continue;
     r -= (SPIN_PRIZES[j].weight || 1);
     if (r <= 0) return j;
   }
@@ -18044,6 +18074,7 @@ function pickWeightedSpinIndex() {
 var spinRunning=false;
 var spinState='idle'; // 'idle' | 'spinning' | 'result' — track qayta qurilishini boshqaradi
 var SPIN_ITEM_W = 84; // karta kengligi (76px) + gap (8px) — drawSpinReel bilan bir xil bo'lishi shart
+var SPIN_PAID_COST = 20, SPIN_PAID_MAX = 3, SPIN_JACKPOT_BASE = 100, SPIN_JACKPOT_MAX = 1000;
 
 function hasSpunToday() {
   if (!S.spinDone) S.spinDone = {};
@@ -18070,11 +18101,21 @@ function getNextSpinCountdown() {
   var m = Math.floor((diff % 3600000) / 60000);
   return h + ' soat ' + m + ' daqiqa';
 }
+// 🔥 Kunlik spin seriyasi: har 7-kun "Oltin spin" (omadsizlik yo'q)
+function spinStreakInfo() {
+  var st = S.spinStreak || { last: null, n: 0 }, td = today();
+  var alive = st.last === td || st.last === addDays(td, -1);
+  var n = alive ? (st.n || 0) : 0;
+  var nextN = st.last === td ? n : n + 1;
+  return { n: n, nextGolden: nextN > 0 && nextN % 7 === 0, todayDone: st.last === td };
+}
+function spinPaidToday() { return (S.spinPaid && S.spinPaid.d === today()) ? S.spinPaid.n : 0; }
+function spinJackpot() { return Math.max(SPIN_JACKPOT_BASE, Math.min(SPIN_JACKPOT_MAX, Number(S.spinJackpot) || SPIN_JACKPOT_BASE)); }
 
 // Bitta sovg'a kartasi HTML'i (case-opening kartasi) — doSpin va idle preview
 // ikkalasida ham ishlatiladi, kenglik SPIN_ITEM_W bilan mos bo'lishi kerak.
 function spinItemCardHtml(p) {
-  return '<div class="spin-item-card" style="flex-shrink:0;width:76px;height:76px;border-radius:var(--radius-md);background:'+p.color+';display:flex;align-items:center;justify-content:center;text-align:center;font-size:var(--fs-xs);font-weight:700;color:#fff;font-family:Syne,sans-serif;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);padding:4px;box-sizing:border-box;transition:transform 0.2s,box-shadow 0.2s">'+p.label+'</div>';
+  return '<div class="spin-item-card spin-r-' + spinRarity(p) + '" style="flex-shrink:0;width:76px;height:76px;border-radius:var(--radius-md);background:'+p.color+';display:flex;align-items:center;justify-content:center;text-align:center;font-size:var(--fs-xs);font-weight:700;color:#fff;font-family:Syne,sans-serif;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);padding:4px;box-sizing:border-box;transition:transform 0.2s,box-shadow 0.2s">'+esc(p.label)+'</div>';
 }
 
 // Spin bosilmaganda (idle holatda) reelda tasodifiy kartalarni ko'rsatib
@@ -18111,11 +18152,12 @@ function renderSpin() {
   var badge = document.getElementById('spin-free-badge');
   var costInfo = document.getElementById('spin-cost-info');
   var btn   = document.getElementById('spin-btn');
+  var si = spinStreakInfo();
 
   if(!done) {
-    if(badge){ badge.textContent=t('spin_free_badge'); badge.style.background='rgba(52,211,153,0.15)'; badge.style.color='#34D399'; badge.style.borderColor='rgba(52,211,153,0.3)'; }
+    if(badge){ badge.textContent = si.nextGolden ? '🌟 ' + _cl('Bugun OLTIN spin — omadsizlik yo\'q!', 'Today is a GOLDEN spin — no empty prizes!', 'Сегодня ЗОЛОТОЙ спин — без пустых!') : t('spin_free_badge'); badge.style.background= si.nextGolden ? 'rgba(245,166,35,0.18)' : 'rgba(52,211,153,0.15)'; badge.style.color= si.nextGolden ? '#F5A623' : '#34D399'; badge.style.borderColor= si.nextGolden ? 'rgba(245,166,35,0.45)' : 'rgba(52,211,153,0.3)'; }
     if(costInfo) costInfo.textContent='';
-    if(btn){ btn.textContent=t('spin_free_btn'); btn.style.opacity='1'; btn.style.cursor='pointer'; }
+    if(btn){ btn.textContent= (si.nextGolden ? '🌟 ' : '') + t('spin_free_btn'); btn.style.opacity='1'; btn.style.cursor='pointer'; btn.classList.toggle('spin-golden', si.nextGolden); }
   } else {
     if(badge){ badge.textContent=t('spin_used_badge'); badge.style.background='rgba(248,113,113,0.1)'; badge.style.color='#F87171'; badge.style.borderColor='rgba(248,113,113,0.3)'; }
     if(costInfo){
@@ -18125,31 +18167,162 @@ function renderSpin() {
       btn.textContent = t('spin_tomorrow_btn');
       btn.style.opacity = '0.45';
       btn.style.cursor  = 'not-allowed';
+      btn.classList.remove('spin-golden');
     }
   }
+  renderSpinExtras();
   // 🎰 Spin sahifasi: taymer, statistika, so'nggi yutuqlar, sovrinlar jadvali (blocks.js)
   try { if (window.LUBlocks) LUBlocks.renderSpinDeck(); } catch (e) {}
+}
+// Qo'shimcha aylantirishlar (bilet / tanga), seriya, jekpot, faol bustlar
+function renderSpinExtras() {
+  var btn = document.getElementById('spin-btn'); if (!btn) return;
+  var box = document.getElementById('spin-extra');
+  if (!box) { box = document.createElement('div'); box.id = 'spin-extra'; box.className = 'spin-extra'; btn.parentNode.insertBefore(box, btn.nextSibling); }
+  var si = spinStreakInfo(), tk = S.spinTickets || 0, paid = spinPaidToday(), done = hasSpunToday();
+  var dots = '';
+  for (var i = 1; i <= 7; i++) { var cur = si.n % 7 || (si.n && si.todayDone ? 7 : 0); dots += '<i class="' + (i <= cur ? 'on' : '') + (i === 7 ? ' gold' : '') + '"></i>'; }
+  var boostLeft = (S.spinBoostUntil || 0) - Date.now();
+  box.innerHTML =
+    '<div class="spin-jp">💰 ' + _cl('Jekpot', 'Jackpot', 'Джекпот') + ': <b>' + spinJackpot() + ' 🪙</b><small>' + _cl('har spinda o\'sadi', 'grows every spin', 'растёт с каждым спином') + '</small></div>' +
+    '<div class="spin-streak" title="' + esc(_cl('Har 7-kun — Oltin spin', 'Every 7th day — Golden spin', 'Каждый 7-й день — золотой спин')) + '"><span>🔥 ' + si.n + ' ' + _cl('kun', 'days', 'дн.') + '</span><span class="spin-dots">' + dots + '</span><span>🌟</span></div>' +
+    (boostLeft > 0 ? '<div class="spin-active">⚡ ' + _cl('Vazifa tangalari ×1.5 — yana ', 'Task coins ×1.5 — ', 'Монеты за задачи ×1.5 — ещё ') + Math.ceil(boostLeft / 60000) + _cl(' daq', ' min left', ' мин') + '</div>' : '') +
+    (S.spinDoubleNextTaskActive ? '<div class="spin-active">✖️2 ' + _cl('Keyingi vazifa tangasi ikki baravar', 'Next task coins doubled', 'Следующая задача ×2') + '</div>' : '') +
+    (done ? '<div class="spin-more">' +
+      (tk ? '<button type="button" class="spin-more-btn" onclick="doSpin(\'ticket\')">🎟 ' + _cl('Biletni ishlatish', 'Use a ticket', 'Использовать билет') + ' <b>×' + tk + '</b></button>' : '') +
+      '<button type="button" class="spin-more-btn"' + (paid >= SPIN_PAID_MAX ? ' disabled' : '') + ' onclick="doSpin(\'paid\')">🪙 ' + _cl('Yana aylantirish', 'Spin again', 'Ещё раз') + ' · ' + SPIN_PAID_COST + ' 🪙 <small>' + paid + '/' + SPIN_PAID_MAX + '</small></button>' +
+    '</div>' : '');
+}
+
+// 🎁 Sovrinni berish — barcha turlar bitta joyda (sirli quti ham shu orqali)
+function applySpinPrize(prize, ctx) {
+  ctx = ctx || {};
+  var later = function (fn) { setTimeout(function () { fn(); renderSpin(); }, 300); };
+  if (prize.type === 'coins' && prize.coins > 0) {
+    S.coins += prize.coins;
+    if (!S.totalCoins) S.totalCoins = 0; S.totalCoins += prize.coins;
+    addTarixLog('in', t('spin_log').replace('{label}', prize.label), prize.coins);
+    save(); render(); SFX.spinWin();
+    later(function () { toast('+' + prize.coins + t('spin_prize_toast') + prize.label + '!'); confetti(); });
+  } else if (prize.type === 'freeze') {
+    if (typeof S.freezeCount !== 'number' || isNaN(S.freezeCount)) S.freezeCount = 0;
+    S.freezeCount++;
+    addTarixLog('in', t('spin_log').replace('{label}', prize.label), 0);
+    save(); render(); SFX.spinWin();
+    later(function () { toast(t('spin_prize_freeze_toast')); confetti(); });
+  } else if (prize.type === 'reward') {
+    var _wonReward = (S.rewards && S.rewards.length) ? S.rewards[Math.floor(Math.random() * S.rewards.length)] : null;
+    if (_wonReward) {
+      if (!S.rewardClaims) S.rewardClaims = {};
+      var _addCount = (_wonReward.amount > 0) ? _wonReward.amount : 1;
+      S.rewardClaims[_wonReward.id] = (S.rewardClaims[_wonReward.id] || 0) + _addCount;
+      addTarixLog('in', '🎰 ' + (_wonReward.icon||'') + ' ' + _wonReward.name + ' (Spin)', 0);
+      save(); render();
+      if (typeof renderRewards === 'function') renderRewards();
+      SFX.spinWin();
+      later(function () { toast(t('spin_prize_reward_toast').replace('{name}', (_wonReward.icon||'')+' '+_wonReward.name)); confetti(); });
+    } else {
+      // Mukofot yo'q bo'lsa — bo'sh qolmasin: 5 tanga beriladi
+      return applySpinPrize({ label: '5' + t('coins_suffix_short'), type: 'coins', coins: 5, color: '#3B82F6' }, ctx);
+    }
+  } else if (prize.type === 'respin') {
+    if (ctx.mode === 'free') { if (S.spinDone) delete S.spinDone[today()]; }
+    else S.spinTickets = (S.spinTickets || 0) + 1; // qo'shimcha spinda — bilet sifatida
+    save(); SFX.spinWin();
+    later(function () { toast(t('spin_prize_respin_toast')); confetti(); });
+  } else if (prize.type === 'xp' || prize.type === 'xp50') {
+    var _xpAmt = prize.type === 'xp50' ? 50 : 15;
+    addXP(_xpAmt, 'Spin');
+    save(); render(); SFX.spinWin();
+    later(function () { toast(t('spin_prize_xp_toast').replace('{amt}', _xpAmt)); confetti(); });
+  } else if (prize.type === 'gem') {
+    var g = prize.gems || 1;
+    gemsAdd(g, 'spin', '🎰 Spin', true);
+    addTarixLog('in', t('spin_log').replace('{label}', prize.label), 0);
+    save(); render(); SFX.spinWin();
+    later(function () { toast('💎 ' + _cl('Omad! +' + g + ' olmos yutdingiz', 'Lucky! You won +' + g + ' gems', 'Удача! +' + g + ' алмазов')); confetti(); confetti(); });
+  } else if (prize.type === 'double') {
+    S.spinDoubleNextTaskActive = true;
+    save(); SFX.spinWin();
+    later(function () { toast(t('spin_prize_double_toast')); confetti(); });
+  } else if (prize.type === 'boost') {
+    S.spinBoostUntil = Math.max(Date.now(), S.spinBoostUntil || 0) + 2 * 3600000;
+    save(); SFX.spinWin();
+    later(function () { toast('⚡ ' + _cl('2 soat davomida vazifa tangalari ×1.5!', 'Task coins ×1.5 for 2 hours!', 'Монеты за задачи ×1.5 на 2 часа!')); confetti(); });
+  } else if (prize.type === 'ticket') {
+    S.spinTickets = (S.spinTickets || 0) + 1;
+    save(); SFX.spinWin();
+    later(function () { toast('🎟 ' + _cl('Bonus spin bileti! Xohlagan paytda ishlating', 'Bonus spin ticket! Use it any time', 'Билет на спин! Используйте когда угодно')); confetti(); });
+  } else if (prize.type === 'jackpot') {
+    var jp = spinJackpot();
+    S.coins += jp; S.totalCoins = (S.totalCoins || 0) + jp;
+    S.spinJackpot = SPIN_JACKPOT_BASE;
+    addTarixLog('in', '💰 ' + _cl('Spin JEKPOT', 'Spin JACKPOT', 'Спин ДЖЕКПОТ'), jp);
+    save(); render(); SFX.spinWin();
+    later(function () { toast('💰💰 ' + _cl('JEKPOT! +' + jp + ' tanga!', 'JACKPOT! +' + jp + ' coins!', 'ДЖЕКПОТ! +' + jp + ' монет!')); confetti(); confetti(); confetti(); });
+  } else if (prize.type === 'mystery') {
+    // Sirli quti: ichidan kattaroq sovg'a chiqadi
+    var unit = t('coins_suffix_short');
+    var box = [
+      { label: '8' + unit, type: 'coins', coins: 8, color: '#3B82F6', w: 30 },
+      { label: '15' + unit, type: 'coins', coins: 15, color: '#10B981', w: 22 },
+      { label: '25' + unit, type: 'coins', coins: 25, color: '#F59E0B', w: 12 },
+      { label: '1 💎', type: 'gem', gems: 1, color: '#0EA5E9', w: 12 },
+      { label: t('spin_prize_freeze_label'), type: 'freeze', color: '#38BDF8', w: 10 },
+      { label: '⭐ +50 XP', type: 'xp50', color: '#06B6D4', w: 10 },
+      { label: '🎟 ' + _cl('Bilet', 'Ticket', 'Билет'), type: 'ticket', color: '#14B8A6', w: 4 }
+    ];
+    var tw = box.reduce(function (s0, x) { return s0 + x.w; }, 0), r = Math.random() * tw, pick = box[0];
+    for (var i = 0; i < box.length; i++) { r -= box[i].w; if (r <= 0) { pick = box[i]; break; } }
+    try { if (window.LUBlocks) LUBlocks.spinLog(pick); } catch (e) {}
+    setTimeout(function () { toast('🎁 ' + _cl('Sirli qutidan: ', 'Mystery box: ', 'Из ящика: ') + pick.label); }, 150);
+    return applySpinPrize(pick, ctx);
+  } else {
+    SFX.delete();
+    later(function () { toast(t('spin_unlucky_toast')); });
+  }
 }
 
 // Standoff2/CS-uslubidagi "case opening" reel: kartalar gorizontal qatorda
 // tizilib, chapga siljib boradi va markaziy ko'rsatkich ostida to'xtaydi.
-function doSpin() {
+// mode: 'free' (kunlik tekin) | 'ticket' (🎟 bilet) | 'paid' (🪙 tanga evaziga)
+function doSpin(mode) {
   if(spinRunning) return;
   if (debtMode() === 'hardcore' && (S.coins || 0) < 0) { toast('💀 ' + _cl('Qattiq rejim: qarzda Spin yopiq', 'Hardcore: Spin is locked while in debt', 'Хардкор: Spin закрыт в долгу')); return; }
-  if(hasSpunToday()){ toast(t('spin_already_used_toast')); return; }
-
-  markSpunToday();
+  if (mode !== 'ticket' && mode !== 'paid') mode = 'free';
+  var golden = false;
+  if (mode === 'free') {
+    if (hasSpunToday()) { toast(t('spin_already_used_toast')); return; }
+    var si = spinStreakInfo();
+    golden = si.nextGolden;
+    var st = S.spinStreak || { last: null, n: 0 };
+    if (st.last !== today()) { st.n = st.last === addDays(today(), -1) ? (st.n || 0) + 1 : 1; st.last = today(); }
+    S.spinStreak = st;
+    markSpunToday();
+  } else if (mode === 'ticket') {
+    if (!(S.spinTickets > 0)) return;
+    S.spinTickets--;
+  } else {
+    if (spinPaidToday() >= SPIN_PAID_MAX) { toast(_cl('Bugungi qo\'shimcha spinlar tugadi', 'No more extra spins today', 'Дополнительные спины на сегодня закончились')); return; }
+    if ((S.coins || 0) < SPIN_PAID_COST) { toast('🪙 ' + _cl('Tanga yetarli emas', 'Not enough coins', 'Недостаточно монет')); return; }
+    S.coins -= SPIN_PAID_COST;
+    addTarixLog('out', '🎰 ' + _cl('Qo\'shimcha spin', 'Extra spin', 'Доп. спин'), -SPIN_PAID_COST);
+    S.spinPaid = { d: today(), n: spinPaidToday() + 1 };
+  }
+  // 💰 Jekpot har spinda +2 o'sadi
+  S.spinJackpot = Math.min(SPIN_JACKPOT_MAX, spinJackpot() + 2);
+  save();
   spinRunning = true;
   spinState = 'spinning';
 
   var track    = document.getElementById('spin-track');
   var viewport = document.getElementById('spin-viewport');
   var n   = SPIN_PRIZES.length;
-  var idx = pickWeightedSpinIndex();
+  // 🍀 Omadsizlik himoyasi: 3 marta ketma-ket "omad yo'q"dan keyin albatta sovg'a
+  var pity = (S.spinNoLuckRun || 0) >= 3;
+  var idx = pickWeightedSpinIndex({ noNoLuck: golden || pity, minCoins: golden ? 5 : 0 });
   var itemW = SPIN_ITEM_W;
 
-  // Uzun reel quramiz: oxiridan biroz oldinroqqa yutuqni joylashtiramiz,
-  // shunda animatsiya tugagach reelning oxiri ko'rinmaydi (bufer qoladi).
   var reelLen   = 56;
   var landIndex = reelLen - 10;
   var items = [];
@@ -18159,10 +18332,9 @@ function doSpin() {
   track.innerHTML = items.map(spinItemCardHtml).join('');
   track.style.transition = 'none';
   track.style.transform  = 'translateX(0px)';
+  if (viewport) viewport.classList.toggle('spin-golden-vp', golden);
 
   var viewportWidth = viewport.clientWidth;
-  // Kartaning aniq markazi emas, ichida tasodifiy nuqtaga tushishi —
-  // tabiiyroq ko'rinish uchun (real case-opening'lardagi kabi).
   var randomOffset = (Math.random() - 0.5) * itemW * 0.55;
   var targetX = -(landIndex * itemW + itemW / 2 - viewportWidth / 2) + randomOffset;
 
@@ -18175,8 +18347,6 @@ function doSpin() {
     var p = Math.min((ts - start) / duration, 1);
     var x = targetX * ease(p);
     track.style.transform = 'translateX(' + x + 'px)';
-    // Ko'rsatkich ostidan yangi karta o'tganda "tik" ovozi — ease-out
-    // bo'lgani uchun boshida tez-tez, oxirida sekinlashib chaladi.
     var curIdx = Math.round(-x / itemW);
     if (curIdx !== lastTickIdx) { lastTickIdx = curIdx; SFX.spinTick(); }
     if(p < 1){ requestAnimationFrame(frame); }
@@ -18185,75 +18355,19 @@ function doSpin() {
       spinRunning = false;
       spinState = 'result';
       var prize = SPIN_PRIZES[idx];
+      S.spinNoLuckRun = isNoLuck(prize) ? (S.spinNoLuckRun || 0) + 1 : 0;
       try { if (window.LUBlocks) LUBlocks.spinLog(prize); } catch (e) {}
-      // Yutgan kartani ajratib ko'rsatish
       var cards = track.children;
       if (cards[landIndex]) {
         cards[landIndex].style.boxShadow = '0 0 0 3px #fff, 0 0 18px ' + prize.color;
         cards[landIndex].style.transform = 'scale(1.1)';
         cards[landIndex].style.zIndex = '5';
+        cards[landIndex].classList.add('spin-won');
       }
-      if(prize.type === 'coins' && prize.coins > 0){
-        S.coins += prize.coins;
-        if(!S.totalCoins) S.totalCoins = 0; S.totalCoins += prize.coins;
-        addTarixLog('in', t('spin_log').replace('{label}', prize.label), prize.coins);
-        save(); render();
-        SFX.spinWin();
-        setTimeout(function(){ toast('+' + prize.coins + t('spin_prize_toast') + prize.label + '!'); confetti(); renderSpin(); }, 300);
-      } else if (prize.type === 'freeze') {
-        // ❄️ +1 Freeze — tanga o'rniga muzlatish imkoniyati beriladi.
-        if (typeof S.freezeCount !== 'number' || isNaN(S.freezeCount)) S.freezeCount = 0;
-        S.freezeCount++;
-        addTarixLog('in', t('spin_log').replace('{label}', prize.label), 0);
-        save(); render();
-        SFX.spinWin();
-        setTimeout(function(){ toast(t('spin_prize_freeze_toast')); confetti(); renderSpin(); }, 300);
-      } else if (prize.type === 'reward') {
-        var _wonReward = (S.rewards && S.rewards.length) ? S.rewards[Math.floor(Math.random() * S.rewards.length)] : null;
-        if (_wonReward) {
-          if (!S.rewardClaims) S.rewardClaims = {};
-          var _addCount = (_wonReward.amount > 0) ? _wonReward.amount : 1;
-          S.rewardClaims[_wonReward.id] = (S.rewardClaims[_wonReward.id] || 0) + _addCount;
-          addTarixLog('in', '🎰 ' + (_wonReward.icon||'') + ' ' + _wonReward.name + ' (Spin)', 0);
-          save(); render();
-          if (typeof renderRewards === 'function') renderRewards();
-          SFX.spinWin();
-          setTimeout(function(){ toast(t('spin_prize_reward_toast').replace('{name}', (_wonReward.icon||'')+' '+_wonReward.name)); confetti(); renderSpin(); }, 300);
-        } else {
-          // Foydalanuvchida hali birorta ham sovg'a qo'shilmagan bo'lsa —
-          // tanga ham, hech narsa ham yo'qotilmaydi, faqat xabar beriladi.
-          SFX.spinWin();
-          setTimeout(function(){ toast(t('spin_prize_reward_fallback_toast')); renderSpin(); }, 300);
-        }
-      } else if (prize.type === 'respin') {
-        // 🔄 Yana bir marta Spin qilish imkoni — bugungi "ishlatildi"
-        // bayrog'i bekor qilinadi, tugma darhol qayta faollashadi.
-        if (S.spinDone) delete S.spinDone[today()];
-        save();
-        SFX.spinWin();
-        setTimeout(function(){ toast(t('spin_prize_respin_toast')); confetti(); renderSpin(); }, 300);
-      } else if (prize.type === 'xp') {
-        // ⭐ Darhol XP beradi (level darajasiga yaqinlashtiradi).
-        var _xpAmt = 15;
-        addXP(_xpAmt, 'Spin');
-        save(); render();
-        SFX.spinWin();
-        setTimeout(function(){ toast(t('spin_prize_xp_toast').replace('{amt}', _xpAmt)); confetti(); renderSpin(); }, 300);
-      } else if (prize.type === 'gem') {
-        gemsAdd(prize.gems || 1, 'spin', '🎰 Spin', true);
-        addTarixLog('in', t('spin_log').replace('{label}', prize.label), 0);
-        save(); render();
-        SFX.spinWin();
-        setTimeout(function(){ toast('💎 ' + _cl('Omad! +1 olmos yutdingiz', 'Lucky! You won +1 gem', 'Удача! +1 алмаз')); confetti(); confetti(); renderSpin(); }, 300);
-      } else if (prize.type === 'double') {
-        S.spinDoubleNextTaskActive = true;
-        save();
-        SFX.spinWin();
-        setTimeout(function(){ toast(t('spin_prize_double_toast')); confetti(); renderSpin(); }, 300);
-      } else {
-        SFX.delete();
-        setTimeout(function(){ toast(t('spin_unlucky_toast')); renderSpin(); }, 300);
-      }
+      var rar = spinRarity(prize);
+      if (rar === 'legend' || rar === 'epic') { try { if (viewport) { viewport.classList.remove('spin-flash'); void viewport.offsetWidth; viewport.classList.add('spin-flash'); } } catch (e) {} }
+      if (golden) setTimeout(function () { toast('🌟 ' + _cl('Oltin spin! 7 kunlik seriya uchun', 'Golden spin! For your 7-day streak', 'Золотой спин за 7 дней подряд')); }, 900);
+      applySpinPrize(prize, { mode: mode });
     }
   }
   requestAnimationFrame(frame);
