@@ -2814,8 +2814,9 @@
     nav.innerHTML = list.map(function (id) {
       var x = it.map[id]; if (!x) return '';
       var lbl = id === 'rewards' ? L('Mukofot', 'Rewards', 'Награды') : x.label;
-      return '<button type="button" class="' + (id === cur ? 'on' : '') + '" data-bn="' + id + '" data-xdrag="nav"><span class="x-bn-i">' + x.icon + '</span><span class="x-bn-l">' + H(lbl) + '</span>' +
-        (id === 'hub' ? '<span class="x-pomo-live" aria-hidden="true"></span>' : '') + '</button>';
+      var host = id === (list.indexOf('pomo') !== -1 ? 'pomo' : 'hub');
+      return '<button type="button" class="' + (id === cur ? 'on' : '') + (host ? ' x-pomo-host' : '') + '" data-bn="' + id + '" data-xdrag="nav"><span class="x-bn-i">' + x.icon + '</span><span class="x-bn-l">' + H(lbl) + '</span>' +
+        (host ? '<span class="x-pomo-live" aria-hidden="true"></span>' : '') + '</button>';
     }).join('');
     try { if (window.pomoSyncRunIndicator) window.pomoSyncRunIndicator(); } catch (e) {}
     nav.querySelectorAll('[data-bn]').forEach(function (b) {
@@ -3123,7 +3124,7 @@
       card.innerHTML = head(H(L('Avval akkauntga kiring — keyin eslatmalar Telegram\'ga keladi', 'Sign in first — then reminders will come to Telegram', 'Сначала войдите — затем напоминания придут в Telegram')));
       return;
     }
-    var r = await supabase.from('telegram_links').select('chat_id,username,enabled,prefs,tz,lang').maybeSingle();
+    var r = await supabase.from('telegram_links').select('chat_id,username,enabled,prefs,tz,lang,times').maybeSingle();
     var link = r && !r.error ? r.data : null;
     if (!link) {
       card.innerHTML = head(H(L('Vazifa eslatmalari, 08:00 reja, streak va kun yakuni — @' + TG_BOT + ' orqali', 'Task reminders, 08:00 plan, streak and day summary — via @' + TG_BOT, 'Напоминания, план в 08:00, серия и итоги дня — через @' + TG_BOT)),
@@ -3156,12 +3157,21 @@
     var opts = [['tasks', L('⏰ Vazifa eslatmalari', '⏰ Task reminders', '⏰ Напоминания о задачах')], ['start', L('▶️ Vazifa boshlanish vaqti', '▶️ Task start time', '▶️ Время начала задачи')],
       ['morning', L('🌅 08:00 — bugungi reja', '🌅 08:00 — today\'s plan', '🌅 08:00 — план на день')], ['streak', L('🔥 20:00 — streak eslatmasi', '🔥 20:00 — streak reminder', '🔥 20:00 — напоминание о серии')],
       ['evening', L('🌙 21:30 — kun yakuni', '🌙 21:30 — day summary', '🌙 21:30 — итоги дня')],
-      ['fg', L('🛡 Focusgate — bloklash va limitlar', '🛡 Focusgate — blocks and limits', '🛡 Focusgate — блокировки и лимиты')]];
+      ['fg', L('🛡 Focusgate — bloklash va limitlar', '🛡 Focusgate — blocks and limits', '🛡 Focusgate — блокировки и лимиты')],
+      ['weekly', L('📅 Yakshanba — haftalik hisobot', '📅 Sunday — weekly report', '📅 Воскресенье — отчёт за неделю')],
+      ['social', L('👥 Do\'stlar: so\'rov, challenge, turtki', '👥 Friends: requests, challenges, nudges', '👥 Друзья: заявки, вызовы, толчки')],
+      ['pomo', L('🍅 Pomodoro taymeri tugaganda', '🍅 When a Pomodoro timer ends', '🍅 Когда заканчивается помодоро')]];
+    var tms = link.times || {};
+    var TMS = [['morning', '08:00', L('🌅 Ertalabki reja', '🌅 Morning plan', '🌅 Утренний план')], ['streak', '20:00', L('🔥 Streak eslatmasi', '🔥 Streak reminder', '🔥 Серия')],
+      ['evening', '21:30', L('🌙 Kun yakuni', '🌙 Day summary', '🌙 Итоги дня')], ['weekly', '20:30', L('📅 Haftalik (yakshanba)', '📅 Weekly (Sunday)', '📅 Неделя (вс)')]];
+    opts = opts.map(function (o) { var tm = TMS.filter(function (x) { return x[0] === o[0]; })[0]; return tm ? [o[0], o[1].replace(/\d\d:\d\d — /, '').replace(/^(\S+) [^—]*— /, '$1 '), tm] : o; });
     card.innerHTML = head(H((link.username ? '@' + link.username + ' · ' : '') + (link.enabled ? L('xabarlar yoqilgan', 'messages on', 'сообщения включены') : L('xabarlar o\'chirilgan — hech narsa kelmaydi', 'messages off — nothing will be sent', 'сообщения выключены — ничего не придёт'))),
       '<button type="button" class="x-tg-sw' + (link.enabled ? ' on' : '') + '" id="x-tg-en" role="switch" aria-checked="' + !!link.enabled + '" title="' + H(link.enabled ? L('O\'chirish', 'Turn off', 'Выключить') : L('Yoqish', 'Turn on', 'Включить')) + '"><i></i></button>') +
-      (link.enabled ? '<div class="x-tg-sub">' + L('Qaysi xabarlar kelsin:', 'Which messages to send:', 'Какие сообщения присылать:') + '</div>' + opts.map(function (o) { return '<label class="x-chk"><input type="checkbox" data-tgp="' + o[0] + '"' + (pf[o[0]] !== false ? ' checked' : '') + '> ' + H(o[1]) + '</label>'; }).join('') : '') +
+      (link.enabled ? '<div class="x-tg-sub">' + L('Qaysi xabarlar kelsin:', 'Which messages to send:', 'Какие сообщения присылать:') + '</div>' + opts.map(function (o) { return '<div class="x-tg-row"><label class="x-chk"><input type="checkbox" data-tgp="' + o[0] + '"' + (pf[o[0]] !== false ? ' checked' : '') + '> ' + H(o[1]) + '</label>' + (o[2] ? '<input type="time" class="x-in x-tg-tm" data-tgt="' + o[0] + '" value="' + H(tms[o[0]] || o[2][1]) + '">' : '') + '</div>'; }).join('') +
+        '<div class="x-tg-sub">🌙 ' + L('Tinch soatlar (bu vaqtda eslatma kelmaydi)', 'Quiet hours (no reminders)', 'Тихие часы (без напоминаний)') + '</div><div class="x-tg-row x-tg-q"><input type="time" class="x-in x-tg-tm" data-tgt="quietFrom" value="' + H(tms.quietFrom || '') + '"><span>—</span><input type="time" class="x-in x-tg-tm" data-tgt="quietTo" value="' + H(tms.quietTo || '') + '"><button type="button" class="x-btn ghost sm" id="x-tg-qoff">✕</button></div>' +
+        '<div class="x-tg-hint">🤖 ' + L('Botda: /today (✅ tugmalari bilan), /add matn — Inbox\'ga, /stats, /week, /goals, /pomo, /settings. Eslatmadagi «✅ Bajardim» ilovada avtomatik belgilanadi.', 'In the bot: /today (with ✅ buttons), /add text — to Inbox, /stats, /week, /goals, /pomo, /settings. “✅ Done” in a reminder is applied in the app automatically.', 'В боте: /today (с кнопками ✅), /add текст — во «Входящие», /stats, /week, /goals, /pomo, /settings. «✅ Готово» в напоминании отметится в приложении.') + '</div>' : '') +
       '<div class="x-tg-hint">' + L('Botda ham boshqarish mumkin: /stop — o\'chirish, /start — yoqish.', 'You can also control it in the bot: /stop — off, /start — on.', 'Можно и в боте: /stop — выключить, /start — включить.') + '</div>' +
-      '<div class="x-tg-act"><button class="x-btn ghost sm" id="x-tg-test">🧪 ' + L('Sinov xabari', 'Send test', 'Тест') + '</button>' +
+      '<div class="x-tg-act"><button class="x-btn ghost sm" id="x-tg-today">📋 ' + L('Bugungi reja', 'Today\'s plan', 'План') + '</button><button class="x-btn ghost sm" id="x-tg-test">🧪 ' + L('Sinov xabari', 'Send test', 'Тест') + '</button>' +
       '<button class="x-btn ghost sm" id="x-tg-open">💬 @' + TG_BOT + '</button>' +
       '<button class="x-btn ghost sm x-tg-un" id="x-tg-unlink">' + L('Uzish', 'Disconnect', 'Отключить') + '</button></div>';
     card.querySelector('#x-tg-en').onclick = async function () {
@@ -3174,6 +3184,16 @@
     card.querySelectorAll('[data-tgp]').forEach(function (c) {
       c.onchange = async function () { pf[c.dataset.tgp] = c.checked; await supabase.from('telegram_links').update({ prefs: pf }).eq('chat_id', link.chat_id); };
     });
+    var saveTimes = async function () { await supabase.from('telegram_links').update({ times: tms }).eq('chat_id', link.chat_id); toast('🕒 ' + L('Saqlandi', 'Saved', 'Сохранено')); };
+    card.querySelectorAll('[data-tgt]').forEach(function (inp) { inp.onchange = function () { if (inp.value) tms[inp.dataset.tgt] = inp.value; else delete tms[inp.dataset.tgt]; saveTimes(); }; });
+    var qoff = card.querySelector('#x-tg-qoff');
+    if (qoff) qoff.onclick = function () { delete tms.quietFrom; delete tms.quietTo; card.querySelectorAll('.x-tg-q input').forEach(function (x) { x.value = ''; }); saveTimes(); };
+    card.querySelector('#x-tg-today').onclick = async function () {
+      this.disabled = true;
+      var t = await supabase.functions.invoke('telegram-bot', { body: { action: 'today' } });
+      this.disabled = false;
+      toast(t && !t.error && t.data && t.data.ok ? '✅ ' + L('Telegram\'ga yuborildi', 'Sent to Telegram', 'Отправлено в Telegram') : '⚠️ ' + L('Yuborib bo\'lmadi', 'Could not send', 'Не удалось'));
+    };
     card.querySelector('#x-tg-test').onclick = async function () {
       this.disabled = true;
       var t = await supabase.functions.invoke('telegram-bot', { body: { action: 'test' } });
@@ -3188,6 +3208,37 @@
     };
   }
   window.xRenderTgSettings = safe(function () { renderTgSettings().catch(function (e) { console.warn('[tg]', e); }); });
+
+  // ✈️ Botdagi amallarni ilovada qo'llash: «✅ Bajardim» (mukofot bilan) va /add (Inbox'ga)
+  var _tgaBusy = false, _tgaAt = 0;
+  async function applyTgActions() {
+    if (!cloudOk() || _tgaBusy || Date.now() - _tgaAt < 20000) return;
+    _tgaBusy = true; _tgaAt = Date.now();
+    try {
+      var r = await supabase.from('tg_actions').select('id,kind,task_id,payload,created_at').is('applied_at', null).order('id').limit(50);
+      var rows = (r && !r.error && r.data) || [], ids = [], nDone = 0, nAdd = 0, td = today();
+      rows.forEach(function (a) {
+        try {
+          if (a.kind === 'done') {
+            var day = (a.payload && a.payload.day) || td;
+            var t = (S.tasks || []).find(function (x) { return x && Number(x.id) === Number(a.task_id); });
+            if (t && day === td && !(t.repeat === 'once' ? t.done : t.doneDate === td)) { toggleTaskInternal(t.id); nDone++; }
+          } else if (a.kind === 'add' && a.payload && a.payload.name && window.xInboxAddText) { if (window.xInboxAddText(a.payload.name)) nAdd++; }
+        } catch (e) { console.warn('[tg action]', e); }
+        ids.push(a.id);
+      });
+      if (ids.length) await supabase.from('tg_actions').update({ applied_at: new Date().toISOString() }).in('id', ids);
+      if (nDone || nAdd) {
+        try { save(); render(); } catch (e) {}
+        toast('✈️ Telegram: ' + (nDone ? '✅ ' + nDone + ' ' + L('ta bajarildi', 'done', 'выполнено') : '') + (nDone && nAdd ? ' · ' : '') + (nAdd ? '📥 ' + nAdd + ' ' + L('ta Inbox\'ga', 'to Inbox', 'во «Входящие»') : ''));
+      }
+    } catch (e) {}
+    _tgaBusy = false;
+  }
+  window.xApplyTgActions = applyTgActions;
+  setTimeout(applyTgActions, 7000);
+  setInterval(function () { if (!document.hidden) applyTgActions(); }, 120000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(applyTgActions, 1500); });
 
   // =========================================================
   // 🕒 VAQT — davlat bo'yicha (tz.js). Sukut bo'yicha O'CHIQ: qurilma vaqti.
@@ -4836,6 +4887,22 @@
     toast('⚡ ' + L("Qo'shildi", 'Added', 'Добавлено') + ': ' + t.name + (q.date ? ' · 📅 ' + (q.date === td ? L('bugun', 'today', 'сегодня') : q.date) : ''));
     setTimeout(function () { var i2 = rootEl && rootEl.querySelector('#ib-qa'); if (i2) i2.focus(); }, 30);
   }
+
+  // ✈️ Telegram /add — matndan vazifa (quickAdd bilan bir xil tahlil: !1, #kategoriya, ertaga ...)
+  window.xInboxAddText = function (text) {
+    var q = parseQuick(String(text || '')); if (!q.name) return null;
+    var tr = taskTier(q.diff), td = td0();
+    var t = { id: S.nextId++, name: q.name.slice(0, 120), diff: q.diff, coins: tr.c, penalty: tr.p, repeat: 'once', days: null, interval: null, nextDate: null,
+      strictSchedule: false, dueDate: null, remindAt: null, startTime: null, endTime: null, autoPomo: false, pinned: false,
+      done: false, doneDate: null, skipped: false, skippedDate: null, lastDoneDate: null, createdAt: td, label: null, note: null,
+      emoji: null, isFrozen: false, frozenAt: null, subtasks: [], fromTg: true };
+    if (q.date) t.postponedTo = q.date;
+    if (q.cat) { try { taskSetCats(t, [q.cat]); } catch (e) {} }
+    S.tasks.push(t);
+    try { ensureFullTaskOrder(); } catch (e) {}
+    afterChange();
+    return t;
+  };
 
   // ---------- 🧹 Saralash: sanasiz vazifalarni birma-bir hal qilish ----------
   function nodateTasks() { var td = td0(); return (S.tasks || []).filter(function (t) { return t && !t.done && !t.isFrozen && taskInfo(t, td).g === 'nodate'; }); }

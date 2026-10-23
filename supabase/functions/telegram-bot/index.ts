@@ -1,9 +1,13 @@
 // 🤖 telegram-bot — @LevelUpDayLoginBot webhook'i.
 //  • /start <kod>  — ilovadagi "Telegram'ga ulash" tugmasidan kelgan bir martalik kod bilan akkauntni bog'laydi
 //  • /start        — ulangan bo'lsa eslatmalarni qayta yoqadi, aks holda qanday ulashni tushuntiradi
-//  • /today        — bugungi vazifalar ro'yxati
-//  • /stop         — eslatmalarni to'xtatadi
-//  • /help         — yordam
+//  • /today        — bugungi vazifalar (✅ tugmalari bilan)
+//  • /add <matn>   — Inbox'ga tez vazifa (ilova ochilganda qo'shiladi)
+//  • /stats /week /goals /pomo — statistika, haftalik hisobot, odatlar, Pomodoro holati
+//  • /settings     — qaysi xabarlar kelishini tugmalar bilan sozlash
+//  • /stop /unlink /help
+//  • Tugmalar (callback): d:<id> bajarildi, z:<id>:<daq> keyinroq eslatish, p:<kalit> sozlama
+// Bajarildi/qo'shish amallari tg_actions navbatiga yoziladi — ilova keyingi ochilishda qo'llaydi (mukofot bilan).
 // Ilovadan (foydalanuvchi JWT bilan) { action: "test" } — sinov xabari yuboradi.
 // Webhook so'rovlari X-Telegram-Bot-Api-Secret-Token sarlavhasi bilan tekshiriladi (bot tokenidan hosil qilinadi).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -32,7 +36,13 @@ const T: Record<string, Record<string, string>> = {
     resumed: "🔔 Eslatmalar yoqildi. /today — bugungi vazifalar, /stop — to'xtatish.",
     stopped: "🔕 Eslatmalar to'xtatildi. Qayta yoqish uchun /start bosing.",
     notLinked: "ℹ️ Akkaunt hali ulanmagan. Ilovada <b>Profil → Sozlamalar → ✈️ Telegram → Ulash</b>.",
-    help: "🤖 <b>Buyruqlar</b>\n/today — bugungi vazifalar\n/stop — eslatmalarni to'xtatish\n/start — qayta yoqish",
+    help: "🤖 <b>Buyruqlar</b>\n/today — bugungi vazifalar\n/add <i>matn</i> — Inbox'ga vazifa\n/stats — statistika\n/week — haftalik hisobot\n/goals — bugungi odatlar\n/pomo — Pomodoro holati\n/settings — xabarlar sozlamasi\n/stop — to'xtatish · /start — yoqish\n/unlink — akkauntni uzish",
+    added: "📥 Inbox'ga qo'shildi: <b>{t}</b>\nIlova ochilganda paydo bo'ladi.", addUsage: "✍️ Masalan: <code>/add Kitob o'qish 20 daqiqa</code>",
+    doneOk: "✅ Bajarildi! Mukofot ilova ochilganda beriladi.", snoozed: "⏰ {m} daqiqadan keyin yana eslataman",
+    stats: "📊 <b>Statistika</b>", lvl: "Daraja", streak: "Streak", best: "Eng uzun", coins: "Tanga", gems: "Olmos", tasksDone: "Bajarilgan vazifalar",
+    week: "📅 <b>Haftalik hisobot</b>", focus: "Fokus (Pomodoro)", days: "kun", goals: "🎯 <b>Bugungi odatlar</b>", noGoals: "Bugun odat yo'q",
+    pomoOn: "🍅 <b>{a}</b> — {p}, {m} daqiqa qoldi", pomoOff: "🍅 Hozir Pomodoro ishlamayapti", work: "ish", brk: "tanaffus",
+    settings: "⚙️ <b>Qaysi xabarlar kelsin?</b>\nBosib yoqing/o'chiring:", unlinked: "👋 Akkaunt uzildi. Qayta ulash uchun ilovadan «Ulash» ni bosing.", today2: "Bajarganingizni pastdagi tugma bilan belgilang:",
     today: "📋 <b>Bugungi vazifalar</b>", none: "Bugun vazifa yo'q 🎉", test: "✅ Sinov xabari: Telegram eslatmalari ishlayapti!",
   },
   en: {
@@ -42,7 +52,13 @@ const T: Record<string, Record<string, string>> = {
     resumed: "🔔 Reminders are on. /today — today's tasks, /stop — pause.",
     stopped: "🔕 Reminders paused. Send /start to turn them back on.",
     notLinked: "ℹ️ Your account isn't connected yet. In the app: <b>Profile → Settings → ✈️ Telegram → Connect</b>.",
-    help: "🤖 <b>Commands</b>\n/today — today's tasks\n/stop — pause reminders\n/start — resume",
+    help: "🤖 <b>Commands</b>\n/today — today's tasks\n/add <i>text</i> — add to Inbox\n/stats — stats\n/week — weekly report\n/goals — today's habits\n/pomo — Pomodoro status\n/settings — notification settings\n/stop — pause · /start — resume\n/unlink — disconnect",
+    added: "📥 Added to Inbox: <b>{t}</b>\nIt will appear when you open the app.", addUsage: "✍️ Example: <code>/add Read 20 minutes</code>",
+    doneOk: "✅ Done! Your reward is added when you open the app.", snoozed: "⏰ I'll remind you again in {m} min",
+    stats: "📊 <b>Stats</b>", lvl: "Level", streak: "Streak", best: "Best", coins: "Coins", gems: "Gems", tasksDone: "Tasks done",
+    week: "📅 <b>Weekly report</b>", focus: "Focus (Pomodoro)", days: "days", goals: "🎯 <b>Today's habits</b>", noGoals: "No habits today",
+    pomoOn: "🍅 <b>{a}</b> — {p}, {m} min left", pomoOff: "🍅 Pomodoro isn't running", work: "work", brk: "break",
+    settings: "⚙️ <b>Which messages to send?</b>\nTap to toggle:", unlinked: "👋 Disconnected. Tap “Connect” in the app to link again.", today2: "Mark what you've done with the buttons below:",
     today: "📋 <b>Today's tasks</b>", none: "No tasks today 🎉", test: "✅ Test message: Telegram reminders are working!",
   },
   ru: {
@@ -52,7 +68,13 @@ const T: Record<string, Record<string, string>> = {
     resumed: "🔔 Напоминания включены. /today — задачи, /stop — пауза.",
     stopped: "🔕 Напоминания приостановлены. Отправьте /start, чтобы включить.",
     notLinked: "ℹ️ Аккаунт ещё не подключён. В приложении: <b>Профиль → Настройки → ✈️ Telegram → Подключить</b>.",
-    help: "🤖 <b>Команды</b>\n/today — задачи на сегодня\n/stop — пауза\n/start — включить",
+    help: "🤖 <b>Команды</b>\n/today — задачи на сегодня\n/add <i>текст</i> — во «Входящие»\n/stats — статистика\n/week — отчёт за неделю\n/goals — привычки на сегодня\n/pomo — статус помодоро\n/settings — настройки уведомлений\n/stop — пауза · /start — включить\n/unlink — отключить",
+    added: "📥 Добавлено во «Входящие»: <b>{t}</b>\nПоявится при открытии приложения.", addUsage: "✍️ Пример: <code>/add Читать 20 минут</code>",
+    doneOk: "✅ Готово! Награда начислится при открытии приложения.", snoozed: "⏰ Напомню через {m} мин",
+    stats: "📊 <b>Статистика</b>", lvl: "Уровень", streak: "Серия", best: "Лучшая", coins: "Монеты", gems: "Алмазы", tasksDone: "Выполнено задач",
+    week: "📅 <b>Отчёт за неделю</b>", focus: "Фокус (помодоро)", days: "дн.", goals: "🎯 <b>Привычки на сегодня</b>", noGoals: "Сегодня привычек нет",
+    pomoOn: "🍅 <b>{a}</b> — {p}, осталось {m} мин", pomoOff: "🍅 Помодоро сейчас не идёт", work: "работа", brk: "перерыв",
+    settings: "⚙️ <b>Какие сообщения присылать?</b>\nНажмите, чтобы переключить:", unlinked: "👋 Отключено. Нажмите «Подключить» в приложении, чтобы связать снова.", today2: "Отметьте выполненное кнопками ниже:",
     today: "📋 <b>Задачи на сегодня</b>", none: "Сегодня задач нет 🎉", test: "✅ Тестовое сообщение: напоминания в Telegram работают!",
   },
 };
@@ -79,16 +101,72 @@ function dueToday(t: any, date: string, dow: number) {
 }
 const doneToday = (t: any, date: string) => t.repeat === "once" ? !!t.done : t.doneDate === date;
 
-async function todayText(sb: any, userId: string, tz: string, lang: string) {
-  const L = local(tz), tx = T[lang];
-  const { data } = await sb.from("todos").select("task_data").eq("user_id", userId);
-  const tasks = (data || []).map((r: any) => r.task_data).filter((t: any) => dueToday(t, L.date, L.dow));
-  if (!tasks.length) return `${tx.today}\n\n${tx.none}`;
-  tasks.sort((a: any, b: any) => String(a.startTime || "99").localeCompare(String(b.startTime || "99")));
-  const done = tasks.filter((t: any) => doneToday(t, L.date)).length;
-  const lines = tasks.slice(0, 25).map((t: any) => `${doneToday(t, L.date) ? "✅" : "▫️"} ${t.startTime ? `<code>${esc(t.startTime)}</code> ` : ""}${t.emoji ? esc(t.emoji) + " " : ""}${esc(t.name)}`);
-  return `${tx.today} · ${done}/${tasks.length}\n\n${lines.join("\n")}${tasks.length > 25 ? "\n…" : ""}`;
+const fill = (t: string, o: Record<string, unknown>) => t.replace(/\{(\w+)\}/g, (_, k) => String(o[k] ?? ""));
+function send2(chat: number, text: string, kb: unknown) { return tg("sendMessage", { chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: kb }); }
+const short = (s: unknown, n = 28) => { const x = String(s ?? ""); return x.length > n ? x.slice(0, n - 1) + "…" : x; };
+
+async function pendingDone(sb: any, userId: string) {
+  const { data } = await sb.from("tg_actions").select("task_id").eq("user_id", userId).eq("kind", "done").is("applied_at", null);
+  return new Set<number>((data || []).map((r: any) => Number(r.task_id)));
 }
+async function todayData(sb: any, userId: string, tz: string) {
+  const L = local(tz);
+  const [{ data }, pd] = await Promise.all([sb.from("todos").select("task_data").eq("user_id", userId), pendingDone(sb, userId)]);
+  const tasks = (data || []).map((r: any) => r.task_data).filter((t: any) => dueToday(t, L.date, L.dow));
+  tasks.sort((a: any, b: any) => String(a.startTime || "99").localeCompare(String(b.startTime || "99")));
+  const isDone = (t: any) => doneToday(t, L.date) || pd.has(Number(t.id));
+  return { tasks, isDone };
+}
+async function todayMsg(sb: any, userId: string, tz: string, lang: string) {
+  const tx = T[lang], { tasks, isDone } = await todayData(sb, userId, tz);
+  if (!tasks.length) return { text: `${tx.today}\n\n${tx.none}`, kb: openBtn(lang) };
+  const done = tasks.filter(isDone).length;
+  const lines = tasks.slice(0, 25).map((t: any) => `${isDone(t) ? "✅" : "▫️"} ${t.startTime ? `<code>${esc(t.startTime)}</code> ` : ""}${t.emoji ? esc(t.emoji) + " " : ""}${esc(t.name)}`);
+  const open = tasks.filter((t: any) => !isDone(t)).slice(0, 8);
+  const kb = { inline_keyboard: [...open.map((t: any) => [{ text: "✅ " + short((t.emoji ? t.emoji + " " : "") + t.name), callback_data: "d:" + t.id }]), ...openBtn(lang).inline_keyboard] };
+  return { text: `${tx.today} · ${done}/${tasks.length}\n\n${lines.join("\n")}${tasks.length > 25 ? "\n…" : ""}${open.length ? "\n\n" + tx.today2 : ""}`, kb };
+}
+async function statsText(sb: any, userId: string, lang: string) {
+  const tx = T[lang];
+  const { data: p } = await sb.from("profiles").select("level,xp,streak,best_streak,coins,gems,tasks_completed").eq("id", userId).maybeSingle();
+  if (!p) return tx.stats + "\n—";
+  return `${tx.stats}\n\n⭐ ${tx.lvl}: <b>${p.level || 1}</b> (${p.xp || 0} XP)\n🔥 ${tx.streak}: <b>${p.streak || 0}</b> · ${tx.best}: ${p.best_streak || 0}\n🪙 ${tx.coins}: <b>${p.coins || 0}</b> · 💎 ${tx.gems}: ${p.gems || 0}\n✅ ${tx.tasksDone}: <b>${p.tasks_completed || 0}</b>`;
+}
+async function weekText(sb: any, userId: string, lang: string) {
+  const tx = T[lang], since = new Date(Date.now() - 7 * 864e5).toISOString();
+  const [{ data: logs }, { data: p }] = await Promise.all([
+    sb.from("pomo_log").select("duration_ms,start_at").eq("user_id", userId).gte("start_at", since).limit(2000),
+    sb.from("profiles").select("streak,tasks_completed,coins").eq("id", userId).maybeSingle()]);
+  const mins = Math.round((logs || []).reduce((a: number, r: any) => a + (Number(r.duration_ms) || 0), 0) / 60000);
+  const days = new Set((logs || []).map((r: any) => String(r.start_at).slice(0, 10))).size;
+  const hm = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+  return `${tx.week}\n\n🍅 ${tx.focus}: <b>${hm}</b> · ${days}/7 ${tx.days}\n🔥 ${tx.streak}: <b>${p?.streak || 0}</b>\n✅ ${tx.tasksDone}: ${p?.tasks_completed || 0}\n🪙 ${tx.coins}: ${p?.coins || 0}`;
+}
+async function goalsText(sb: any, userId: string, tz: string, lang: string) {
+  const tx = T[lang], L = local(tz);
+  const { data } = await sb.from("app_state").select("goals:data->goals").eq("user_id", userId).maybeSingle();
+  const gs = (Array.isArray(data?.goals) ? data.goals : []).filter((g: any) => g && !g.done && !g.archived);
+  if (!gs.length) return `${tx.goals}\n\n${tx.noGoals}`;
+  return `${tx.goals}\n\n` + gs.slice(0, 20).map((g: any) => `${g.daysChecked && g.daysChecked[L.date] ? "✅" : "▫️"} ${g.emoji ? esc(g.emoji) + " " : "🎯 "}${esc(g.name)}`).join("\n");
+}
+async function pomoText(sb: any, userId: string, lang: string) {
+  const tx = T[lang];
+  const { data } = await sb.from("pomo_now").select("act,phase,fire_at").eq("user_id", userId).maybeSingle();
+  if (!data || Date.parse(data.fire_at) < Date.now()) return tx.pomoOff;
+  return fill(tx.pomoOn, { a: esc(data.act || "Pomodoro"), p: data.phase === "break" ? tx.brk : tx.work, m: Math.max(1, Math.round((Date.parse(data.fire_at) - Date.now()) / 60000)) });
+}
+const PREFS: [string, Record<string, string>][] = [
+  ["tasks", { uz: "⏰ Vazifa eslatmalari", en: "⏰ Task reminders", ru: "⏰ Напоминания" }],
+  ["start", { uz: "▶️ Boshlanish vaqti", en: "▶️ Start time", ru: "▶️ Время начала" }],
+  ["morning", { uz: "🌅 Ertalabki reja", en: "🌅 Morning plan", ru: "🌅 Утренний план" }],
+  ["streak", { uz: "🔥 Streak eslatmasi", en: "🔥 Streak reminder", ru: "🔥 Серия" }],
+  ["evening", { uz: "🌙 Kun yakuni", en: "🌙 Day summary", ru: "🌙 Итоги дня" }],
+  ["weekly", { uz: "📅 Haftalik hisobot", en: "📅 Weekly report", ru: "📅 Отчёт за неделю" }],
+  ["social", { uz: "👥 Do'stlar va challenge", en: "👥 Friends & challenges", ru: "👥 Друзья и вызовы" }],
+  ["pomo", { uz: "🍅 Pomodoro", en: "🍅 Pomodoro", ru: "🍅 Помодоро" }],
+  ["fg", { uz: "🛡 Focusgate", en: "🛡 Focusgate", ru: "🛡 Focusgate" }],
+];
+const prefsKb = (pf: Record<string, boolean>, lang: string) => ({ inline_keyboard: PREFS.map(([k, n]) => [{ text: (pf[k] !== false ? "✅ " : "⬜ ") + (n[lang] || n.uz), callback_data: "p:" + k }]) });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -101,10 +179,16 @@ Deno.serve(async (req) => {
     const { data: u } = await sb.auth.getUser(jwt);
     if (!u?.user) return Response.json({ error: "auth" }, { status: 401, headers: CORS });
     const body = await req.json().catch(() => ({}));
-    const { data: link } = await sb.from("telegram_links").select("chat_id,lang").eq("user_id", u.user.id).maybeSingle();
+    const { data: link } = await sb.from("telegram_links").select("chat_id,lang,tz").eq("user_id", u.user.id).maybeSingle();
     if (!link) return Response.json({ error: "not_linked" }, { status: 404, headers: CORS });
+    const lg = langOf(link.lang);
     if (body.action === "test") {
-      const r = await send(link.chat_id, T[langOf(link.lang)].test, langOf(link.lang));
+      const r = await send(link.chat_id, T[lg].test, lg);
+      return Response.json({ ok: !!r.ok }, { headers: CORS });
+    }
+    if (body.action === "today") {
+      const m = await todayMsg(sb, u.user.id, link.tz, lg);
+      const r = await send2(link.chat_id, m.text, m.kb);
       return Response.json({ ok: !!r.ok }, { headers: CORS });
     }
     return Response.json({ error: "unknown_action" }, { status: 400, headers: CORS });
@@ -113,12 +197,46 @@ Deno.serve(async (req) => {
   // --- Telegram webhook ---
   if (req.headers.get("x-telegram-bot-api-secret-token") !== await webhookSecret()) return new Response("forbidden", { status: 403 });
   const upd = await req.json().catch(() => null);
+
+  // 🔘 Tugmalar
+  const cq = upd?.callback_query;
+  if (cq?.data && cq.message?.chat?.id) {
+    const chat = Number(cq.message.chat.id);
+    const { data: link } = await sb.from("telegram_links").select("user_id,prefs,lang,tz").eq("chat_id", chat).maybeSingle();
+    const lg = langOf(link?.lang || cq.from?.language_code), tx = T[lg];
+    if (!link) { await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "ℹ️", show_alert: false }); return new Response("ok"); }
+    const [k, a, b] = String(cq.data).split(":");
+    if (k === "d" && /^\d+$/.test(a)) {
+      const { data: ex } = await sb.from("tg_actions").select("id").eq("user_id", link.user_id).eq("kind", "done").eq("task_id", Number(a)).is("applied_at", null).limit(1);
+      if (!ex?.length) await sb.from("tg_actions").insert({ user_id: link.user_id, kind: "done", task_id: Number(a), payload: { day: local(link.tz).date } });
+      await sb.from("tg_snooze").update({ sent_at: new Date().toISOString() }).eq("user_id", link.user_id).eq("task_id", Number(a));
+      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: tx.doneOk });
+      // /today ro'yxati bo'lsa — yangilaymiz, aks holda tugmalarni olib tashlaymiz
+      if (String(cq.message.text || "").startsWith(tx.today.replace(/<[^>]+>/g, ""))) {
+        const m = await todayMsg(sb, link.user_id, link.tz, lg);
+        await tg("editMessageText", { chat_id: chat, message_id: cq.message.message_id, text: m.text, parse_mode: "HTML", reply_markup: m.kb });
+      } else await tg("editMessageReplyMarkup", { chat_id: chat, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [[{ text: "✅", callback_data: "x" }]] } });
+    } else if (k === "z" && /^\d+$/.test(a)) {
+      const m = Math.max(5, Math.min(240, Number(b) || 15));
+      await sb.from("tg_snooze").upsert({ user_id: link.user_id, task_id: Number(a), fire_at: new Date(Date.now() + m * 60000).toISOString(), sent_at: null });
+      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: fill(tx.snoozed, { m }) });
+      await tg("editMessageReplyMarkup", { chat_id: chat, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [[{ text: "⏰ " + m + "′", callback_data: "x" }]] } });
+    } else if (k === "p" && PREFS.some(([x]) => x === a)) {
+      const pf = { ...(link.prefs || {}) }; pf[a] = pf[a] === false;
+      await sb.from("telegram_links").update({ prefs: pf }).eq("chat_id", chat);
+      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: pf[a] ? "✅" : "⬜" });
+      await tg("editMessageReplyMarkup", { chat_id: chat, message_id: cq.message.message_id, reply_markup: prefsKb(pf, lg) });
+    } else await tg("answerCallbackQuery", { callback_query_id: cq.id });
+    return new Response("ok");
+  }
+
   const msg = upd?.message;
   if (!msg?.text || msg.chat?.type !== "private") return new Response("ok");
   const chat = Number(msg.chat.id), lang = langOf(msg.from?.language_code), tx = T[lang];
-  const [cmdRaw, ...rest] = String(msg.text).trim().split(/\s+/);
+  const txt = String(msg.text).trim();
+  const [cmdRaw, ...rest] = txt.split(/\s+/);
   const cmd = cmdRaw.split("@")[0].toLowerCase(), arg = rest.join(" ");
-  const { data: link } = await sb.from("telegram_links").select("user_id,enabled,tz,lang").eq("chat_id", chat).maybeSingle();
+  const { data: link } = await sb.from("telegram_links").select("user_id,enabled,tz,lang,prefs").eq("chat_id", chat).maybeSingle();
 
   if (cmd === "/start" && /^[0-9a-f]{32}$/.test(arg)) {
     const { data: code } = await sb.from("telegram_link_codes").select("user_id,created_at").eq("code", arg).maybeSingle();
@@ -127,7 +245,7 @@ Deno.serve(async (req) => {
     await sb.from("telegram_links").delete().eq("chat_id", chat).neq("user_id", code.user_id);
     await sb.from("telegram_links").upsert({ user_id: code.user_id, chat_id: chat, username: msg.from?.username || null, enabled: true, lang, linked_at: new Date().toISOString() }, { onConflict: "user_id" });
     await sb.from("telegram_link_codes").delete().eq("code", arg);
-    await send(chat, tx.linked, lang);
+    await send(chat, tx.linked + "\n\n" + tx.help, lang);
     return new Response("ok");
   }
   if (cmd === "/start") {
@@ -136,9 +254,22 @@ Deno.serve(async (req) => {
     return new Response("ok");
   }
   if (!link) { await send(chat, tx.notLinked, lang); return new Response("ok"); }
-  const ul = langOf(link.lang || lang);
-  if (cmd === "/today") await send(chat, await todayText(sb, link.user_id, link.tz, ul), ul);
-  else if (cmd === "/stop") { await sb.from("telegram_links").update({ enabled: false }).eq("chat_id", chat); await send(chat, T[ul].stopped, ul); }
-  else await send(chat, T[ul].help, ul);
+  const ul = langOf(link.lang || lang), U = T[ul];
+  // "/" siz oddiy matn — Inbox'ga qo'shish
+  const addText = cmd === "/add" ? arg : (!txt.startsWith("/") ? txt : "");
+  if (cmd === "/today") { const m = await todayMsg(sb, link.user_id, link.tz, ul); await send2(chat, m.text, m.kb); }
+  else if (cmd === "/add" || !txt.startsWith("/")) {
+    const name = addText.replace(/\s+/g, " ").trim().slice(0, 120);
+    if (!name) await send(chat, U.addUsage, ul);
+    else { await sb.from("tg_actions").insert({ user_id: link.user_id, kind: "add", payload: { name } }); await send(chat, fill(U.added, { t: esc(name) }), ul); }
+  }
+  else if (cmd === "/stats") await send(chat, await statsText(sb, link.user_id, ul), ul);
+  else if (cmd === "/week") await send(chat, await weekText(sb, link.user_id, ul), ul);
+  else if (cmd === "/goals") await send(chat, await goalsText(sb, link.user_id, link.tz, ul), ul);
+  else if (cmd === "/pomo") await send(chat, await pomoText(sb, link.user_id, ul), ul);
+  else if (cmd === "/settings") await send2(chat, U.settings, prefsKb(link.prefs || {}, ul));
+  else if (cmd === "/stop") { await sb.from("telegram_links").update({ enabled: false }).eq("chat_id", chat); await send(chat, U.stopped, ul); }
+  else if (cmd === "/unlink") { await sb.from("telegram_links").delete().eq("chat_id", chat); await send(chat, U.unlinked, ul); }
+  else await send(chat, U.help, ul);
   return new Response("ok");
 });
