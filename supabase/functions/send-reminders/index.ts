@@ -1,6 +1,7 @@
 // 🔔 send-reminders — har 5 daqiqada pg_cron chaqiradi.
 //  • Vazifa eslatmasi: task.remindAt (HH:MM) vaqti kelganda (foydalanuvchi soat mintaqasida)
 //  • Odat eslatmasi: goal.remind (HH:MM) — app_state.data.goals dan (bugun belgilanmagan bo'lsa)
+//  • 🍅 Pomodoro: pomo_now.fire_at kelganda (har daqiqalik cron, body {"mode":"pomo"})
 //  • Streak eslatmasi: 20:00 da, streak > 0 bo'lsa va bugun hech narsa bajarilmagan bo'lsa
 // Har bir xabar push_log orqali bir marta yuboriladi.
 // ✈️ Telegram (telegram_links): vazifa eslatmasi, boshlanish vaqti, 08:00 reja, 20:00 streak, 21:30 kun yakuni.
@@ -94,6 +95,33 @@ async function ensureWebhook(sb: any) {
   await sb.from("telegram_state").upsert({ k: "webhook", v: sig, updated_at: new Date().toISOString() });
 }
 
+// 🍅 Pomodoro taymeri tugadi — pomo_now.fire_at kelganda push / Telegram (har daqiqada, mode=pomo)
+async function pomoAlarms(sb: any) {
+  const now = Date.now();
+  const { data: due } = await sb.from("pomo_now").select("user_id,title,body,fire_at").is("sent_at", null)
+    .lte("fire_at", new Date(now + 20000).toISOString()).gte("fire_at", new Date(now - 10 * 60000).toISOString()).limit(500);
+  if (!due?.length) return 0;
+  const ids = due.map((d: any) => d.user_id);
+  await sb.from("pomo_now").update({ sent_at: new Date().toISOString() }).in("user_id", ids).is("sent_at", null);
+  const [{ data: subs }, { data: tl }] = await Promise.all([
+    sb.from("push_subscriptions").select("endpoint,user_id,p256dh,auth").in("user_id", ids),
+    BOT_TOKEN ? sb.from("telegram_links").select("user_id,chat_id,prefs").eq("enabled", true).in("user_id", ids) : Promise.resolve({ data: [] }),
+  ]);
+  let n = 0;
+  for (const d of due) {
+    const payload = JSON.stringify({ title: d.title || "🍅 Pomodoro", body: d.body || "", tag: "pomo", url: "./?tab=tasks" });
+    for (const s of (subs || []).filter((x: any) => x.user_id === d.user_id)) {
+      try { await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 600 }); n++; }
+      catch (e: any) { if (e?.statusCode === 404 || e?.statusCode === 410) await sb.from("push_subscriptions").delete().eq("endpoint", s.endpoint); }
+    }
+    for (const l of (tl || []).filter((x: any) => x.user_id === d.user_id && (x.prefs || {}).pomo !== false)) {
+      const r = await tgCall("sendMessage", { chat_id: l.chat_id, text: `🍅 <b>${esc(d.title || "Pomodoro")}</b>\n${esc(d.body || "")}`, parse_mode: "HTML" });
+      if (r.json?.ok) n++;
+    }
+  }
+  return n;
+}
+
 Deno.serve(async (req) => {
   const sb = createClient(SB_URL, SB_KEY, { auth: { persistSession: false } });
   if (!CFG) {
@@ -103,6 +131,11 @@ Deno.serve(async (req) => {
     webpush.setVapidDetails("mailto:shodruz1009@gmail.com", CFG!.vapid_public, CFG!.vapid_private);
   }
   if (req.headers.get("x-cron-secret") !== CFG!.cron_secret) return new Response("forbidden", { status: 403 });
+  let mode = "";
+  try { mode = String((await req.json())?.mode || ""); } catch { /* bo'sh tana */ }
+  let pomoSent = 0;
+  try { pomoSent = await pomoAlarms(sb); } catch (e) { console.warn("pomo", e); }
+  if (mode === "pomo") return Response.json({ pomoSent });
   const { data: subs, error } = await sb.from("push_subscriptions").select("endpoint,user_id,p256dh,auth,tz,lang,prefs");
   if (error) return new Response(error.message, { status: 500 });
   let links: Link[] = [];
@@ -216,5 +249,5 @@ Deno.serve(async (req) => {
   }
   // Eski jurnal yozuvlarini tozalaymiz (3 kundan eski)
   await sb.from("push_log").delete().lt("sent_at", new Date(Date.now() - 3 * 864e5).toISOString());
-  return Response.json({ sent, jobs: jobs.length, tgSent, tgJobs: tgJobs.length });
+  return Response.json({ sent, jobs: jobs.length, tgSent, tgJobs: tgJobs.length, pomoSent });
 });
