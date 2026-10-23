@@ -1597,51 +1597,79 @@
     return '<div class="fg-card fg-league"><span class="fg-league-ic">' + lg[1] + '</span><div><b>' + E(L('Haftalik liga: ', 'Weekly league: ', 'Недельная лига: ') + T(lg[2])) + (LEAGUES.indexOf(prev) !== i ? ' <small>(' + E(L('o\'tgan hafta: ', 'last week: ', 'прошлая: ') + T(prev[2])) + ')</small>' : '') + '</b><small>' + E(L('Shu hafta fokus: ', 'Focus this week: ', 'Фокус за неделю: ') + fmt(m) + (nx ? ' · ' + L(T(nx[2]) + ' uchun yana ' + fmt(nx[0] - m), fmt(nx[0] - m) + ' to ' + T(nx[2]), 'до «' + T(nx[2]) + '» ещё ' + fmt(nx[0] - m)) : '')) + '</small>' +
       (nx ? '<span class="fg-prog"><i style="width:' + Math.min(100, (m - lg[0]) / (nx[0] - lg[0]) * 100) + '%"></i></span>' : '') + '</div></div>';
   }
-  // ⚔️ Duel va 👥 guruh challenge'lari (fg_challenges)
+  // ⚔️ Duel va 👥 guruh challenge'lari (fg_challenges). mode='pomo' — 🍅 Pomodoro daqiqalari (metric='focus' bilan saqlanadi)
+  function chMetric(c) { return c.mode === 'pomo' ? 'pomo' : c.metric; }
+  function chVal(c, p) { var m = chMetric(c); return m === 'pomo' ? (p.pomo_min || 0) : m === 'focus' ? (p.focus_min || 0) : (p.days ? p.screen_min : 1e9); }
   function chWinner(c, st) {
-    var acc = st.filter(function (p) { return p.accepted || p.id === c.owner; });
-    if (c.kind === 'group') return acc.length >= 2 && acc.every(function (p) { return c.metric === 'focus' ? p.focus_min >= (c.goal_min || 0) : p.days > 0 && p.max_min <= (c.goal_min || 0); }) ? 'all' : null;
+    var acc = st.filter(function (p) { return p.accepted || p.id === c.owner; }), m = chMetric(c);
+    if (c.kind === 'group') return acc.length >= 2 && acc.every(function (p) { return m === 'screen' ? p.days > 0 && p.max_min <= (c.goal_min || 0) : chVal(c, p) >= (c.goal_min || 0); }) ? 'all' : null;
     if (acc.length < 2) return null;
-    acc.sort(function (a, b) { return c.metric === 'focus' ? b.focus_min - a.focus_min : (a.days ? a.screen_min : 1e9) - (b.days ? b.screen_min : 1e9); });
+    acc.sort(function (a, b) { return m === 'screen' ? chVal(c, a) - chVal(c, b) : chVal(c, b) - chVal(c, a); });
+    if (acc.length > 1 && chVal(c, acc[0]) === chVal(c, acc[1])) return 'tie';
     return acc[0].id;
   }
+  function chTitle(c) {
+    var m = chMetric(c);
+    if (c.title) return c.title;
+    if (c.kind === 'duel') return m === 'pomo' ? L('Kim ko\'proq Pomodoro', 'Most Pomodoro', 'Кто больше помодоро') : m === 'focus' ? L('Kim ko\'proq fokus', 'Most focus', 'Кто больше фокуса') : L('Kim kamroq ekran', 'Least screen time', 'Кто меньше экрана');
+    return m === 'screen' ? L('Hamma kuniga ' + fmt(c.goal_min) + ' dan kam ekran', 'Everyone under ' + fmt(c.goal_min) + '/day', 'Каждый меньше ' + fmt(c.goal_min) + ' в день')
+      : (m === 'pomo' ? '🍅 ' : '') + L('Hamma kamida ' + fmt(c.goal_min) + (m === 'pomo' ? ' Pomodoro' : ' fokus'), 'Everyone ' + fmt(c.goal_min) + '+ ' + (m === 'pomo' ? 'Pomodoro' : 'focus'), 'Каждый ' + fmt(c.goal_min) + '+ ' + (m === 'pomo' ? 'помодоро' : 'фокуса'));
+  }
+  function chValTxt(c, p) { var m = chMetric(c); return m === 'screen' ? (p.days ? fmt(p.screen_min) + '/' + L('kun', 'day', 'день') : '—') : fmt(m === 'pomo' ? p.pomo_min || 0 : p.focus_min || 0); }
   function challengesHtml() {
     var list = SOC.ch || [], h = '<div class="fg-card fg-chal"><div class="fg-card-h"><b>⚔️ ' + E(L('Duel va challenge\'lar', 'Duels & challenges', 'Дуэли и челленджи')) + '</b><button type="button" class="fg-btn sm" data-fg-chnew>＋</button></div>';
     if (!list.length) return h + '<div class="fg-empty sm">' + E(L('Do\'stingizni "7 kun kim kamroq ekran vaqti" duelga chaqiring yoki guruh bo\'lib maqsad qo\'ying.', 'Challenge a friend to "who has less screen time in 7 days" or set a group goal.', 'Вызовите друга на дуэль «у кого меньше экрана за 7 дней» или поставьте общую цель.')) + '</div></div>';
     list.forEach(function (c) {
       var st = (SOC.chs || {})[c.id] || [], me = st.filter(function (p) { return p.me; })[0], ended = new Date(c.end_at) < new Date(), w = chWinner(c, st);
       var need = me && !me.accepted && c.owner !== S.cloudUserId && !ended;
-      var ttl = c.title || (c.kind === 'duel' ? (c.metric === 'focus' ? L('Kim ko\'proq fokus', 'Most focus', 'Кто больше фокуса') : L('Kim kamroq ekran', 'Least screen time', 'Кто меньше экрана')) : (c.metric === 'focus' ? L('Hamma kamida ' + fmt(c.goal_min) + ' fokus', 'Everyone focuses ' + fmt(c.goal_min) + '+', 'Каждый ' + fmt(c.goal_min) + '+ фокуса') : L('Hamma kuniga ' + fmt(c.goal_min) + ' dan kam ekran', 'Everyone under ' + fmt(c.goal_min) + '/day', 'Каждый меньше ' + fmt(c.goal_min) + ' в день')));
-      h += '<div class="fg-chrow"><div class="fg-chh"><b>' + (c.kind === 'duel' ? '⚔️ ' : '👥 ') + E(ttl) + '</b><small>' + E(ended ? (w === 'all' ? L('✅ Hamma uddaladi!', '✅ Everyone made it!', '✅ Все справились!') : w ? '🏆 ' + ((st.filter(function (p) { return p.id === w; })[0] || {}).name || '') : L('Tugadi', 'Ended', 'Завершён')) : L('tugaydi: ', 'ends: ', 'до: ') + new Date(c.end_at).toLocaleDateString()) + '</small></div>' +
-        st.map(function (p) { return '<div class="fg-chp' + (p.me ? ' me' : '') + '"><span>' + E(p.me ? L('Siz', 'You', 'Вы') : p.name || '—') + (p.accepted || p.id === c.owner ? '' : ' ⏳') + '</span><b>' + E(c.metric === 'focus' ? fmt(p.focus_min) : (p.days ? fmt(p.screen_min) + '/' + L('kun', 'day', 'день') : '—')) + '</b></div>'; }).join('') +
-        (need ? '<button type="button" class="fg-btn sm" data-fg-chjoin="' + c.id + '">🤝 ' + E(L('Qabul qilish', 'Accept', 'Принять')) + '</button>' : '') + '</div>';
+      h += '<div class="fg-chrow"><div class="fg-chh"><b>' + (c.kind === 'duel' ? '⚔️ ' : '👥 ') + E(chTitle(c)) + '</b><small>' + E(ended ? (w === 'all' ? L('✅ Hamma uddaladi!', '✅ Everyone made it!', '✅ Все справились!') : w === 'tie' ? L('🤝 Durang', '🤝 Tie', '🤝 Ничья') : w ? '🏆 ' + ((st.filter(function (p) { return p.id === w; })[0] || {}).name || '') : L('Tugadi', 'Ended', 'Завершён')) : L('tugaydi: ', 'ends: ', 'до: ') + new Date(c.end_at).toLocaleDateString()) + '</small></div>' +
+        st.map(function (p) { return '<div class="fg-chp' + (p.me ? ' me' : '') + '"><span>' + E(p.me ? L('Siz', 'You', 'Вы') : p.name || '—') + (p.accepted || p.id === c.owner ? '' : ' ⏳') + '</span><b>' + E(chValTxt(c, p)) + '</b></div>'; }).join('') +
+        (need ? '<button type="button" class="fg-btn sm" data-fg-chjoin="' + c.id + '">🤝 ' + E(L('Qabul qilish', 'Accept', 'Принять')) + '</button> ' : '') +
+        (!ended ? '<button type="button" class="fg-btn sm ghost" data-fg-chleave="' + c.id + '">' + E(c.owner === S.cloudUserId ? L('Bekor qilish', 'Cancel', 'Отменить') : need ? L('Rad etish', 'Decline', 'Отклонить') : L('Chiqish', 'Leave', 'Выйти')) + '</button>' : '') + '</div>';
     });
     return h + '</div>';
   }
-  function openChallengeSheet() {
+  function chLeave(id) {
+    if (!confirm(L('Ishonchingiz komilmi?', 'Are you sure?', 'Вы уверены?'))) return;
+    supabase.rpc('fg_challenge_leave', { p_id: id }).then(function (r) { if (r.error) toast('⚠️ ' + r.error.message); loadSocial(true); try { window.dispatchEvent(new Event('lud-challenges')); } catch (e) {} });
+  }
+  function withFriends(cb) {
+    if (friendsOf().length || !sbOk() || typeof window.friendsSyncFromCloud !== 'function') { cb(); return; }
+    Promise.resolve(window.friendsSyncFromCloud()).then(cb, cb);
+  }
+  function openChallengeSheet(opts) {
+    opts = opts || {};
+    if (!opts._ok) { withFriends(function () { opts._ok = 1; openChallengeSheet(opts); }); return; }
     var fr = friendsOf();
-    if (!fr.length) { toast('👥 ' + L('Avval do\'st qo\'shing', 'Add a friend first', 'Сначала добавьте друга')); return; }
+    if (!fr.length) { toast('👥 ' + L('Avval do\'st qo\'shing', 'Add a friend first', 'Сначала добавьте друга')); try { openFriendsModal(); } catch (e) {} return; }
+    var kind = opts.kind === 'group' ? 'group' : 'duel', metric = ['screen', 'focus', 'pomo'].indexOf(opts.metric) !== -1 ? opts.metric : 'screen';
     var o = openSheet('<h3>⚔️ ' + E(L('Yangi challenge', 'New challenge', 'Новый челлендж')) + '</h3>' +
-      '<div class="fg-seg wide"><button type="button" class="on" data-chk="duel">⚔️ ' + E(L('Duel (1:1)', 'Duel (1:1)', 'Дуэль (1:1)')) + '</button><button type="button" data-chk="group">👥 ' + E(L('Guruh maqsadi', 'Group goal', 'Общая цель')) + '</button></div>' +
-      '<div class="fg-lbl">' + E(L('Kim bilan?', 'With whom?', 'С кем?')) + '</div><div class="fg-days fg-chf">' + fr.map(function (f) { return '<button type="button" data-chf="' + E(f.id) + '">' + E(f.name) + '</button>'; }).join('') + '</div>' +
-      '<div class="fg-seg wide"><button type="button" class="on" data-chm="screen">📱 ' + E(L('Kamroq ekran', 'Less screen', 'Меньше экрана')) + '</button><button type="button" data-chm="focus">🎯 ' + E(L('Ko\'proq fokus', 'More focus', 'Больше фокуса')) + '</button></div>' +
-      '<div class="fg-times"><label>' + E(L('Necha kun', 'Days', 'Дней')) + '<input type="number" class="fg-in" data-chd min="1" max="30" value="7"></label><label data-chgl hidden>' + E(L('Maqsad (daq)', 'Goal (min)', 'Цель (мин)')) + '<input type="number" class="fg-in" data-chg min="10" max="3000" value="120"></label></div>' +
+      '<div class="fg-seg wide"><button type="button" data-chk="duel">⚔️ ' + E(L('Duel (1:1)', 'Duel (1:1)', 'Дуэль (1:1)')) + '</button><button type="button" data-chk="group">👥 ' + E(L('Guruh maqsadi', 'Group goal', 'Общая цель')) + '</button></div>' +
+      '<div class="fg-lbl">' + E(L('Kim bilan?', 'With whom?', 'С кем?')) + '</div><div class="fg-days fg-chf">' + fr.map(function (f) { return '<button type="button" data-chf="' + E(f.id) + '"' + (f.id === opts.friendId ? ' class="on"' : '') + '>' + E(f.name) + '</button>'; }).join('') + '</div>' +
+      '<div class="fg-seg wide"><button type="button" data-chm="screen">📱 ' + E(L('Kamroq ekran', 'Less screen', 'Меньше экрана')) + '</button><button type="button" data-chm="focus">🎯 ' + E(L('Ko\'proq fokus', 'More focus', 'Больше фокуса')) + '</button><button type="button" data-chm="pomo">🍅 Pomodoro</button></div>' +
+      '<div class="fg-times"><label>' + E(L('Necha kun', 'Days', 'Дней')) + '<input type="number" class="fg-in" data-chd min="1" max="30" value="' + (opts.days || 7) + '"></label><label data-chgl hidden>' + E(L('Maqsad (daq)', 'Goal (min)', 'Цель (мин)')) + '<input type="number" class="fg-in" data-chg min="10" max="3000" value="120"></label></div>' +
+      '<label class="fg-lbl">' + E(L('Nomi (ixtiyoriy)', 'Title (optional)', 'Название (необязательно)')) + '<input type="text" class="fg-in" data-cht maxlength="60"></label>' +
       '<p class="fg-p">' + E(L('Duel g\'olibi va maqsadni uddalagan guruh a\'zolari +20 🪙 oladi.', 'The duel winner and every member of a successful group get +20 🪙.', 'Победитель дуэли и все участники успешной группы получают +20 🪙.')) + '</p>' +
       '<div class="fg-acts"><button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button><button type="button" class="fg-btn" data-chok>' + E(L('Yuborish', 'Send', 'Отправить')) + '</button></div>');
-    var kind = 'duel', metric = 'screen';
-    o.querySelectorAll('[data-chk]').forEach(function (b) { b.onclick = function () { kind = b.dataset.chk; o.querySelectorAll('[data-chk]').forEach(function (x) { x.classList.toggle('on', x === b); }); o.querySelector('[data-chgl]').hidden = kind !== 'group'; if (kind === 'duel') o.querySelectorAll('[data-chf].on').forEach(function (x, i) { if (i) x.classList.remove('on'); }); }; });
-    o.querySelectorAll('[data-chm]').forEach(function (b) { b.onclick = function () { metric = b.dataset.chm; o.querySelectorAll('[data-chm]').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+    var setK = function (k) { kind = k; o.querySelectorAll('[data-chk]').forEach(function (x) { x.classList.toggle('on', x.dataset.chk === k); }); o.querySelector('[data-chgl]').hidden = kind !== 'group'; if (kind === 'duel') o.querySelectorAll('[data-chf].on').forEach(function (x, i) { if (i) x.classList.remove('on'); }); };
+    var setM = function (m) { metric = m; o.querySelectorAll('[data-chm]').forEach(function (x) { x.classList.toggle('on', x.dataset.chm === m); }); };
+    setK(kind); setM(metric);
+    o.querySelectorAll('[data-chk]').forEach(function (b) { b.onclick = function () { setK(b.dataset.chk); }; });
+    o.querySelectorAll('[data-chm]').forEach(function (b) { b.onclick = function () { setM(b.dataset.chm); }; });
     o.querySelectorAll('[data-chf]').forEach(function (b) { b.onclick = function () { if (kind === 'duel') o.querySelectorAll('[data-chf]').forEach(function (x) { if (x !== b) x.classList.remove('on'); }); b.classList.toggle('on'); }; });
     o.querySelector('[data-chok]').onclick = async function () {
       var ids = Array.prototype.map.call(o.querySelectorAll('[data-chf].on'), function (b) { return b.dataset.chf; });
       if (!ids.length) { toast('👥 ' + L('Do\'st tanlang', 'Pick a friend', 'Выберите друга')); return; }
       var days = Math.max(1, Math.min(30, Math.round(+o.querySelector('[data-chd]').value || 7)));
-      var row = { owner: S.cloudUserId, members: [S.cloudUserId].concat(ids), kind: kind, metric: metric, end_at: new Date(Date.now() + days * 864e5).toISOString() };
+      var row = { owner: S.cloudUserId, members: [S.cloudUserId].concat(ids), kind: kind, metric: metric === 'pomo' ? 'focus' : metric, end_at: new Date(Date.now() + days * 864e5).toISOString() };
+      if (metric === 'pomo') row.mode = 'pomo';
+      var ttl = String(o.querySelector('[data-cht]').value || '').trim(); if (ttl) row.title = ttl.slice(0, 60);
       if (kind === 'group') row.goal_min = Math.max(10, Math.round(+o.querySelector('[data-chg]').value || 120));
       this.disabled = true;
       var r = await supabase.from('fg_challenges').insert(row);
       if (r.error) { toast('⚠️ ' + r.error.message); this.disabled = false; return; }
-      closeSheet(); toast('⚔️ ' + L('Yuborildi! Do\'stlaringiz Compete bo\'limida qabul qiladi.', 'Sent! Friends accept it in Compete.', 'Отправлено! Друзья примут в разделе «Рейтинг».')); loadSocial(true);
+      closeSheet(); toast('⚔️ ' + L('Yuborildi! Do\'stlaringiz Do\'stlar → Chorlov bo\'limida qabul qiladi.', 'Sent! Friends accept it in Friends → Challenge.', 'Отправлено! Друзья примут в «Друзья → Вызов».')); loadSocial(true);
+      try { window.dispatchEvent(new Event('lud-challenges')); } catch (e) {}
     };
   }
   // 🎁 Tugagan challenge: g'olib (yoki guruh) — +20 🪙, bir marta
@@ -2778,12 +2806,13 @@
     if ((b = t.closest('[data-fg-buy]'))) { e.stopPropagation(); buyExtra(+b.dataset.fgBuy); return; }
     if ((b = t.closest('[data-fg-tpls]'))) { openTemplates(); return; }
     if ((b = t.closest('[data-fg-chnew]'))) { openChallengeSheet(); return; }
+    if ((b = t.closest('[data-fg-chleave]'))) { chLeave(b.dataset.fgChleave); return; }
     if ((b = t.closest('[data-fg-diag], [data-fg-diagre]'))) { if (b.hasAttribute('data-fg-diagre')) { closeSheet(); load(true).then(openDiag); return; } openDiag(); return; }
     if ((b = t.closest('[data-fg-backup]'))) { openBackup(); return; }
     if ((b = t.closest('[data-fg-cats]'))) { openCats(); return; }
     if ((b = t.closest('[data-fg-unlock]'))) { openPinSheet('check', function () { FG.pinOk = Date.now() + 10 * 60000; rerender(); }); return; }
     if ((b = t.closest('[data-fg-cmd]'))) { var cc = cfg(); cc.cmd = { id: 'c' + Date.now().toString(36), act: b.dataset.fgCmd, at: Date.now() }; saveCfg(); toast(b.dataset.fgCmd === 'update' ? '⬆️ ' + L('Yangilash buyrug\'i yuborildi', 'Update command sent', 'Команда обновления отправлена') : '♻️ ' + L('Qayta ishga tushirish buyrug\'i yuborildi', 'Restart command sent', 'Команда перезапуска отправлена')); return; }
-    if ((b = t.closest('[data-fg-chjoin]'))) { supabase.rpc('fg_challenge_join', { p_id: b.dataset.fgChjoin }).then(function () { loadSocial(true); }); return; }
+    if ((b = t.closest('[data-fg-chjoin]'))) { supabase.rpc('fg_challenge_join', { p_id: b.dataset.fgChjoin }).then(function () { loadSocial(true); try { window.dispatchEvent(new Event('lud-challenges')); } catch (e) {} }); return; }
     if ((b = t.closest('[data-fg-crefresh]'))) { loadSocial(true); return; }
     if ((b = t.closest('[data-fg-share]'))) { shareCard(); return; }
     if ((b = t.closest('[data-fg-kwadd]'))) { var ki = document.querySelector('#view-blocker [data-fg-kwin]'), kv = ki && ki.value.trim().toLowerCase(); if (!kv || kv.length < 3) { toast('🔤 ' + L('Kamida 3 harf', 'At least 3 letters', 'Минимум 3 буквы')); return; } var ck = cfg(); ck.keywords = (ck.keywords || []).filter(function (x) { return x !== kv; }).concat([kv.slice(0, 30)]); saveCfg(); rerender(); return; }
@@ -3014,7 +3043,7 @@
   }
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, pickApps: pickApps, resetStats: resetStats, rewardLinked: rewardLinked, rewardHistory: rewardHistory, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, openChallenge: openChallengeSheet, leaveChallenge: chLeave, loadSocial: loadSocial, chWinner: chWinner, chTitle: chTitle, chValTxt: chValTxt, chMetric: chMetric, pickApps: pickApps, resetStats: resetStats, rewardLinked: rewardLinked, rewardHistory: rewardHistory, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();
