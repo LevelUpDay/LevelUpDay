@@ -16,6 +16,11 @@
 //   u_snow   — Qor        : ekranda sekin qor yog'adi (canvas, fon)
 //   u_neon   — Neon tugmalar: asosiy tugmalar neon nur bilan "nafas oladi" (CSS)
 //   u_fly    — Yoqut qo'ng'izlar: ekranda yumshoq porlovchi nuqtalar suzadi (canvas, fon)
+//   u_shine  — Yaltiroq tugmalar: asosiy tugmalar ustidan vaqti-vaqti bilan yorug'lik o'tadi (CSS)
+//   u_fade   — Silliq o'tishlar: bo'lim almashganda kontent yumshoq paydo bo'ladi (CSS)
+//   u_done   — Bajarildi!: vazifa belgilanganda belgi atrofida halqa va uchqunlar (DOM)
+//   u_shimmer — Progress nuri: progress chiziqlari bo'ylab nur yuguradi (CSS)
+// 🗄 Olib tashlangan (do'konda yo'q, egalariga narxi qaytariladi): u_magnet, u_cross, u_star, u_target
 // Egalik: S.shop.owned (id), yoqilganlar: S.shop.ufx = [id...] — app_state orqali sinxronlanadi.
 // Hech bir effekt bosishlarni to'smaydi (pointer-events: none), "harakatni kamaytirish" va
 // dizayn animatsiyasi toggle'iga (LUDesign.anim) bo'ysunadi. script.js dan KEYIN, extras.js dan OLDIN yuklanadi.
@@ -30,14 +35,14 @@
   var CAT = [
     { id: 'u_spark', key: 'spark', icon: '✨', coins: 100, n: ['Uchqunlar (ClickSpark)', 'Click Spark', 'Искры (ClickSpark)'],
       d: ['Har bosishda uchqunlar sachraydi', 'Sparks fly on every tap', 'Искры при каждом нажатии'] },
-    { id: 'u_magnet', key: 'magnet', icon: '🧲', coins: 150, desktop: true, n: ['Magnit tugmalar', 'Magnet buttons', 'Магнитные кнопки'],
-      d: ['Asosiy tugmalar kursorga tortiladi', 'Main buttons follow the cursor', 'Кнопки тянутся к курсору'] },
-    { id: 'u_cross', key: 'cross', icon: '🎯', coins: 120, desktop: true, n: ['Nishon (Crosshair)', 'Crosshair', 'Прицел (Crosshair)'],
-      d: ['Kursor ortidan nishon + tugmalarga lock', 'Cursor crosshair that locks onto buttons', 'Прицел за курсором с захватом кнопок'] },
-    { id: 'u_star', key: 'star', icon: '🌠', gems: 20, n: ['Yulduz chegara', 'Star Border', 'Звёздная рамка'],
-      d: ['Tugmalar chegarasida yuguruvchi yulduz', 'A comet runs around key buttons', 'Комета бежит по краю кнопок'] },
-    { id: 'u_target', key: 'target', icon: '⌖', gems: 25, desktop: true, n: ['Nishon kursor (TargetCursor)', 'Target Cursor', 'Курсор-мишень (TargetCursor)'],
-      d: ['Aylanuvchi burchaklar tugmalarni qamrab oladi', 'Spinning corners snap around buttons', 'Вращающиеся уголки обхватывают кнопки'] },
+    { id: 'u_shine', key: 'shine', icon: '🪞', coins: 150, n: ['Yaltiroq tugmalar', 'Shine buttons', 'Блестящие кнопки'],
+      d: ['Asosiy tugmalar ustidan yorug\'lik o\'tib turadi', 'A soft light sweeps across main buttons', 'По кнопкам пробегает мягкий блик'] },
+    { id: 'u_fade', key: 'fade', icon: '🌫️', coins: 120, n: ['Silliq o\'tishlar', 'Smooth transitions', 'Плавные переходы'],
+      d: ['Bo\'lim almashganda kontent yumshoq paydo bo\'ladi', 'Sections glide in smoothly when you switch', 'Разделы плавно появляются при переходе'] },
+    { id: 'u_done', key: 'done', icon: '✅', gems: 20, n: ['Bajarildi!', 'Task done burst', 'Готово!'],
+      d: ['Vazifa belgilanganda halqa va uchqunlar', 'A ring and sparks when you complete a task', 'Кольцо и искры при выполнении задачи'] },
+    { id: 'u_shimmer', key: 'shimmer', icon: '📶', gems: 25, n: ['Progress nuri', 'Progress shimmer', 'Сияние прогресса'],
+      d: ['Progress chiziqlari bo\'ylab nur yuguradi', 'A light runs along progress bars', 'По полоскам прогресса бежит свет'] },
     { id: 'u_wave', key: 'wave', icon: '💫', coins: 130, n: ['To\'lqin (Shockwave)', 'Shockwave', 'Волна (Shockwave)'],
       d: ['Har bosishda halqa to\'lqini tarqaladi', 'A ring wave ripples out on every tap', 'Кольцевая волна при каждом нажатии'] },
     { id: 'u_trail', key: 'trail', icon: '☄️', gems: 15, n: ['Nurli iz (Glow Trail)', 'Glow Trail', 'Светящийся след (Glow Trail)'],
@@ -73,7 +78,31 @@
   function appS() { try { return (typeof S !== 'undefined' && S) ? S : null; } catch (e) { return null; } }
   function st() { var s = appS(); return s && s.shop && typeof s.shop === 'object' ? s.shop : null; }
   function owned(id) { var x = st(); return !!(x && Array.isArray(x.owned) && x.owned.indexOf(id) !== -1); }
-  function enabled(id) { var x = st(); return owned(id) && !!(x && Array.isArray(x.ufx) && x.ufx.indexOf(id) !== -1); }
+  var RETIRED = { u_magnet: { coins: 55 }, u_cross: { coins: 45 }, u_star: { gems: 9 }, u_target: { gems: 12 } };
+  function enabled(id) { if (RETIRED[id]) return false; var x = st(); return owned(id) && !!(x && Array.isArray(x.ufx) && x.ufx.indexOf(id) !== -1); }
+  // 🗄 Olib tashlangan effektlarni sotib olganlarga — narxi bir marta qaytariladi
+  function refundRetired() {
+    var x = st(); if (!x || !Array.isArray(x.owned)) return;
+    if (!Array.isArray(x.refunded)) x.refunded = [];
+    var got = [];
+    Object.keys(RETIRED).forEach(function (id) {
+      if (x.owned.indexOf(id) === -1 || x.refunded.indexOf(id) !== -1) return;
+      var r = RETIRED[id];
+      try {
+        if (r.gems && typeof gemsAdd === 'function') gemsAdd(r.gems, 'shop', '↩ ' + L('Effekt do\'kondan olindi — qaytarildi', 'Effect retired — refunded', 'Эффект убран — возврат'), true);
+        else if (r.coins) { var s0 = appS(); s0.coins = (s0.coins || 0) + r.coins; try { addTarixLog('in', '↩ ' + L('Effekt do\'kondan olindi — qaytarildi', 'Effect retired — refunded', 'Эффект убран — возврат'), r.coins); } catch (e2) {} }
+        else return;
+      } catch (e) { return; }
+      x.refunded.push(id);
+      x.owned = x.owned.filter(function (o) { return o !== id; });
+      if (Array.isArray(x.ufx)) x.ufx = x.ufx.filter(function (o) { return o !== id; });
+      got.push(r.gems ? '+' + r.gems + ' 💎' : '+' + r.coins + ' 🪙');
+    });
+    if (got.length) {
+      try { if (typeof save === 'function') save(); } catch (e) {}
+      try { if (typeof toast === 'function') toast('↩ ' + L('Eski effektlar do\'kondan olindi, pulingiz qaytarildi: ', 'Old effects were retired, refunded: ', 'Старые эффекты убраны, возврат: ') + got.join(' ')); } catch (e) {}
+    }
+  }
 
   var reduceMQ = null, fineMQ = null;
   try { reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)'); } catch (e) {}
@@ -618,10 +647,45 @@
   }, { passive: true });
   document.addEventListener('mouseout', function (e) { if (!e.relatedTarget && TL.el) { tlReset(TL.el); TL.el = null; } }, { passive: true });
 
+  // --- ✅ Bajarildi!: vazifa belgilanganda belgi atrofida halqa + uchqunlar
+  var DN = { on: false };
+  function dnBurst(x, y) {
+    var w = document.createElement('div');
+    w.className = 'lu-done-burst'; w.setAttribute('aria-hidden', 'true');
+    w.style.left = x + 'px'; w.style.top = y + 'px';
+    var h = '<b></b><em>✓</em>';
+    for (var i = 0; i < 8; i++) h += '<i style="--a:' + (i * 45) + 'deg"></i>';
+    w.innerHTML = h; document.body.appendChild(w);
+    setTimeout(function () { w.remove(); }, 800);
+  }
+  document.addEventListener('click', function (e) {
+    if (!DN.on || !motionOK()) return;
+    var b = e.target && e.target.closest ? e.target.closest('.check-btn, .subtask-check') : null;
+    if (!b || b.disabled || b.classList.contains('checked') || b.classList.contains('done')) return;
+    var r = b.getBoundingClientRect();
+    dnBurst(r.left + r.width / 2, r.top + r.height / 2);
+  }, true);
+
+  // --- 🌫️ Silliq o'tishlar: bo'lim almashganda ko'rinadigan bo'limga animatsiya klassi
+  var FD = { on: false, last: null };
+  try {
+    new MutationObserver(function () {
+      var tab = root.getAttribute('data-tab'); if (tab === FD.last) return; FD.last = tab;
+      if (!FD.on || !motionOK()) return;
+      var v = document.getElementById('view-' + tab); if (!v) return;
+      v.classList.remove('lu-fade-in'); void v.offsetWidth; v.classList.add('lu-fade-in');
+      setTimeout(function () { v.classList.remove('lu-fade-in'); }, 500);
+    }).observe(root, { attributes: true, attributeFilter: ['data-tab'] });
+  } catch (e) {}
+
   // =========================================================
   // Holatni qo'llash
   // =========================================================
   function sync() {
+    DN.on = enabled('u_done');
+    FD.on = enabled('u_fade');
+    root.classList.toggle('lu-fx-shine', enabled('u_shine'));
+    root.classList.toggle('lu-fx-shimmer', enabled('u_shimmer'));
     SP.on = enabled('u_spark');
     MG.on = enabled('u_magnet');
     if (!mgUsable()) mgReleaseAll();
@@ -663,10 +727,10 @@
   // ---------- Do'kon preview'lari (CSS animatsiyali; sichqoncha olib kelinganda demo) ----------
   function previewHtml(key) {
     if (key === 'spark') return '<div class="fxp fxp-spark" data-fxdemo="spark">' + new Array(9).join('<i></i>') + '</div>';
-    if (key === 'magnet') return '<div class="fxp fxp-mag"><span class="fxp-btn">+ Add</span><i class="fxp-cur"></i></div>';
-    if (key === 'cross') return '<div class="fxp fxp-ch"><i class="h"></i><i class="v"></i><span class="fxp-btn">OK</span><b></b></div>';
-    if (key === 'star') return '<div class="fxp fxp-star"><span class="fxp-btn lu-sb-demo">+ Add</span></div>';
-    if (key === 'target') return '<div class="fxp fxp-tc"><span class="fxp-btn">OK</span><i></i><i></i><i></i><i></i></div>';
+    if (key === 'shine') return '<div class="fxp fxp-shine"><span class="fxp-btn">+ Add</span></div>';
+    if (key === 'fade') return '<div class="fxp fxp-fade"><span class="fxp-card"><b></b><b></b></span></div>';
+    if (key === 'done') return '<div class="fxp fxp-done"><span class="fxp-chk">✓</span><b></b>' + new Array(9).join('<i></i>') + '</div>';
+    if (key === 'shimmer') return '<div class="fxp fxp-shim"><span class="fxp-bar"><i></i></span><span class="fxp-bar s"><i></i></span></div>';
     if (key === 'wave') return '<div class="fxp fxp-wave" data-fxdemo="wave"><i></i><i></i><b></b></div>';
     if (key === 'trail') return '<div class="fxp fxp-trail" data-fxdemo="trail"><svg viewBox="0 0 120 56" preserveAspectRatio="none"><path d="M8 40 C 30 6, 52 6, 62 28 S 96 50, 112 14"/></svg><i></i></div>';
     if (key === 'spot') return '<div class="fxp fxp-spot"><span class="fxp-card"><b></b><b></b></span><i></i></div>';
@@ -734,6 +798,9 @@
     byKey: byKey, finePointer: finePointer
   };
 
-  function boot() { sync(); try { if (window.LUDesign) window.LUDesign.renderPicker(); } catch (e) {} }
+  function boot() {
+    // Qaytarish — ilova holati (S) yuklangandan keyin
+    var n = 0; (function w() { if (window._appBooted) { setTimeout(function () { try { refundRetired(); sync(); } catch (e) {} }, 300); } else if (n++ < 120) setTimeout(w, 100); })();
+    sync(); try { if (window.LUDesign) window.LUDesign.renderPicker(); } catch (e) {} }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();
