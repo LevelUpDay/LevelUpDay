@@ -848,3 +848,15 @@ div.fg-row.fg-app:focus-visible { outline: 2px solid var(--accent); outline-offs
 .fg-sec { margin-bottom: 6px; }
 .fg-qt { display: inline-flex; gap: 6px; flex: none; } .fg-qt .fg-in { width: 96px; padding: 6px 8px; }
 .fg-diag .fg-opt { padding: 6px 0; }
+
+/* ☑️ Bir nechta qurilmani tanlash */
+.fg-dsel { position: relative; }
+.fg-filters .fg-dsel-b { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fg-dsel-m { position: fixed; z-index: 400; min-width: 250px; max-width: 86vw; padding: 6px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 14px 34px rgba(0,0,0,.45); }
+.fg-dsel-m[hidden] { display: none; }
+.fg-dsel-o { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; cursor: pointer; font-size: 13px; color: var(--text); }
+.fg-dsel-o:hover { background: var(--surface2); }
+.fg-dsel-o.on { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.fg-dsel-o input { width: 17px; height: 17px; accent-color: var(--accent); flex-shrink: 0; margin: 0; }
+.fg-dsel-o span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fg-dsel-o small { color: var(--text-muted); font-size: 12px; white-space: nowrap; }

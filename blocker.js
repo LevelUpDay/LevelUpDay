@@ -90,6 +90,23 @@
 
   // ---------- Holat ----------
   var FG = { loaded: false, loading: false, devices: [], cfg: null, rows: [], err: '', at: 0 };
+  // Menyu filtrlar qatori (gorizontal aylantiriladigan) ichida kesilmasligi uchun — ekranga nisbatan joylashadi
+  function placeDsel() {
+    var bb = document.querySelector('#view-blocker [data-fg-dselb]'), m = document.querySelector('#view-blocker .fg-dsel-m');
+    if (!bb || !m || m.hidden) return;
+    var r = bb.getBoundingClientRect();
+    m.style.top = Math.round(r.bottom + 6) + 'px';
+    m.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8))) + 'px';
+  }
+  window.addEventListener('resize', placeDsel);
+  window.addEventListener('scroll', placeDsel, true);
+  // Qurilma tanlash menyusi: tashqariga bosilsa yopiladi
+  document.addEventListener('click', function (e) {
+    if (!UI.dselOpen || (e.target.closest && e.target.closest('.fg-dsel'))) return;
+    UI.dselOpen = false;
+    var m = document.querySelector('#view-blocker .fg-dsel-m'); if (m) m.hidden = true;
+    var bb = document.querySelector('#view-blocker [data-fg-dselb]'); if (bb) bb.setAttribute('aria-expanded', 'false');
+  });
   var UI = { tab: 'today', day: 0, cat: 'all', kind: 'all', dev: 'all', metric: 'time', chart: 'bar', hide: {}, hr: -1, setupOpen: false, focusMin: 25, allSites: false };
   var HIST_DAYS = 30; // statistika tarixi (kalendar)
   var LOCAL = { reward: true };
@@ -141,7 +158,15 @@
   function devName(d) { if (d && d.label) return String(d.label); return String((d && d.name) || 'Windows').replace(/\((kengaytma|extension|расширение)\)/, '(' + L('kengaytma', 'extension', 'расширение') + ')'); }
   function devById(id) { for (var i = 0; i < FG.devices.length; i++) if (FG.devices[i].id === id) return FG.devices[i]; return null; }
   // Statistika filtri: kompyuterga bog'langan kengaytmaning ma'lumoti o'sha kompyuter ichida hisoblanadi
-  function inDev(rowDev, dev) { if (!dev || dev === 'all' || rowDev === dev) return true; var x = devById(rowDev); return !!(x && x.parent_id === dev && devKind(x) === 'ext'); }
+  // dev: 'all' | bitta id | bir nechta id vergul bilan ("a,b") — bir vaqtda bir nechta qurilma tanlanadi
+  function inDev(rowDev, dev) {
+    if (!dev || dev === 'all' || rowDev === dev) return true;
+    var ids = String(dev).split(','), x = null;
+    if (ids.indexOf(rowDev) !== -1) return true;
+    x = devById(rowDev);
+    return !!(x && devKind(x) === 'ext' && ids.indexOf(x.parent_id) !== -1);
+  }
+  function devSel() { return UI.dev && UI.dev !== 'all' ? String(UI.dev).split(',') : []; }
   function statDevs() { return FG.devices.filter(function (d) { return devKind(d) !== 'ext'; }); }
   // Bir ilovaning soatlar bo'yicha vaqti (daqiqa) — tanlangan kun va qurilma uchun
   function appHours(id, off, dev) {
@@ -563,7 +588,10 @@
 
   // 🎛 Filtrlar qatori: sana (kalendar) · qurilma · o'lchov · turi · kategoriya · tozalash
   function filterBar(dm) {
-    if (UI.dev !== 'all' && !statDevs().some(function (d) { return d.id === UI.dev; })) UI.dev = 'all';
+    if (UI.dev !== 'all') {
+      var okIds = devSel().filter(function (id) { return statDevs().some(function (d) { return d.id === id; }); });
+      UI.dev = okIds.length && okIds.length < statDevs().length ? okIds.join(',') : 'all';
+    }
     var dirty = UI.day !== 0 || UI.dev !== 'all' || UI.metric !== 'time' || UI.kind !== 'all' || UI.cat !== 'all';
     var opt = function (v, cur, label) { return '<option value="' + E(v) + '"' + (v === cur ? ' selected' : '') + '>' + E(label) + '</option>'; };
     var h = '';
@@ -573,9 +601,18 @@
       '<button type="button" data-fg-day="1" ' + (UI.day >= 0 ? 'disabled' : '') + ' aria-label="›">›</button></div>';
     if (real() && statDevs().length > 1) {
       var all = sumArr(dayModel(UI.day, 'all').apps.map(function (a) { return a.m; }));
-      h += '<select class="fg-sel" data-fg-fdev>' + opt('all', UI.dev, '🌐 ' + L('Barcha qurilmalar', 'All devices', 'Все устройства') + ' · ' + fmt(all)) + statDevs().map(function (d, i) {
-        return opt(d.id, UI.dev, devIcon(d) + ' ' + (i + 1) + ' · ' + devName(d) + ' · ' + fmt(sumArr(dayModel(UI.day, d.id).apps.map(function (a) { return a.m; }))));
-      }).join('') + '</select>';
+      // ☑️ Bir nechta qurilmani belgilab, faqat ularning statistikasini ko'rish
+      var sel = devSel(), devMin = function (id) { return sumArr(dayModel(UI.day, id).apps.map(function (a) { return a.m; })); };
+      var btnLbl = !sel.length ? '🌐 ' + L('Barcha qurilmalar', 'All devices', 'Все устройства') + ' · ' + fmt(all)
+        : sel.length === 1 ? (function (d) { return d ? devIcon(d) + ' ' + devName(d) : '💻'; })(devById(sel[0])) + ' · ' + fmt(devMin(UI.dev))
+        : '💻 ' + sel.length + ' ' + L('ta qurilma', 'devices', 'устройства') + ' · ' + fmt(devMin(UI.dev));
+      h += '<div class="fg-dsel"><button type="button" class="fg-sel fg-dsel-b" data-fg-dselb aria-haspopup="true" aria-expanded="' + !!UI.dselOpen + '">' + E(btnLbl) + ' ▾</button>' +
+        '<div class="fg-dsel-m"' + (UI.dselOpen ? '' : ' hidden') + ' role="group">' +
+        '<label class="fg-dsel-o' + (!sel.length ? ' on' : '') + '"><input type="checkbox" data-fg-dall' + (!sel.length ? ' checked' : '') + '><span>🌐 ' + E(L('Barcha qurilmalar', 'All devices', 'Все устройства')) + '</span><small>' + E(fmt(all)) + '</small></label>' +
+        statDevs().map(function (d, i) {
+          var on = sel.indexOf(d.id) !== -1;
+          return '<label class="fg-dsel-o' + (on ? ' on' : '') + '"><input type="checkbox" data-fg-dchk="' + E(d.id) + '"' + (on ? ' checked' : '') + '><span>' + devIcon(d) + ' ' + (i + 1) + ' · ' + E(devName(d)) + '</span><small>' + E(fmt(devMin(d.id))) + '</small></label>';
+        }).join('') + '</div></div>';
     }
     h += '<select class="fg-sel" data-fg-fmetric>' + opt('time', UI.metric, '⏱ ' + L('Foydalanish vaqti', 'Usage time', 'Время использования')) + opt('opens', UI.metric, '🔁 ' + L('Ochilishlar soni', 'Session count', 'Число запусков')) + '</select>';
     h += '<select class="fg-sel" data-fg-fkind>' + opt('all', UI.kind, L('Ilova va saytlar', 'Apps and websites', 'Приложения и сайты')) + opt('apps', UI.kind, '💻 ' + L('Ilovalar', 'Apps', 'Приложения')) + opt('sites', UI.kind, '🌐 ' + L('Saytlar', 'Websites', 'Сайты')) + '</select>';
@@ -2481,7 +2518,7 @@
     var hrs = appHours(id, UI.day, UI.dev), max = Math.max.apply(null, hrs.concat([0.0001]));
     var rg = hourRanges(hrs), pad = function (n) { return String(n).padStart(2, '0') + ':00'; };
     var dayLbl = UI.day === 0 ? L('Bugun', 'Today', 'Сегодня') : UI.day === -1 ? L('Kecha', 'Yesterday', 'Вчера') : (-UI.day) + ' ' + L('kun oldin', 'days ago', 'дн. назад');
-    var dv = UI.dev !== 'all' ? devById(UI.dev) : null;
+    var dv = devSel().length === 1 ? devById(UI.dev) : null;
     var h = '<div class="fg-lbl">🕒 ' + E(L('Qaysi vaqtlarda', 'When it was used', 'Когда использовалось')) + ' · ' + E(dayLbl) + (dv ? ' · ' + devIcon(dv) + ' ' + E(devName(dv)) : '') + '</div>' +
       '<div class="fg-card fg-when"><div class="fg-chart sm">' + hrs.map(function (v, i) {
         return '<div class="fg-col' + (v >= 0.05 ? '' : ' z') + '" title="' + pad(i) + ' — ' + E(fmt(v)) + '"><i style="height:' + Math.max(v / max * 100, v >= 0.05 ? 4 : 0) + '%"></i><span>' + (i % 3 === 0 ? i : '') + '</span></div>';
@@ -2804,7 +2841,8 @@
     if ((b = t.closest('[data-fg-badge]'))) { badgeGo(b); return; }
     if ((b = t.closest('[data-fg-setup]'))) { UI.setupOpen = !UI.setupOpen; render(); return; }
     if ((b = t.closest('[data-fg-setupstep]'))) { setupGo(b.dataset.fgSetupstep); return; }
-    if ((b = t.closest('[data-fg-reset]'))) { UI.day = 0; UI.dev = 'all'; UI.metric = 'time'; UI.kind = 'all'; UI.cat = 'all'; UI.hr = -1; UI.hide = {}; render(); return; }
+    if ((b = t.closest('[data-fg-dselb]'))) { UI.dselOpen = !UI.dselOpen; render(); placeDsel(); return; }
+    if ((b = t.closest('[data-fg-reset]'))) { UI.day = 0; UI.dev = 'all'; UI.dselOpen = false; UI.metric = 'time'; UI.kind = 'all'; UI.cat = 'all'; UI.hr = -1; UI.hide = {}; render(); return; }
     if ((b = t.closest('[data-fg-hr]'))) { var hr = +b.dataset.fgHr; UI.hr = UI.hr === hr ? -1 : hr; rerender(); return; }
     if ((b = t.closest('[data-fg-hide]'))) { var hk = b.dataset.fgHide; UI.hide[hk] = !UI.hide[hk]; if (UI.hide.a && UI.hide.b) UI.hide[hk === 'a' ? 'b' : 'a'] = false; rerender(); return; }
     if ((b = t.closest('[data-fg-eye]'))) { UI.hide = UI.hide.a || UI.hide.b ? {} : { b: true }; rerender(); return; }
@@ -2894,6 +2932,13 @@
     if (s.matches('[data-fg-cgroup]')) { UI.cGroup = s.value; loadSocial(true); return; }
     if (s.matches('[data-fg-cat], [data-fg-fcat]')) { UI.cat = s.value; render(); return; }
     if (s.matches('[data-fg-fdev]')) { UI.dev = s.value; render(); return; }
+    if (s.matches('[data-fg-dall]')) { UI.dev = 'all'; render(); return; }
+    if (s.matches('[data-fg-dchk]')) {
+      var cur = devSel(), id0 = s.dataset.fgDchk, ix = cur.indexOf(id0);
+      if (s.checked && ix === -1) cur.push(id0); else if (!s.checked && ix !== -1) cur.splice(ix, 1);
+      UI.dev = cur.length && cur.length < statDevs().length ? cur.join(',') : 'all';
+      UI.dselOpen = true; render(); placeDsel(); return;
+    }
     if (s.matches('[data-fg-fmetric]')) { UI.metric = s.value === 'opens' ? 'opens' : 'time'; UI.hr = -1; render(); return; }
     if (s.matches('[data-fg-fkind]')) { UI.kind = s.value; render(); return; }
     if (s.matches('[data-fg-date]')) {
