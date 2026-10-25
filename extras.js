@@ -920,6 +920,30 @@
     });
     return out.concat(['#ffffff', '#e4e4e7', '#a1a1aa', '#71717a', '#3f3f46', '#18181b', '#f5c542', '#c0c0c0', '#cd7f32']);
   })();
+  // 👀 Sinab ko'rish yordamchilari (sahifa sinov paytida yopilsa — keyingi ochilishda avvalgi holat tiklanadi)
+  var TRY_SEC = 60;
+  function tryBackup(st, hasD) {
+    return { theme: st.theme || null, nick: st.nick || null, frame: st.frame || null, badge: st.badge || null, title: st.title || null, effect: st.effect || null, uistyle: st.uistyle || null,
+      ufx: (Array.isArray(st.ufx) ? st.ufx : []).slice(), custom: JSON.parse(JSON.stringify(st.custom || {})), design: hasD && window.LUDesign ? window.LUDesign.current() : null };
+  }
+  function tryRefresh() {
+    try { shopApply(); render(); } catch (e) {}
+    try { if (window.LUFx) window.LUFx.sync(); } catch (e) {}
+    try { if (window.LUWidgets) window.LUWidgets.sync(); } catch (e) {}
+  }
+  function tryRestore(st) {
+    var b = null; try { b = JSON.parse(localStorage.getItem('ludTryBackup') || 'null'); } catch (e) {}
+    window._ludTrying = false;
+    if (!b) return;
+    st = st || shopState();
+    ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { st[k] = b[k] || null; });
+    st.ufx = b.ufx || []; st.custom = b.custom || {};
+    if (b.design && window.LUDesign && window.LUDesign.current() !== b.design) { try { window.LUDesign.apply(b.design, { force: true, silent: true }); } catch (e) {} }
+    try { localStorage.removeItem('ludTryBackup'); } catch (e) {}
+    try { save(); } catch (e) {}
+    tryRefresh();
+  }
+  setTimeout(function () { try { if (localStorage.getItem('ludTryBackup')) tryRestore(); } catch (e) {} }, 1500);
   window.xOpenStudio = function (startTab) {
     var st = shopState();
     var cu = st.custom || {};
@@ -1144,12 +1168,45 @@
         '<button type="button" class="xs-pay"' + ((!ch || !okC || !okG) ? ' disabled' : '') + '>' +
           (!ch ? H(L('Biror narsa tanlang', 'Pick something', 'Выберите что-нибудь'))
             : (!okC || !okG) ? H(L('Mablag\'', 'Funds', 'Средств')) + ' ' + H(L('yetarli emas', 'not enough', 'недостаточно'))
-            : ls.length ? '💳 ' + H(L('To\'lash va qo\'llash', 'Pay & apply', 'Оплатить и применить')) : '✅ ' + H(L('Qo\'llash (bepul)', 'Apply (free)', 'Применить (бесплатно)'))) + '</button>';
+            : ls.length ? '💳 ' + H(L('To\'lash va qo\'llash', 'Pay & apply', 'Оплатить и применить')) : '✅ ' + H(L('Qo\'llash (bepul)', 'Apply (free)', 'Применить (бесплатно)'))) + '</button>' +
+        (ls.length ? '<button type="button" class="xs-try">👀 ' + H(L('Sotib olmasdan sinab ko\'rish (' + TRY_SEC + ' s)', 'Try it on without buying (' + TRY_SEC + ' s)', 'Примерить без покупки (' + TRY_SEC + ' с)')) + '</button>' : '');
       var tc = $('.xs-tc'), tg = $('.xs-tg');
       if (tc) animNum(tc, shown.coins, t.coins);
       if (tg) animNum(tg, shown.gems, t.gems);
       shown = t;
       $('.xs-pay').onclick = pay;
+      var tb = $('.xs-try'); if (tb) tb.onclick = tryOn;
+    }
+    // 👀 Sinab ko'rish: tanlovlar butun ilovada vaqtincha qo'llanadi (sotib olinmaydi), keyin avvalgi holat qaytadi
+    function tryOn() {
+      var bak = tryBackup(st, hasD);
+      try { localStorage.setItem('ludTryBackup', JSON.stringify(bak)); } catch (e) {}
+      window._ludTrying = true;
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { st[k] = sel[k] || null; });
+      st.ufx = sel.ufx.slice();
+      st.custom = Object.assign({}, st.custom || {});
+      if (sel.theme === 'c_custom' && D.accent) st.custom.accent = D.accent;
+      if (sel.nick === 'n_custom' && D.nick && D.nick.a) st.custom.nick = { a: D.nick.a, b: D.nick.b || null };
+      if (sel.frame === 'f_custom' && D.frame && D.frame.a) st.custom.frame = { a: D.frame.a, b: D.frame.b || null };
+      if (hasD && sel.design && sel.design !== window.LUDesign.current()) { try { window.LUDesign.apply(sel.design, { force: true, silent: true }); } catch (e) {} }
+      tryRefresh();
+      ov.style.display = 'none';
+      var left = TRY_SEC, bar = document.createElement('div'); bar.className = 'xs-trybar';
+      bar.innerHTML = '<span>👀 ' + H(L('Sinov rejimi', 'Try-on mode', 'Примерка')) + ' · <b class="xs-try-t">' + left + '</b> s</span>' +
+        '<button type="button" data-tr="buy">🛒 ' + H(L('Sotib olish', 'Buy', 'Купить')) + '</button><button type="button" data-tr="back">↩ ' + H(L('Qaytarish', 'Revert', 'Вернуть')) + '</button>';
+      document.body.appendChild(bar);
+      var timer = setInterval(function () { left--; var t = bar.querySelector('.xs-try-t'); if (t) t.textContent = left; if (left <= 0) end(false); }, 1000);
+      function end(buy) {
+        clearInterval(timer); bar.remove();
+        tryRestore(st);
+        if (!document.body.contains(ov)) return;
+        ov.style.display = '';
+        drawPrev(); drawFoot();
+        if (buy) pay(); else toast('↩ ' + L('Avvalgi ko\'rinish qaytarildi', 'Reverted to your look', 'Возвращён прежний вид'));
+      }
+      bar.querySelector('[data-tr="buy"]').onclick = function () { end(true); };
+      bar.querySelector('[data-tr="back"]').onclick = function () { end(false); };
+      toast('👀 ' + L('Butun ilovada ko\'ring — ' + TRY_SEC + ' soniyadan keyin qaytadi', 'Look around the app — reverts in ' + TRY_SEC + ' s', 'Осмотритесь — вернётся через ' + TRY_SEC + ' с'));
     }
     function commit() {
       var ls = lines(), t = total();

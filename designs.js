@@ -1233,7 +1233,7 @@
         try { if (typeof save === 'function') save(); } catch (e) {}
       }
     }
-    if (!isOwned(current)) apply('default', { force: true, silent: true });
+    if (!isOwned(current) && !window._ludTrying) apply('default', { force: true, silent: true }); // 👀 sinov paytida tegmaymiz
     else renderPicker();
   }
 
