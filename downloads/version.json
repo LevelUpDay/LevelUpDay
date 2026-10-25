@@ -3,7 +3,7 @@
   "sha256": "0a19f07b65779e23ae6d20ca8482022e9544034aabf3b410678999baf8c8be1a",
   "url": "https://levelupday.github.io/LevelUpDay/downloads/Focusgate.exe",
   "notes": "Tungi jim rejim, bildirishnoma turlari, masofaviy yangilash",
-  "ext": "0.6.6",
+  "ext": "0.6.7",
   "linux": {
     "amd64": {
       "version": "0.6.6",
