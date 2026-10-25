@@ -5,6 +5,7 @@
 //  • /add <matn>   — Inbox'ga tez vazifa (ilova ochilganda qo'shiladi)
 //  • /stats /week /goals /pomo — statistika, haftalik hisobot, odatlar, Pomodoro holati
 //  • /settings     — qaysi xabarlar kelishini tugmalar bilan sozlash
+//  • /music       — ambient tovushlar (tanlab eshitish; file_id telegram_state'da keshlanadi)
 //  • /stop /unlink /help
 //  • Tugmalar (callback): d:<id> bajarildi, z:<id>:<daq> keyinroq eslatish, p:<kalit> sozlama
 // Bajarildi/qo'shish amallari tg_actions navbatiga yoziladi — ilova keyingi ochilishda qo'llaydi (mukofot bilan).
@@ -36,7 +37,7 @@ const T: Record<string, Record<string, string>> = {
     resumed: "🔔 Eslatmalar yoqildi. /today — bugungi vazifalar, /stop — to'xtatish.",
     stopped: "🔕 Eslatmalar to'xtatildi. Qayta yoqish uchun /start bosing.",
     notLinked: "ℹ️ Akkaunt hali ulanmagan. Ilovada <b>Profil → Sozlamalar → ✈️ Telegram → Ulash</b>.",
-    help: "🤖 <b>Buyruqlar</b>\n/today — bugungi vazifalar\n/add <i>matn</i> — Inbox'ga vazifa\n/stats — statistika\n/week — haftalik hisobot\n/goals — bugungi odatlar\n/pomo — Pomodoro holati\n/settings — xabarlar sozlamasi\n/stop — to'xtatish · /start — yoqish\n/unlink — akkauntni uzish",
+    help: "🤖 <b>Buyruqlar</b>\n/today — bugungi vazifalar\n/add <i>matn</i> — Inbox'ga vazifa\n/stats — statistika\n/week — haftalik hisobot\n/goals — bugungi odatlar\n/pomo — Pomodoro holati\n/music — ambient tovushlar\n/settings — xabarlar sozlamasi\n/stop — to'xtatish · /start — yoqish\n/unlink — akkauntni uzish",
     added: "📥 Inbox'ga qo'shildi: <b>{t}</b>\nIlova ochilganda paydo bo'ladi.", addUsage: "✍️ Masalan: <code>/add Kitob o'qish 20 daqiqa</code>",
     doneOk: "✅ Bajarildi! Mukofot ilova ochilganda beriladi.", snoozed: "⏰ {m} daqiqadan keyin yana eslataman",
     stats: "📊 <b>Statistika</b>", lvl: "Daraja", streak: "Streak", best: "Eng uzun", coins: "Tanga", gems: "Olmos", tasksDone: "Bajarilgan vazifalar",
@@ -52,7 +53,7 @@ const T: Record<string, Record<string, string>> = {
     resumed: "🔔 Reminders are on. /today — today's tasks, /stop — pause.",
     stopped: "🔕 Reminders paused. Send /start to turn them back on.",
     notLinked: "ℹ️ Your account isn't connected yet. In the app: <b>Profile → Settings → ✈️ Telegram → Connect</b>.",
-    help: "🤖 <b>Commands</b>\n/today — today's tasks\n/add <i>text</i> — add to Inbox\n/stats — stats\n/week — weekly report\n/goals — today's habits\n/pomo — Pomodoro status\n/settings — notification settings\n/stop — pause · /start — resume\n/unlink — disconnect",
+    help: "🤖 <b>Commands</b>\n/today — today's tasks\n/add <i>text</i> — add to Inbox\n/stats — stats\n/week — weekly report\n/goals — today's habits\n/pomo — Pomodoro status\n/music — ambient sounds\n/settings — notification settings\n/stop — pause · /start — resume\n/unlink — disconnect",
     added: "📥 Added to Inbox: <b>{t}</b>\nIt will appear when you open the app.", addUsage: "✍️ Example: <code>/add Read 20 minutes</code>",
     doneOk: "✅ Done! Your reward is added when you open the app.", snoozed: "⏰ I'll remind you again in {m} min",
     stats: "📊 <b>Stats</b>", lvl: "Level", streak: "Streak", best: "Best", coins: "Coins", gems: "Gems", tasksDone: "Tasks done",
@@ -68,7 +69,7 @@ const T: Record<string, Record<string, string>> = {
     resumed: "🔔 Напоминания включены. /today — задачи, /stop — пауза.",
     stopped: "🔕 Напоминания приостановлены. Отправьте /start, чтобы включить.",
     notLinked: "ℹ️ Аккаунт ещё не подключён. В приложении: <b>Профиль → Настройки → ✈️ Telegram → Подключить</b>.",
-    help: "🤖 <b>Команды</b>\n/today — задачи на сегодня\n/add <i>текст</i> — во «Входящие»\n/stats — статистика\n/week — отчёт за неделю\n/goals — привычки на сегодня\n/pomo — статус помодоро\n/settings — настройки уведомлений\n/stop — пауза · /start — включить\n/unlink — отключить",
+    help: "🤖 <b>Команды</b>\n/today — задачи на сегодня\n/add <i>текст</i> — во «Входящие»\n/stats — статистика\n/week — отчёт за неделю\n/goals — привычки на сегодня\n/pomo — статус помодоро\n/music — фоновые звуки\n/settings — настройки уведомлений\n/stop — пауза · /start — включить\n/unlink — отключить",
     added: "📥 Добавлено во «Входящие»: <b>{t}</b>\nПоявится при открытии приложения.", addUsage: "✍️ Пример: <code>/add Читать 20 минут</code>",
     doneOk: "✅ Готово! Награда начислится при открытии приложения.", snoozed: "⏰ Напомню через {m} мин",
     stats: "📊 <b>Статистика</b>", lvl: "Уровень", streak: "Серия", best: "Лучшая", coins: "Монеты", gems: "Алмазы", tasksDone: "Выполнено задач",
@@ -166,6 +167,60 @@ const PREFS: [string, Record<string, string>][] = [
   ["pomo", { uz: "🍅 Pomodoro", en: "🍅 Pomodoro", ru: "🍅 Помодоро" }],
   ["fg", { uz: "🛡 Focusgate", en: "🛡 Focusgate", ru: "🛡 Focusgate" }],
 ];
+// 🎧 Ambient tovushlar (ilovadagi FOCUS_SOUNDS bilan bir xil; 10 daqiqalik versiyalar — telegram-bot-assets/sounds)
+const SOUNDS: [string, string, Record<string, string>][] = [
+  ["rain", "🌧️", { uz: "Yengil yomg'ir", en: "Light Rain", ru: "Лёгкий дождь" }],
+  ["storm", "⛈️", { uz: "Momaqaldiroq", en: "Thunderstorm", ru: "Гроза" }],
+  ["window", "🪟", { uz: "Derazadagi yomg'ir", en: "Rain on the Window", ru: "Дождь за окном" }],
+  ["ocean", "🌊", { uz: "Dengiz to'lqinlari", en: "Ocean Waves", ru: "Морские волны" }],
+  ["river", "🏞️", { uz: "Tog' daryosi", en: "Mountain River", ru: "Горная река" }],
+  ["fire", "🔥", { uz: "Gulxan", en: "Campfire", ru: "Костёр" }],
+  ["forest", "🐦", { uz: "O'rmon qushlari", en: "Forest & Birds", ru: "Лес и птицы" }],
+  ["wind", "🍃", { uz: "Daraxtlardagi shamol", en: "Wind in the Trees", ru: "Ветер в деревьях" }],
+  ["night", "🌙", { uz: "Yozgi tun", en: "Summer Night", ru: "Летняя ночь" }],
+  ["cafe", "☕", { uz: "Shinam kafe", en: "Cozy Café", ru: "Уютное кафе" }],
+  ["library", "📚", { uz: "Kutubxona", en: "Library", ru: "Библиотека" }],
+  ["train", "🚆", { uz: "Poyezdda", en: "On a Train", ru: "В поезде" }],
+  ["space", "🌌", { uz: "Kosmos", en: "Deep Space", ru: "Космос" }],
+  ["bowl", "🎐", { uz: "Meditatsiya qo'ng'irog'i", en: "Singing Bowl", ru: "Поющая чаша" }],
+  ["brown", "🟤", { uz: "Jigarrang shovqin", en: "Brown Noise", ru: "Коричневый шум" }],
+];
+const MUSIC_T: Record<string, string> = {
+  uz: "🎧 <b>Ambient tovushlar</b>\nFokus va dam olish uchun fon tovushini tanlang (har biri 10 daqiqa — pleyerda 🔁 takrorlashni yoqing):",
+  en: "🎧 <b>Ambient sounds</b>\nPick a background sound for focus or rest (10 min each — turn on 🔁 repeat in the player):",
+  ru: "🎧 <b>Фоновые звуки</b>\nВыберите звук для фокуса или отдыха (по 10 минут — включите 🔁 повтор в плеере):",
+};
+const musicKb = (lang: string) => {
+  const rows: unknown[][] = [];
+  SOUNDS.forEach(([k, ic, n], i) => { if (i % 3 === 0) rows.push([]); rows[rows.length - 1].push({ text: `${ic} ${n[lang] || n.uz}`, callback_data: "m:" + k }); });
+  return { inline_keyboard: rows };
+};
+async function sendSound(sb: any, chat: number, key: string, lang: string) {
+  const snd = SOUNDS.find(([k]) => k === key); if (!snd) return false;
+  const name = snd[2][lang] || snd[2].uz, cap = `${snd[1]} ${name}`;
+  const { data: st } = await sb.from("telegram_state").select("v").eq("k", "snd:" + key).maybeSingle();
+  const body: Record<string, unknown> = { chat_id: chat, caption: cap, title: name, performer: "LevelUpDay", reply_markup: { inline_keyboard: [[{ text: "🎧 " + (lang === "ru" ? "Другие звуки" : lang === "en" ? "More sounds" : "Boshqa tovushlar"), callback_data: "mm" }]] } };
+  let r = st?.v ? await tg("sendAudio", { ...body, audio: st.v }) : { ok: false };
+  if (!r.ok) {
+    r = await tg("sendAudio", { ...body, audio: `${APP_URL}telegram-bot-assets/sounds/${key}.mp3` });
+    const fid = r?.result?.audio?.file_id;
+    if (fid) await sb.from("telegram_state").upsert({ k: "snd:" + key, v: fid, updated_at: new Date().toISOString() });
+  }
+  return !!r.ok;
+}
+// Buyruqlar menyusi (yangi buyruq qo'shilganda CMD_VER oshiriladi)
+const CMD_VER = "v3";
+async function ensureCommands(sb: any) {
+  const { data: st } = await sb.from("telegram_state").select("v").eq("k", "cmds").maybeSingle();
+  if (st?.v === CMD_VER) return;
+  const sets: Record<string, string[][]> = {
+    "": [["today", "Bugungi vazifalar"], ["add", "Inbox'ga vazifa qo'shish"], ["music", "Ambient tovushlar"], ["stats", "Statistika"], ["week", "Haftalik hisobot"], ["goals", "Bugungi odatlar"], ["pomo", "Pomodoro holati"], ["settings", "Xabarlar sozlamasi"], ["stop", "Eslatmalarni to'xtatish"], ["start", "Eslatmalarni yoqish"], ["help", "Yordam"]],
+    en: [["today", "Today's tasks"], ["add", "Add to Inbox"], ["music", "Ambient sounds"], ["stats", "Stats"], ["week", "Weekly report"], ["goals", "Today's habits"], ["pomo", "Pomodoro status"], ["settings", "Notification settings"], ["stop", "Pause reminders"], ["start", "Resume reminders"], ["help", "Help"]],
+    ru: [["today", "Задачи на сегодня"], ["add", "Добавить во «Входящие»"], ["music", "Фоновые звуки"], ["stats", "Статистика"], ["week", "Отчёт за неделю"], ["goals", "Привычки"], ["pomo", "Статус помодоро"], ["settings", "Настройки"], ["stop", "Пауза"], ["start", "Включить напоминания"], ["help", "Помощь"]],
+  };
+  for (const [lc, cmds] of Object.entries(sets)) await tg("setMyCommands", { commands: cmds.map(([command, description]) => ({ command, description })), ...(lc ? { language_code: lc } : {}) });
+  await sb.from("telegram_state").upsert({ k: "cmds", v: CMD_VER, updated_at: new Date().toISOString() });
+}
 const prefsKb = (pf: Record<string, boolean>, lang: string) => ({ inline_keyboard: PREFS.map(([k, n]) => [{ text: (pf[k] !== false ? "✅ " : "⬜ ") + (n[lang] || n.uz), callback_data: "p:" + k }]) });
 
 Deno.serve(async (req) => {
@@ -197,6 +252,7 @@ Deno.serve(async (req) => {
   // --- Telegram webhook ---
   if (req.headers.get("x-telegram-bot-api-secret-token") !== await webhookSecret()) return new Response("forbidden", { status: 403 });
   const upd = await req.json().catch(() => null);
+  await ensureCommands(sb);
 
   // 🔘 Tugmalar
   const cq = upd?.callback_query;
@@ -204,8 +260,13 @@ Deno.serve(async (req) => {
     const chat = Number(cq.message.chat.id);
     const { data: link } = await sb.from("telegram_links").select("user_id,prefs,lang,tz").eq("chat_id", chat).maybeSingle();
     const lg = langOf(link?.lang || cq.from?.language_code), tx = T[lg];
-    if (!link) { await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "ℹ️", show_alert: false }); return new Response("ok"); }
     const [k, a, b] = String(cq.data).split(":");
+    if (k === "m" || k === "mm") {
+      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: k === "m" ? "🎧 …" : undefined });
+      if (k === "m") await sendSound(sb, chat, a, lg); else await send2(chat, MUSIC_T[lg], musicKb(lg));
+      return new Response("ok");
+    }
+    if (!link) { await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "ℹ️", show_alert: false }); return new Response("ok"); }
     if (k === "d" && /^\d+$/.test(a)) {
       const { data: ex } = await sb.from("tg_actions").select("id").eq("user_id", link.user_id).eq("kind", "done").eq("task_id", Number(a)).is("applied_at", null).limit(1);
       if (!ex?.length) await sb.from("tg_actions").insert({ user_id: link.user_id, kind: "done", task_id: Number(a), payload: { day: local(link.tz).date } });
@@ -253,6 +314,7 @@ Deno.serve(async (req) => {
     else await send(chat, tx.welcome, lang);
     return new Response("ok");
   }
+  if (cmd === "/music") { await send2(chat, MUSIC_T[link ? langOf(link.lang || lang) : lang], musicKb(link ? langOf(link.lang || lang) : lang)); return new Response("ok"); }
   if (!link) { await send(chat, tx.notLinked, lang); return new Response("ok"); }
   const ul = langOf(link.lang || lang), U = T[ul];
   // "/" siz oddiy matn — Inbox'ga qo'shish
