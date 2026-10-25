@@ -672,6 +672,13 @@
       d: ['Qalin chegara va qattiq soya — 90-yillar uslubi', 'Bold outlines and hard shadows, 90s style', 'Жирные рамки и жёсткие тени в стиле 90-х'] },
     { id: 'ui_aurora', kind: 'uistyle', v: 'aurora', icon: '🌈', n: ['Gradient', 'Gradient', 'Градиент'], gems: 35,
       d: ['Kartalarda yumshoq rangli gradient', 'Soft colorful gradients on cards', 'Мягкие цветные градиенты на карточках'] },
+    // 🪐 To'liq interfeys to'plamlari (skin) — butun ilova ko'rinishi: fon, panellar, kartalar, menyu, shrift (skins.css, html[data-x-skin])
+    { id: 'sk_vision', kind: 'skin', v: 'vision', icon: '🪐', n: ['Spatial HUD', 'Spatial HUD', 'Spatial HUD'], gems: 30,
+      d: ['Suzuvchi shisha panellar, neon-cyan porlash, visionOS uslubi', 'Floating glass panels, neon-cyan glow, visionOS style', 'Парящие стеклянные панели, неоновое свечение, стиль visionOS'] },
+    { id: 'sk_bento', kind: 'skin', v: 'bento', icon: '🧬', n: ['Cyber Bento', 'Cyber Bento', 'Cyber Bento'], gems: 35,
+      d: ['Bento-kartalar, kiber-to\'r fon va gradient chegaralar', 'Bento cards, cyber-grid backdrop and gradient edges', 'Бенто-карточки, кибер-сетка и градиентные края'] },
+    { id: 'sk_rpg', kind: 'skin', v: 'rpg', icon: '⚔️', n: ['Chrono RPG', 'Chrono RPG', 'Chrono RPG'], gems: 40,
+      d: ['RPG-qahramon kartasi: yon panel, energiya chiziqlari, amber urg\'u', 'RPG hero sheet: side rail, energy bars, amber accents', 'RPG-лист героя: боковая панель, полосы энергии, янтарные акценты'] },
     // ➕ yangi nishon
     { id: 'b_dragon', kind: 'badge', v: '🐉', icon: '🐉', n: ['Ajdar nishon', 'Dragon badge', 'Значок дракон'], gems: 35 },
     // ➕ yangi unvonlar
@@ -690,6 +697,7 @@
   ];
   // 🏷 Barcha narxlar 64% arzonlashtirilgan (asl narx × 0.36 — ikki marta 40% chegirma). Dizayn va effekt narxlari o'z fayllarida xuddi shunday kamaytirilgan
   SHOP.forEach(function (it) {
+    if (it.kind === 'skin') return; // 🪐 to'plamlar narxi aniq: 30 / 35 / 40 💎
     if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.36 / 5) * 5);
     if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.36 * 1.3)); // 💎 olmos narxlari tangadan farqli 30% qimmatroq
   });
@@ -923,7 +931,7 @@
   // 👀 Sinab ko'rish yordamchilari (sahifa sinov paytida yopilsa — keyingi ochilishda avvalgi holat tiklanadi)
   var TRY_SEC = 60;
   function tryBackup(st, hasD) {
-    return { theme: st.theme || null, nick: st.nick || null, frame: st.frame || null, badge: st.badge || null, title: st.title || null, effect: st.effect || null, uistyle: st.uistyle || null,
+    return { theme: st.theme || null, nick: st.nick || null, frame: st.frame || null, badge: st.badge || null, title: st.title || null, effect: st.effect || null, uistyle: st.uistyle || null, skin: st.skin || null,
       ufx: (Array.isArray(st.ufx) ? st.ufx : []).slice(), custom: JSON.parse(JSON.stringify(st.custom || {})), design: hasD && window.LUDesign ? window.LUDesign.current() : null };
   }
   function tryRefresh() {
@@ -936,7 +944,7 @@
     window._ludTrying = false;
     if (!b) return;
     st = st || shopState();
-    ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { st[k] = b[k] || null; });
+    ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle', 'skin'].forEach(function (k) { st[k] = b[k] || null; });
     st.ufx = b.ufx || []; st.custom = b.custom || {};
     if (b.design && window.LUDesign && window.LUDesign.current() !== b.design) { try { window.LUDesign.apply(b.design, { force: true, silent: true }); } catch (e) {} }
     try { localStorage.removeItem('ludTryBackup'); } catch (e) {}
@@ -956,7 +964,7 @@
     };
     // Tanlovlar: hozir kiyilganlardan boshlanadi
     var sel = { theme: st.theme || null, nick: st.nick || null, frame: st.frame || null, badge: st.badge || null, title: st.title || null, effect: st.effect || null,
-      uistyle: st.uistyle || null, design: hasD ? window.LUDesign.current() : null, ufx: (Array.isArray(st.ufx) ? st.ufx : []).slice() };
+      uistyle: st.uistyle || null, skin: st.skin || null, design: hasD ? window.LUDesign.current() : null, ufx: (Array.isArray(st.ufx) ? st.ufx : []).slice() };
     var tab = startTab || 'colors', ctab = 'accent', slot = 'a';
     var ov = document.createElement('div'); ov.className = 'xs-ov';
     ov.innerHTML = '<div class="xs-box" role="dialog" aria-modal="true">' +
@@ -994,7 +1002,7 @@
         if (!same(D.frame.a, of.a)) out.push(['🖼 ' + L('Ramka rangi', 'Frame color', 'Цвет рамки'), STUDIO_PRICE.frame]);
         if (D.frame.b && !same(D.frame.b, of.b)) out.push(['🖼 ' + L('Ikkinchi halqa', 'Second ring', 'Второе кольцо'), STUDIO_PRICE.frame2]);
       }
-      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) {
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle', 'skin'].forEach(function (k) {
         var id = sel[k], it = id && item(id);
         if (it && !it.hidden && !own(id)) out.push([(it.icon || '') + ' ' + nm(it), pr(it), id]);
       });
@@ -1008,7 +1016,7 @@
     function total() { var c = 0, g = 0; lines().forEach(function (x) { c += x[1].coins || 0; g += x[1].gems || 0; }); return { coins: c, gems: g }; }
     // Hech narsa sotib olinmasa ham — kiyilgan narsalar o'zgardimi?
     function changed() {
-      var cur = { theme: st.theme || null, nick: st.nick || null, frame: st.frame || null, badge: st.badge || null, title: st.title || null, effect: st.effect || null, uistyle: st.uistyle || null };
+      var cur = { theme: st.theme || null, nick: st.nick || null, frame: st.frame || null, badge: st.badge || null, title: st.title || null, effect: st.effect || null, uistyle: st.uistyle || null, skin: st.skin || null };
       for (var k in cur) if ((sel[k] || null) !== cur[k]) return true;
       if (hasD && sel.design !== window.LUDesign.current()) return true;
       var a = (st.ufx || []).slice().sort().join(), b = sel.ufx.slice().sort().join();
@@ -1040,7 +1048,7 @@
     // ---------- Bo'limlar ----------
     var TABS = [['colors', '🎨', L('Ranglar', 'Colors', 'Цвета')], ['designs', '🌌', L('Fonlar', 'Backgrounds', 'Фоны')], ['ufx', '✨', L('Effektlar', 'Effects', 'Эффекты')],
       ['theme', '🎯', L('Mavzu', 'Theme', 'Тема')], ['frame', '🖼', L('Ramka', 'Frame', 'Рамка')], ['nick', '✏️', L('Nik', 'Nickname', 'Ник')], ['badge', '🏅', L('Nishon', 'Badge', 'Значок')],
-      ['title', '🏷', L('Unvon', 'Title', 'Титул')], ['effect', '🎉', L('Bajarilganda', 'On done', 'При выполнении')], ['uistyle', '🧩', L('Interfeys', 'UI', 'Интерфейс')]];
+      ['title', '🏷', L('Unvon', 'Title', 'Титул')], ['effect', '🎉', L('Bajarilganda', 'On done', 'При выполнении')], ['uistyle', '🧩', L('Interfeys', 'UI', 'Интерфейс')], ['skin', '🪐', L('To\'plam', 'Skin', 'Скин')]];
     function drawTabs() {
       $('.xs-tabs').innerHTML = TABS.filter(function (x) { return x[0] !== 'designs' || hasD; }).filter(function (x) { return x[0] !== 'ufx' || hasFx; }).map(function (x) {
         return '<button type="button" role="tab" aria-selected="' + (tab === x[0]) + '" class="' + (tab === x[0] ? 'on' : '') + '" data-xs-tab="' + x[0] + '"><span>' + x[1] + '</span>' + H(x[2]) + '</button>';
@@ -1066,6 +1074,7 @@
       if (it.kind === 'badge') return '<span class="xs-it-pv"><span class="x-shop-nk">' + n + ' ' + it.v + '</span></span>';
       if (it.kind === 'title') return '<span class="xs-it-pv"><span class="x-shop-tt">' + H(L(it.tv[0], it.tv[1], it.tv[2])) + '</span></span>';
       if (it.kind === 'uistyle') return '<span class="xs-it-pv"><span class="x-shop-ui uip-' + it.v + '"><i></i><i></i><i></i></span></span>';
+      if (it.kind === 'skin') return '<span class="xs-it-pv"><span class="x-skin-pv skp-' + it.v + '"><i></i><b></b><b></b><b></b></span></span>';
       if (it.kind === 'ufx') return '<span class="xs-it-pv">' + (hasFx ? window.LUFx.previewHtml(it.v) : it.icon) + '</span>';
       return '<span class="xs-it-pv">' + (it.icon || '') + '</span>';
     }
@@ -1100,7 +1109,7 @@
       else {
         var it = item(id); if (!it) return;
         if (it.kind === 'ufx') { var i = sel.ufx.indexOf(id); if (i === -1) sel.ufx.push(id); else sel.ufx.splice(i, 1); }
-        else if (it.kind === 'uistyle') sel.uistyle = sel.uistyle === id ? null : id;
+        else if (it.kind === 'uistyle' || it.kind === 'skin') sel[it.kind] = sel[it.kind] === id ? null : id;
         else {
           sel[it.kind] = sel[it.kind] === id ? null : id;
           if (it.kind === 'effect' && sel.effect && el) { var r = el.getBoundingClientRect(); try { fxBurst(it.v, r.left + r.width / 2, r.top + r.height / 2); } catch (e) {} }
@@ -1182,7 +1191,7 @@
       var bak = tryBackup(st, hasD);
       try { localStorage.setItem('ludTryBackup', JSON.stringify(bak)); } catch (e) {}
       window._ludTrying = true;
-      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { st[k] = sel[k] || null; });
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle', 'skin'].forEach(function (k) { st[k] = sel[k] || null; });
       st.ufx = sel.ufx.slice();
       st.custom = Object.assign({}, st.custom || {});
       if (sel.theme === 'c_custom' && D.accent) st.custom.accent = D.accent;
@@ -1221,7 +1230,7 @@
       if (sel.nick === 'n_custom' && D.nick && D.nick.a) { st.custom.nick = { a: D.nick.a, b: D.nick.b || null }; if (!own('n_custom')) st.owned.push('n_custom'); }
       if (sel.frame === 'f_custom' && D.frame && D.frame.a) { st.custom.frame = { a: D.frame.a, b: D.frame.b || null }; if (!own('f_custom')) st.owned.push('f_custom'); }
       // Kiyish
-      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { var id = sel[k]; st[k] = id && own(id) ? id : null; });
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle', 'skin'].forEach(function (k) { var id = sel[k]; st[k] = id && own(id) ? id : null; });
       st.ufx = sel.ufx.filter(own);
       save();
       if (hasD && sel.design && sel.design !== window.LUDesign.current()) { try { window.LUDesign.apply(sel.design); } catch (e) {} }
@@ -1417,7 +1426,13 @@
     if (th) { root.style.setProperty('--accent', th.v); root.style.setProperty('--accent-glow', th.v + '33'); root.setAttribute('data-x-theme', th.id); }
     else if (root.getAttribute('data-x-theme')) { root.style.removeProperty('--accent'); root.style.removeProperty('--accent-glow'); root.removeAttribute('data-x-theme'); }
     var ui = SHOP.find(function (x) { return x.id === st.uistyle && x.kind === 'uistyle'; });
-    if (ui && ui.v !== 'classic' && st.owned.indexOf(ui.id) !== -1) root.setAttribute('data-x-ui', ui.v); else root.removeAttribute('data-x-ui');
+    if (ui && ui.v !== 'classic' && (st.owned.indexOf(ui.id) !== -1 || window._ludTrying)) root.setAttribute('data-x-ui', ui.v); else root.removeAttribute('data-x-ui');
+    // 🪐 To'liq interfeys to'plami (sinov rejimida sotib olinmagan ham qo'llanadi)
+    var sk = SHOP.find(function (x) { return x.id === st.skin && x.kind === 'skin'; });
+    if (sk && (st.owned.indexOf(sk.id) !== -1 || window._ludTrying)) {
+      root.setAttribute('data-x-skin', sk.v);
+      if (!document.getElementById('x-skin-font')) { var lf = document.createElement('link'); lf.id = 'x-skin-font'; lf.rel = 'stylesheet'; lf.href = 'https://fonts.googleapis.com/css2?family=Geist:wght@300..800&display=swap'; document.head.appendChild(lf); }
+    } else root.removeAttribute('data-x-skin');
     var bd = SHOP.find(function (x) { return x.id === st.badge; });
     if (bd) root.setAttribute('data-x-badge', bd.v); else root.removeAttribute('data-x-badge');
     ['user-title', 'profile-name-big'].forEach(function (id) {
@@ -1441,7 +1456,7 @@
     var groups = [['frame', '🖼 ' + L('Avatar ramkalari', 'Avatar frames', 'Рамки аватара')], ['nick', '✏️ ' + L('Nik rangi', 'Nickname color', 'Цвет ника')],
       ['badge', '🏅 ' + L('Nik yonidagi nishon', 'Nickname badge', 'Значок у ника')], ['title', '🏷 ' + L('Unvonlar', 'Titles', 'Титулы')],
       ['theme', '🎨 ' + L('Ilova rangi', 'App color', 'Цвет приложения')], ['effect', '🎉 ' + L('Bajarilganda effekt', 'Task-done effect', 'Эффект выполнения')],
-      ['uistyle', '🧩 ' + L('Interfeys uslubi', 'UI style', 'Стиль интерфейса')]];
+      ['uistyle', '🧩 ' + L('Interfeys uslubi', 'UI style', 'Стиль интерфейса')], ['skin', '🪐 ' + L('Interfeys to\'plamlari (yangi)', 'Full UI skins (new)', 'Скины интерфейса (новое)')]];
     var h = '<div class="x-shop-bal"><span>🪙 <b>' + (S.coins || 0) + '</b></span><span>💎 <b>' + (S.gems || 0) + '</b></span></div>';
     h += '<button type="button" class="xs-open" data-studio-open="1"><span class="xs-open-sw" aria-hidden="true"></span><span class="xs-open-t"><b>🛍 ' + H(L('Do\'kon studiyasi', 'Shop studio', 'Студия магазина')) + ' <span class="xs-sale">−40%</span></b>' +
       '<span>' + H(L('Hammasi bitta oynada: ranglar, fonlar, effektlar, ramka, nik, nishon, unvon. Narx pastda jamlanadi, oxirida to\'laysiz', 'Everything in one window: colors, backgrounds, effects, frames, nicknames, badges, titles. Total adds up below, pay at the end', 'Всё в одном окне: цвета, фоны, эффекты, рамки, ники, значки, титулы. Итог внизу, оплата в конце')) + '</span></span><span class="xs-open-go">›</span></button>';
@@ -1482,11 +1497,12 @@
           : it.kind === 'effect' ? '<div class="x-shop-fx" data-fx="' + it.id + '">' + it.v + '</div>'
           : it.kind === 'badge' ? '<div class="x-shop-nk">' + H(getDisplayUsername() || 'Nick') + ' ' + it.v + '</div>'
           : it.kind === 'uistyle' ? '<div class="x-shop-ui uip-' + it.v + '"><i></i><i></i><i></i></div>'
+          : it.kind === 'skin' ? '<div class="x-skin-pv skp-' + it.v + '"><i></i><b></b><b></b><b></b></div>'
           : '<div class="x-shop-tt">' + L(it.tv[0], it.tv[1], it.tv[2]) + '</div>';
         h += '<button class="x-shop-it ' + (on ? 'on' : own ? 'own' : '') + '" data-shop="' + it.id + '" data-shop-item="' + it.id + '">' + prev +
           '<div class="x-shop-n">' + L(it.n[0], it.n[1], it.n[2]).replace(/^[^:]+:\s*/, '') + '</div>' +
           (it.d ? '<div class="x-shop-note">' + H(L(it.d[0], it.d[1], it.d[2])) + '</div>' : '') +
-          '<div class="x-shop-p">' + (it.kind === 'uistyle'
+          '<div class="x-shop-p">' + (it.kind === 'uistyle' || it.kind === 'skin'
             ? (on ? '✅ ' + L('Yoqilgan', 'On', 'Вкл') : own ? L('Yoqish', 'Turn on', 'Включить') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))
             : (on ? '✅ ' + L('Kiyilgan', 'Equipped', 'Надето') : own ? L('Kiyish', 'Equip', 'Надеть') : (giftLevelOf(it.id) ? '🎁 Lv ' + giftLevelOf(it.id) + ' · ' : '') + (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))) + '</div></button>';
       });
