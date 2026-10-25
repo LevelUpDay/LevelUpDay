@@ -1411,7 +1411,7 @@
       '<div class="fg-opt"><span class="fg-set-ic">⏸</span><span class="fg-set-t"><b>' + E(L('Kuniga pauzalar soni', 'Pauses per day', 'Пауз в день')) + '</b><small>' + E(L('Bugun: ', 'Today: ', 'Сегодня: ') + pausesToday()) + '</small></span>' + sel('data-fg-pausemax', +c.pauseMax || 0, [[0, '∞'], [1, '1'], [2, '2'], [3, '3'], [5, '5']]) + '</div>' +
       '<div class="fg-opt"><span class="fg-set-ic">⏳</span><span class="fg-set-t"><b>' + E(L('Blokni yumshatishdan oldin', 'Before loosening a block', 'Перед ослаблением блока')) + '</b><small>' + E(L('PIN koddan yumshoqroq to\'siq', 'A softer barrier than a PIN', 'Мягче, чем PIN')) + '</small></span>' + sel('data-fg-friction', c.friction || '', [['', L('Hech narsa', 'Nothing', 'Ничего')], ['wait', L('60 s kutish', 'Wait 60 s', 'Ждать 60 с')], ['type', L('Jumlani yozish', 'Type a sentence', 'Ввести фразу')]]) + '</div>' +
       '<div class="fg-opt"><span class="fg-set-ic">🤝</span><span class="fg-set-t"><b>' + E(L('Do\'st orqali qulflash', 'Friend lock', 'Замок через друга')) + '</b><small>' + E(lf ? L(lf.name + ' tasdiqlamaguncha limitni yumshatib bo\'lmaydi', 'Can\'t loosen limits until ' + lf.name + ' approves', 'Ослабить лимит можно только с одобрения ' + lf.name) : L('Limitni yumshatish uchun do\'stingiz tasdiqlashi kerak bo\'ladi', 'A friend has to approve loosening a limit', 'Ослабление лимита одобряет друг')) + '</small></span>' + sel('data-fg-lockfriend', c.lockFriend || '', [['', L('O\'chiq', 'Off', 'Выкл')]].concat(fr.map(function (f) { return [f.id, f.name]; }))) + '</div></div>';
-    return more + '<div class="fg-card fg-set"><div class="fg-opt fg-opt-col"><span class="fg-set-ic">⏳</span><span class="fg-set-t"><b>' + E(L('Limit ogohlantirishlari', 'Limit warnings', 'Предупреждения о лимите')) + '</b><small>' + E(L('Kunlik limitning qancha qismi ishlatilganda xabar berilsin (5 daqiqa qolganda — har doim)', 'When to notify as a daily limit gets used (5 minutes left — always)', 'Когда предупреждать по мере расхода лимита (за 5 минут — всегда)')) + '</small>' +
+    return lockCardHtml() + more + '<div class="fg-card fg-set"><div class="fg-opt fg-opt-col"><span class="fg-set-ic">⏳</span><span class="fg-set-t"><b>' + E(L('Limit ogohlantirishlari', 'Limit warnings', 'Предупреждения о лимите')) + '</b><small>' + E(L('Kunlik limitning qancha qismi ishlatilganda xabar berilsin (5 daqiqa qolganda — har doim)', 'When to notify as a daily limit gets used (5 minutes left — always)', 'Когда предупреждать по мере расхода лимита (за 5 минут — всегда)')) + '</small>' +
       '<span class="fg-chips">' + [50, 75, 80, 90].map(function (p) { return '<button type="button" class="' + (wa.indexOf(p) !== -1 ? 'on' : '') + '" data-fg-warnat="' + p + '">' + p + '%</button>'; }).join('') + '</span></span></div>' +
       '<div class="fg-opt"><span class="fg-set-ic">🔑</span><span class="fg-set-t"><b>' + E(L('PIN-kod', 'PIN code', 'PIN-код')) + '</b><small>' + E(c.pin ? L('Yoqilgan: limitni o\'chirish, yumshatish, pauza va fokusni to\'xtatish uchun PIN so\'raladi', 'On: turning off or loosening limits, pausing and stopping focus need the PIN', 'Включён: для отключения/ослабления лимитов, паузы и остановки фокуса нужен PIN') : L('Limitlarni o\'zingiz oson o\'chirib qo\'ymasligingiz uchun — PIN ni ishonchli odamga bering', 'So you can\'t switch limits off on a whim — give the PIN to someone you trust', 'Чтобы не отключать лимиты по прихоти — доверьте PIN близкому человеку')) + '</small></span>' +
       '<button type="button" class="fg-btn sm' + (c.pin ? ' ghost' : '') + '" data-fg-pin>' + E(c.pin ? L('O\'zgartirish', 'Change', 'Изменить') : L('O\'rnatish', 'Set PIN', 'Установить')) + '</button></div></div>';
@@ -2037,6 +2037,186 @@
     var h = await crypto.subtle.digest('SHA-256', b);
     return Array.prototype.map.call(new Uint8Array(h), function (x) { return x.toString(16).padStart(2, '0'); }).join('');
   }
+  // =========================================================
+  // 🔒 FOCUSGATE PAROLI — yangi qurilmada bir marta so'raladi. Qayta so'raladi: uzoq vaqt (ttl kun)
+  // kirilmasa, akkauntdan chiqib qayta kirilsa yoki parol o'zgartirilsa. Server (fg_config/fg_devices
+  // triggerlari) ham ishonchsiz qurilmadan o'zgartirishni rad etadi — x-fg-dev sarlavhasi (script.js _sbFetch).
+  // =========================================================
+  function lkKey(k) { return 'ludFg' + k + '_' + (S.cloudUserId || ''); }
+  function devTok(create) {
+    var t = null; try { t = localStorage.getItem(lkKey('Dev')); } catch (e) {}
+    if (!t && create) {
+      var a = new Uint8Array(24); crypto.getRandomValues(a);
+      t = Array.prototype.map.call(a, function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+      try { localStorage.setItem(lkKey('Dev'), t); } catch (e) {}
+    }
+    return t || '';
+  }
+  function devLabel() {
+    var ua = navigator.userAgent, b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+    var os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+    return b + (os ? ' · ' + os : '');
+  }
+  FG.lock = null;
+  var _lkBusy = false;
+  async function lockCheck() {
+    if (!sbOk() || _lkBusy) return;
+    _lkBusy = true;
+    try {
+      var r = await supabase.rpc('fg_lock_status', { p_token: devTok(false) });
+      if (r && !r.error && r.data) {
+        var was = FG.lock && FG.lock.set && !FG.lock.ok;
+        FG.lock = r.data; FG.lock._uid = S.cloudUserId;
+        try { localStorage.setItem(lkKey('Lock'), JSON.stringify({ set: !!r.data.set, ok: !!r.data.ok, ttl: r.data.ttl })); } catch (e) {}
+        if (was !== (FG.lock.set && !FG.lock.ok)) rerender();
+      }
+    } catch (e) {}
+    _lkBusy = false;
+  }
+  function locked() {
+    if (!sbOk()) return false;
+    if (!FG.lock || FG.lock._uid !== S.cloudUserId) { try { FG.lock = JSON.parse(localStorage.getItem(lkKey('Lock')) || 'null'); } catch (e) { FG.lock = null; } if (FG.lock) FG.lock._uid = S.cloudUserId; }
+    return !!(FG.lock && FG.lock.set && !FG.lock.ok);
+  }
+  function lockScreen() {
+    var w = FG.lock && FG.lock.locked_until && new Date(FG.lock.locked_until) > new Date();
+    return '<div class="fg"><div class="fg-card fg-lockscr"><span class="fg-lock-ic">🔒</span><h3>' + E(L('Focusgate himoyalangan', 'Focusgate is protected', 'Focusgate защищён')) + '</h3>' +
+      '<p class="fg-p">' + E(L('Bu qurilmadan birinchi marta kiryapsiz (yoki uzoq vaqt kirilmagan). Davom etish uchun Focusgate parolini kiriting — keyin shu qurilmada boshqa so\'ralmaydi.', 'This device is new here (or hasn\'t been used for a while). Enter the Focusgate password — it won\'t be asked again on this device.', 'Это новое устройство (или давно не использовалось). Введите пароль Focusgate — больше на этом устройстве его не спросят.')) + '</p>' +
+      '<input class="fg-in" type="password" autocomplete="current-password" data-fglk-in placeholder="' + E(L('Parol', 'Password', 'Пароль')) + '"' + (w ? ' disabled' : '') + '>' +
+      '<div class="fg-lock-err" data-fglk-err>' + (w ? E(L('Ko\'p xato urinish — 15 daqiqadan keyin qayta urining', 'Too many attempts — try again in 15 minutes', 'Слишком много попыток — попробуйте через 15 минут')) : '') + '</div>' +
+      '<button type="button" class="fg-btn" data-fglk="unlock"' + (w ? ' disabled' : '') + '>🔓 ' + E(L('Ochish', 'Unlock', 'Открыть')) + '</button>' +
+      '<button type="button" class="fg-link" data-fglk="forgot">' + E(L('Parolni unutdingizmi?', 'Forgot the password?', 'Забыли пароль?')) + '</button></div></div>';
+  }
+  async function lockUnlock(btn) {
+    var inp = document.querySelector('[data-fglk-in]'), err = document.querySelector('[data-fglk-err]');
+    var v = inp ? inp.value : ''; if (!v) { if (inp) inp.focus(); return; }
+    btn.disabled = true;
+    var r = await supabase.rpc('fg_lock_unlock', { p_pass: v, p_token: devTok(true), p_label: devLabel() });
+    btn.disabled = false;
+    var d = (r && r.data) || {};
+    if (d.ok) { FG.lock = { set: true, ok: true, _uid: S.cloudUserId }; try { localStorage.setItem(lkKey('Lock'), JSON.stringify(FG.lock)); } catch (e) {} toast('🔓 ' + L('Qurilma ishonchli deb belgilandi', 'This device is now trusted', 'Устройство теперь доверенное')); load(true); rerender(); return; }
+    if (err) err.textContent = d.error === 'wait' ? L('Ko\'p xato urinish — 15 daqiqadan keyin qayta urining', 'Too many attempts — try again in 15 minutes', 'Слишком много попыток — попробуйте через 15 минут')
+      : L('Parol noto\'g\'ri', 'Wrong password', 'Неверный пароль') + (d.left != null ? ' · ' + L('qolgan urinish: ', 'attempts left: ', 'осталось попыток: ') + d.left : '');
+    if (inp) { inp.value = ''; inp.focus(); }
+    if (d.error === 'wait') lockCheck();
+  }
+  // Parolni unutganda: emailga kirish kodi/havola → yangi kirish (15 daqiqa) → yangi parol
+  async function lockForgot() {
+    var u = null; try { u = (await supabase.auth.getUser()).data.user; } catch (e) {}
+    var email = u && u.email;
+    if (!email) { toast('⚠️ ' + L('Akkauntda email yo\'q — admin bilan bog\'laning', 'No email on the account — contact support', 'У аккаунта нет email — обратитесь в поддержку')); return; }
+    var o = openSheet('<h3>📧 ' + E(L('Parolni tiklash', 'Reset the password', 'Сброс пароля')) + '</h3><p class="fg-p">' + E(L('Kod ' + email + ' manziliga yuboriladi. Xatdagi kodni kiriting yoki havolani shu brauzerda oching.', 'We\'ll email a code to ' + email + '. Enter it, or open the link in this browser.', 'Код придёт на ' + email + '. Введите его или откройте ссылку в этом браузере.')) + '</p>' +
+      '<div class="fg-acts"><button type="button" class="fg-btn" data-fglk="send">' + E(L('Kod yuborish', 'Send code', 'Отправить код')) + '</button></div>' +
+      '<div data-fglk-step2 hidden><input class="fg-in" inputmode="numeric" maxlength="10" data-fglk-code placeholder="' + E(L('Emaildagi kod', 'Code from email', 'Код из письма')) + '"><div class="fg-acts"><button type="button" class="fg-btn" data-fglk="verify">' + E(L('Tasdiqlash', 'Verify', 'Подтвердить')) + '</button></div></div>');
+    o.querySelector('[data-fglk="send"]').onclick = async function () {
+      this.disabled = true;
+      try { localStorage.setItem('ludFgReset', String(Date.now())); } catch (e) {}
+      var r = await supabase.auth.signInWithOtp({ email: email, options: { shouldCreateUser: false, emailRedirectTo: location.origin + location.pathname } });
+      this.disabled = false;
+      if (r.error) { toast('⚠️ ' + r.error.message); return; }
+      o.querySelector('[data-fglk-step2]').hidden = false; toast('📧 ' + L('Yuborildi', 'Sent', 'Отправлено'));
+    };
+    o.querySelector('[data-fglk="verify"]').onclick = async function () {
+      var code = (o.querySelector('[data-fglk-code]').value || '').trim(); if (!code) return;
+      this.disabled = true;
+      var r = await supabase.auth.verifyOtp({ email: email, token: code, type: 'email' });
+      this.disabled = false;
+      if (r.error) { toast('⚠️ ' + L('Kod noto\'g\'ri yoki eskirgan', 'Wrong or expired code', 'Неверный или устаревший код')); return; }
+      closeSheet(); lockNewPass(true);
+    };
+  }
+  // Yangi parol (reset — email orqali qayta kirilgandan keyin; aks holda — o'rnatish/o'zgartirish)
+  function lockNewPass(reset) {
+    var has = FG.lock && FG.lock.set;
+    var o = openSheet('<h3>🔒 ' + E(reset ? L('Yangi parol', 'New password', 'Новый пароль') : has ? L('Parolni o\'zgartirish', 'Change the password', 'Изменить пароль') : L('Focusgate paroli', 'Focusgate password', 'Пароль Focusgate')) + '</h3>' +
+      '<p class="fg-p">' + E(L('Yangi qurilmadan Focusgate\'ni ochish va boshqarish uchun shu parol so\'raladi. Shu qurilmada so\'ralmaydi.', 'Asked when Focusgate is opened on a new device. Not asked on this device.', 'Спрашивается на новых устройствах. На этом — нет.')) + '</p>' +
+      (has && !reset ? '<input class="fg-in" type="password" autocomplete="current-password" data-fglk-old placeholder="' + E(L('Joriy parol', 'Current password', 'Текущий пароль')) + '">' : '') +
+      '<input class="fg-in" type="password" autocomplete="new-password" data-fglk-new placeholder="' + E(L('Yangi parol (kamida 4 belgi)', 'New password (4+ characters)', 'Новый пароль (от 4 символов)')) + '">' +
+      '<input class="fg-in" type="password" autocomplete="new-password" data-fglk-new2 placeholder="' + E(L('Yana bir marta', 'Repeat', 'Ещё раз')) + '">' +
+      '<div class="fg-lock-err" data-fglk-err2></div>' +
+      '<div class="fg-acts">' + (has && !reset ? '<button type="button" class="fg-btn ghost danger" data-fglk="off">' + E(L('Parolni olib tashlash', 'Remove password', 'Убрать пароль')) + '</button>' : '<button type="button" class="fg-btn ghost" data-fg-close>' + E(L('Bekor qilish', 'Cancel', 'Отмена')) + '</button>') +
+      '<button type="button" class="fg-btn" data-fglk="save">' + E(L('Saqlash', 'Save', 'Сохранить')) + '</button></div>');
+    var err = o.querySelector('[data-fglk-err2]');
+    var done = function (d, msg) {
+      if (!d || !d.ok) { err.textContent = d && d.error === 'bad' ? L('Joriy parol noto\'g\'ri', 'Current password is wrong', 'Текущий пароль неверный') : d && d.error === 'short' ? L('Kamida 4 belgi', 'At least 4 characters', 'Минимум 4 символа') : d && d.error === 'reauth' ? L('Avval emaildagi kod bilan tasdiqlang', 'Verify with the email code first', 'Сначала подтвердите кодом из письма') : L('Xatolik', 'Error', 'Ошибка'); return; }
+      try { localStorage.removeItem('ludFgReset'); } catch (e) {}
+      closeSheet(); toast(msg); lockCheck().then(function () { load(true); rerender(); });
+    };
+    o.querySelector('[data-fglk="save"]').onclick = async function () {
+      var a = o.querySelector('[data-fglk-new]').value, b = o.querySelector('[data-fglk-new2]').value, old = o.querySelector('[data-fglk-old]');
+      if (a.length < 4) { err.textContent = L('Kamida 4 belgi', 'At least 4 characters', 'Минимум 4 символа'); return; }
+      if (a !== b) { err.textContent = L('Parollar mos emas', 'Passwords don\'t match', 'Пароли не совпадают'); return; }
+      this.disabled = true;
+      var r = reset ? await supabase.rpc('fg_lock_reset', { p_new: a, p_token: devTok(true), p_label: devLabel() })
+        : await supabase.rpc('fg_lock_set', { p_old: old ? old.value : null, p_new: a, p_token: devTok(true), p_label: devLabel(), p_ttl: (FG.lock && FG.lock.ttl) || 30 });
+      this.disabled = false;
+      done(r && r.data, '🔒 ' + L('Parol saqlandi. Boshqa qurilmalarda qayta so\'raladi.', 'Password saved. Other devices will be asked again.', 'Пароль сохранён. На других устройствах спросят снова.'));
+    };
+    var off = o.querySelector('[data-fglk="off"]');
+    if (off) off.onclick = async function () {
+      var old = o.querySelector('[data-fglk-old]');
+      this.disabled = true;
+      var r = await supabase.rpc('fg_lock_set', { p_old: old ? old.value : null, p_new: '', p_token: devTok(false), p_label: devLabel(), p_ttl: 30 });
+      this.disabled = false;
+      done(r && r.data, '🔓 ' + L('Parol olib tashlandi', 'Password removed', 'Пароль убран'));
+    };
+  }
+  var _trusted = null;
+  function lockCardHtml() {
+    if (!sbOk()) return '';
+    var on = !!(FG.lock && FG.lock.set), ttl = (FG.lock && FG.lock.ttl) || 30;
+    var h = '<div class="fg-card fg-set"><div class="fg-opt"><span class="fg-set-ic">🔒</span><span class="fg-set-t"><b>' + E(L('Focusgate paroli', 'Focusgate password', 'Пароль Focusgate')) + '</b><small>' +
+      E(on ? L('Yoqilgan: yangi qurilmada bir marta so\'raladi', 'On: asked once on each new device', 'Включён: спрашивается один раз на новом устройстве') : L('Boshqa qurilmadan akkauntingizga kirib Focusgate\'ni o\'zgartira olmasliklari uchun', 'So nobody can change Focusgate from another device signed in to your account', 'Чтобы с другого устройства нельзя было менять Focusgate')) + '</small></span>' +
+      '<button type="button" class="fg-btn sm' + (on ? ' ghost' : '') + '" data-fglk="set">' + E(on ? L('O\'zgartirish', 'Change', 'Изменить') : L('O\'rnatish', 'Set', 'Установить')) + '</button></div>';
+    if (on) {
+      h += '<div class="fg-opt"><span class="fg-set-ic">⏳</span><span class="fg-set-t"><b>' + E(L('Qayta so\'rash', 'Ask again after', 'Спросить снова через')) + '</b><small>' + E(L('Qurilmadan shuncha kun kirilmasa', 'this many days without use', 'столько дней без входа')) + '</small></span>' +
+        '<select class="fg-sel" data-fglk-ttl>' + [7, 14, 30, 90].map(function (d) { return '<option value="' + d + '"' + (d === ttl ? ' selected' : '') + '>' + d + ' ' + E(L('kun', 'days', 'дн.')) + '</option>'; }).join('') + '</select></div>';
+      var me = devTok(false), list = (_trusted || []).filter(function (t) { return !t.revoked && new Date(t.last_seen) > new Date(Date.now() - ttl * 864e5); });
+      h += '<div class="fg-opt fg-opt-col"><span class="fg-set-t"><b>💻 ' + E(L('Ishonchli qurilmalar', 'Trusted devices', 'Доверенные устройства')) + '</b></span><div class="fg-trusted">' +
+        (_trusted ? (list.length ? list.map(function (t) { return '<div class="fg-tr"><span>' + E(t.label || '—') + (t._me ? ' <em>' + E(L('shu qurilma', 'this device', 'это устройство')) + '</em>' : '') + '<small>' + E(L('oxirgi: ', 'last: ', 'посл.: ') + new Date(t.last_seen).toLocaleDateString()) + '</small></span>' + (t._me ? '' : '<button type="button" class="fg-btn sm ghost" data-fglk="rev" data-h="' + E(t.token_hash) + '">' + E(L('Chiqarish', 'Remove', 'Убрать')) + '</button>') + '</div>'; }).join('') : '<small>—</small>') : '<small>⏳</small>') +
+        (list.length > 1 ? '<button type="button" class="fg-btn sm ghost danger" data-fglk="revall">' + E(L('Boshqa barcha qurilmalardan chiqarish', 'Remove all other devices', 'Убрать все остальные')) + '</button>' : '') + '</div></div>';
+      if (!_trusted) loadTrusted(me);
+    }
+    return h + '</div>';
+  }
+  async function loadTrusted() {
+    var me = devTok(false), mh = '';
+    if (me) { var b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(me)); mh = Array.prototype.map.call(new Uint8Array(b), function (x) { return x.toString(16).padStart(2, '0'); }).join(''); }
+    var r = await supabase.from('fg_trusted').select('token_hash,label,last_seen,revoked').order('last_seen', { ascending: false });
+    _trusted = ((r && r.data) || []).map(function (t) { t._me = t.token_hash === mh; return t; });
+    rerender();
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-fglk]'); if (!b) return;
+    var a = b.getAttribute('data-fglk');
+    if (a === 'unlock') lockUnlock(b);
+    else if (a === 'forgot') lockForgot();
+    else if (a === 'set') lockNewPass(false);
+    else if (a === 'rev' || a === 'revall') {
+      if (!confirm(L('Bu qurilmada Focusgate paroli qayta so\'raladi. Davom etilsinmi?', 'That device will be asked for the password again. Continue?', 'На том устройстве снова спросят пароль. Продолжить?'))) return;
+      supabase.rpc('fg_trusted_revoke', { p_token: devTok(false), p_hash: a === 'revall' ? '*' : b.getAttribute('data-h') }).then(function () { _trusted = null; rerender(); });
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var s2 = e.target.closest && e.target.closest('[data-fglk-ttl]'); if (!s2) return;
+    var n = +s2.value || 30;
+    supabase.rpc('fg_lock_ttl', { p_token: devTok(false), p_ttl: n }).then(function (r) { if (r && r.data && r.data.ok) { FG.lock.ttl = n; toast('💾 ' + L('Saqlandi', 'Saved', 'Сохранено')); } });
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target && e.target.matches && e.target.matches('[data-fglk-in]')) { var b = document.querySelector('[data-fglk="unlock"]'); if (b) lockUnlock(b); } });
+  // Akkauntdan chiqilganda — bu qurilma ishonchdan chiqadi (qayta kirilsa parol so'raladi)
+  try {
+    supabase.auth.onAuthStateChange(function (ev) {
+      if (ev !== 'SIGNED_OUT') return;
+      try { Object.keys(localStorage).forEach(function (k) { if (/^ludFg(Dev|Lock)_/.test(k)) localStorage.removeItem(k); }); } catch (e) {}
+      FG.lock = null; _trusted = null;
+    });
+  } catch (e) {}
+  // Email havolasi orqali qaytilganda — yangi parol oynasi
+  setTimeout(function () {
+    var t = 0; try { t = +localStorage.getItem('ludFgReset') || 0; } catch (e) {}
+    if (t && Date.now() - t < 15 * 60000 && sbOk()) { try { localStorage.removeItem('ludFgReset'); } catch (e) {} lockNewPass(true); }
+  }, 4000);
+
   function friendsOf() { try { return ((S.friends && S.friends.list) || []).filter(function (f) { return f && f.id; }).map(function (f) { return { id: f.id, name: f.name || f.username || 'Friend' }; }); } catch (e) { return []; } }
   // 🔐 Yumshatishdan oldin: do'st tasdig'i → qiyinlashtirish (kutish/jumla) → PIN. Bitta tasdiq 2 daqiqa amal qiladi.
   function guard(fn) {
@@ -2757,6 +2937,8 @@
     loadLocal();
     var v = document.getElementById('view-blocker'); if (!v) return;
     if (!FG.loaded && sbOk()) { load(); }
+    if (sbOk() && Date.now() - (FG.lockAt || 0) > 60000) { FG.lockAt = Date.now(); lockCheck(); }
+    if (locked()) { v.innerHTML = lockScreen(); var li = v.querySelector('[data-fglk-in]'); if (li && !li.disabled) setTimeout(function () { try { li.focus(); } catch (e) {} }, 50); return; }
     var page = UI.tab === 'limits' ? pageLimits() : UI.tab === 'block' ? pageBlock() : UI.tab === 'settings' ? pageSettings() : UI.tab === 'compete' ? pageCompete() : pageToday();
     // 👪 Ota-ona rejimi: Limits / Block / Settings — PIN bilan ochiladi
     if (real() && cfg().parent && pinOn() && Date.now() > (FG.pinOk || 0) && (UI.tab === 'limits' || UI.tab === 'block' || UI.tab === 'settings')) page = parentLockHtml();
