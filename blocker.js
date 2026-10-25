@@ -1430,7 +1430,7 @@
       sec('📱 ' + E(L('Qurilmalar', 'Devices', 'Устройства')), devHealthHtml() + devicesHtml() + (real() ? '<div class="fg-card">' + codeFormHtml() + '</div>' : '') + getCards()) +
       '<div class="fg-hint">⚙️ ' + E(L('Bu sozlamalar Profil → Sozlamalar → Focusgate bo\'limida ham bor.', 'These settings also live in Profile → Settings → Focusgate.', 'Эти настройки есть и в Профиль → Настройки → Focusgate.')) + '</div>';
   }
-  var EXT_VERSION = '0.6.6'; // downloads/version.json → ext
+  var EXT_VERSION = '0.6.7'; // downloads/version.json → ext
   function selHtml(attr, val, opts) { return '<select class="fg-sel" ' + attr + '>' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + E(o[1]) + '</option>'; }).join('') + '</select>'; }
   // 🌙 Tungi jim rejim (cfg.quiet; cfg.tzOff — server Telegram uchun)
   function quietRow() {
@@ -1894,12 +1894,14 @@
   // ---------- 🧩 Sayt ichida bloklash (kengaytma) ----------
   // [sayt, nom, rang, [[sozlama, nom, ikonka]], bo'limlar]
   var INSITE = [
-    ['site:youtube', 'YouTube', '#FF0033', [['yt_shorts', ["Shorts'ni bloklash", 'Block Shorts', 'Блокировать Shorts'], '📹'], ['yt_search', ['Video qidiruvni bloklash', 'Block video search', 'Блокировать поиск видео'], '🔍'], ['yt_pip', ['Picture-in-picture rejimini bloklash', 'Block picture-in-picture mode', 'Блокировать режим «картинка в картинке»'], '🖼'], ['yt_comments', ['Izohlarni yashirish', 'Hide comments', 'Скрыть комментарии'], '💬'], ['yt_home', ['Tavsiyalarni yashirish', 'Hide recommendations', 'Скрыть рекомендации'], '🏠']]],
-    ['site:instagram', 'Instagram', '#E1306C', [['ig_reels', ["Reels'ni bloklash", 'Block Reels', 'Блокировать Reels'], '🎞'], ['ig_explore', ["Explore'ni bloklash", 'Block Explore', 'Блокировать «Интересное»'], '🧭'], ['ig_stories', ["Stories'ni bloklash", 'Block Stories', 'Блокировать Stories'], '⭕']]],
-    ['site:facebook', 'Facebook', '#1877F2', [['fb_reels', ['Reels va Watch\'ni bloklash', 'Block Reels & Watch', 'Блокировать Reels и Watch'], '🎞'], ['fb_stories', ["Stories'ni bloklash", 'Block Stories', 'Блокировать Stories'], '⭕']]],
-    ['site:tiktok', 'TikTok', '#25F4EE', [['tt_fyp', ['"For You" lentasini bloklash', 'Block the For You feed', 'Блокировать ленту «Для вас»'], '🔁'], ['tt_comments', ['Izohlarni yashirish', 'Hide comments', 'Скрыть комментарии'], '💬']]],
-    ['site:x', 'X (Twitter)', '#111111', [['x_explore', ["Explore'ni bloklash", 'Block Explore', 'Блокировать «Обзор»'], '🧭'], ['x_trends', ['Trendlarni yashirish', 'Hide trends', 'Скрыть тренды'], '📈']]],
-    ['site:reddit', 'Reddit', '#FF4500', [['rd_popular', ['r/popular va r/all ni bloklash', 'Block r/popular and r/all', 'Блокировать r/popular и r/all'], '🔥']]]
+    ['site:youtube', 'YouTube', '#FF0033', [['yt_shorts', ["Shorts'ni bloklash", 'Block Shorts', 'Блокировать Shorts'], '📹'], ['yt_search', ['Video qidiruvni bloklash', 'Block video search', 'Блокировать поиск видео'], '🔍'], ['yt_pip', ['Picture-in-picture rejimini bloklash', 'Block picture-in-picture mode', 'Блокировать режим «картинка в картинке»'], '🖼'], ['yt_comments', ['Izohlarni yashirish', 'Hide comments', 'Скрыть комментарии'], '💬'], ['yt_home', ['Tavsiyalarni yashirish', 'Hide recommendations', 'Скрыть рекомендации'], '🏠'], ['yt_endscreen', ['Avtomatik keyingi video va yakuniy tavsiyalarni o\'chirish', 'Disable autoplay & end-screen suggestions', 'Отключить автовоспроизведение и подсказки в конце'], '⏭'], ['yt_trending', ['Trendlar / Explore\'ni bloklash', 'Block Trending / Explore', 'Блокировать «В тренде»'], '📈'], ['yt_chat', ['Jonli efir chatini yashirish', 'Hide live chat', 'Скрыть чат трансляций'], '🗨'], ['yt_notif', ['Bildirishnomalar qo\'ng\'irog\'ini yashirish', 'Hide notifications bell', 'Скрыть колокольчик уведомлений'], '🔔']]],
+    ['site:instagram', 'Instagram', '#E1306C', [['ig_reels', ["Reels'ni bloklash", 'Block Reels', 'Блокировать Reels'], '🎞'], ['ig_explore', ["Explore'ni bloklash", 'Block Explore', 'Блокировать «Интересное»'], '🧭'], ['ig_stories', ["Stories'ni bloklash", 'Block Stories', 'Блокировать Stories'], '⭕'], ['ig_direct', ['Direct (xabarlar)ni bloklash', 'Block Direct messages', 'Блокировать Direct'], '✉️'], ['ig_search', ['Qidiruvni yashirish', 'Hide search', 'Скрыть поиск'], '🔍'], ['ig_feed', ['Bosh lentani yashirish', 'Hide home feed', 'Скрыть ленту'], '📰']]],
+    ['site:facebook', 'Facebook', '#1877F2', [['fb_reels', ['Reels va Watch\'ni bloklash', 'Block Reels & Watch', 'Блокировать Reels и Watch'], '🎞'], ['fb_stories', ["Stories'ni bloklash", 'Block Stories', 'Блокировать Stories'], '⭕'], ['fb_feed', ['Bosh lentani yashirish', 'Hide news feed', 'Скрыть ленту новостей'], '📰'], ['fb_market', ['Marketplace\'ni bloklash', 'Block Marketplace', 'Блокировать Marketplace'], '🛒']]],
+    ['site:tiktok', 'TikTok', '#25F4EE', [['tt_fyp', ['"For You" lentasini bloklash', 'Block the For You feed', 'Блокировать ленту «Для вас»'], '🔁'], ['tt_comments', ['Izohlarni yashirish', 'Hide comments', 'Скрыть комментарии'], '💬'], ['tt_search', ['Qidiruvni bloklash', 'Block search', 'Блокировать поиск'], '🔍'], ['tt_live', ['LIVE\'ni bloklash', 'Block LIVE', 'Блокировать LIVE'], '🔴']]],
+    ['site:x', 'X (Twitter)', '#111111', [['x_explore', ["Explore'ni bloklash", 'Block Explore', 'Блокировать «Обзор»'], '🧭'], ['x_trends', ['Trendlarni yashirish', 'Hide trends', 'Скрыть тренды'], '📈'], ['x_foryou', ['"For you" lentasini yashirish (Following ochiladi)', 'Hide the For you feed (opens Following)', 'Скрыть «Для вас» (откроется «Подписки»)'], '🔁'], ['x_notifs', ['Bildirishnomalarni yashirish', 'Hide notifications', 'Скрыть уведомления'], '🔔']]],
+    ['site:reddit', 'Reddit', '#FF4500', [['rd_popular', ['r/popular va r/all ni bloklash', 'Block r/popular and r/all', 'Блокировать r/popular и r/all'], '🔥'], ['rd_home', ['Bosh lentani yashirish', 'Hide home feed', 'Скрыть главную ленту'], '📰'], ['rd_comments', ['Izohlarni yashirish', 'Hide comments', 'Скрыть комментарии'], '💬']]],
+    ['site:linkedin.com', 'LinkedIn', '#0A66C2', [['li_feed', ['Lentani yashirish', 'Hide the feed', 'Скрыть ленту'], '📰'], ['li_news', ['Yangiliklar blokini yashirish', 'Hide LinkedIn News', 'Скрыть новости'], '🗞']]],
+    ['site:twitch', 'Twitch', '#9146FF', [['tw_recs', ['Tavsiyalar va katalogni yashirish', 'Hide recommendations & browse', 'Скрыть рекомендации и каталог'], '✨'], ['tw_chat', ['Chatni yashirish', 'Hide chat', 'Скрыть чат'], '💬']]]
   ];
   // Kunlik limit qo'yish mumkin bo'lgan sozlamalar → bo'lim (kengaytma: insite.js LIMSEC bilan bir xil)
   var INSITE_SEC = { yt_shorts: 'shorts', ig_reels: 'reels', fb_reels: 'reels', tt_fyp: 'fyp' };
@@ -1935,7 +1937,7 @@
     });
     return h;
   }
-  var EXT_URL = 'downloads/focusgate-extension.zip?v=' + AGENT_VERSION;
+  var EXT_URL = 'downloads/focusgate-extension.zip?v=' + EXT_VERSION;
   function openExtInstall() {
     var edge = /Edg\//.test(navigator.userAgent);
     var page = edge ? 'edge://extensions' : 'chrome://extensions';
