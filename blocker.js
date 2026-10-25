@@ -972,7 +972,7 @@
         '<span class="fg-prog"><i style="width:' + (v / total * 100).toFixed(1) + '%"></i></span></span>' +
         '<span class="fg-row-r"><b>' + E(metricFmt(v)) + '</b><small>' + (v / total * 100).toFixed(1) + '%' + (opens ? '' : (a.o ? ' · 🔁' + a.o : '')) + '</small></span>' + quickActs(a.id) + '</div>';
     });
-    return h + '</div>' + historyCard() + '<button type="button" class="fg-allbtn" data-fg-csv><span>📄</span><b>' + E(L('CSV ga yuklab olish (30 kun)', 'Download CSV (30 days)', 'Скачать CSV (30 дней)')) + '</b><em>.csv</em><i>›</i></button>' + allAppsBtn();
+    return h + '</div>' + historyCard() + allAppsBtn();
   }
 
   // 🗂 Kategoriyalar bo'yicha taqsimot (bosilsa — filtr)
@@ -3043,7 +3043,7 @@
   }
   window.xRenderBlocker = function () { render(); if (sbOk()) load(); };
   window.xOpenBlocker = function (tab) { if (tab) UI.tab = tab; try { showTab('blocker'); } catch (e) { render(); } };
-  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, openChallenge: openChallengeSheet, leaveChallenge: chLeave, loadSocial: loadSocial, chWinner: chWinner, chTitle: chTitle, chValTxt: chValTxt, chMetric: chMetric, pickApps: pickApps, resetStats: resetStats, rewardLinked: rewardLinked, rewardHistory: rewardHistory, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
+  window.LUFocusgate = { renderEmbeds: function () { renderEmbeds(); if (sbOk()) load(); }, open: function (tab) { window.xOpenBlocker(tab); }, reload: function () { return load(true); }, renderTogether: renderTogether, exportCsv: function () { if ((!FG.rows || !FG.rows.length) && sbOk()) return Promise.resolve(load(true)).then(exportCsv); exportCsv(); }, openChallenge: openChallengeSheet, leaveChallenge: chLeave, loadSocial: loadSocial, chWinner: chWinner, chTitle: chTitle, chValTxt: chValTxt, chMetric: chMetric, pickApps: pickApps, resetStats: resetStats, rewardLinked: rewardLinked, rewardHistory: rewardHistory, rewardSync: function () { try { rewardSync(); } catch (e) {} }, version: AGENT_VERSION, downloads: DOWNLOADS_ON, _state: FG, _soc: SOC };
   function boot() { try { renderEmbeds(); } catch (e) {} try { pairFromHash(); } catch (e) {} setTimeout(function () { if (sbOk()) load(true); }, 2500); }
   if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })();

@@ -4952,7 +4952,7 @@
   function shareMenu(btn) {
     var old = document.querySelector('.ib-share-m'); if (old) { old.remove(); return; }
     var m = document.createElement('div'); m.className = 'ib-share-m';
-    m.innerHTML = '<button type="button" data-s="text">📝 ' + H(L('Matn sifatida ulashish', 'Share as text', 'Поделиться текстом')) + '</button><button type="button" data-s="csv">📊 ' + H(L('CSV yuklab olish', 'Download CSV', 'Скачать CSV')) + '</button>';
+    m.innerHTML = '<button type="button" data-s="text">📝 ' + H(L('Matn sifatida ulashish', 'Share as text', 'Поделиться текстом')) + '</button>';
     document.body.appendChild(m);
     var rc = btn.getBoundingClientRect(); m.style.top = Math.round(rc.bottom + 6) + 'px'; m.style.left = Math.round(Math.max(8, Math.min(rc.left, window.innerWidth - m.offsetWidth - 8))) + 'px';
     var off = function (e) { if (!m.contains(e.target) && e.target !== btn) { m.remove(); document.removeEventListener('click', off, true); } };
@@ -4968,7 +4968,14 @@
         var done = function () { toast('📋 ' + L('Nusxalandi', 'Copied', 'Скопировано')); };
         if (navigator.share) navigator.share({ title: 'Inbox', text: txt }).catch(function () {});
         else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, done); else done();
-      } else {
+      }
+      m.remove();
+    };
+  }
+  // 📄 Inbox CSV — endi faqat Sozlamalar → Eksport oynasidan
+  window.xCsvInbox = function () {
+    var rows = exportRows(), td = td0();
+    {
         var q = function (v) { v = v == null ? '' : String(v); return /[",\n;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
         var csv = ['type,name,status,date,category,difficulty,coins'].concat(rows.map(function (x) {
           var o = x.o, c = null; if (x.k === 't') { try { c = taskCatOf(o); } catch (e) {} }
@@ -4978,10 +4985,8 @@
         })).join('\n');
         var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'inbox-' + td + '.csv'; document.body.appendChild(a); a.click(); a.remove();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
-      }
-      m.remove();
-    };
-  }
+    }
+  };
 
   // ---------- 👆 Telefonda surish va 🖱 sudrab qayta rejalashtirish ----------
   function bindGestures() {
@@ -5521,8 +5526,7 @@
       + '<button type="button" data-a="stats">📊 ' + L('Tahlil', 'Insights', 'Анализ') + '</button>'
       + '<button type="button" data-a="live">👥 ' + L('Do\'stlar', 'Friends', 'Друзья') + '<span id="pmx-live-n"></span></button>'
       + '<button type="button" data-a="noise">🎚 ' + L('Shovqin', 'Noise', 'Шум') + (NZ.on ? ' •' : '') + '</button>'
-      + '<button type="button" data-a="ach">🏅 ' + L('Yutuqlar', 'Badges', 'Награды') + '</button>'
-      + '<button type="button" data-a="csv">⬇ CSV</button></div>';
+      + '<button type="button" data-a="ach">🏅 ' + L('Yutuqlar', 'Badges', 'Награды') + '</button></div>';
     bar.innerHTML = h;
   }
   function onBarClick(e) {
@@ -5869,6 +5873,8 @@
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   }
 
+  window.xCsvPomo = exportCsv;
+
   // ---------- ishga tushirish ----------
   function tick() {
     var ov = document.getElementById('pomo-modal-overlay');
@@ -6192,4 +6198,32 @@
     setInterval(function () { if (!document.hidden) load(false); }, 300000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else setTimeout(init, 0);
+})();
+
+// ============================================================
+// 📄 JADVAL (CSV) EKSPORTI — bitta joyda: Sozlamalar → Eksport oynasi.
+// Bo'limlardagi alohida CSV tugmalari olib tashlandi.
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  var ITEMS = [
+    ['stats', '📊', function () { return L('Vazifalar statistikasi', 'Task statistics', 'Статистика задач'); }, function () { if (typeof exportStatsCSV === 'function') exportStatsCSV(); }],
+    ['inbox', '📥', function () { return 'Inbox'; }, function () { if (window.xCsvInbox) window.xCsvInbox(); }],
+    ['pomo', '🍅', function () { return L('Pomodoro seanslari', 'Pomodoro sessions', 'Сессии помодоро'); }, function () { if (window.xCsvPomo) window.xCsvPomo(); }],
+    ['fg', '🛡', function () { return L('Focusgate (30 kun)', 'Focusgate (30 days)', 'Focusgate (30 дней)'); }, function () { if (window.LUFocusgate && window.LUFocusgate.exportCsv) window.LUFocusgate.exportCsv(); }]
+  ];
+  window.xCsvSection = function (box) {
+    if (!box || box.querySelector('.xcsv')) return;
+    var d = document.createElement('details'); d.className = 'xcsv';
+    d.innerHTML = '<summary>📄 ' + esc(L('Jadval sifatida (CSV, Excel uchun)', 'As a spreadsheet (CSV, for Excel)', 'Таблицей (CSV, для Excel)')) + '</summary><div class="xcsv-g">' +
+      ITEMS.map(function (x) { return '<button type="button" data-csv="' + x[0] + '"><span>' + x[1] + '</span>' + esc(x[2]()) + '</button>'; }).join('') + '</div>';
+    var cancel = box.querySelector('#export-cancel');
+    box.insertBefore(d, cancel || null);
+    d.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-csv]'); if (!b) return;
+      var it = ITEMS.filter(function (x) { return x[0] === b.getAttribute('data-csv'); })[0];
+      try { it && it[3](); } catch (er) { console.warn('[csv]', er); }
+    });
+  };
 })();

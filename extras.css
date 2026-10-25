@@ -1737,3 +1737,10 @@ html.x-dragging body { touch-action: none; overscroll-behavior: none; }
 .chx-nc button span { font-size: 18px; }
 .chx-nc button.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .chx-nc button:hover { border-color: var(--accent); }
+
+/* 📄 Eksport oynasidagi CSV bo'limi */
+.xcsv { margin-top: 14px; text-align: left; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; }
+.xcsv summary { cursor: pointer; font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted); }
+.xcsv-g { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.xcsv-g button { display: flex; align-items: center; gap: 6px; padding: 9px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: var(--fs-xs); font-weight: 600; cursor: pointer; text-align: left; }
+.xcsv-g button:hover { border-color: var(--accent); }
