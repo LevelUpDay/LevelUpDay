@@ -8877,6 +8877,7 @@ function showExportSelectModal() {
 
   ov.appendChild(box);
   document.body.appendChild(ov);
+  try { if (typeof window.xCsvSection === 'function') window.xCsvSection(box); } catch (e) {}
 
   var selected = {}; // { ielts:true, tasks:true, ... }
 
