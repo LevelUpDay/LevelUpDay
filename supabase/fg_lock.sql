@@ -1,0 +1,4 @@
+-- 🔒 Focusgate paroli: fg_lock (bcrypt xesh, RLS — to'g'ridan-to'g'ri o'qib bo'lmaydi), fg_trusted (ishonchli qurilmalar),
+-- RPC: fg_lock_status / fg_lock_unlock (5 xato → 15 daq) / fg_lock_set / fg_lock_ttl / fg_trusted_revoke / fg_lock_reset (email OTP, 15 daq),
+-- triggerlar: fg_config (insert/update) va fg_devices (update/delete) — ishonchsiz qurilmadan rad etiladi (x-fg-dev sarlavhasi).
+-- To'liq matn Supabase'da qo'llangan (2026-10-25).

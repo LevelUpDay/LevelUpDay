@@ -35208,6 +35208,13 @@ try {
 
 // 🔁 401 (sessiya tokeni eskirgan) bo'lsa — tokenni yangilab, so'rovni bir marta qayta yuboramiz
 var _sbFetch = async function (url, opts) {
+  // 🔒 Focusgate paroli: ishonchli qurilma tokeni (server triggerlari tekshiradi)
+  try {
+    if (/\/rest\/v1\/(fg_|rpc\/fg_)/.test(String(url)) && window.S && S.cloudUserId) {
+      var _ft = localStorage.getItem('ludFgDev_' + S.cloudUserId);
+      if (_ft) { var _fh = new Headers((opts && opts.headers) || {}); _fh.set('x-fg-dev', _ft); opts = Object.assign({}, opts, { headers: _fh }); }
+    }
+  } catch (e) {}
   var r = await fetch(url, opts);
   if (r.status !== 401 || !/\/rest\/v1\//.test(String(url)) || (opts && opts._sbRetried)) return r;
   try {
