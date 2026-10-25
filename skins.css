@@ -1,0 +1,163 @@
+/* =========================================================
+   🪐 INTERFEYS TO'PLAMLARI (do'kon → "To'plam") — butun ilova ko'rinishi.
+   html[data-x-skin="vision" | "bento" | "rpg"] — extras.js shopApply qo'yadi.
+   Uchalasi bitta palitrada (cyan #00f0ff · binafsha #ddb7ff · amber #ffb95f, Geist shrift),
+   farqi — panellar, kartalar va fon uslubida. Har doim qorong'i.
+   ========================================================= */
+
+/* ---------- Umumiy: ranglar, shrift, fon ---------- */
+html[data-x-skin], html[data-x-skin] body, html[data-x-skin] body.light {
+  --bg: #07070a !important;
+  --surface: #141419 !important; --surface2: #1d1d24 !important;
+  --border: rgba(255,255,255,0.06) !important; --border-hover: rgba(0,240,255,0.28) !important;
+  --accent: #00f0ff !important; --accent-glow: rgba(0,240,255,0.28) !important;
+  --gold: #ffb95f !important; --gold-dim: rgba(255,185,95,0.14) !important;
+  --green: #4ade80 !important; --red: #ff8a80 !important; --info: #ddb7ff !important;
+  --text: #e4e1e8 !important; --text-muted: rgba(185,202,203,0.78) !important; --text-dim: rgba(185,202,203,0.6) !important;
+  --sk-cyan: #00f0ff; --sk-violet: #ddb7ff; --sk-violet-deep: #6f00be; --sk-amber: #ffb95f; --sk-on-cyan: #00363a;
+  --sk-glass: rgba(255,255,255,0.035); --sk-glass-2: rgba(27,27,32,0.72);
+  --radius-md: 16px; --radius-lg: 22px; --radius-xl: 28px;
+  color-scheme: dark;
+}
+html[data-x-skin] body {
+  background: #07070a !important; color: var(--text);
+  font-family: 'Geist', 'DM Sans', system-ui, sans-serif !important; letter-spacing: -0.005em;
+}
+html[data-x-skin] body :is(h1, h2, h3, h4, button, input, select, textarea, .tab, [style*="Syne"], [style*="DM Sans"]) { font-family: 'Geist', 'DM Sans', system-ui, sans-serif !important; }
+/* Fon: uchta yumshoq nur (cyan, binafsha, amber) */
+html[data-x-skin] body::before {
+  top: -20vh; left: 5vw; width: 70vw; height: 70vw; max-width: 900px; max-height: 900px;
+  background: radial-gradient(circle, rgba(0,240,255,0.10) 0%, transparent 62%) !important; filter: blur(10px);
+}
+html[data-x-skin] body::after {
+  bottom: -25vh; right: -10vw; width: 65vw; height: 65vw; max-width: 820px; max-height: 820px;
+  background: radial-gradient(circle, rgba(111,0,190,0.20) 0%, rgba(255,185,95,0.05) 45%, transparent 66%) !important; filter: blur(10px);
+}
+html[data-x-skin] #design-bg { display: none !important; }
+html[data-x-skin] ::selection { background: rgba(0,240,255,0.35); color: #fff; }
+
+/* Kartalar — shisha */
+html[data-x-skin] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn, .x-tchip, #level-panel, .friend-card, .fg-card, .chx-card, .tb-timeline, .gx-sh, .pmx-goal, .pmx-plan, .xst-card) {
+  background: var(--sk-glass-2) !important; border-color: rgba(255,255,255,0.05) !important;
+  backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 40px -26px rgba(0,0,0,0.75);
+}
+html[data-x-skin] :is(.modal, .x-box, .xs-box, .fg-sheet, .x-ov .x-box) {
+  background: rgba(20,20,26,0.92) !important; border: 1px solid rgba(255,255,255,0.07) !important;
+  backdrop-filter: blur(26px); -webkit-backdrop-filter: blur(26px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 30px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,240,255,0.05) !important;
+}
+html[data-x-skin] :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  background: rgba(14,14,18,0.85) !important; border-color: rgba(255,255,255,0.08) !important; color: var(--text) !important;
+}
+html[data-x-skin] :is(input, select, textarea):focus { border-color: rgba(0,240,255,0.55) !important; box-shadow: 0 0 0 3px rgba(0,240,255,0.14) !important; outline: none; }
+
+/* Tugmalar: asosiy — cyan, matn to'q (o'qilishi uchun) */
+html[data-x-skin] :is(.btn-save, .x-btn:not(.ghost), .fg-btn:not(.ghost), .xs-pay:not(:disabled), .pomo-hero-start-btn) {
+  background: var(--sk-cyan) !important; color: var(--sk-on-cyan) !important; border-color: transparent !important;
+  box-shadow: 0 0 22px rgba(0,240,255,0.30) !important; font-weight: 600;
+}
+html[data-x-skin] :is(.btn-save, .x-btn:not(.ghost), .fg-btn:not(.ghost)):hover { filter: brightness(1.08); }
+html[data-x-skin] :is(.btn-cancel, .x-btn.ghost, .fg-btn.ghost) { background: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.08) !important; color: var(--text) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.1); }
+
+/* Menyu (tablar): faol — cyan "pill" + porlash */
+html[data-x-skin] .tab { background: transparent !important; border-color: transparent !important; color: var(--text-muted) !important; }
+html[data-x-skin] .tab:hover { background: rgba(255,255,255,0.05) !important; color: var(--text) !important; }
+html[data-x-skin] .tab.active { background: var(--sk-cyan) !important; color: var(--sk-on-cyan) !important; font-weight: 600; box-shadow: 0 0 20px rgba(0,240,255,0.32) !important; }
+html[data-x-skin] .tab.active .x-pomo-live { color: var(--sk-on-cyan) !important; }
+
+/* Yon panellar (kompyuter) */
+html[data-x-skin].layout-desktop :is(#ds-sidebar, #ds-aside) {
+  background: var(--sk-glass) !important; border-color: rgba(255,255,255,0.05) !important;
+  backdrop-filter: blur(24px) saturate(1.3); -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+}
+
+/* Telefon: pastki menyu — suzuvchi shisha "kapsula" */
+html[data-x-skin].layout-mobile #x-bnav {
+  left: 10px; right: 10px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 6px 4px;
+  border-radius: 22px; border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(20,20,26,0.78); backdrop-filter: blur(22px) saturate(1.4); -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+html[data-x-skin].layout-mobile #x-bnav button.on { color: var(--sk-cyan) !important; background: rgba(0,240,255,0.10) !important; }
+html[data-x-skin].layout-mobile #x-bnav button.on .x-bn-i { filter: drop-shadow(0 0 8px rgba(0,240,255,0.6)); }
+html[data-x-skin].layout-mobile body { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
+
+/* Raqamlar va progress */
+html[data-x-skin] :is(.stat-val, .stat .val, #stats-total-coins, .xs-sum b) { text-shadow: 0 0 16px rgba(0,240,255,0.25); }
+html[data-x-skin] :is(.progress-fill, .xp-fill, .lvl-fill, .lvp-fill, .pmx-bar-it i, .chx-pb i, .fg-bar i) {
+  background: linear-gradient(90deg, var(--sk-cyan), var(--sk-violet)) !important; box-shadow: 0 0 10px rgba(0,240,255,0.45);
+}
+html[data-x-skin] ::-webkit-scrollbar { width: 8px; height: 8px; }
+html[data-x-skin] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
+
+/* =========================================================
+   1) SPATIAL HUD (vision) — suzuvchi shisha panellar, katta yumaloq kartalar
+   ========================================================= */
+@media (min-width: 900px) {
+  /* Suzuvchi panel: kenglik o'zgarmasin — chet "shaffof chegara" bilan ichkariga suriladi */
+  html[data-x-skin="vision"].layout-desktop :is(#ds-sidebar, #ds-aside) { border: 14px solid transparent !important; background-clip: padding-box !important; border-radius: 40px !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.08) !important; }
+}
+html[data-x-skin="vision"] .tab { border-radius: 999px !important; }
+html[data-x-skin="vision"] :is(.task-card, .stat, .x-card, .x-sec, #level-panel, .friend-card, .fg-card, .chx-card) { border-radius: 24px !important; }
+html[data-x-skin="vision"] :is(.modal, .x-box, .xs-box, .fg-sheet) { border-radius: 30px !important; }
+html[data-x-skin="vision"] :is(.btn-save, .btn-cancel, .x-btn, .fg-btn) { border-radius: 999px !important; }
+
+/* =========================================================
+   2) CYBER BENTO (bento) — kiber-to'r fon, gradient chegara, bento kartalar
+   ========================================================= */
+html[data-x-skin="bento"] body {
+  background:
+    linear-gradient(rgba(0,240,255,0.035) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, rgba(0,240,255,0.035) 1px, transparent 1px) 0 0 / 44px 44px,
+    #07070a !important;
+}
+@media (min-width: 900px) {
+  html[data-x-skin="bento"].layout-desktop #ds-sidebar { border: 18px solid transparent !important; background-clip: padding-box !important; border-radius: 52px !important; box-shadow: inset 0 0 0 1px rgba(0,240,255,0.14) !important; }
+  html[data-x-skin="bento"].layout-desktop #ds-aside { border: 18px solid transparent !important; background-clip: padding-box !important; border-radius: 52px !important; box-shadow: inset 0 0 0 1px rgba(221,183,255,0.14) !important; }
+}
+html[data-x-skin="bento"] .tab { border-radius: 16px !important; }
+html[data-x-skin="bento"] :is(.task-card, .stat, .x-card, .x-sec, #level-panel, .friend-card, .fg-card, .chx-card) {
+  border-radius: 28px !important; position: relative;
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(var(--sk-glass-2), var(--sk-glass-2)) padding-box,
+    linear-gradient(135deg, rgba(0,240,255,0.35), rgba(221,183,255,0.12) 40%, rgba(255,255,255,0.03) 70%, rgba(255,185,95,0.18)) border-box !important;
+}
+html[data-x-skin="bento"] .task-card.has-label { box-shadow: inset 4px 0 0 var(--tk-label), 0 18px 40px -26px rgba(0,0,0,0.75); }
+html[data-x-skin="bento"] :is(.modal, .x-box, .xs-box, .fg-sheet) { border-radius: 34px !important; }
+html[data-x-skin="bento"] .stat { overflow: hidden; }
+html[data-x-skin="bento"] .stat::after { content: ''; position: absolute; top: -40px; right: -40px; width: 110px; height: 110px; border-radius: 50%; background: radial-gradient(circle, rgba(0,240,255,0.16), transparent 70%); pointer-events: none; }
+
+/* =========================================================
+   3) CHRONO RPG (rpg) — to'liq balandlikdagi yon panel, energiya chiziqlari, amber urg'u
+   ========================================================= */
+html[data-x-skin="rpg"] body::after { background: radial-gradient(circle, rgba(255,185,95,0.12) 0%, rgba(111,0,190,0.14) 40%, transparent 66%) !important; }
+html[data-x-skin="rpg"].layout-desktop #ds-sidebar { background: rgba(27,27,32,0.72) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; border-radius: 0 !important; }
+html[data-x-skin="rpg"].layout-desktop #ds-aside { background: rgba(27,27,32,0.72) !important; border-left: 1px solid rgba(255,255,255,0.05) !important; border-radius: 0 !important; }
+html[data-x-skin="rpg"] .tab { border-radius: 14px !important; }
+html[data-x-skin="rpg"] .tab.active { background: linear-gradient(90deg, var(--sk-cyan), #7df4ff) !important; }
+html[data-x-skin="rpg"] :is(.task-card, .stat, .x-card, .x-sec, #level-panel, .friend-card, .fg-card, .chx-card) { border-radius: 20px !important; position: relative; overflow: hidden; }
+/* Kartalar tepasida "energiya" chizig'i: cyan → binafsha → amber */
+html[data-x-skin="rpg"] :is(.stat, .x-card, .x-sec, #level-panel, .fg-card, .chx-card)::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, var(--sk-cyan), var(--sk-violet), var(--sk-amber)); opacity: 0.85; pointer-events: none;
+}
+html[data-x-skin="rpg"] .task-card:not(.has-label) { box-shadow: inset 3px 0 0 rgba(0,240,255,0.55), 0 18px 40px -26px rgba(0,0,0,0.75); }
+html[data-x-skin="rpg"] :is(.stat-label, .stat .lbl, .x-sec-t, .chx-sec, .pmx-sub, .fg-group-t) { letter-spacing: 0.14em !important; text-transform: uppercase; color: var(--sk-amber) !important; }
+html[data-x-skin="rpg"] :is(.btn-save, .x-btn:not(.ghost), .fg-btn:not(.ghost)) { border-radius: 14px !important; }
+html[data-x-skin="rpg"] :is(.modal, .x-box, .xs-box, .fg-sheet) { border-radius: 24px !important; }
+html[data-x-skin="rpg"] :is(.progress-fill, .xp-fill, .lvl-fill, .lvp-fill, .pmx-bar-it i, .chx-pb i) { background: linear-gradient(90deg, var(--sk-cyan), var(--sk-violet), var(--sk-amber)) !important; }
+
+/* ---------- Do'kon/studiya ko'rinishi (kichik maket) ---------- */
+.x-skin-pv { display: grid; grid-template-columns: 22% 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; width: 100%; height: 54px; padding: 5px; border-radius: 12px; box-sizing: border-box;
+  background: radial-gradient(circle at 15% 0%, rgba(0,240,255,0.35), transparent 55%), radial-gradient(circle at 90% 100%, rgba(111,0,190,0.45), transparent 60%), #07070a; }
+.x-skin-pv i { grid-row: 1 / 3; border-radius: 8px; background: rgba(255,255,255,0.07); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+.x-skin-pv b { border-radius: 8px; background: rgba(27,27,32,0.85); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
+.x-skin-pv b:first-of-type { grid-column: 2 / 4; background: linear-gradient(90deg, rgba(0,240,255,0.55), rgba(221,183,255,0.35)); }
+.skp-vision i, .skp-vision b { border-radius: 10px; }
+.skp-bento { background: linear-gradient(rgba(0,240,255,0.08) 1px, transparent 1px) 0 0 / 9px 9px, linear-gradient(90deg, rgba(0,240,255,0.08) 1px, transparent 1px) 0 0 / 9px 9px, #07070a; }
+.skp-bento b { box-shadow: inset 0 0 0 1px rgba(0,240,255,0.35); }
+.skp-rpg i { border-radius: 2px; background: rgba(27,27,32,0.95); }
+.skp-rpg b:first-of-type { background: linear-gradient(90deg, #00f0ff, #ddb7ff, #ffb95f); }
