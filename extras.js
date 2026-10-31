@@ -2800,7 +2800,7 @@
     var ok = all.filter(function (x) {
       if (['tasks', 'goals', 'hub', 'rewards', 'profile', 'friends', 'spin', 'invite', 'clans'].indexOf(x[0]) !== -1) return true;
       if (x[0] === 'inbox') return !!window.xInbox;
-      if (x[0] === 'secret') return !!S.personalCheckEnabled;
+      if (x[0] === 'secret') return true; // 🕵️ har doim Hub bo'limlarida; birinchi kirishda yoqish so'raladi
       return tabAvailable(x[0]);
     });
     var map = {}; ok.forEach(function (x) { map[x[0]] = { id: x[0], icon: x[1], label: x[2], act: x[3] }; });
@@ -6298,5 +6298,50 @@
       var it = ITEMS.filter(function (x) { return x[0] === b.getAttribute('data-csv'); })[0];
       try { it && it[3](); } catch (er) { console.warn('[csv]', er); }
     });
+  };
+})();
+
+// ============================================================
+// 🕵️ SHAXSIY NAZORAT — endi Hub bo'limlarida. Birinchi kirishda "Yoqasizmi?" so'raladi
+// (nima qilishi tushuntiriladi). PIN himoyasi va yashirin kirish olib tashlandi; Sozlamalarda yo'q.
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  window.xPcIntro = function () {
+    if (document.querySelector('.x-pc-intro')) return;
+    var ov = document.createElement('div'); ov.className = 'x-ov x-pc-intro';
+    var li = function (ic, t) { return '<li><span>' + ic + '</span>' + esc(t) + '</li>'; };
+    ov.innerHTML = '<div class="x-box x-pc-box" role="dialog" aria-modal="true"><div class="x-pc-ic">🕵️</div>' +
+      '<h3>' + esc(L('Shaxsiy nazoratni yoqasizmi?', 'Turn on Personal check?', 'Включить личный контроль?')) + '</h3>' +
+      '<p class="x-pc-sub">' + esc(L('Faqat o\'zingiz ko\'radigan, tashlamoqchi bo\'lgan odatlaringiz uchun maxsus bo\'lim.', 'A private section for the habits you want to quit — only you see it.', 'Личный раздел для привычек, от которых хотите избавиться, — видите только вы.')) + '</p>' +
+      '<ul class="x-pc-list">' +
+        li('🚭', L('Tashlamoqchi bo\'lgan odatingizni kuzatasiz (masalan: chekish, ijtimoiy tarmoqda ortiqcha vaqt).', 'Track a habit you want to quit (e.g. smoking, too much social media).', 'Отслеживайте привычку, которую хотите бросить (курение, соцсети и т. п.).')) +
+        li('✅', L('Har kuni belgilaysiz: "Qilmadim (yaxshi)" yoki "Qildim (yiqildim)".', 'Each day mark: "Didn\'t do it (good)" or "Did it (slipped up)".', 'Каждый день отмечаете: «Не сделал (хорошо)» или «Сделал (сорвался)».')) +
+        li('🪙', L('Toza kun uchun tanga olasiz, yiqilsangiz — jarima.', 'Earn coins for clean days, lose some if you slip.', 'Монеты за чистые дни, штраф за срыв.')) +
+        li('🔥', L('Streak, eng uzun rekord, kalendar va haftalik trend ko\'rinadi.', 'See your streak, best record, calendar and weekly trend.', 'Серия, рекорд, календарь и недельный тренд.')) +
+        li('🔒', L('Ma\'lumotlar faqat sizga ko\'rinadi — do\'stlar, reyting va lentada chiqmaydi.', 'Only you can see it — never shown to friends, leaderboard or feed.', 'Видно только вам — не попадает к друзьям, в рейтинг и ленту.')) +
+      '</ul>' +
+      '<div class="x-pc-acts"><button type="button" class="x-btn ghost" data-pc="no">' + esc(L('Yo\'q', 'No', 'Нет')) + '</button><button type="button" class="x-btn" data-pc="yes">' + esc(L('Ha, yoqish', 'Yes, turn on', 'Да, включить')) + '</button></div></div>';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function () { ov.classList.add('open'); });
+    var close = function () { ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 180); };
+    ov.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-pc]');
+      if (!b) { if (e.target === ov) close(); return; }
+      close();
+      if (b.getAttribute('data-pc') === 'yes') {
+        S.personalCheckEnabled = true; S.pcPinProtectionEnabled = false;
+        try { save(); } catch (er) {}
+        showTab('secret');
+        toast('🕵️ ' + L('Shaxsiy nazorat yoqildi', 'Personal check is on', 'Личный контроль включён'));
+      }
+    });
+  };
+  window.xPcTurnOff = function () {
+    if (!confirm(L('Shaxsiy nazorat o\'chirilsinmi? Ma\'lumotlaringiz saqlanib qoladi.', 'Turn off Personal check? Your data stays saved.', 'Выключить личный контроль? Данные сохранятся.'))) return;
+    S.personalCheckEnabled = false;
+    try { save(); } catch (e) {}
+    showTab('hub');
   };
 })();

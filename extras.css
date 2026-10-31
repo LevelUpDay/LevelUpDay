@@ -1751,3 +1751,17 @@ html.x-dragging body { touch-action: none; overscroll-behavior: none; }
 .xs-trybar { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 10070; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,.45); font-size: var(--fs-sm); color: var(--text); white-space: nowrap; }
 .xs-trybar button { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-weight: 700; font-size: var(--fs-xs); cursor: pointer; }
 .xs-trybar button[data-tr="buy"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* 🕵️ Shaxsiy nazorat: Sozlamalardan olib tashlandi, kirishda so'raladi */
+#pc-section-card { display: none !important; }
+.x-pc-box { max-width: 460px; text-align: center; }
+.x-pc-ic { font-size: 44px; line-height: 1; margin-bottom: 6px; }
+.x-pc-box h3 { margin: 0 0 6px; font-family: Syne, sans-serif; font-size: var(--fs-lg); }
+.x-pc-sub { margin: 0 0 14px; color: var(--text-muted); font-size: var(--fs-sm); }
+.x-pc-list { list-style: none; padding: 0; margin: 0 0 18px; text-align: left; display: flex; flex-direction: column; gap: 9px; }
+.x-pc-list li { display: flex; gap: 10px; align-items: flex-start; font-size: var(--fs-sm); line-height: 1.45; padding: 9px 11px; border-radius: var(--radius-md); background: var(--surface2); border: 1px solid var(--border); }
+.x-pc-list li span { font-size: 18px; flex-shrink: 0; }
+.x-pc-acts { display: flex; gap: 8px; }
+.x-pc-acts .x-btn { flex: 1; padding: 11px; }
+.pc-off-btn { display: block; margin: 18px auto 4px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: var(--fs-xs); cursor: pointer; }
+.pc-off-btn:hover { color: var(--red); border-color: var(--red); }

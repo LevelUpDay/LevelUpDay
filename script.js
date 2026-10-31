@@ -11653,7 +11653,8 @@ function showProfileSubtab(name) {
 }
 
 function showTab(tab) {
-  if (tab === 'secret' && !S.personalCheckEnabled) { showTab('tasks'); return; }
+  // 🕵️ Shaxsiy nazorat yoqilmagan bo'lsa — kirishda "Yoqasizmi?" so'raladi (Sozlamalarda endi yo'q)
+  if (tab === 'secret' && !S.personalCheckEnabled) { if (typeof window.xPcIntro === 'function') window.xPcIntro(); else showTab('hub'); return; }
   // ⛶ Jadval to'liq ekranda bo'lsa — boshqa bo'limga o'tganda yopiladi
   try { if (typeof _tbView !== 'undefined' && _tbView.full && tab !== 'tasks') { _tbView.full = false; tbFullDom(false); } } catch (e) {}
   try { document.documentElement.setAttribute('data-tab', tab); } catch (e) {}
@@ -19445,9 +19446,9 @@ function ensurePersonalCheckDefaults() {
   if (typeof S.personalCheckEnabled === 'undefined' || S.personalCheckEnabled === null) {
     S.personalCheckEnabled = pcHasPinSet();
   }
-  if (typeof S.pcPinProtectionEnabled === 'undefined' || S.pcPinProtectionEnabled === null) {
-    S.pcPinProtectionEnabled = pcHasPinSet();
-  }
+  // 🔓 PIN himoyasi va yashirish olib tashlandi — bo'lim Hub'da ochiq turadi
+  S.pcPinProtectionEnabled = false;
+  S.pcHiddenFromQuickAccess = false;
 }
 
 function updatePcToggleUI() {
@@ -22523,7 +22524,7 @@ document.addEventListener('DOMContentLoaded',function(){
     el.addEventListener('click',function(){
       _secretTaps++;
       clearTimeout(_secretTimer);
-      if(_secretTaps>=5){ _secretTaps=0; if(S.personalCheckEnabled) showTab('secret'); return; }
+      if(_secretTaps>=5){ _secretTaps=0; return; } // yashirin kirish olib tashlandi — bo'lim Hub'da
       _secretTimer=setTimeout(function(){ _secretTaps=0; },1500);
     });
   }
