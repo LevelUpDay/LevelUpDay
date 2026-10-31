@@ -1878,7 +1878,17 @@
     document.querySelectorAll('.x-wk-card').forEach(function (el) { var t = document.createElement('div'); t.innerHTML = weeklyHtml(); el.replaceWith(t.firstChild); });
     try { renderToday(); } catch (e) {}
   }
-  function healthHtml() { return '<div class="x-card x-sleep-card">' + sleepCardHtml() + '</div>'; }
+  function healthHtml() {
+    // ⚡ Kundalik so'rovnomadagi energiya (oxirgi 7 kun)
+    var en = '', dd = [], i;
+    for (i = 6; i >= 0; i--) { var dt = new Date(); dt.setDate(dt.getDate() - i); var k = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); var v = ((S.health || {})[k] || {}).energy; dd.push(v == null ? null : +v); }
+    if (dd.some(function (v) { return v != null; })) {
+      var tv = dd[6];
+      en = '<div class="x-card x-energy-card"><b>⚡ ' + L('Energiya', 'Energy', 'Энергия') + (tv != null ? ' · ' + tv + '/5' : '') + '</b><div class="x-en-bars">' +
+        dd.map(function (v) { return '<i style="height:' + (v ? v * 20 : 6) + '%"' + (v ? '' : ' class="nil"') + '></i>'; }).join('') + '</div></div>';
+    }
+    return '<div class="x-card x-sleep-card">' + sleepCardHtml() + '</div>' + en;
+  }
   function bindHealth(root) { bindSleep(root); }
 
   // =========================================================
@@ -6344,4 +6354,103 @@
     try { save(); } catch (e) {}
     showTab('hub');
   };
+})();
+
+// ============================================================
+// 🌅 KUNDALIK SO'ROVNOMA (Sozlamalar → "Har kuni so'rash") — yoqilsa, ilova kun davomida
+// birinchi ochilganda Salomatlikdagi ma'lumotlarni o'zi so'raydi: uyqu, kayfiyat, energiya.
+// S.xCheckin = { on, sleep, mood, energy } · S.xCheckinSkip = sana (bugun "keyinroq" bosilgan)
+// Saqlash: uyqu — xSleepSet (S.health[kun].sleep), kayfiyat — S.moods[kun], energiya — S.health[kun].energy
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  var H = function (s) { return esc(s == null ? '' : String(s)); };
+  function td() { try { return today(); } catch (e) { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); } }
+  function cfg() { var c = S.xCheckin; if (!c || typeof c !== 'object') c = S.xCheckin = { on: false, sleep: true, mood: true, energy: true }; return c; }
+  var MOODS = [['😇', L('Tinch', 'Calm', 'Спокойно'), 'tinch'], ['🙂', L('Yaxshi', 'Good', 'Хорошо'), 'yaxshi'], ['😑', L('Beparvo', 'Meh', 'Так себе'), 'beparvo'], ['🥵', L('Qiyin', 'Hard', 'Тяжело'), 'qiyin'],
+    ['🤯', L('Stressda', 'Stressed', 'Стресс'), 'boshim ot'], ['😭', L('Yig\'lab', 'Crying', 'Плачу'), 'yig\'lab'], ['😡', L('G\'azab', 'Angry', 'Злюсь'), 'g\'azab'], ['🤮', L('Yomon', 'Awful', 'Плохо'), 'yomon']];
+  var ENERGY = [['🪫', 1], ['😴', 2], ['🙂', 3], ['⚡', 4], ['🚀', 5]];
+  function need() {
+    var c = cfg(), d = td(), h = (S.health || {})[d] || {}, m = (S.moods || {})[d];
+    return { sleep: c.sleep !== false && h.sleep == null, mood: c.mood !== false && !m, energy: c.energy !== false && h.energy == null };
+  }
+  function maybeAsk() {
+    var c = cfg(); if (!c.on || S.xCheckinSkip === td()) return;
+    if (document.querySelector('.x-ci-ov, .x-pc-intro, .xs-ov') || document.hidden) return;
+    var n = need(); if (!n.sleep && !n.mood && !n.energy) return;
+    open(n);
+  }
+  function open(n) {
+    n = n || need();
+    var ans = {}, d = td();
+    var ov = document.createElement('div'); ov.className = 'x-ov x-ci-ov';
+    var h = '<div class="x-box x-ci-box" role="dialog" aria-modal="true"><div class="x-ci-ic">🌅</div><h3>' + H(L('Xayrli kun! Bugun qandaysiz?', 'Good day! How are you today?', 'Добрый день! Как вы сегодня?')) + '</h3>';
+    if (n.sleep) h += '<div class="x-ci-q"><b>😴 ' + H(L('Kecha necha soat uxladingiz?', 'How many hours did you sleep?', 'Сколько часов вы спали?')) + '</b><div class="x-ci-ch">' +
+      [4, 5, 6, 6.5, 7, 7.5, 8, 9, 10].map(function (x) { return '<button type="button" data-k="sleep" data-v="' + x + '">' + x + L(' s', 'h', ' ч') + '</button>'; }).join('') + '</div></div>';
+    if (n.mood) h += '<div class="x-ci-q"><b>🙂 ' + H(L('Kayfiyatingiz?', 'Your mood?', 'Ваше настроение?')) + '</b><div class="x-ci-ch x-ci-mood">' +
+      MOODS.map(function (m, i) { return '<button type="button" data-k="mood" data-v="' + i + '" title="' + H(m[1]) + '"><span>' + m[0] + '</span><small>' + H(m[1]) + '</small></button>'; }).join('') + '</div></div>';
+    if (n.energy) h += '<div class="x-ci-q"><b>⚡ ' + H(L('Energiyangiz (1–5)?', 'Your energy (1–5)?', 'Ваша энергия (1–5)?')) + '</b><div class="x-ci-ch">' +
+      ENERGY.map(function (e) { return '<button type="button" data-k="energy" data-v="' + e[1] + '">' + e[0] + ' ' + e[1] + '</button>'; }).join('') + '</div></div>';
+    h += '<div class="x-ci-acts"><button type="button" class="x-btn ghost" data-ci="later">' + H(L('Keyinroq', 'Later', 'Позже')) + '</button><button type="button" class="x-btn" data-ci="save" disabled>' + H(L('Saqlash', 'Save', 'Сохранить')) + '</button></div>' +
+      '<div class="x-ci-note">' + H(L('Sozlamalar → "Har kuni so\'rash" orqali o\'chirish mumkin', 'Turn off in Settings → "Daily check-in"', 'Отключить: Настройки → «Ежедневный опрос»')) + '</div></div>';
+    ov.innerHTML = h; document.body.appendChild(ov);
+    requestAnimationFrame(function () { ov.classList.add('open'); });
+    var close = function () { ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 180); };
+    ov.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-k]');
+      if (b) {
+        var k = b.getAttribute('data-k'); ans[k] = b.getAttribute('data-v');
+        b.parentNode.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        ov.querySelector('[data-ci="save"]').disabled = false; return;
+      }
+      var a = e.target.closest('[data-ci]'); if (!a) { if (e.target === ov) { S.xCheckinSkip = d; try { save(); } catch (er) {} close(); } return; }
+      if (a.getAttribute('data-ci') === 'later') { S.xCheckinSkip = d; try { save(); } catch (er) {} close(); return; }
+      // Saqlash
+      if (ans.sleep != null) { try { window.xSleepSet(+ans.sleep); } catch (er) { S.health = S.health || {}; (S.health[d] = S.health[d] || {}).sleep = +ans.sleep; } }
+      if (ans.energy != null) { S.health = S.health || {}; (S.health[d] = S.health[d] || {}).energy = +ans.energy; }
+      if (ans.mood != null) {
+        var m = MOODS[+ans.mood]; S.moods = S.moods || {};
+        S.moods[d] = { emoji: m[0], label: m[2], note: '', ts: Date.now() };
+        try { updateMoodBtn(); } catch (er) {}
+      }
+      try { save(); } catch (er) {}
+      try { if (typeof renderHubSection === 'function' && S.xHubSec === 'health') renderHubSection('health', true); } catch (er) {}
+      try { SFX.click(); } catch (er) {}
+      toast('🌅 ' + L('Saqlandi — yaxshi kun tilayman!', 'Saved — have a great day!', 'Сохранено — хорошего дня!'));
+      close();
+    });
+  }
+  window.xCheckinOpen = function () { open(); };
+
+  // ---------- Sozlamalar kartasi ----------
+  function renderCard() {
+    var st = document.getElementById('profile-subtab-settings'); if (!st) return;
+    var card = document.getElementById('x-ci-card');
+    if (!card) {
+      card = document.createElement('div'); card.id = 'x-ci-card'; card.className = 'x-card x-push-card';
+      var tg = document.getElementById('x-tg-card') || document.getElementById('x-push-card');
+      st.insertBefore(card, tg ? tg.nextSibling : st.firstChild);
+    }
+    var c = cfg();
+    card.innerHTML = '<div class="x-push-h"><span>🌅</span><div><b>' + H(L('Har kuni so\'rash', 'Daily check-in', 'Ежедневный опрос')) + '</b><small>' +
+      H(c.on ? L('Yoqilgan: kun davomida birinchi ochilganda so\'raladi', 'On: asked the first time you open the app each day', 'Вкл: спрашивается при первом открытии за день')
+        : L('Yoqsangiz, ilova har kuni uyqu, kayfiyat va energiyangizni o\'zi so\'raydi (Salomatlik bo\'limiga yoziladi)', 'When on, the app asks your sleep, mood and energy every day (saved to Wellbeing)', 'Приложение будет каждый день спрашивать сон, настроение и энергию (в «Самочувствие»)')) + '</small></div>' +
+      '<button type="button" class="x-tg-sw' + (c.on ? ' on' : '') + '" data-ci-sw role="switch" aria-checked="' + !!c.on + '"><i></i></button></div>' +
+      (c.on ? '<div class="x-tg-sub">' + H(L('Nimalarni so\'rasin:', 'What to ask:', 'Что спрашивать:')) + '</div>' +
+        [['sleep', '😴 ' + L('Uyqu (necha soat)', 'Sleep (hours)', 'Сон (часы)')], ['mood', '🙂 ' + L('Kayfiyat', 'Mood', 'Настроение')], ['energy', '⚡ ' + L('Energiya darajasi', 'Energy level', 'Уровень энергии')]]
+          .map(function (o) { return '<label class="x-chk"><input type="checkbox" data-ci-k="' + o[0] + '"' + (c[o[0]] !== false ? ' checked' : '') + '> ' + H(o[1]) + '</label>'; }).join('') +
+        '<div class="x-tg-act"><button type="button" class="x-btn ghost sm" data-ci-now>🌅 ' + H(L('Hozir so\'rash', 'Ask now', 'Спросить сейчас')) + '</button></div>' : '');
+    card.querySelector('[data-ci-sw]').onclick = function () { c.on = !c.on; if (c.on) S.xCheckinSkip = null; try { save(); } catch (e) {} renderCard(); if (c.on) setTimeout(maybeAsk, 300); };
+    card.querySelectorAll('[data-ci-k]').forEach(function (x) { x.onchange = function () { c[x.getAttribute('data-ci-k')] = x.checked; try { save(); } catch (e) {} }; });
+    var now = card.querySelector('[data-ci-now]'); if (now) now.onclick = function () { open({ sleep: c.sleep !== false, mood: c.mood !== false, energy: c.energy !== false }); };
+  }
+  window.xRenderCheckinSettings = renderCard;
+  function init() {
+    setTimeout(renderCard, 1700);
+    setTimeout(maybeAsk, 3500);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(maybeAsk, 1200); });
+    setInterval(maybeAsk, 10 * 60000); // tun yarmidan keyin ochiq qolgan ilovada ham
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else setTimeout(init, 0);
 })();

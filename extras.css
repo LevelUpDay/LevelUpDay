@@ -1765,3 +1765,26 @@ html.x-dragging body { touch-action: none; overscroll-behavior: none; }
 .x-pc-acts .x-btn { flex: 1; padding: 11px; }
 .pc-off-btn { display: block; margin: 18px auto 4px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: var(--fs-xs); cursor: pointer; }
 .pc-off-btn:hover { color: var(--red); border-color: var(--red); }
+
+/* 🌅 Kundalik so'rovnoma */
+.x-ci-box { max-width: 480px; text-align: center; }
+.x-ci-ic { font-size: 40px; line-height: 1; }
+.x-ci-box h3 { margin: 6px 0 14px; font-family: Syne, sans-serif; font-size: var(--fs-lg); }
+.x-ci-q { text-align: left; margin-bottom: 14px; }
+.x-ci-q > b { display: block; font-size: var(--fs-sm); margin-bottom: 8px; }
+.x-ci-ch { display: flex; flex-wrap: wrap; gap: 6px; }
+.x-ci-ch button { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: var(--fs-xs); font-weight: 600; cursor: pointer; }
+.x-ci-ch button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.x-ci-mood { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.x-ci-mood button { display: flex; flex-direction: column; align-items: center; gap: 2px; border-radius: 14px; padding: 8px 4px; }
+.x-ci-mood button span { font-size: 22px; line-height: 1; }
+.x-ci-mood button small { font-size: var(--fs-3xs); font-weight: 600; }
+.x-ci-acts { display: flex; gap: 8px; margin-top: 6px; }
+.x-ci-acts .x-btn { flex: 1; padding: 11px; }
+.x-ci-acts .x-btn:disabled { opacity: .5; cursor: not-allowed; }
+.x-ci-note { margin-top: 10px; font-size: var(--fs-3xs); color: var(--text-dim); }
+.x-energy-card { padding: 12px 14px; }
+.x-energy-card b { font-size: var(--fs-sm); }
+.x-en-bars { display: flex; align-items: flex-end; gap: 6px; height: 46px; margin-top: 8px; }
+.x-en-bars i { flex: 1; border-radius: 6px; background: linear-gradient(180deg, var(--gold), var(--accent)); }
+.x-en-bars i.nil { background: var(--surface2); }
