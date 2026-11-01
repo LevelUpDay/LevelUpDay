@@ -1788,3 +1788,27 @@ html.x-dragging body { touch-action: none; overscroll-behavior: none; }
 .x-en-bars { display: flex; align-items: flex-end; gap: 6px; height: 46px; margin-top: 8px; }
 .x-en-bars i { flex: 1; border-radius: 6px; background: linear-gradient(180deg, var(--gold), var(--accent)); }
 .x-en-bars i.nil { background: var(--surface2); }
+
+/* 🧊 Muzlatish muddati */
+.x-fz-box { max-width: 400px; text-align: center; }
+.x-fz-ic { font-size: 40px; line-height: 1; }
+.x-fz-box h3 { margin: 6px 0 2px; font-family: Syne, sans-serif; font-size: var(--fs-lg); }
+.x-fz-sub { margin: 0 0 14px; color: var(--text-muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.x-fz-ch { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.x-fz-ch button { padding: 10px 2px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-weight: 700; font-size: var(--fs-xs); cursor: pointer; }
+.x-fz-ch button:hover { border-color: var(--info); }
+.x-fz-own { display: flex; gap: 6px; margin-top: 10px; }
+.x-fz-own input { flex: 1; min-width: 0; }
+.x-fz-manual { width: 100%; margin-top: 10px; padding: 11px; border-radius: 12px; border: 1px dashed var(--border-hover); background: transparent; color: var(--text); font-weight: 600; cursor: pointer; }
+.x-fz-hint { margin: 12px 0 0; font-size: var(--fs-2xs); color: var(--text-dim); line-height: 1.5; }
+@media (max-width: 380px) { .x-fz-ch { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* 🗓 Aniq sanalar */
+.md-row { display: flex; gap: 6px; }
+.md-row input { flex: 1; min-width: 0; }
+.md-add { width: 44px; flex-shrink: 0; border-radius: var(--radius-sm); border: 1px solid var(--accent); background: var(--accent-glow); color: var(--text); font-size: 18px; font-weight: 700; cursor: pointer; }
+.md-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.md-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 999px; background: var(--surface2); border: 1px solid var(--border); font-size: var(--fs-xs); font-weight: 600; }
+.md-chip.past { opacity: .55; text-decoration: line-through; }
+.md-chip button { width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: var(--text-muted); font-size: 10px; cursor: pointer; padding: 0; }
+.md-empty { font-size: var(--fs-xs); color: var(--text-dim); }

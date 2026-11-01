@@ -1510,6 +1510,7 @@ var I18N = {
     task_repeat_weekdays: '💼 Ish kunlari',
     task_repeat_interval: '? Har N kunda',
     task_repeat_once: '1️⃣ Bir marta',
+    task_repeat_dates: '🗓 Aniq sanalar', task_dates_label: "Qaysi sanalarda? (bir nechtasini qo'shish mumkin)", badge_dates: '🗓 {n} ta sana',
     task_duedate_label: "Muddat (ixtiyoriy)",
     task_pin_btn: 'Muhim qilib belgilash',
     task_unpin_btn: "Muhimlikni bekor qilish",
@@ -3126,6 +3127,7 @@ var I18N = {
     task_repeat_weekdays: '💼 Weekdays',
     task_repeat_interval: '? Every N days',
     task_repeat_once: '1️⃣ Once',
+    task_repeat_dates: '🗓 Specific dates', task_dates_label: 'On which dates? (you can add several)', badge_dates: '🗓 {n} dates',
     task_duedate_label: 'Deadline (optional)',
     task_pin_btn: 'Mark as important',
     task_unpin_btn: 'Unmark as important',
@@ -4738,6 +4740,7 @@ var I18N = {
     task_repeat_weekdays: '💼 Будние дни',
     task_repeat_interval: '? Каждые N дней',
     task_repeat_once: '1️⃣ Один раз',
+    task_repeat_dates: '🗓 Конкретные даты', task_dates_label: 'В какие даты? (можно несколько)', badge_dates: '🗓 дат: {n}',
     task_duedate_label: 'Срок (необязательно)',
     task_pin_btn: 'Отметить как важное',
     task_unpin_btn: 'Снять отметку "важное"',
@@ -8391,6 +8394,7 @@ function taskDueToday(t) {
   if (t.repeat === 'custom-days' || t.repeat === 'weekly') return (t.days||[]).includes(dow);
   if (t.repeat === 'interval') return t.nextDate ? t.nextDate <= td : true;
   if (t.repeat === 'once') return !t.done;
+  if (t.repeat === 'dates') return (t.dates || []).indexOf(td) !== -1;
   return true;
 }
 
@@ -8499,6 +8503,7 @@ function recalcStreakFromLog() {
       if (t.repeat === 'daily') isDue = true;
       else if (t.repeat === 'weekdays') isDue = dow >= 1 && dow <= 5;
       else if (t.repeat === 'custom-days') isDue = (t.days || []).indexOf(dow) !== -1;
+      else if (t.repeat === 'dates') isDue = (t.dates || []).indexOf(ds) !== -1;
       else if (t.repeat === 'interval') isDue = !!(intervalDueSets[t.id] && intervalDueSets[t.id].has(ds));
       if (isDue) dueTasks.push(t);
     }
@@ -9825,6 +9830,7 @@ function taskWasDueOnDate(t, dateStr) {
   if (t.repeat === 'daily') return true;
   if (t.repeat === 'weekdays') return dow >= 1 && dow <= 5;
   if (t.repeat === 'custom-days') return (t.days || []).indexOf(dow) !== -1;
+  if (t.repeat === 'dates') return (t.dates || []).indexOf(dateStr) !== -1;
   if (t.repeat === 'interval') {
     // Done/skipped logdan tekshir
     var doneLog = (S.taskDoneLog && S.taskDoneLog[t.id]) || [];
@@ -9871,6 +9877,7 @@ function calIsTaskDueOnDate(t, dateStr, dow) {
   if (t.repeat === 'daily') return true;
   if (t.repeat === 'weekdays') return dow >= 1 && dow <= 5;
   if (t.repeat === 'custom-days') return (t.days || []).indexOf(dow) !== -1;
+  if (t.repeat === 'dates') return (t.dates || []).indexOf(dateStr) !== -1;
 
   if (t.repeat === 'interval') {
     var origin = t.createdAt || dateStr;
@@ -10168,7 +10175,7 @@ var _calReopenDate = null;
 function openModal(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   _editingTaskId = null; _tbPendingDate = null;
-  mDiff=1; mRepeat='daily'; mDays=[]; mInterval=4; mLabel=''; mEmoji=''; mPenaltyTouched=false;
+  mDiff=1; mRepeat='daily'; mDays=[]; mDates=[]; mInterval=4; mLabel=''; mEmoji=''; mPenaltyTouched=false;
   document.getElementById('m-name').value='';
   document.getElementById('m-note').value='';
   document.getElementById('m-duedate').value='';
@@ -10196,6 +10203,7 @@ function editTask(id) {
   mDiff = (tk.diff === undefined || tk.diff === null) ? 1 : tk.diff;
   mRepeat = tk.repeat || 'daily';
   mDays = tk.days ? [...tk.days] : [];
+  mDates = Array.isArray(tk.dates) ? tk.dates.slice() : [];
   mLabel = tk.label || '';
   mEmoji = tk.emoji || '';
   document.getElementById('m-name').value = tk.name;
@@ -10289,11 +10297,29 @@ function selRepeat(r) {
     el.classList.toggle('sel', el.dataset.rep===r);
   });
   document.getElementById('field-custom-days').style.display = r==='custom-days'?'':'none';
+  var _fd = document.getElementById('field-dates'); if (_fd) { _fd.style.display = r==='dates'?'':'none'; if (r==='dates') mDatesRender(); }
   document.getElementById('field-interval').style.display = r==='interval'?'':'none';
   document.getElementById('field-startdate').style.display = r==='interval'?'':'none';
   document.getElementById('field-strict-schedule').style.display = r==='interval'?'':'none';
 }
 
+// 🗓 Aniq sanalar (repeat: 'dates', t.dates = ['YYYY-MM-DD', ...])
+var mDates = [];
+function mDatesAdd() {
+  var inp = document.getElementById('m-date-add'); var v = inp && inp.value;
+  if (!v) { if (inp) { try { inp.showPicker(); } catch (e) { inp.focus(); } } return; }
+  if (mDates.indexOf(v) === -1) { mDates.push(v); mDates.sort(); }
+  inp.value = ''; mDatesRender();
+}
+function mDatesDel(v) { mDates = mDates.filter(function (x) { return x !== v; }); mDatesRender(); }
+function mDatesRender() {
+  var box = document.getElementById('m-dates-list'); if (!box) return;
+  var td = today();
+  box.innerHTML = mDates.length ? mDates.map(function (d) {
+    var dt = new Date(d + 'T00:00:00'), lbl = dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short', weekday: 'short' });
+    return '<span class="md-chip' + (d < td ? ' past' : '') + '">' + esc(lbl) + '<button type="button" onclick="mDatesDel(\'' + d + '\')" aria-label="remove">✕</button></span>';
+  }).join('') : '<span class="md-empty">' + _cl("Sana tanlab ＋ ni bosing", 'Pick a date and press ＋', 'Выберите дату и нажмите ＋') + '</span>';
+}
 function selLabel(color) {
   mLabel = color;
   document.querySelectorAll('.label-chip').forEach(function(el){
@@ -10404,6 +10430,7 @@ function saveTask() {
   const name = document.getElementById('m-name').value.trim();
   if (!name) { document.getElementById('m-name').focus(); return; }
   if (mRepeat==='custom-days' && mDays.length===0) { toast(t('task_select_day_toast')); return; }
+  if (mRepeat==='dates') { try { mDatesAdd(); } catch (e) {} if (!mDates.length) { toast('🗓 ' + _cl("Kamida bitta sana qo'shing", 'Add at least one date', 'Добавьте хотя бы одну дату')); return; } }
 
   const interval = parseInt(document.getElementById('m-interval').value)||4;
   const startDate = document.getElementById('m-startdate').value || today();
@@ -10431,6 +10458,7 @@ function saveTask() {
       tk.diff = mDiff; tk.coins = taskTier(mDiff).c; tk.penalty = taskTier(mDiff).p;
       tk.repeat = mRepeat;
       tk.days = mRepeat==='custom-days' ? [...mDays] : null;
+      tk.dates = mRepeat==='dates' ? mDates.slice() : null;
       tk.interval = mRepeat==='interval' ? interval : null;
       tk.nextDate = mRepeat==='interval' ? startDate : tk.nextDate;
       // 2.1-band: qat'iy jadval (strictSchedule) — faqat interval turdagi
@@ -10464,7 +10492,7 @@ function saveTask() {
 
   const task = {
     id: S.nextId++, name, diff: mDiff, coins: taskTier(mDiff).c, penalty: taskTier(mDiff).p,
-    repeat:mRepeat, days:mRepeat==='custom-days'?[...mDays]:null,
+    repeat:mRepeat, days:mRepeat==='custom-days'?[...mDays]:null, dates:mRepeat==='dates'?mDates.slice():null,
     interval: mRepeat==='interval'?interval:null,
     nextDate: mRepeat==='interval'?startDate:null,
     strictSchedule: strictSchedule,
@@ -10819,21 +10847,36 @@ function unskipTask(id) {
 }
 
 
-function freezeTask(id) {
+// 🧊 Muzlatish: necha kunga (1/3/7/14/30 yoki o'zi kiritadi) yoki "o'zim to'xtataman" — so'raladi
+function freezeTask(id, days) {
   var tk = S.tasks.find(function(x){ return x.id===id; });
   if (!tk || tk.isFrozen) return;
+  if (days === undefined && typeof window.xFreezeAsk === 'function') { window.xFreezeAsk(id); return; }
   tk.isFrozen = true;
   tk.frozenAt = today();
+  tk.frozenUntil = (days && days > 0) ? addDaysStr(today(), days) : null;
   save(); render(); renderProfile();
-  toast('🧊 ' + t('freeze_task_toast'));
+  toast('🧊 ' + t('freeze_task_toast') + (tk.frozenUntil ? ' · ' + _cl('qaytadi: ', 'back on ', 'вернётся: ') + tk.frozenUntil : ''));
   try { SFX.click(); } catch(e) {}
 }
+function addDaysStr(ds, n) {
+  var d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+// Muddati tugagan muzlatishlar avtomatik ochiladi
+function autoUnfreezeTasks() {
+  var td = today(), n = 0;
+  (S.tasks || []).forEach(function (tk) { if (tk && tk.isFrozen && tk.frozenUntil && tk.frozenUntil <= td) { tk.isFrozen = false; tk.frozenAt = null; tk.frozenUntil = null; n++; } });
+  if (n) { save(); try { render(); renderProfile(); } catch (e) {} toast('🔥 ' + _cl(n + ' ta vazifa muzlatishdan chiqdi', n + ' task(s) unfrozen', 'Разморожено задач: ' + n)); }
+}
+window.autoUnfreezeTasks = autoUnfreezeTasks;
 
 function unfreezeTask(id) {
   var tk = S.tasks.find(function(x){ return x.id===id; });
   if (!tk || !tk.isFrozen) return;
   tk.isFrozen = false;
   tk.frozenAt = null;
+  tk.frozenUntil = null;
   save(); render(); renderProfile();
   renderFrozenTasksPanel();
   toast('🔥 ' + t('unfreeze_task_toast'));
@@ -10869,7 +10912,7 @@ function renderFrozenTasksPanel() {
       '<div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:8px">' +
         '<div style="flex:1;min-width:0">' +
           '<div style="font-size:var(--fs-base);color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</div>' +
-          '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:2px">' + rl.text + (tk.frozenAt ? ' · ' + t('frozen_since_label') + ' ' + tk.frozenAt : '') + '</div>' +
+          '<div style="font-size:var(--fs-2xs);color:var(--text-dim);margin-top:2px">' + rl.text + (tk.frozenAt ? ' · ' + t('frozen_since_label') + ' ' + tk.frozenAt : '') + ' · ' + (tk.frozenUntil ? '⏳ ' + _cl('qaytadi: ', 'back on ', 'вернётся: ') + tk.frozenUntil : '✋ ' + _cl("o'zingiz to'xtatasiz", 'until you unfreeze', 'до ручной разморозки')) + '</div>' +
         '</div>' +
         '<button onclick="unfreezeTask(' + JSON.stringify(tk.id) + ')" style="flex-shrink:0;padding:7px 14px;border-radius:var(--radius-full);border:1px solid rgba(245,166,35,0.4);background:rgba(245,166,35,0.12);color:var(--gold);font-size:var(--fs-xs);font-weight:600;cursor:pointer;white-space:nowrap">🔥 ' + t('unfreeze_btn') + '</button>' +
       '</div>';
@@ -11814,6 +11857,10 @@ function repeatLabel(t) {
     return {text:names, cls:'badge-weekly'};
   }
   if (t.repeat==='interval') return {text:tr('badge_interval').replace('{n}', t.interval), cls:'badge-repeat'};
+  if (t.repeat==='dates') {
+    var _ds = (t.dates || []).slice().sort(), _nx = _ds.filter(function (d) { return d >= today(); })[0];
+    return {text: tr('badge_dates').replace('{n}', _ds.length) + (_nx ? ' · ' + _nx.slice(5).replace('-', '.') : ''), cls:'badge-weekly'};
+  }
   return {text:tr('badge_once'), cls:'badge-once'};
 }
 
@@ -13184,6 +13231,7 @@ function tbTaskOnDate(tk, ds) {
   if (tk.repeat === 'daily') return true;
   if (tk.repeat === 'weekdays') return dow >= 1 && dow <= 5;
   if (tk.repeat === 'custom-days' || tk.repeat === 'weekly') return (tk.days || []).indexOf(dow) !== -1;
+  if (tk.repeat === 'dates') return (tk.dates || []).indexOf(ds) !== -1;
   return false;
 }
 function tbTasksOnDate(ds) { return (S.tasks || []).filter(function (tk) { return tbTaskOnDate(tk, ds); }); }
@@ -15647,6 +15695,11 @@ function renderFutureSubtasksHtml(t) {
 
 function daysUntilTask(t) {
   var td = today();
+  if (t.repeat === 'dates') {
+    if ((t.dates || []).indexOf(td) !== -1) return 0;
+    var _nx = (t.dates || []).filter(function (d) { return d > td; }).sort()[0];
+    return _nx ? Math.round((new Date(_nx + 'T00:00:00') - new Date(td + 'T00:00:00')) / 86400000) : 0;
+  }
   if (t.repeat === 'interval' && t.nextDate && t.nextDate > td) {
     return Math.round((new Date(t.nextDate) - new Date(td)) / 86400000);
   }
@@ -15673,6 +15726,7 @@ function daysUntilTask(t) {
 
 function taskIsFuture(t, td) {
   if (t.isFrozen) return false;
+  if (t.repeat === 'dates') return (t.dates || []).indexOf(td) === -1 && (t.dates || []).some(function (d) { return d > td; });
   if (t.repeat === 'interval' && t.nextDate && t.nextDate > td) return true;
   if (t.repeat === 'once' && t.postponedTo && t.postponedTo > td) return true;
   if (t.repeat === 'custom-days') {
