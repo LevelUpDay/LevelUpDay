@@ -96,6 +96,7 @@ function dueToday(t: any, date: string, dow: number) {
     case "weekdays": return dow >= 1 && dow <= 5;
     case "custom-days": case "weekly": return Array.isArray(t.days) && t.days.includes(dow);
     case "interval": return t.nextDate ? t.nextDate <= date : true;
+    case "dates": return Array.isArray(t.dates) && t.dates.includes(date);
     case "once": return !t.done || t.doneDate === date;
     default: return true;
   }

@@ -2003,7 +2003,15 @@
         <button class="repeat-opt" data-rep="weekdays" onclick="selRepeat('weekdays')" data-i18n="task_repeat_weekdays">💼 Ish kunlari</button>
         <button class="repeat-opt" data-rep="interval" onclick="selRepeat('interval')" data-i18n="task_repeat_interval">? Har N kunda</button>
         <button class="repeat-opt" data-rep="once" onclick="selRepeat('once')" data-i18n="task_repeat_once">1️⃣ Bir marta</button>
+        <button class="repeat-opt" data-rep="dates" onclick="selRepeat('dates')" data-i18n="task_repeat_dates">🗓 Aniq sanalar</button>
       </div>
+    </div>
+
+    <!-- 🗓 Aniq sanalar (bir nechta) -->
+    <div class="modal-field" id="field-dates" style="display:none">
+      <label data-i18n="task_dates_label">Qaysi sanalarda?</label>
+      <div class="md-row"><input type="date" id="m-date-add"><button type="button" class="md-add" onclick="mDatesAdd()">＋</button></div>
+      <div id="m-dates-list" class="md-list"></div>
     </div>
 
     <!-- Custom days picker -->

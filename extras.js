@@ -3324,58 +3324,19 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(applyTgActions, 1500); });
 
   // =========================================================
-  // 🕒 VAQT — davlat bo'yicha (tz.js). Sukut bo'yicha O'CHIQ: qurilma vaqti.
-  //   S.tzByCountry = true → localStorage.ludTz = profil davlatining vaqt mintaqasi (sahifa qayta yuklanadi)
+  // 🕒 "Vaqt — davlat bo'yicha" olib tashlandi: ilova faqat qurilma vaqtida ishlaydi.
+  //   Eski sozlama qolgan foydalanuvchilarda bir marta tozalanadi (soat-himoyasi qayta tiklanadi).
   // =========================================================
-  function tzOfCountry() { var c = S.profile && S.profile.country; return (c && window.LUD_TZ_MAP && window.LUD_TZ_MAP[c]) || null; }
-  function tzWanted() { return S.tzByCountry ? tzOfCountry() : null; }
-  function tzClock(zone) { try { return new Intl.DateTimeFormat(getLang ? getLang() : 'en', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(Date.now())); } catch (e) { return ''; } }
-  // Kerakli holat amaldagidan farq qilsa — saqlab, bir marta qayta yuklaymiz (sessiyada tsikl bo'lmasin)
-  function tzApply(force) {
-    var want = tzWanted(), cur = null; try { cur = localStorage.getItem('ludTz'); } catch (e) {}
-    if ((want || null) === (cur || null)) return false;
-    try { if (want) localStorage.setItem('ludTz', want); else { localStorage.removeItem('ludTz'); localStorage.removeItem('ludSkew'); } } catch (e) { return false; }
-    // O'chirilganda vaqt qurilma soatiga qaytadi (orqaga ketishi mumkin) — soat-firibgarlik himoyasi noto'g'ri ishlamasin
-    if (!want && window.LUD_TZ && window.LUD_TZ.skew) { try { S.lastKnownTimestamp = Date.now() - window.LUD_TZ.skew; S.clockTamperDetected = false; save(); } catch (e) {} }
-    var k = 'ludTzReload:' + (want || 'off');
-    try { if (!force && sessionStorage.getItem(k)) return false; sessionStorage.setItem(k, '1'); } catch (e) {}
-    toast('🕒 ' + L('Vaqt yangilanmoqda…', 'Updating time…', 'Обновляем время…'));
-    setTimeout(function () { location.reload(); }, 600);
-    return true;
-  }
-  window.xTzApply = tzApply;
-  function renderTzSettings() {
-    var st = document.getElementById('profile-subtab-settings'); if (!st) return;
-    var card = document.getElementById('x-tz-card');
-    if (!card) {
-      card = document.createElement('div'); card.id = 'x-tz-card'; card.className = 'x-card x-push-card x-tz-card';
-      var tg = document.getElementById('x-tg-card');
-      st.insertBefore(card, tg ? tg.nextSibling : st.firstChild);
-    }
-    var on = !!S.tzByCountry, cz = tzOfCountry(), cc = S.profile && S.profile.country, dev = (window.LUD_TZ && window.LUD_TZ.device) || '';
-    var flag = cc && typeof countryFlagImg === 'function' ? countryFlagImg(cc, 14) + ' ' : '';
-    var sub = on && cz
-      ? flag + H(typeof countryName === 'function' ? countryName(cc) : cc) + ' · ' + H(cz.replace(/_/g, ' ')) + ' · <b>' + H(tzClock(cz)) + '</b>'
-        + (window.LUD_TZ && window.LUD_TZ.skew ? ' · ' + L('qurilma soati tuzatildi', 'device clock corrected', 'часы устройства исправлены') + ' (' + (window.LUD_TZ.skew > 0 ? '+' : '−') + Math.round(Math.abs(window.LUD_TZ.skew) / 60000) + ' ' + L('daq', 'min', 'мин') + ')' : '')
-      : L('Qurilma vaqti', 'Device time', 'Время устройства') + ' · ' + H(dev.replace(/_/g, ' ')) + ' · <b>' + H(tzClock(dev || undefined)) + '</b>';
-    card.innerHTML = '<div class="x-push-h"><span>🕒</span><div><b>' + L('Vaqt — davlat bo\'yicha', 'Time by country', 'Время по стране') + '</b><small>' + sub + '</small></div>' +
-      '<button type="button" class="x-tg-sw' + (on ? ' on' : '') + '" id="x-tz-sw" role="switch" aria-checked="' + on + '"' + (!cz && !on ? ' disabled' : '') + '><i></i></button></div>' +
-      '<div class="x-tg-hint">' + (cz
-        ? L('Yoqilsa: kun, soat, eslatmalar va statistika profilingizdagi davlat vaqti bilan hisoblanadi — boshqa davlatga borsangiz ham. O\'chiq bo\'lsa — telefon/noutbuk soati.', 'When on, days, hours, reminders and stats use your profile country\'s time — even when you travel. When off, your phone/laptop clock is used.', 'Если включено, дни, часы, напоминания и статистика считаются по времени страны из профиля — даже в поездке. Если выключено — по часам телефона/ноутбука.')
-        : L('Avval profilda davlatingizni tanlang (Profil → ✎ Tahrirlash), keyin yoqish mumkin.', 'Choose your country in your profile first (Profile → ✎ Edit), then you can turn this on.', 'Сначала выберите страну в профиле (Профиль → ✎ Изменить), затем можно включить.') +
-        (!cz ? ' <button type="button" class="x-link" id="x-tz-country">' + L('Davlatni tanlash', 'Choose country', 'Выбрать страну') + '</button>' : '')) + '</div>';
-    var sw = card.querySelector('#x-tz-sw');
-    sw.onclick = function () {
-      if (!cz && !S.tzByCountry) return;
-      S.tzByCountry = !S.tzByCountry; save();
-      if (!tzApply(true)) renderTzSettings();
-    };
-    var cb = card.querySelector('#x-tz-country'); if (cb) cb.onclick = function () { try { showProfileEdit(); } catch (e) {} };
-  }
-  window.xRenderTzSettings = safe(renderTzSettings);
-  // Bulutdan kelgan sozlama yoki davlat o'zgargan bo'lsa — mos holatga keltiramiz
-  setTimeout(function () { try { tzApply(false); } catch (e) {} }, 4000);
-  setTimeout(function () { try { tzApply(false); } catch (e) {} }, 15000);
+  window.xTzApply = function () { return false; };
+  window.xRenderTzSettings = function () { var c = document.getElementById('x-tz-card'); if (c) c.remove(); };
+  setTimeout(function () {
+    try {
+      var ch = false;
+      if (S.tzByCountry) { S.tzByCountry = false; ch = true; }
+      if (window.LUD_TZ && window.LUD_TZ.cleared) { S.lastKnownTimestamp = Date.now(); S.clockTamperDetected = false; ch = true; }
+      if (ch) save();
+    } catch (e) {}
+  }, 2500);
 
   // =========================================================
   // 🎁 DO'ST TAKLIF QILISH — havola: ?ref=KOD
@@ -6453,4 +6414,35 @@
     setInterval(maybeAsk, 10 * 60000); // tun yarmidan keyin ochiq qolgan ilovada ham
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else setTimeout(init, 0);
+})();
+
+// ============================================================
+// 🧊 MUZLATISH — necha kunga? (yoki "o'zim to'xtataman"). Muddat tugasa avtomatik ochiladi.
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  window.xFreezeAsk = function (id) {
+    var tk = (S.tasks || []).find(function (x) { return x.id === id; }); if (!tk) return;
+    var ov = document.createElement('div'); ov.className = 'x-ov x-fz-ov';
+    ov.innerHTML = '<div class="x-box x-fz-box" role="dialog" aria-modal="true"><div class="x-fz-ic">🧊</div><h3>' + esc(L('Necha kunga muzlatamiz?', 'Freeze for how long?', 'На сколько заморозить?')) + '</h3>' +
+      '<p class="x-fz-sub">' + esc((tk.emoji ? tk.emoji + ' ' : '') + tk.name) + '</p>' +
+      '<div class="x-fz-ch">' + [1, 3, 7, 14, 30].map(function (d) { return '<button type="button" data-d="' + d + '">' + d + ' ' + esc(L('kun', d === 1 ? 'day' : 'days', 'дн.')) + '</button>'; }).join('') + '</div>' +
+      '<div class="x-fz-own"><input type="number" class="x-in" min="1" max="365" placeholder="' + esc(L('Boshqa: kun soni', 'Other: number of days', 'Другое: дней')) + '"><button type="button" class="x-btn sm" data-own>OK</button></div>' +
+      '<button type="button" class="x-fz-manual" data-d="0">✋ ' + esc(L('O\'zim to\'xtataman (muddatsiz)', 'I\'ll unfreeze it myself (no end date)', 'Разморожу сам (без срока)')) + '</button>' +
+      '<p class="x-fz-hint">' + esc(L('Muzlatilgan vazifa ro\'yxatdan yashiriladi va streak\'ni buzmaydi. Muddat tugaganda o\'zi qaytadi.', 'A frozen task is hidden and doesn\'t break your streak. It comes back by itself when time is up.', 'Замороженная задача скрыта и не ломает серию. По окончании срока вернётся сама.')) + '</p></div>';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function () { ov.classList.add('open'); });
+    var close = function () { ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 180); };
+    var go = function (d) { close(); freezeTask(id, d); };
+    ov.addEventListener('click', function (e) {
+      if (e.target === ov) { close(); return; }
+      var b = e.target.closest('[data-d]'); if (b) { go(+b.getAttribute('data-d')); return; }
+      if (e.target.closest('[data-own]')) { var v = Math.round(+ov.querySelector('.x-fz-own input').value || 0); if (v >= 1 && v <= 365) go(v); else ov.querySelector('.x-fz-own input').focus(); }
+    });
+  };
+  function tick() { try { if (window.autoUnfreezeTasks) window.autoUnfreezeTasks(); } catch (e) {} }
+  setTimeout(tick, 3000);
+  setInterval(tick, 30 * 60000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(tick, 800); });
 })();
