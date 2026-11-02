@@ -752,6 +752,7 @@
   window.xLevelGifts = safe(function (level) {
     if (!level || typeof S === 'undefined') return;
     if (S.cloudLinked && !window._cloudPullDone) return; // bulutdagi holat kelguncha kutamiz (ikki marta berilmasin)
+    if (window.ludRewardsReady && !window.ludRewardsReady()) return; // hali kirmagan (Google yoki Mehmon) — sovg'a berilmaydi
     var st = shopState(); if (!Array.isArray(st.lvGifts)) st.lvGifts = [];
     var fresh = [], nLv = 0, first = !st.lvGifts.length && level > 1;
     for (var lv = 1; lv <= level; lv++) {

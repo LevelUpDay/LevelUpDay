@@ -24410,6 +24410,9 @@ function badgeTap(id) {
   var v = b.value(S) || 0, ok = b.check(S);
   toast(b.icon + ' ' + b.desc + (ok ? ' ✅' : b.tier ? ' · ' + Math.min(v, b.target) + '/' + b.target : ''));
 }
+// 🏅 Yutuq/sovg'alar faqat foydalanuvchi kirgandan keyin (Google/akkaunt yoki "Mehmon" sifatida) beriladi
+function ludRewardsReady() { try { return !!(S && (S.welcomeSurveyDone || (S.cloudLinked && S.cloudUserId))); } catch (e) { return false; } }
+window.ludRewardsReady = ludRewardsReady;
 function renderBadges() {
   var grid = document.getElementById('badges-grid');
   var prog = document.getElementById('badges-progress');
@@ -24418,8 +24421,9 @@ function renderBadges() {
   var allBadges = buildAllBadges();
   if (!S.badgesUnlocked) S.badgesUnlocked = {};
   var newlyEarned = [];
+  var _canAward = ludRewardsReady();
   allBadges.forEach(function (b) {
-    var earned = b.check(S);
+    var earned = _canAward && b.check(S);
     if (earned && !S.badgesUnlocked[b.id]) {
       S.badgesUnlocked[b.id] = true;
       // 🏅 Har bir yutuq uchun 1 💎
@@ -28999,6 +29003,8 @@ function wsFinish(method, toastKey) {
   S.profile.loginMethod = method;
   S.welcomeSurveyDone = true;
   save();
+  // Kirishdan keyin — to'plangan yutuq va daraja sovg'alari endi beriladi
+  setTimeout(function () { try { renderBadges(); } catch (e) {} try { if (window.xLevelGifts) window.xLevelGifts(getLevel(S.xp || 0).level); } catch (e) {} }, 1200);
 
   try { updateHeaderUserTitle(); } catch (e) {}
   try { if (typeof renderProfile === 'function') renderProfile(); } catch (e) {}
