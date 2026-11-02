@@ -8261,7 +8261,10 @@ function maybeShowWeeklyReport() {
   if (S.weeklyReportShown === lastWs) return;
   var D = weeklyReportData(lastWs);
   S.weeklyReportShown = lastWs; save();
-  if (D.total > 0 || D.pomo > 0) setTimeout(function () { showWeeklyReport(lastWs); }, 3000);
+  if (D.total > 0 || D.pomo > 0) {
+    var tryShow = function () { if (window.ludPopupBusy && window.ludPopupBusy()) { setTimeout(tryShow, 1500); return; } showWeeklyReport(lastWs); };
+    setTimeout(tryShow, 3000);
+  }
 }
 
 // 💾 Avtomatik kunlik nusxalar (IndexedDB, oxirgi 7 kun)
@@ -16269,8 +16272,12 @@ function kiMissed(){
 }
 window._kiQ=[];
 window._kiOv=null;
+// 🪟 Savol oynalari ketma-ket chiqadi: biri ochiq tursa, keyingisi u yopilgach ko'rsatiladi
+function ludPopupBusy(){ return !!(document.querySelector('.x-ci-ov, #weekly-report, .x-pc-intro') || (window._kiOv && window._kiOv.isConnected)); }
+window.ludPopupBusy=ludPopupBusy;
 function checkKI(){
   if(!S.personalCheckEnabled)return; // Personal Check o'chiq bo'lsa, umuman so'ralmaydi
+  if(ludPopupBusy()){ if(!(window._kiOv&&window._kiOv.isConnected)){ clearTimeout(window._kiWait); window._kiWait=setTimeout(checkKI,1500); } return; }
   var q=kiMissed(); // faqat kecha va o'tgan javob berilmagan kunlar
   if(!q.length)return;
   window._kiQ=q;
