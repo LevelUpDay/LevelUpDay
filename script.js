@@ -35343,6 +35343,7 @@ var cloudPullAppState = async function(force) {
   try { if (typeof ensureFullTaskOrder === 'function') ensureFullTaskOrder(); } catch (e) {}
   try { saveToLocalStorage(S); } catch (e) {}
   _appStateLastCmp = JSON.stringify(Object.assign({}, _appStatePayload(), { _savedAt: 0 }));
+  _syncHashSave(_appStatePayload());
   if (needReload && !sessionStorage.getItem('cloudPomoReloaded')) {
     try { sessionStorage.setItem('cloudPomoReloaded', '1'); } catch (e) {}
     // Kirish jarayoni (cloudBoot/login) tugamaguncha qayta yuklamaymiz — aks holda
@@ -35808,6 +35809,15 @@ function _appStatePayload() {
 // 🔀 3 tomonlama birlashtirish: base = oxirgi sinxron holat, local = shu qurilma, remote = bulut.
 // Faqat bir tomon o'zgargan bo'lsa — o'sha; ikkalasi ham o'zgargan obyektlarda kalitma-kalit;
 // oddiy qiymatlar massivida (masalan bajarilgan sanalar) — qo'shilganlar birlashtiriladi, o'chirilganlari olib tashlanadi.
+// 🔁 Oxirgi sinxronlangan holat: har bir kalit qiymatining xeshi (qurilmada). Sahifa yangilangandan keyin ham
+// "bu qurilmada nima o'zgargan"ni bilish uchun — aks holda eski mahalliy qiymat boshqa qurilmadagi o'zgarishni bosib ketardi.
+function _syncHash(v) { var str = JSON.stringify(v === undefined ? null : v) || '', h = 5381; for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return h + ':' + str.length; }
+function _syncHashKey() { return 'ludSyncHash_' + (S.cloudUserId || ''); }
+function _syncHashGet() { try { var o = JSON.parse(localStorage.getItem(_syncHashKey()) || 'null'); return o && typeof o === 'object' ? o : null; } catch (e) { return null; } }
+function _syncHashSave(payload) {
+  if (!S.cloudUserId || !payload) return;
+  try { var o = {}; Object.keys(payload).forEach(function (k) { if (k !== '_savedAt') o[k] = _syncHash(payload[k]); }); localStorage.setItem(_syncHashKey(), JSON.stringify(o)); } catch (e) {}
+}
 function _cloudMerge3(base, local, remote) {
   var J = function (x) { return JSON.stringify(x === undefined ? null : x); };
   var jl = J(local), jr = J(remote), jb = J(base);
@@ -36006,14 +36016,18 @@ function scheduleAppStateSync(immediate) {
         var remoteMs = chk && chk.data && Date.parse(chk.data.updated_at) || 0;
         if (remoteMs > (S._cloudSyncedAt || 0) + 5) {
           var mine = _appStatePayload();
-          var base = _appStateLastCmp ? JSON.parse(_appStateLastCmp) : {};
+          var base = _appStateLastCmp ? JSON.parse(_appStateLastCmp) : null;
+          var hashBase = base ? null : _syncHashGet(); // sessiyada asos yo'q — oxirgi sinxron xeshlari bilan solishtiramiz
           await cloudPullAppState(true);
           // Shu qurilmada o'zgargan kalitlar bulutdagi bilan BIRLASHTIRILADI (3 tomonlama):
           // masalan ikkala qurilmada bajarilgan vazifalar (taskDoneLog) ham saqlanib qoladi.
           Object.keys(mine).forEach(function (k) {
             if (k === '_ls' || k === '_savedAt' || _CLOUD_LOCAL_ONLY.indexOf(k) !== -1) return;
             if (_CLOUD_ECON.indexOf(k) !== -1) { S[k] = mine[k]; return; } // tanga/XP — profiles orqali, mahalliy qiymat saqlanadi
-            if (JSON.stringify(mine[k]) !== JSON.stringify(base[k])) S[k] = _cloudMerge3(base[k], mine[k], S[k]);
+            // Bu qurilmada o'zgarmagan kalit — bulutdagi (boshqa qurilma o'zgartirgan) qiymat qoladi
+            if (!base && hashBase && hashBase[k] !== undefined && hashBase[k] === _syncHash(mine[k])) return;
+            var b0 = base ? base[k] : undefined;
+            if (!base || JSON.stringify(mine[k]) !== JSON.stringify(b0)) S[k] = _cloudMerge3(b0, mine[k], S[k]);
           });
           try { saveToLocalStorage(S); render(); } catch (e) {}
           payload = _appStatePayload();
@@ -36028,6 +36042,7 @@ function scheduleAppStateSync(immediate) {
       if (r.error) { console.warn('[app_state] yozishda xatolik:', r.error.message); window._cloudLastErr = r.error.message; return; }
       window._cloudLastOkAt = Date.now(); window._cloudLastErr = null;
       _appStateLastCmp = cmp;
+      _syncHashSave(payload);
       S._cloudSyncedAt = (r.data && Date.parse(r.data.updated_at)) || nowMs;
     } catch (e) { console.warn('[app_state] tarmoq xatoligi:', e); }
   };
