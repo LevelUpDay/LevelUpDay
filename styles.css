@@ -4032,3 +4032,6 @@ html.lud-boot::after { content: ""; position: fixed; left: 50%; top: 50%; width:
 .spin-more-btn:disabled { opacity: .45; cursor: not-allowed; }
 .spin-more-btn small { color: var(--text-muted); margin-left: 4px; }
 @media (prefers-reduced-motion: reduce) { .spin-item-card.spin-won, #spin-viewport.spin-flash { animation: none; } }
+.tbn-more { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+.tbn-more button { background: none; border: 0; color: var(--text-muted); font-size: var(--fs-xs); cursor: pointer; text-decoration: underline; padding: 4px 6px; font-family: inherit; }
+.tbn-more button:hover { color: var(--text); }
