@@ -2795,6 +2795,7 @@
       ['rewards', '🎁', L('Mukofot', 'Rewards', 'Награды'), function () { showTab('rewards'); }],
       ['profile', '👤', L('Profil', 'Profile', 'Профиль'), function () { showTab('profile'); }],
       ['inbox', '📥', 'Inbox', function () { showTab('hub'); if (window.xInbox) window.xInbox.open(); }],
+      ['timeline', '🕒', L('Kun jadvali', 'Day schedule', 'Расписание дня'), function () { S.timeView = true; try { save(); } catch (e) {} showTab('tasks'); setTimeout(function () { try { tbToggleFull(true); } catch (e) {} }, 60); }],
       ['blocker', '🔒', 'Focusgate', function () { showTab('blocker'); }],
       ['pomo', '🍅', L('Pomodoro', 'Pomodoro', 'Pomodoro'), function () { pomoOpenModal(); }],
       ['reyting', '🏆', L('Reyting', 'Leaderboard', 'Рейтинг'), function () { showTab('reyting'); }],
@@ -2809,7 +2810,7 @@
       ['secret', '🕵️', L('Shaxsiy nazorat', 'Personal check', 'Личный контроль'), function () { showTab('secret'); }]
     ];
     var ok = all.filter(function (x) {
-      if (['tasks', 'goals', 'hub', 'rewards', 'profile', 'friends', 'spin', 'invite', 'clans'].indexOf(x[0]) !== -1) return true;
+      if (['tasks', 'goals', 'hub', 'rewards', 'profile', 'friends', 'spin', 'invite', 'clans', 'timeline'].indexOf(x[0]) !== -1) return true;
       if (x[0] === 'inbox') return !!window.xInbox;
       if (x[0] === 'secret') return true; // 🕵️ har doim Hub bo'limlarida; birinchi kirishda yoqish so'raladi
       return tabAvailable(x[0]);
@@ -6457,4 +6458,134 @@
   setTimeout(tick, 3000);
   setInterval(tick, 30 * 60000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(tick, 800); });
+})();
+
+// ============================================================
+// 📥 INBOX v3 — sodda: BARCHA vazifalar bitta ro'yxatda (kunlarga bo'linmagan).
+// Har bir vazifa ostida qaysi kunlari/sanalari yozilgan. Amallar: ✅ bajarish,
+// ✏️ tahrirlash, 📅 boshqa kunga (kelajakka ham) ko'chirish, 🗑 o'chirish.
+// Eski Inbox IIFE'dagi yordamchilar (xInboxAddText, xCsvInbox) saqlanadi; window.xInbox shu yerda almashtiriladi.
+// ============================================================
+(function () {
+  'use strict';
+  var L = function (uz, en, ru) { return _cl(uz, en, ru); };
+  var H = function (s) { return esc(s == null ? '' : String(s)); };
+  var isOpen = false, host = null, q = '', tab = 'active', moveFor = null;
+  try { tab = localStorage.getItem('ludIb3Tab') || 'active'; } catch (e) {}
+  function td() { return today(); }
+  function isDoneNow(t) { return t.repeat === 'once' ? !!t.done : t.doneDate === td(); }
+  function dueNow(t) { try { return taskDueToday(t); } catch (e) { return false; } }
+  function sched(t) {
+    var parts = [];
+    try { parts.push(repeatLabel(t).text); } catch (e) {}
+    if (t.repeat === 'once' && t.postponedTo && t.postponedTo > td()) parts.push('📅 ' + tkShortDate(t.postponedTo));
+    if (t.repeat === 'interval' && t.nextDate) parts.push(L('keyingi: ', 'next: ', 'след.: ') + tkShortDate(t.nextDate));
+    if (t.repeat === 'dates') { var nx = (t.dates || []).filter(function (d) { return d >= td(); }).sort(); if (nx.length) parts.push(nx.slice(0, 4).map(tkShortDate).join(', ') + (nx.length > 4 ? ' …' : '')); }
+    if (t.startTime) parts.push('🕒 ' + t.startTime + (t.endTime ? '–' + t.endTime : ''));
+    if (t.dueDate) parts.push('⏳ ' + L('muddat ', 'due ', 'срок ') + tkShortDate(t.dueDate));
+    if (t.isFrozen) parts.push('🧊 ' + (t.frozenUntil ? L('qaytadi ', 'back ', 'вернётся ') + tkShortDate(t.frozenUntil) : L('muzlatilgan', 'frozen', 'заморожено')));
+    return parts.filter(Boolean).join(' · ');
+  }
+  function list() {
+    var all = (S.tasks || []).filter(function (t) { return t && t.id != null && !t.fromParentId; });
+    var qq = q.trim().toLowerCase();
+    if (qq) all = all.filter(function (t) { return String(t.name || '').toLowerCase().indexOf(qq) !== -1 || String(t.note || '').toLowerCase().indexOf(qq) !== -1; });
+    var f = all.filter(function (t) {
+      if (tab === 'frozen') return !!t.isFrozen;
+      if (tab === 'done') return !t.isFrozen && isDoneNow(t);
+      if (tab === 'all') return true;
+      return !t.isFrozen && !isDoneNow(t); // faol
+    });
+    f.sort(function (a, b) { var da = dueNow(a) ? 0 : 1, db = dueNow(b) ? 0 : 1; if (da !== db) return da - db; return String(a.startTime || '99').localeCompare(String(b.startTime || '99')) || String(a.name).localeCompare(String(b.name)); });
+    return { items: f, counts: { active: all.filter(function (t) { return !t.isFrozen && !isDoneNow(t); }).length, done: all.filter(function (t) { return !t.isFrozen && isDoneNow(t); }).length, frozen: all.filter(function (t) { return t.isFrozen; }).length, all: all.length } };
+  }
+  function rowHtml(t) {
+    var dn = isDoneNow(t), canCheck = !t.isFrozen && (dueNow(t) || t.repeat === 'once');
+    var cats = ''; try { cats = taskCatsOf(t).slice(0, 2).map(function (c) { return '<span class="ib3-cat">' + H(taskCatLabel(c)) + '</span>'; }).join(''); } catch (e) {}
+    return '<div class="ib3-row' + (dn ? ' done' : '') + (t.isFrozen ? ' frozen' : '') + (dueNow(t) && !dn ? ' today' : '') + '" data-id="' + t.id + '">' +
+      (canCheck ? '<button type="button" class="ib3-chk' + (dn ? ' on' : '') + '" data-a="done" aria-label="done">' + (dn ? '✓' : '') + '</button>' : '<span class="ib3-chk off" title="' + H(L('Bugun emas', 'Not today', 'Не сегодня')) + '">·</span>') +
+      '<div class="ib3-main" data-a="edit"><b>' + (t.emoji ? H(t.emoji) + ' ' : '') + H(t.name) + (dueNow(t) && !dn ? ' <em class="ib3-today">' + H(L('bugun', 'today', 'сегодня')) + '</em>' : '') + '</b>' +
+        '<small>' + H(sched(t)) + '</small>' + (cats ? '<span class="ib3-cats">' + cats + '</span>' : '') + '</div>' +
+      '<div class="ib3-acts">' +
+        '<button type="button" data-a="edit" title="' + H(L('Tahrirlash', 'Edit', 'Изменить')) + '">✏️</button>' +
+        '<button type="button" data-a="move" title="' + H(L('Boshqa kunga ko\'chirish', 'Move to another day', 'Перенести на другой день')) + '">📅</button>' +
+        (t.isFrozen ? '<button type="button" data-a="unfz" title="' + H(L('Muzlatishdan chiqarish', 'Unfreeze', 'Разморозить')) + '">🔥</button>' : '') +
+        '<button type="button" data-a="del" class="del" title="' + H(L('O\'chirish', 'Delete', 'Удалить')) + '">🗑</button>' +
+      '</div>' +
+      (moveFor === t.id ? moveHtml(t) : '') + '</div>';
+  }
+  function moveHtml(t) {
+    var tm = new Date(); tm.setDate(tm.getDate() + 1);
+    var tmk = tm.getFullYear() + '-' + String(tm.getMonth() + 1).padStart(2, '0') + '-' + String(tm.getDate()).padStart(2, '0');
+    var nw = new Date(); nw.setDate(nw.getDate() + 7); var nwk = nw.getFullYear() + '-' + String(nw.getMonth() + 1).padStart(2, '0') + '-' + String(nw.getDate()).padStart(2, '0');
+    var rep = ['daily', 'weekdays', 'custom-days', 'weekly'].indexOf(t.repeat) !== -1;
+    if (rep) return '<div class="ib3-move"><span>' + H(L('Takrorlanuvchi vazifani ko\'chirib bo\'lmaydi — kunlarini ✏️ tahrirlashda o\'zgartiring.', 'A repeating task can\'t be moved — change its days in ✏️ Edit.', 'Повторяющуюся задачу нельзя перенести — измените дни в ✏️.')) + '</span></div>';
+    return '<div class="ib3-move"><button type="button" data-mv="' + td() + '">' + H(L('Bugun', 'Today', 'Сегодня')) + '</button><button type="button" data-mv="' + tmk + '">' + H(L('Ertaga', 'Tomorrow', 'Завтра')) + '</button>' +
+      '<button type="button" data-mv="' + nwk + '">' + H(L('1 haftadan keyin', 'In a week', 'Через неделю')) + '</button><input type="date" class="ib3-date" min="' + td() + '"><button type="button" class="ok" data-mv="pick">OK</button></div>';
+  }
+  function moveTo(t, d) {
+    if (!d) return;
+    if (t.repeat === 'interval') t.nextDate = d;
+    else if (t.repeat === 'dates') { var ds = (t.dates || []).filter(function (x) { return x !== td(); }); if (ds.indexOf(d) === -1) ds.push(d); t.dates = ds.sort(); }
+    else { t.postponedTo = d > td() ? d : null; t.overdueFrom = null; t.overdueOn = null; if (t.done && t.repeat === 'once') { t.done = false; t.doneDate = null; } }
+    if (t.isFrozen) { t.isFrozen = false; t.frozenAt = null; t.frozenUntil = null; }
+    moveFor = null; save(); try { render(); } catch (e) {}
+    toast('📅 ' + (d === td() ? L('Bugunga ko\'chirildi', 'Moved to today', 'Перенесено на сегодня') : L('Ko\'chirildi: ', 'Moved to ', 'Перенесено на ') + tkShortDate(d)));
+    draw();
+  }
+  function draw() {
+    if (!host || !host.isConnected) return;
+    var r = list(), box = host.querySelector('.ib3-list'); if (!box) return;
+    var T = [['active', '🟢 ' + L('Faol', 'Active', 'Активные')], ['done', '✅ ' + L('Bugun bajarilgan', 'Done today', 'Сделано сегодня')], ['frozen', '🧊 ' + L('Muzlatilgan', 'Frozen', 'Заморожены')], ['all', L('Hammasi', 'All', 'Все')]];
+    host.querySelector('.ib3-tabs').innerHTML = T.map(function (x) { return '<button type="button" data-ibt="' + x[0] + '" class="' + (tab === x[0] ? 'on' : '') + '">' + H(x[1]) + ' <i>' + r.counts[x[0]] + '</i></button>'; }).join('');
+    box.innerHTML = r.items.length ? r.items.map(rowHtml).join('') : '<div class="ib3-empty">' + H(q ? L('Hech narsa topilmadi', 'Nothing found', 'Ничего не найдено') : tab === 'active' ? L('Hammasi bajarilgan 🎉', 'All done 🎉', 'Всё сделано 🎉') : L('Bo\'sh', 'Empty', 'Пусто')) + '</div>';
+  }
+  function render(v) {
+    host = v || host; if (!host) return;
+    host.innerHTML = '<div class="ib3">' +
+      '<div class="ib3-head"><button type="button" class="ib3-back" data-a="back">←</button><div><b>📥 Inbox</b><small>' + H(L('Barcha vazifalar — kunidan qat\'i nazar. Bajaring, ko\'chiring, tahrirlang yoki o\'chiring.', 'All tasks regardless of day — complete, move, edit or delete.', 'Все задачи независимо от дня — выполняйте, переносите, редактируйте, удаляйте.')) + '</small></div></div>' +
+      '<div class="ib3-bar"><input type="search" class="ib3-q" placeholder="🔍 ' + H(L('Qidirish', 'Search', 'Поиск')) + '" value="' + H(q) + '">' +
+        '<form class="ib3-add"><input type="text" class="ib3-new" maxlength="120" placeholder="＋ ' + H(L('Yangi vazifa (Enter)', 'New task (Enter)', 'Новая задача (Enter)')) + '"></form>' +
+        '<button type="button" class="ib3-full" data-a="new" title="' + H(L('To\'liq oyna bilan qo\'shish', 'Add with full form', 'Добавить через форму')) + '">⚙️</button></div>' +
+      '<div class="ib3-tabs"></div><div class="ib3-list"></div></div>';
+    var qi = host.querySelector('.ib3-q');
+    qi.addEventListener('input', function () { q = qi.value; draw(); });
+    host.querySelector('.ib3-add').addEventListener('submit', function (e) {
+      e.preventDefault(); var inp = host.querySelector('.ib3-new'), v2 = inp.value.trim(); if (!v2) return;
+      var t = window.xInboxAddText ? window.xInboxAddText(v2) : null; inp.value = '';
+      if (t) { toast('⚡ ' + L('Qo\'shildi', 'Added', 'Добавлено') + ': ' + t.name); tab = 'active'; draw(); }
+    });
+    host.querySelector('.ib3').addEventListener('click', onClick);
+    draw();
+  }
+  function onClick(e) {
+    var tb = e.target.closest('[data-ibt]'); if (tb) { tab = tb.getAttribute('data-ibt'); try { localStorage.setItem('ludIb3Tab', tab); } catch (er) {} moveFor = null; draw(); return; }
+    var mv = e.target.closest('[data-mv]');
+    if (mv) {
+      var row0 = mv.closest('[data-id]'), t0 = (S.tasks || []).find(function (x) { return String(x.id) === row0.getAttribute('data-id'); }); if (!t0) return;
+      var d = mv.getAttribute('data-mv'); if (d === 'pick') { d = (row0.querySelector('.ib3-date') || {}).value; if (!d) { toast('📅 ' + L('Sanani tanlang', 'Pick a date', 'Выберите дату')); return; } }
+      moveTo(t0, d); return;
+    }
+    var b = e.target.closest('[data-a]'); if (!b) return;
+    var a = b.getAttribute('data-a');
+    if (a === 'back') { close(); return; }
+    if (a === 'new') { try { openModal(); } catch (er) {} return; }
+    var row = b.closest('[data-id]'); if (!row) return;
+    var id = row.getAttribute('data-id'), t = (S.tasks || []).find(function (x) { return String(x.id) === id; }); if (!t) return;
+    if (a === 'done') { try { toggleTask(t.id); } catch (er) {} setTimeout(draw, 80); }
+    else if (a === 'edit') { try { editTask(t.id); } catch (er) {} }
+    else if (a === 'move') { moveFor = moveFor === t.id ? null : t.id; draw(); }
+    else if (a === 'unfz') { try { unfreezeTask(t.id); } catch (er) {} draw(); }
+    else if (a === 'del') { try { deleteTask(t.id); } catch (er) {} setTimeout(draw, 400); }
+  }
+  function open() { isOpen = true; q = ''; moveFor = null; if ((document.documentElement.getAttribute('data-tab') || '') !== 'hub') showTab('hub'); else { try { window.xRenderHub(); } catch (e) {} } try { window.scrollTo(0, 0); } catch (e) {} }
+  function close(silent) { if (!isOpen) return; isOpen = false; host = null; if (!silent && typeof window.xRenderHub === 'function') { window.xRenderHub(); try { window.scrollTo(0, 0); } catch (e) {} } }
+  function openCount() { try { return (S.tasks || []).filter(function (t) { return t && !t.fromParentId && !t.isFrozen && dueNow(t) && !isDoneNow(t); }).length; } catch (e) { return 0; } }
+  // Ma'lumot o'zgarsa (save) — ro'yxat yangilanadi
+  var last = null;
+  setInterval(function () { if (!isOpen || !host || !host.isConnected || document.hidden) return; if (S._savedAt !== last) { last = S._savedAt; if (!host.querySelector('.ib3-q:focus, .ib3-new:focus, .ib3-date:focus')) draw(); } }, 800);
+  try { new MutationObserver(function () { if (isOpen && document.documentElement.getAttribute('data-tab') !== 'hub') { isOpen = false; host = null; } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tab'] }); } catch (e) {}
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && isOpen && host && host.isConnected && !document.querySelector('.modal-overlay.open, .x-ov')) close(); });
+  var old = window.xInbox || {};
+  window.xInbox = { open: open, close: close, isOpen: function () { return isOpen; }, render: render, openCount: openCount, _collect: old._collect };
 })();

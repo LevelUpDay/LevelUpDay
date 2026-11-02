@@ -13913,7 +13913,8 @@ function tbOnCancel(e) {
 }
 function tbTap(g, e) {
   if (g.kind === 'block') {
-    if (g.el.dataset.nid) tbOpenNoteEditor(g.el.dataset.nid); else editTask(+g.el.dataset.id);
+    // Jadvaldagi vazifa bosilganda — faqat vaqtini tahrirlash (to'liq tahrirlash oynada alohida havola)
+    if (g.el.dataset.nid) tbOpenNoteEditor(g.el.dataset.nid); else tbOpenTimePicker(+g.el.dataset.id);
     return;
   }
   if (g.kind === 'split') {
@@ -14143,6 +14144,8 @@ function tbOpenTimePicker(id) {
   var tk = (S.tasks || []).find(function (x) { return x.id === id; }); if (!tk) return;
   var old = document.getElementById('tbn-ov'); if (old) old.remove();
   var ds = tbViewDate(), dur = 30, st = tbNextFree(ds, dur), openedAt = Date.now();
+  var _hasT = !!tk.startTime, _s0 = _hasT ? _tbMin(tk.startTime) : null, _e0 = (_hasT && tk.endTime) ? _tbMin(tk.endTime) : null;
+  if (_hasT && _s0 !== null && !isNaN(_s0)) { st = _s0; if (_e0 !== null && !isNaN(_e0) && _e0 > _s0) dur = _e0 - _s0; }
   var ov = document.createElement('div'); ov.id = 'tbn-ov'; ov.className = 'tbn-ov';
   ov.innerHTML = '<div class="tbn-box" role="dialog" aria-modal="true">' +
     '<div class="tbn-title">🕒 ' + (tk.emoji ? tk.emoji + ' ' : '') + esc(tk.name) + '</div>' +
@@ -14152,9 +14155,13 @@ function tbOpenTimePicker(id) {
     '<div class="tbn-row tbn-reps" id="tbt-durs">' + [15, 30, 45, 60, 90, 120].map(function (m) { return '<button type="button" data-m="' + m + '" class="' + (m === dur ? 'on' : '') + '">' + tbShortDur(m) + '</button>'; }).join('') + '</div>' +
     '<div class="tbn-err" id="tbt-err"></div>' +
     '<div class="tbn-actions"><button type="button" class="tbn-cancel" id="tbt-cancel">' + _cl('Bekor', 'Cancel', 'Отмена') + '</button>' +
-    '<button type="button" class="tbn-save" id="tbt-save">' + _cl('Saqlash', 'Save', 'Сохранить') + '</button></div></div>';
+    '<button type="button" class="tbn-save" id="tbt-save">' + _cl('Saqlash', 'Save', 'Сохранить') + '</button></div>' +
+    '<div class="tbn-more">' + (_hasT ? '<button type="button" id="tbt-clear">🗑 ' + _cl('Vaqtni olib tashlash', 'Remove time', 'Убрать время') + '</button>' : '') +
+    '<button type="button" id="tbt-full">✏️ ' + _cl("Vazifani to'liq tahrirlash", 'Edit the whole task', 'Редактировать задачу целиком') + '</button></div></div>';
   document.body.appendChild(ov);
   var $ = function (s) { return ov.querySelector(s); };
+  if ($('#tbt-full')) $('#tbt-full').onclick = function () { close(); editTask(tk.id); };
+  if ($('#tbt-clear')) $('#tbt-clear').onclick = function () { tk.startTime = null; tk.endTime = null; if (tk.remindAt && tk.remindAt === _tbHM(_s0)) tk.remindAt = null; close(); save(); render(); toast('🕒 ' + _cl('Vaqt olib tashlandi', 'Time removed', 'Время убрано')); };
   var close = function () { ov.remove(); document.removeEventListener('keydown', onKey, true); };
   var onKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
   document.addEventListener('keydown', onKey, true);
