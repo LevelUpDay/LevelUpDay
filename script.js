@@ -29712,8 +29712,23 @@ try {
     if (!box) return;
     var on = box.classList.toggle('pomo-immersive');
     if (btn) btn.classList.toggle('active', on);
+    document.documentElement.classList.toggle('pomo-fs-on', on);
+    // Haqiqiy brauzer to'liq ekrani — tablar, manzil satri va h.k. ham yashiriladi
+    try {
+      var de = document.documentElement, fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (on && !fsEl) { var rq = de.requestFullscreen || de.webkitRequestFullscreen; if (rq) { var pr = rq.call(de); if (pr && pr.catch) pr.catch(function () {}); } }
+      else if (!on && fsEl) { var ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex) { var pe = ex.call(document); if (pe && pe.catch) pe.catch(function () {}); } }
+    } catch (e) {}
     if (btn) btn.title = on ? _cl("To'liq ekrandan chiqish", "Exit full screen", "Выйти из полноэкранного режима") : _cl("To'liq ekran", "Full screen", "Полный экран");
   };
+
+  // Esc / brauzer orqali to'liq ekrandan chiqilsa — immersive rejim ham o'chsin
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
+    document.addEventListener(ev, function () {
+      var box = document.getElementById('pomo-modal-box');
+      if (!(document.fullscreenElement || document.webkitFullscreenElement) && box && box.classList.contains('pomo-immersive')) window.pomoToggleFullscreen();
+    });
+  });
 
   /* ---------------- Modal ochish/yopish ---------------- */
   window.pomoOpenModal = function () {
@@ -29742,7 +29757,8 @@ try {
     pomoToggleNewForm(false);
     try { window.pomoCloseCalendar(); } catch (e) {}
     var box = document.getElementById('pomo-modal-box');
-    if (box) box.classList.remove('pomo-immersive');
+    if (box && box.classList.contains('pomo-immersive')) { try { window.pomoToggleFullscreen(); } catch (e) { box.classList.remove('pomo-immersive'); } }
+    document.documentElement.classList.remove('pomo-fs-on');
     var fsBtn = document.getElementById('pomo-fullscreen-btn');
     if (fsBtn) { fsBtn.classList.remove('active'); fsBtn.title = _cl("To'liq ekran", "Full screen", "Полный экран"); }
     try { pomoUpdateFloatUI(); } catch (e) {}

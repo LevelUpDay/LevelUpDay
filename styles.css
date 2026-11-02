@@ -4035,3 +4035,15 @@ html.lud-boot::after { content: ""; position: fixed; left: 50%; top: 50%; width:
 .tbn-more { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
 .tbn-more button { background: none; border: 0; color: var(--text-muted); font-size: var(--fs-xs); cursor: pointer; text-decoration: underline; padding: 4px 6px; font-family: inherit; }
 .tbn-more button:hover { color: var(--text); }
+
+/* ⛶ Pomodoro to'liq ekran: ikki chet ham yopiladi, butun oyna */
+html.pomo-fs-on #pomo-modal-overlay { padding:0 !important; transform:none !important; }
+html.pomo-fs-on #pomo-modal-box.pomo-immersive {
+  position:fixed !important; inset:0 !important; width:100vw !important; height:100vh !important; height:100dvh !important;
+  max-width:none !important; max-height:none !important; margin:0 !important; border-radius:0 !important; border:0 !important;
+  transform:none !important; overflow:hidden !important; z-index:2147483000 !important;
+}
+html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero { min-height:100vh !important; min-height:100dvh !important; height:100% !important; border-radius:0 !important; flex:1 1 auto; }
+html.pomo-fs-on body { overflow:hidden !important; }
+html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero-clock { align-self:center; }
+html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero { padding-left:28px; padding-right:28px; box-sizing:border-box; }
