@@ -6589,3 +6589,47 @@
   var old = window.xInbox || {};
   window.xInbox = { open: open, close: close, isOpen: function () { return isOpen; }, render: render, openCount: openCount, _collect: old._collect };
 })();
+
+// ============================================================
+// 🖱 GORIZONTAL QATORLAR — kompyuterda sichqoncha bilan ham suriladi:
+//   • g'ildirak (yuqori/past) → chap/o'ng, agar qator faqat gorizontal suriladigan bo'lsa
+//   • bosib tortish (drag) — tugmalar bosilishi buzilmaydi (5px dan ortiq tortilsagina)
+// ============================================================
+(function () {
+  'use strict';
+  function hScroller(el) {
+    for (var n = el, i = 0; n && n !== document.body && i < 8; n = n.parentElement, i++) {
+      if (n.scrollWidth > n.clientWidth + 2) {
+        var cs = getComputedStyle(n);
+        if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && !(n.scrollHeight > n.clientHeight + 2 && (cs.overflowY === 'auto' || cs.overflowY === 'scroll'))) return n;
+      }
+    }
+    return null;
+  }
+  document.addEventListener('wheel', function (e) {
+    if (e.ctrlKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || !e.deltaY) return;
+    var sc = hScroller(e.target); if (!sc) return;
+    var max = sc.scrollWidth - sc.clientWidth;
+    if ((e.deltaY < 0 && sc.scrollLeft <= 0) || (e.deltaY > 0 && sc.scrollLeft >= max - 1)) return; // chetga yetsa — sahifa odatdagidek suriladi
+    sc.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 32 : 1);
+    e.preventDefault();
+  }, { passive: false });
+  var drag = null;
+  document.addEventListener('pointerdown', function (e) {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    if (e.target.closest('input, textarea, select, [contenteditable="true"], [draggable="true"], .sortable-chosen, [data-xdrag]')) return;
+    var sc = hScroller(e.target); if (!sc) return;
+    drag = { sc: sc, x: e.clientX, l: sc.scrollLeft, moved: false };
+  }, true);
+  document.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) < 6) return;
+    drag.moved = true; drag.sc.scrollLeft = drag.l - dx; drag.sc.style.cursor = 'grabbing';
+  }, true);
+  document.addEventListener('pointerup', function () {
+    if (!drag) return;
+    var d = drag; drag = null; d.sc.style.cursor = '';
+    if (d.moved) { var stop = function (ev) { ev.stopPropagation(); ev.preventDefault(); document.removeEventListener('click', stop, true); }; document.addEventListener('click', stop, true); setTimeout(function () { document.removeEventListener('click', stop, true); }, 50); }
+  }, true);
+})();
