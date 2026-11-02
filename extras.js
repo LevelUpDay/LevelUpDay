@@ -6633,3 +6633,101 @@
     if (d.moved) { var stop = function (ev) { ev.stopPropagation(); ev.preventDefault(); document.removeEventListener('click', stop, true); }; document.addEventListener('click', stop, true); setTimeout(function () { document.removeEventListener('click', stop, true); }, 50); }
   }, true);
 })();
+
+/* ============================================================
+   ⚙️ Settings v2 — tablarga ajratilgan, qisqa va tartibli sozlamalar
+   ============================================================ */
+(function () {
+  var L = function (u, e, r) { try { return _cl(u, e, r); } catch (x) { return u; } };
+  var TABS = [
+    ['notif', '🔔', ['Eslatmalar', 'Alerts', 'Уведомления']],
+    ['look', '🎨', ['Ko\'rinish', 'Look', 'Вид']],
+    ['tasks', '✅', ['Vazifalar', 'Tasks', 'Задачи']],
+    ['data', '💾', ['Ma\'lumot', 'Data', 'Данные']],
+    ['more', '⋯', ['Boshqa', 'More', 'Ещё']]
+  ];
+  var MAP = {
+    'x-push-card': 'notif', 'x-tg-card': 'notif', 'x-ci-card': 'notif',
+    'interface-settings-card': 'look', 'layout-settings-card': 'look', 'sound-audio-settings-card': 'look',
+    'subtask-settings-card': 'tasks', 'gamification-rules-card': 'tasks', 'kb-settings-card': 'tasks',
+    'data-backup-section': 'data', 'frozen-tasks-panel': 'data',
+    'friends-settings-card': 'more', 'exam-results-settings-card': 'more', 'ops-promo-card': 'more',
+    'feedback-settings-card': 'more', 'x-install-settings': 'more'
+  };
+  var HIDE = ['pc-section-card', 'focusgate-settings-card', 'settings-accordion-btn'];
+  var cur = 'notif';
+  try { var sv = localStorage.getItem('ludSetTab'); if (sv && TABS.some(function (t) { return t[0] === sv; })) cur = sv; } catch (e) {}
+
+  var css = '#xst-bar{display:flex;gap:6px;padding:4px;margin:0 0 14px;border-radius:16px;background:var(--surface);border:1px solid var(--border);position:sticky;top:0;z-index:5}' +
+    '#xst-bar button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px;border:0;border-radius:12px;background:transparent;color:var(--text-muted);font-family:inherit;font-size:12px;line-height:1.2;cursor:pointer;transition:background .2s,color .2s}' +
+    '#xst-bar button span{font-size:18px;line-height:1}' +
+    '#xst-bar button b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}' +
+    '#xst-bar button.on{background:var(--accent);color:#fff;box-shadow:0 4px 14px rgba(124,92,252,.35)}' +
+    '#xst-bar button:not(.on):hover{background:var(--surface2);color:var(--text)}' +
+    '#profile-subtab-settings .settings-eyebrow,#profile-subtab-settings .luw-bm,#pc-section-card,#focusgate-settings-card,#settings-accordion-btn{display:none!important}' +
+    '#profile-subtab-settings #settings-panel{display:block!important}' +
+    '#settings-panel .dz-card.locked,#settings-panel .lu-fx-row:has(.lu-fx-buy){display:none!important}' +
+    '#settings-panel .dz-title:has(+ .lu-fx-set:not(:has(.dz-switch))),#settings-panel .lu-fx-set:not(:has(.dz-switch)){display:none!important}' +
+    '.xst-shop{display:block;width:100%;margin-top:10px;padding:10px;border-radius:var(--radius-md);border:1px dashed var(--border-hover);background:transparent;color:var(--accent);font-family:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer}' +
+    '#settings-panel .settings-sub-card{margin-bottom:10px}' +
+    '#settings-panel .settings-info-card>.settings-sub-icon,#settings-panel .settings-info-card-desc{display:none!important}' +
+    '.xst-empty{padding:28px 12px;text-align:center;color:var(--text-muted);font-size:var(--fs-sm)}';
+  TABS.forEach(function (t) {
+    css += '#profile-subtab-settings[data-xst="' + t[0] + '"] [data-xsg]:not([data-xsg="' + t[0] + '"]){display:none!important}';
+  });
+  var stEl = document.createElement('style'); stEl.textContent = css; document.head.appendChild(stEl);
+
+  function bar(st) {
+    var b = document.getElementById('xst-bar');
+    if (!b) {
+      b = document.createElement('div'); b.id = 'xst-bar'; b.setAttribute('role', 'tablist');
+      b.addEventListener('click', function (e) {
+        var x = e.target.closest('button[data-xst]'); if (!x) return;
+        cur = x.getAttribute('data-xst');
+        try { localStorage.setItem('ludSetTab', cur); } catch (e2) {}
+        try { if (typeof SFX !== 'undefined' && SFX.click) SFX.click(); } catch (e3) {}
+        tag();
+        try { st.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e4) {}
+      });
+    }
+    if (st.firstElementChild !== b) st.insertBefore(b, st.firstChild);
+    var html = TABS.map(function (t) {
+      return '<button type="button" role="tab" data-xst="' + t[0] + '" class="' + (t[0] === cur ? 'on' : '') + '" aria-selected="' + (t[0] === cur) + '"><span>' + t[1] + '</span><b>' + L(t[2][0], t[2][1], t[2][2]) + '</b></button>';
+    }).join('');
+    if (b._h !== html) { b.innerHTML = html; b._h = html; }
+  }
+
+  function tag() {
+    var st = document.getElementById('profile-subtab-settings'); if (!st) return;
+    bar(st);
+    st.setAttribute('data-xst', cur);
+    Object.keys(MAP).forEach(function (id) { var e = document.getElementById(id); if (e && e.getAttribute('data-xsg') !== MAP[id]) e.setAttribute('data-xsg', MAP[id]); });
+    var fc = document.getElementById('frozen-tasks-count');
+    var fg = fc && fc.closest('.settings-groups-grid'); if (fg) fg.setAttribute('data-xsg', 'data');
+    // Noma'lum (yangi qo'shilgan) kartalar yo'qolmasin — "Boshqa"ga
+    var panel = document.getElementById('settings-panel');
+    Array.prototype.forEach.call(st.children, function (c) {
+      if (c.id === 'xst-bar' || c === panel || HIDE.indexOf(c.id) >= 0 || c.tagName === 'SCRIPT' || c.tagName === 'STYLE') return;
+      if (!c.hasAttribute('data-xsg')) c.setAttribute('data-xsg', 'more');
+    });
+    if (panel) Array.prototype.forEach.call(panel.querySelectorAll('.settings-sub-card[id], .settings-info-card'), function (c) {
+      if (HIDE.indexOf(c.id) >= 0 || c.hasAttribute('data-xsg') || c.closest('[data-xsg]')) return;
+      c.setAttribute('data-xsg', 'more');
+    });
+    // Ko'rinish: faqat sotib olingan dizaynlar — qolgani Shop'da
+    Array.prototype.forEach.call(document.querySelectorAll('#settings-panel .lu-fx-set'), function (fx) {
+      var none = !fx.querySelector('.dz-switch'), pv = fx.previousElementSibling;
+      fx.style.display = none ? 'none' : ''; if (pv && pv.classList.contains('dz-title')) pv.style.display = none ? 'none' : '';
+    });
+    var dp = document.getElementById('design-picker-root');
+    if (dp && !dp.querySelector('.xst-shop') && dp.innerHTML) {
+      var sb = document.createElement('button'); sb.type = 'button'; sb.className = 'xst-shop';
+      sb.textContent = '🛍 ' + L('Ko\'proq dizayn va effektlar — Shop', 'More designs & effects — Shop', 'Больше тем и эффектов — Магазин');
+      sb.onclick = function () { try { window.xOpenHub('shop'); } catch (e) {} };
+      dp.appendChild(sb);
+    }
+  }
+  window.xSettingsTab = function (t) { cur = t; tag(); };
+  var n = 0;
+  (function loop() { try { tag(); } catch (e) {} setTimeout(loop, ++n < 20 ? 300 : 1500); })();
+})();
