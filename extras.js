@@ -6333,26 +6333,32 @@
   var MOODS = [['😇', L('Tinch', 'Calm', 'Спокойно'), 'tinch'], ['🙂', L('Yaxshi', 'Good', 'Хорошо'), 'yaxshi'], ['😑', L('Beparvo', 'Meh', 'Так себе'), 'beparvo'], ['🥵', L('Qiyin', 'Hard', 'Тяжело'), 'qiyin'],
     ['🤯', L('Stressda', 'Stressed', 'Стресс'), 'boshim ot'], ['😭', L('Yig\'lab', 'Crying', 'Плачу'), 'yig\'lab'], ['😡', L('G\'azab', 'Angry', 'Злюсь'), 'g\'azab'], ['🤮', L('Yomon', 'Awful', 'Плохо'), 'yomon']];
   var ENERGY = [['🪫', 1], ['😴', 2], ['🙂', 3], ['⚡', 4], ['🚀', 5]];
+  // 📅 "Kecha bo'yicha kuzatish" yoqilgan bo'lsa — savollar kechagi kun haqida (S.useYesterdayMode)
+  function ydMode() { try { return typeof isYesterdayMode === 'function' ? !!isYesterdayMode() : S.useYesterdayMode !== false; } catch (e) { return false; } }
+  function qDay() { if (!ydMode()) return td(); var d = new Date(); d.setDate(d.getDate() - 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function need() {
-    var c = cfg(), d = td(), h = (S.health || {})[d] || {}, m = (S.moods || {})[d];
+    var c = cfg(), d = qDay(), h = (S.health || {})[d] || {}, m = (S.moods || {})[d];
     return { sleep: c.sleep !== false && h.sleep == null, mood: c.mood !== false && !m, energy: c.energy !== false && h.energy == null };
   }
   function maybeAsk() {
     var c = cfg(); if (!c.on || S.xCheckinSkip === td()) return;
-    if (document.querySelector('.x-ci-ov, .x-pc-intro, .xs-ov') || document.hidden) return;
+    if (document.querySelector('.x-ci-ov, .xs-ov') || document.hidden) return;
+    if (window.ludPopupBusy && window.ludPopupBusy()) { clearTimeout(maybeAsk._t); maybeAsk._t = setTimeout(maybeAsk, 1500); return; } // boshqa savol oynasi yopilishini kutamiz
     var n = need(); if (!n.sleep && !n.mood && !n.energy) return;
     open(n);
   }
   function open(n) {
     n = n || need();
-    var ans = {}, d = td();
+    var ans = {}, d = qDay(), yd = d !== td();
     var ov = document.createElement('div'); ov.className = 'x-ov x-ci-ov';
-    var h = '<div class="x-box x-ci-box" role="dialog" aria-modal="true"><div class="x-ci-ic">🌅</div><h3>' + H(L('Xayrli kun! Bugun qandaysiz?', 'Good day! How are you today?', 'Добрый день! Как вы сегодня?')) + '</h3>';
-    if (n.sleep) h += '<div class="x-ci-q"><b>😴 ' + H(L('Kecha necha soat uxladingiz?', 'How many hours did you sleep?', 'Сколько часов вы спали?')) + '</b><div class="x-ci-ch">' +
+    var h = '<div class="x-box x-ci-box" role="dialog" aria-modal="true"><div class="x-ci-ic">' + (yd ? '🌙' : '🌅') + '</div><h3>' + H(yd ? L('Kecha qanday o\'tdi?', 'How was yesterday?', 'Как прошёл вчерашний день?') : L('Xayrli kun! Bugun qandaysiz?', 'Good day! How are you today?', 'Добрый день! Как вы сегодня?')) + '</h3>' +
+      (yd ? '<div class="x-ci-day">📅 ' + H(new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })) + '</div>' : '');
+    if (n.sleep) h += '<div class="x-ci-q"><b>😴 ' + H(yd ? L('Kecha necha soat uxladingiz?', 'How many hours did you sleep yesterday?', 'Сколько часов вы спали вчера?') : L('Bugun kechasi necha soat uxladingiz?', 'How many hours did you sleep last night?', 'Сколько часов вы спали этой ночью?')) + '</b><div class="x-ci-ch">' +
       [4, 5, 6, 6.5, 7, 7.5, 8, 9, 10].map(function (x) { return '<button type="button" data-k="sleep" data-v="' + x + '">' + x + L(' s', 'h', ' ч') + '</button>'; }).join('') + '</div></div>';
-    if (n.mood) h += '<div class="x-ci-q"><b>🙂 ' + H(L('Kayfiyatingiz?', 'Your mood?', 'Ваше настроение?')) + '</b><div class="x-ci-ch x-ci-mood">' +
-      MOODS.map(function (m, i) { return '<button type="button" data-k="mood" data-v="' + i + '" title="' + H(m[1]) + '"><span>' + m[0] + '</span><small>' + H(m[1]) + '</small></button>'; }).join('') + '</div></div>';
-    if (n.energy) h += '<div class="x-ci-q"><b>⚡ ' + H(L('Energiyangiz (1–5)?', 'Your energy (1–5)?', 'Ваша энергия (1–5)?')) + '</b><div class="x-ci-ch">' +
+    if (n.mood) h += '<div class="x-ci-q"><b>🙂 ' + H(yd ? L('Kechagi kayfiyatingiz?', 'Your mood yesterday?', 'Настроение вчера?') : L('Kayfiyatingiz?', 'Your mood?', 'Ваше настроение?')) + '</b><div class="x-ci-ch x-ci-mood">' +
+      MOODS.map(function (m, i) { return '<button type="button" data-k="mood" data-v="' + i + '" title="' + H(m[1]) + '"><span>' + m[0] + '</span><small>' + H(m[1]) + '</small></button>'; }).join('') + '</div>' +
+      '<textarea class="x-ci-note-in" maxlength="300" rows="2" placeholder="' + H(L('Izoh (ixtiyoriy): nima bo\'ldi, nimani his qildingiz?', 'Note (optional): what happened, how did you feel?', 'Заметка (необязательно): что было, что чувствовали?')) + '"></textarea></div>';
+    if (n.energy) h += '<div class="x-ci-q"><b>⚡ ' + H(yd ? L('Kechagi energiyangiz (1–5)?', 'Your energy yesterday (1–5)?', 'Энергия вчера (1–5)?') : L('Energiyangiz (1–5)?', 'Your energy (1–5)?', 'Ваша энергия (1–5)?')) + '</b><div class="x-ci-ch">' +
       ENERGY.map(function (e) { return '<button type="button" data-k="energy" data-v="' + e[1] + '">' + e[0] + ' ' + e[1] + '</button>'; }).join('') + '</div></div>';
     h += '<div class="x-ci-acts"><button type="button" class="x-btn ghost" data-ci="later">' + H(L('Keyinroq', 'Later', 'Позже')) + '</button><button type="button" class="x-btn" data-ci="save" disabled>' + H(L('Saqlash', 'Save', 'Сохранить')) + '</button></div>' +
       '<div class="x-ci-note">' + H(L('Sozlamalar → "Har kuni so\'rash" orqali o\'chirish mumkin', 'Turn off in Settings → "Daily check-in"', 'Отключить: Настройки → «Ежедневный опрос»')) + '</div></div>';
@@ -6369,11 +6375,15 @@
       var a = e.target.closest('[data-ci]'); if (!a) { if (e.target === ov) { S.xCheckinSkip = d; try { save(); } catch (er) {} close(); } return; }
       if (a.getAttribute('data-ci') === 'later') { S.xCheckinSkip = d; try { save(); } catch (er) {} close(); return; }
       // Saqlash
-      if (ans.sleep != null) { try { window.xSleepSet(+ans.sleep); } catch (er) { S.health = S.health || {}; (S.health[d] = S.health[d] || {}).sleep = +ans.sleep; } }
+      if (ans.sleep != null) {
+        if (!yd && window.xSleepSet) { try { window.xSleepSet(+ans.sleep); } catch (er) {} }
+        else { S.health = S.health || {}; (S.health[d] = S.health[d] || {}).sleep = +ans.sleep; }
+      }
       if (ans.energy != null) { S.health = S.health || {}; (S.health[d] = S.health[d] || {}).energy = +ans.energy; }
       if (ans.mood != null) {
         var m = MOODS[+ans.mood]; S.moods = S.moods || {};
-        S.moods[d] = { emoji: m[0], label: m[2], note: '', ts: Date.now() };
+        var nt = ov.querySelector('.x-ci-note-in'); nt = nt ? nt.value.trim().slice(0, 300) : '';
+        S.moods[d] = { emoji: m[0], label: m[2], note: nt, ts: Date.now() };
         try { updateMoodBtn(); } catch (er) {}
       }
       try { save(); } catch (er) {}
