@@ -65,3 +65,5 @@
 .acc-lock-ic { font-size: 44px; }
 .acc-lock-box .acc-pin { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); margin: 6px 0; box-sizing: border-box; }
 .acc-lock-box .x-btn { width: 100%; }
+/* 🖱 Kompyuterda (sichqoncha): bo'limlar bir necha qatorga sig'adi — gorizontal surish shart emas */
+@media (hover: hover) and (pointer: fine) { .acc-tabs { flex-wrap: wrap; overflow-x: visible; } }
