@@ -3306,7 +3306,8 @@
           if (a.kind === 'done') {
             var day = (a.payload && a.payload.day) || td;
             var t = (S.tasks || []).find(function (x) { return x && Number(x.id) === Number(a.task_id); });
-            if (t && day === td && !(t.repeat === 'once' ? t.done : t.doneDate === td)) { toggleTaskInternal(t.id); nDone++; }
+            // Bir martalik vazifa — qaysi kuni ochilsa ham bajariladi; takrorlanuvchi — faqat o'sha kuni
+            if (t && (day === td || t.repeat === 'once') && !(t.repeat === 'once' ? t.done : t.doneDate === td)) { toggleTaskInternal(t.id); nDone++; }
           } else if (a.kind === 'add' && a.payload && a.payload.name && window.xInboxAddText) { if (window.xInboxAddText(a.payload.name)) nAdd++; }
         } catch (e) { console.warn('[tg action]', e); }
         ids.push(a.id);

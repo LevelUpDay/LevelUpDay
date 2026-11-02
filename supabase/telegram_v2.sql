@@ -10,3 +10,4 @@ create policy tga_upd on public.tg_actions for update using (user_id = auth.uid(
 alter table public.telegram_links add column if not exists times jsonb not null default '{}'::jsonb;
 create table if not exists public.tg_snooze (user_id uuid not null, task_id bigint not null, fire_at timestamptz not null, sent_at timestamptz, primary key (user_id, task_id));
 alter table public.tg_snooze enable row level security;
+grant usage, select on all sequences in schema public to service_role; -- bot tg_actions ga yoza olishi uchun (2026-11-02)
