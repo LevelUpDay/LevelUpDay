@@ -9,7 +9,7 @@
 // ============================================================
 (function () {
   'use strict';
-  window.APP_VERSION = 'v138'; // sw.js CACHE_VERSION bilan bir xil
+  window.APP_VERSION = 'v139'; // sw.js CACHE_VERSION bilan bir xil
 
   function L(uz, en, ru) { try { return _cl(uz, en, ru); } catch (e) { return uz; } }
   function H(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -293,6 +293,23 @@
       });
       // 🎁 Admin sovg'asi/tuzatish: serverdagi yangi balansni darhol olamiz (farq mahalliy holatga qo'shiladi)
       var econNew = (st.messages || []).filter(function (m) { return m.kind === 'econ' && loc.indexOf(m.id) === -1; });
+      // 📜 Tarixga yozamiz — xabar faqat admin "Notify the user"ni yoqib qoldirganda keladi (o'chiq bo'lsa tarixda ko'rinmaydi)
+      try {
+        if (!Array.isArray(S.adminTarixIds)) S.adminTarixIds = [];
+        var tx = 0;
+        (st.messages || []).forEach(function (m) {
+          if (m.kind !== 'econ' || S.adminTarixIds.indexOf(m.id) !== -1) return;
+          var d = m.data || {}, c = +d.coins || 0, extra = [];
+          if (d.xp) extra.push((d.xp > 0 ? '+' : '') + d.xp + ' XP');
+          if (d.gems) extra.push((d.gems > 0 ? '+' : '') + d.gems + ' 💎');
+          var desc = '👑 ' + ((c + (+d.xp || 0) + (+d.gems || 0)) >= 0 ? L('Admin sovg\'asi', 'Gift from admin', 'Подарок от админа') : L('Admin tuzatishi', 'Admin correction', 'Корректировка админа')) +
+            (m.body ? ': ' + String(m.body).slice(0, 80) : '') + (extra.length ? ' (' + extra.join(', ') + ')' : '');
+          addTarixLog(c < 0 ? 'out' : 'in', desc, c, null, m.at ? String(m.at).slice(0, 10) : undefined);
+          S.adminTarixIds.push(m.id); tx++;
+        });
+        if (S.adminTarixIds.length > 200) S.adminTarixIds = S.adminTarixIds.slice(-200);
+        if (tx) { try { save(); } catch (e3) {} }
+      } catch (e4) {}
       if (econNew.length && window._profMergeServer) {
         try {
           var pr = await supabase.from('profiles').select('coins,total_coins,xp,gems').eq('id', S.cloudUserId).maybeSingle();
