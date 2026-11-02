@@ -7558,7 +7558,7 @@ function getDifficultyMultipliers() {
 }
 
 function getLevel(xp) {
-  const total = xp || 0;
+  const total = Math.max(0, Number(xp) || 0); // XP manfiy bo'lsa ham 1-daraja (avval oxirgi daraja chiqib qolardi)
   return LEVELS.find(l => total >= l.min && total <= l.max) || LEVELS[LEVELS.length-1];
 }
 
@@ -9684,6 +9684,7 @@ function load() {
 }
 
 function save() {
+  if (S && typeof S.xp === 'number' && S.xp < 0) S.xp = 0; // 🛡 XP 0 dan pastga tushmaydi (har qanday yo'l bilan)
   // Boshqa tabdan kelgan holatni qo'llayotganda (render ichidagi save'lar) diskka
   // qayta yozmaymiz — aks holda ikki tab bir-birini cheksiz qayta yozib turadi.
   if (window._ludApplyingRemote) return;
@@ -28620,6 +28621,7 @@ function _profMergeServer(srv, fallbackBase) {
     var d = (Number(srv[f[0]]) || 0) - base[f[0]];
     if (d) { S[f[1]] = (Number(S[f[1]]) || 0) + d; ch.push(f[0] + (d > 0 ? '+' : '') + d); }
   });
+  if ((Number(S.xp) || 0) < 0) S.xp = 0; // XP hech qachon 0 dan tushmaydi
   _profBaseSet(srv);
   if (ch.length) { try { saveToLocalStorage(S); renderGemsPill(); _rtRenderSoon(); } catch (e) {} }
   return ch;
