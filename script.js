@@ -9963,6 +9963,7 @@ function checkReset() {
     return;
   }
   const td = today();
+  var _rcDo = !!(S.lastDate && S.lastDate !== td), _rcC0 = Number(S.coins) || 0, _rcT0 = (S.tarix || []).slice();
   if (S.lastDate && S.lastDate !== td) {
     // Bir kun emas, bir necha kun o'tib ketgan bo'lishi mumkin
     // Har bir o'tgan kun uchun streak hisoblash
@@ -10166,8 +10167,42 @@ function checkReset() {
   // Jarimalar hisoblangandan keyin: o'tib ketgan interval vazifalar jadval bo'yicha surilsin
   rollMissedIntervalTasks(td);
 
+  // 📱📱 Bir nechta qurilma: kun jarimasi faqat bitta qurilmada yechilsin (server "claim")
+  if (_rcDo) {
+    try {
+      var _rcPen = _rcC0 - (Number(S.coins) || 0);
+      if (_rcPen > 0) _ludClaimRollover(td, _rcPen, (S.tarix || []).filter(function (r) { return _rcT0.indexOf(r) < 0 && r.amount < 0; }));
+    } catch (e) {}
+  }
+
   S.lastDate = td;
   save();
+}
+
+// Kun almashganda yechilgan jarimani serverda "band qilamiz". Boshqa qurilma shu kun
+// uchun allaqachon yechgan bo'lsa — bu qurilmadagi jarima qaytariladi (ikki marta minus bo'lmasin).
+function _ludClaimRollover(day, pen, logs, tries) {
+  tries = tries || 0;
+  if (!S.cloudLinked || !S.cloudUserId) return;
+  if ((!window._cloudPullDone || typeof supabase === 'undefined' || !supabase) && tries < 60) {
+    setTimeout(function () { _ludClaimRollover(day, pen, logs, tries + 1); }, 2000); return;
+  }
+  try {
+    supabase.rpc('claim_day_rollover', { p_day: day, p_amount: pen, p_device: (navigator.userAgent || '').slice(0, 60) }).then(function (r) {
+      if (!r || r.error || r.data !== false) return; // birinchi qurilma — jarima o'z joyida
+      S.coins = (Number(S.coins) || 0) + pen;
+      if (logs && logs.length && S.tarix) {
+        S.tarix = S.tarix.filter(function (x) {
+          var hit = logs.some(function (l) { return l === x || (l.ts === x.ts && l.desc === x.desc && l.amount === x.amount); });
+          if (hit && x.amount < 0) S.tarixTotalOut = Math.max(0, (S.tarixTotalOut || 0) - Math.abs(x.amount));
+          return !hit;
+        });
+      }
+      S.pendingMissedMsg = null; S.pendingSubtaskPenaltyMsg = null;
+      save(); try { render(); } catch (e) {}
+      try { toast('↩️ ' + _cl('Bu kun jarimasi boshqa qurilmada yechilgan — ' + pen + ' 🪙 qaytarildi', 'This day\'s penalty was already charged on another device — ' + pen + ' 🪙 returned', 'Штраф за день уже списан на другом устройстве — ' + pen + ' 🪙 возвращено')); } catch (e) {}
+    }, function () {});
+  } catch (e) {}
 }
 
 // ---- Modal ----
