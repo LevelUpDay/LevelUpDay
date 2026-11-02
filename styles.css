@@ -4043,8 +4043,19 @@ html.pomo-fs-on #pomo-modal-box.pomo-immersive {
   position:fixed !important; inset:0 !important; width:100vw !important; height:100vh !important; height:100dvh !important;
   max-width:none !important; max-height:none !important; margin:0 !important; border-radius:0 !important; border:0 !important;
   transform:none !important; overflow:hidden !important; z-index:2147483000 !important;
+  display:flex !important; flex-direction:column !important;
 }
-html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero { min-height:100vh !important; min-height:100dvh !important; height:100% !important; border-radius:0 !important; flex:1 1 auto; }
+html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero { min-height:100vh !important; min-height:100dvh !important; height:100% !important; border-radius:0 !important; flex:1 1 auto; justify-content:center !important; display:flex !important; flex-direction:column !important; }
 html.pomo-fs-on body { overflow:hidden !important; }
 html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero-clock { align-self:center; }
-html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero { padding-left:28px; padding-right:28px; box-sizing:border-box; }
+/* To'liq ekranda topbar doim tepada qolishi kerak */
+html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero-topbar {
+  position:absolute !important;
+  top:max(18px, env(safe-area-inset-top)) !important;
+  left:20px !important;
+  right:20px !important;
+  margin-bottom:0 !important;
+  z-index:10 !important;
+  justify-content:space-between !important;
+}
+html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero { padding:26px 28px 26px 28px; box-sizing:border-box; }
