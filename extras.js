@@ -6731,3 +6731,23 @@
   var n = 0;
   (function loop() { try { tag(); } catch (e) {} setTimeout(loop, ++n < 20 ? 300 : 1500); })();
 })();
+
+/* 📝 "More" faqat izoh chegaradan oshganda ko'rinsin */
+(function () {
+  var q = false;
+  function check() {
+    q = false;
+    Array.prototype.forEach.call(document.querySelectorAll('.task-note-toggle'), function (btn) {
+      var n = btn.previousElementSibling;
+      if (!n || !n.classList.contains('task-note')) return;
+      if (!n.offsetParent) return; // ko'rinmayotgan — keyin tekshiriladi
+      var need = !n.classList.contains('task-note-collapsed') || n.scrollHeight > n.clientHeight + 2;
+      btn.classList.toggle('x-need', need);
+    });
+  }
+  function soon() { if (!q) { q = true; requestAnimationFrame(check); } }
+  try { new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
+  window.addEventListener('resize', soon);
+  document.addEventListener('click', function () { setTimeout(soon, 60); }, true);
+  soon();
+})();
