@@ -166,6 +166,13 @@ button.fg-row:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--
 .fg-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); font-size: 14px; color: var(--text); }
 
 /* ---------- Sozlamalar ---------- */
+/* Har bir sozlama guruhi — yopiq/ochiq akkordeon: bir vaqtda ko'z oldida ozroq narsa bo'lsin */
+.fg-set-acc { border: 1px solid var(--border); }
+.fg-set-acc .fg-acc-h { padding: 14px 16px; }
+.fg-set-acc .fg-acc-h b { font-size: 14.5px; }
+.fg-set-acc .fg-acc-h small { font-weight: 400; color: var(--text-muted); margin-left: 2px; }
+.fg-set-acc .fg-acc-b { padding: 0 10px 10px; }
+.fg-set-acc + .fg-set-acc { margin-top: 10px; }
 .fg-set { padding: 4px 16px; }
 .fg-set .fg-opt:first-child { border-top: 0; }
 .fg-set-ic { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--surface2); font-size: 16px; }
@@ -845,7 +852,6 @@ div.fg-row.fg-app:focus-visible { outline: 2px solid var(--accent); outline-offs
 .fg-badges span { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--border); opacity: .4; filter: grayscale(1); }
 .fg-badges span.on { opacity: 1; filter: none; border-color: color-mix(in srgb, #f59e0b 50%, var(--border)); }
 .fg-badges i { font-style: normal; font-size: 26px; } .fg-badges small { font-size: 11px; line-height: 1.2; }
-.fg-sec { margin-bottom: 6px; }
 .fg-qt { display: inline-flex; gap: 6px; flex: none; } .fg-qt .fg-in { width: 96px; padding: 6px 8px; }
 .fg-diag .fg-opt { padding: 6px 0; }
 

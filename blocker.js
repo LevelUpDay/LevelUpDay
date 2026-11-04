@@ -107,7 +107,7 @@
     var m = document.querySelector('#view-blocker .fg-dsel-m'); if (m) m.hidden = true;
     var bb = document.querySelector('#view-blocker [data-fg-dselb]'); if (bb) bb.setAttribute('aria-expanded', 'false');
   });
-  var UI = { tab: 'today', day: 0, cat: 'all', kind: 'all', dev: 'all', metric: 'time', chart: 'bar', hide: {}, hr: -1, setupOpen: false, focusMin: 25, allSites: false };
+  var UI = { tab: 'today', day: 0, cat: 'all', kind: 'all', dev: 'all', metric: 'time', chart: 'bar', hide: {}, hr: -1, setupOpen: false, focusMin: 25, allSites: false, openSet: { track: true } };
   var HIST_DAYS = 30; // statistika tarixi (kalendar)
   var LOCAL = { reward: true };
 
@@ -1418,16 +1418,23 @@
   }
   function pageSettings() {
     loadLockReqs();
-    var sec = function (t, body) { return body ? '<div class="fg-sec"><div class="fg-group-t">' + t + '</div>' + body + '</div>' : ''; };
+    var sec = function (key, t, body) {
+      if (!body) return '';
+      var n = (body.match(/class="fg-opt"/g) || []).length;
+      var open = !!UI.openSet[key];
+      return '<div class="fg-card fg-acc fg-set-acc' + (open ? ' open' : '') + '" data-fg-setsec="' + key + '">' +
+        '<button type="button" class="fg-acc-h" data-fg-setacc="' + key + '" aria-expanded="' + open + '"><b>' + t + (n ? ' <small>(' + n + ')</small>' : '') + '</b><span class="fg-chev">⌄</span></button>' +
+        '<div class="fg-acc-b">' + body + '</div></div>';
+    };
     var card = function (x) { return x ? '<div class="fg-card fg-set">' + x + '</div>' : ''; };
     return lockReqsHtml() +
       '<input class="fg-in fg-lsearch" type="search" data-fg-setsearch placeholder="🔍 ' + E(L('Sozlamalardan qidirish…', 'Search settings…', 'Поиск по настройкам…')) + '">' +
       (real() ? '<div class="fg-row2"><button type="button" class="fg-btn ghost" data-fg-diag>🩺 ' + E(L('Diagnostika', 'Diagnostics', 'Диагностика')) + '</button><button type="button" class="fg-btn ghost" data-fg-backup>💾 ' + E(L('Zaxira', 'Backup', 'Резерв')) + '</button><button type="button" class="fg-btn ghost" data-fg-cats>🗂 ' + E(L('Kategoriyalar', 'Categories', 'Категории')) + '</button></div>' : '') +
-      sec('👁 ' + E(L('Kuzatuv va bildirishnomalar', 'Tracking & notifications', 'Отслеживание и уведомления')), card(settingsRows(['track', 'notif', 'notifBlock', 'notifWarn', 'eye', 'tg', 'tgweekly', 'offlineAlert']) + quietRow())) +
-      sec('🔐 ' + E(L('Himoya va limitlar', 'Protection & limits', 'Защита и лимиты')), card(settingsRows(['strict', 'parent'])) + extraSettingsHtml()) +
-      sec('🏆 ' + E(L('Fokus va reyting', 'Focus & rankings', 'Фокус и рейтинг')), card(settingsRows(['linkFocus', 'reward', 'share', 'shareScreen', 'focusPing']))) +
-      sec('⚙️ ' + E(L('Boshqa', 'Other', 'Другое')), card(otherRows()) + (real() ? hiddenCardHtml() : '') + '<button type="button" class="fg-allbtn" data-fg-weekly><span>📊</span><b>' + E(L('Haftalik hisobot', 'Weekly report', 'Недельный отчёт')) + '</b><em>7 ' + E(L('kun', 'days', 'дн.')) + '</em><i>›</i></button>') +
-      sec('📱 ' + E(L('Qurilmalar', 'Devices', 'Устройства')), devHealthHtml() + devicesHtml() + (real() ? '<div class="fg-card">' + codeFormHtml() + '</div>' : '') + getCards()) +
+      sec('track', '👁 ' + E(L('Kuzatuv va bildirishnomalar', 'Tracking & notifications', 'Отслеживание и уведомления')), card(settingsRows(['track', 'notif', 'notifBlock', 'notifWarn', 'eye', 'tg', 'tgweekly', 'offlineAlert']) + quietRow())) +
+      sec('prot', '🔐 ' + E(L('Himoya va limitlar', 'Protection & limits', 'Защита и лимиты')), card(settingsRows(['strict', 'parent'])) + extraSettingsHtml()) +
+      sec('focus', '🏆 ' + E(L('Fokus va reyting', 'Focus & rankings', 'Фокус и рейтинг')), card(settingsRows(['linkFocus', 'reward', 'share', 'shareScreen', 'focusPing']))) +
+      sec('other', '⚙️ ' + E(L('Boshqa', 'Other', 'Другое')), card(otherRows()) + (real() ? hiddenCardHtml() : '') + '<button type="button" class="fg-allbtn" data-fg-weekly><span>📊</span><b>' + E(L('Haftalik hisobot', 'Weekly report', 'Недельный отчёт')) + '</b><em>7 ' + E(L('kun', 'days', 'дн.')) + '</em><i>›</i></button>') +
+      sec('dev', '📱 ' + E(L('Qurilmalar', 'Devices', 'Устройства')), devHealthHtml() + devicesHtml() + (real() ? '<div class="fg-card">' + codeFormHtml() + '</div>' : '') + getCards()) +
       '<div class="fg-hint">⚙️ ' + E(L('Bu sozlamalar Profil → Sozlamalar → Focusgate bo\'limida ham bor.', 'These settings also live in Profile → Settings → Focusgate.', 'Эти настройки есть и в Профиль → Настройки → Focusgate.')) + '</div>';
   }
   var EXT_VERSION = '0.6.7'; // downloads/version.json → ext
@@ -3051,6 +3058,7 @@
     if (!inView) return;
     if ((b = t.closest('[data-fg-tab]'))) { UI.tab = b.dataset.fgTab; render(); return; }
     if ((b = t.closest('[data-fg-acc]'))) { var k2 = b.dataset.fgAcc; UI.openSite = UI.openSite === k2 ? null : k2; rerender(); return; }
+    if ((b = t.closest('[data-fg-setacc]'))) { var k4 = b.dataset.fgSetacc; UI.openSet[k4] = !UI.openSet[k4]; rerender(); return; }
     if ((b = t.closest('[data-fg-badge]'))) { badgeGo(b); return; }
     if ((b = t.closest('[data-fg-setup]'))) { UI.setupOpen = !UI.setupOpen; render(); return; }
     if ((b = t.closest('[data-fg-setupstep]'))) { setupGo(b.dataset.fgSetupstep); return; }
@@ -3175,7 +3183,13 @@
     // 🔍 Limitlar va saytlar ro'yxatida qidiruv (qayta chizmasdan)
     if (s.matches('[data-fg-setsearch]')) {
       var sq = s.value.trim().toLowerCase();
-      document.querySelectorAll('#view-blocker .fg-sec').forEach(function (sc) { var any = false; sc.querySelectorAll('.fg-opt').forEach(function (r) { var ok = !sq || r.textContent.toLowerCase().indexOf(sq) !== -1 || (r.dataset.name || '').indexOf(sq) !== -1; r.style.display = ok ? '' : 'none'; if (ok) any = true; }); sc.style.display = !sq || any ? '' : 'none'; });
+      document.querySelectorAll('#view-blocker [data-fg-setsec]').forEach(function (sc) {
+        var any = false;
+        sc.querySelectorAll('.fg-opt').forEach(function (r) { var ok = !sq || r.textContent.toLowerCase().indexOf(sq) !== -1 || (r.dataset.name || '').indexOf(sq) !== -1; r.style.display = ok ? '' : 'none'; if (ok) any = true; });
+        sc.style.display = !sq || any ? '' : 'none';
+        // 🔍 Qidiruvda topilgan bo'lim ochiladi; tozalanganda o'zining avvalgi holatiga qaytadi
+        sc.classList.toggle('open', sq ? any : !!UI.openSet[sc.dataset.fgSetsec]);
+      });
       return;
     }
     if (s.matches('[data-fg-lsearch], [data-fg-ssearch]')) {
