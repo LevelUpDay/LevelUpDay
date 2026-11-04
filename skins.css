@@ -29,7 +29,7 @@ html[data-x-skin] #design-bg { display: none !important; }
 html[data-x-skin] ::selection { background: var(--sk-accent-glow); color: #fff; }
 
 /* Kartalar */
-html[data-x-skin] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn, .x-tchip, #level-panel, .friend-card, .fg-card, .chx-card, .tb-timeline, .gx-sh, .pmx-goal, .pmx-plan, .xst-card) {
+html[data-x-skin] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn, .x-tchip, #level-panel, .friend-card, .fg-card, .chx-card, .tb-timeline, .gx-sh, .pmx-goal, .pmx-plan, .xst-card, .xs-open, .dz-card) {
   background: var(--sk-card) !important; border-color: var(--sk-card-border) !important; border-radius: var(--sk-r-card) !important;
   backdrop-filter: var(--sk-blur, none); -webkit-backdrop-filter: var(--sk-blur, none);
   box-shadow: var(--sk-card-shadow);
@@ -107,6 +107,16 @@ html[data-x-skin="quantum"] {
 html[data-x-skin="quantum"] :is(.task-card, .stat, .x-card, .x-sec, #level-panel, .friend-card, .fg-card, .chx-card) { border-radius: 16px !important; }
 html[data-x-skin="quantum"] .tab.active { box-shadow: 0 0 0 1px rgba(139,123,255,0.35), 0 6px 18px -6px rgba(139,123,255,0.55) !important; }
 html[data-x-skin="quantum"] :is(.stat .ic, .task-card .ic, .x-sec .ic) { border-radius: 12px !important; }
+/* Rasmdagi "Sections" kartalari: chapga tekislangan, ikonka — rangli dumaloq kvadrat yorliq */
+html[data-x-skin="quantum"] .x-sec {
+  flex-direction: row !important; align-items: center !important; justify-content: flex-start !important;
+  gap: 10px !important; padding: 11px 12px !important; text-align: left !important;
+}
+html[data-x-skin="quantum"] .x-sec span {
+  width: 38px; height: 38px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 11px; background: var(--sk-accent-glow); font-size: 18px !important;
+}
+html[data-x-skin="quantum"] .xs-open-sw { border-radius: 14px; background: linear-gradient(135deg, var(--sk-accent), var(--sk-accent2)) !important; box-shadow: none !important; }
 /* Joylashuv: Profil ro'yxatdan chiqib, pastki-chap burchakka suzuvchi tugma bo'lib yopishadi */
 html[data-x-skin="quantum"].layout-desktop #tab-profile {
   position: fixed !important; left: 18px; bottom: 18px; z-index: 40; width: auto; height: 46px;
