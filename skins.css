@@ -114,6 +114,16 @@ html[data-x-skin="quantum"] .x-sec span {
 }
 html[data-x-skin="quantum"] .xs-open-sw { border-radius: 14px; background: linear-gradient(135deg, var(--sk-accent), var(--sk-accent2)) !important; box-shadow: none !important; }
 
+/* Pomodoro oynasi: pastki navigatsiya va asosiy boshqaruv elementlari ham umumiy palitraga mos bo'lsin
+   (fon manzarasi — foydalanuvchi tanlagan "scene", unga tegilmaydi) */
+html[data-x-skin="quantum"] #pomo-bottomnav { background: var(--sk-bnav) !important; border-top: 1px solid var(--sk-card-border) !important; }
+html[data-x-skin="quantum"] .pomo-nav-item.active { color: var(--sk-accent) !important; }
+html[data-x-skin="quantum"] .pomo-nav-item.active .pomo-nav-icon { filter: drop-shadow(0 0 6px var(--sk-accent-glow)) !important; }
+html[data-x-skin="quantum"] #pomo-hero-clock, html[data-x-skin="quantum"] .pomo-hero-clock { background: var(--sk-card) !important; border-color: var(--sk-card-border) !important; }
+
+/* Do'stlar oynasi: "Mening kartam" blokining qattiq binafsha-ko'k gradienti o'rniga tekis karta */
+html[data-x-skin="quantum"] #friends-modal-box .fr-me-card { background: var(--sk-card) !important; border-color: var(--sk-card-border) !important; }
+
 /* Joylashuv: Profil ro'yxatning ENG OXIRIGA tushadi (rasmdagidek) */
 html[data-x-skin="quantum"].layout-desktop #tab-profile { order: 99 !important; }
 
