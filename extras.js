@@ -673,12 +673,17 @@
     { id: 'ui_aurora', kind: 'uistyle', v: 'aurora', icon: '🌈', n: ['Gradient', 'Gradient', 'Градиент'], gems: 35,
       d: ['Kartalarda yumshoq rangli gradient', 'Soft colorful gradients on cards', 'Мягкие цветные градиенты на карточках'] },
     // 🪐 To'liq interfeys to'plamlari (skin) — butun ilova ko'rinishi: fon, panellar, kartalar, menyu, shrift (skins.css, html[data-x-skin])
-    { id: 'sk_vision', kind: 'skin', v: 'vision', icon: '🪐', n: ['Spatial HUD', 'Spatial HUD', 'Spatial HUD'], gems: 30,
-      d: ['Suzuvchi shisha panellar, neon-cyan porlash, visionOS uslubi', 'Floating glass panels, neon-cyan glow, visionOS style', 'Парящие стеклянные панели, неоновое свечение, стиль visionOS'] },
-    { id: 'sk_bento', kind: 'skin', v: 'bento', icon: '🧬', n: ['Cyber Bento', 'Cyber Bento', 'Cyber Bento'], gems: 35,
-      d: ['Bento-kartalar, kiber-to\'r fon va gradient chegaralar', 'Bento cards, cyber-grid backdrop and gradient edges', 'Бенто-карточки, кибер-сетка и градиентные края'] },
-    { id: 'sk_rpg', kind: 'skin', v: 'rpg', icon: '⚔️', n: ['Chrono RPG', 'Chrono RPG', 'Chrono RPG'], gems: 40,
-      d: ['RPG-qahramon kartasi: yon panel, energiya chiziqlari, amber urg\'u', 'RPG hero sheet: side rail, energy bars, amber accents', 'RPG-лист героя: боковая панель, полосы энергии, янтарные акценты'] },
+    // Hammasi bepul (free:true). 4 tasi kompyuter uchun (quantum/nova/forge + "Yo'q" = Klassik), 2 tasi (pulse/orbit) telefon uchun moslashtirilgan.
+    { id: 'sk_quantum', kind: 'skin', v: 'quantum', icon: '🟣', n: ['Quantum Dusk', 'Quantum Dusk', 'Quantum Dusk'], coins: 0, free: true,
+      d: ['Tekis qora panellar, binafsha+amber urg\'u, ixcham navigatsiya', 'Flat dark panels, violet+amber accent, compact nav', 'Плоские тёмные панели, фиолетово-янтарный акцент'] },
+    { id: 'sk_nova', kind: 'skin', v: 'nova', icon: '❄️', n: ['Nova Frost', 'Nova Frost', 'Nova Frost'], coins: 0, free: true,
+      d: ['Muzdek shisha panellar, keng bo\'shliq, ko\'k-binafsha porlash', 'Icy frosted glass, airy spacing, cyan-violet glow', 'Ледяное стекло, простор, сине-фиолетовое свечение'] },
+    { id: 'sk_forge', kind: 'skin', v: 'forge', icon: '🔶', n: ['Terra Forge', 'Terra Forge', 'Terra Forge'], coins: 0, free: true,
+      d: ['Sanoat uslubi: qattiq burchak, chap chiziq, to\'q amber', 'Industrial look: sharp corners, side rail, deep amber', 'Индустриальный стиль: острые углы, янтарь'] },
+    { id: 'sk_pulse', kind: 'skin', v: 'pulse', icon: '📱', n: ['Mobile Pulse', 'Mobile Pulse', 'Mobile Pulse'], coins: 0, free: true,
+      d: ['📱 Telefon uchun: katta teginish nuqtalari, pushti+firuza', '📱 For phone: big tap targets, pink+teal duo', '📱 Для телефона: крупные кнопки, розово-бирюзовый'] },
+    { id: 'sk_orbit', kind: 'skin', v: 'orbit', icon: '🔵', n: ['Orbit Mini', 'Orbit Mini', 'Orbit Mini'], coins: 0, free: true,
+      d: ['📱 Telefon uchun: juda minimal, bitta ko\'k urg\'u', '📱 For phone: ultra-minimal, single blue accent', '📱 Для телефона: минимализм, один синий акцент'] },
     // ➕ yangi nishon
     { id: 'b_dragon', kind: 'badge', v: '🐉', icon: '🐉', n: ['Ajdar nishon', 'Dragon badge', 'Значок дракон'], gems: 35 },
     // ➕ yangi unvonlar
@@ -697,7 +702,7 @@
   ];
   // 🏷 Barcha narxlar 64% arzonlashtirilgan (asl narx × 0.36 — ikki marta 40% chegirma). Dizayn va effekt narxlari o'z fayllarida xuddi shunday kamaytirilgan
   SHOP.forEach(function (it) {
-    if (it.kind === 'skin') return; // 🪐 to'plamlar narxi aniq: 30 / 35 / 40 💎
+    if (it.kind === 'skin') return; // 🪐 to'plamlar bepul (free:true), narx hisoblanmaydi
     if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.36 / 5) * 5);
     if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.36 * 1.3)); // 💎 olmos narxlari tangadan farqli 30% qimmatroq
   });
@@ -1095,9 +1100,10 @@
       } else {
         var list = SHOP.filter(function (x) { return x.kind === tab && !x.hidden; });
         h = '<div class="xs-grid">' + noneCard(tab) + list.map(function (it) {
-          return cardHtml(it.id, prevOf(it), nm(it), pr(it), sel[tab] === it.id, tab === 'uistyle' ? L(it.d[0], it.d[1], it.d[2]) : '');
+          return cardHtml(it.id, prevOf(it), nm(it), pr(it), sel[tab] === it.id, (tab === 'uistyle' || tab === 'skin') ? L(it.d[0], it.d[1], it.d[2]) : '');
         }).join('') + '</div>';
         if (tab === 'uistyle') h = '<div class="xs-hint">' + H(L('"Yo\'q" — standart interfeys (bepul). Boshqalari kartalar va tugmalar ko\'rinishini o\'zgartiradi.', '"None" — the default UI (free). Others restyle cards and buttons.', '«Нет» — стандартный интерфейс. Остальные меняют вид карточек и кнопок.')) + '</div>' + h;
+        if (tab === 'skin') h = '<div class="xs-hint">' + H(L('"Yo\'q" — Klassik ko\'rinish. Barchasi bepul — tanlang va qo\'llang.', '"None" — Classic look. All are free — pick and apply.', '«Нет» — классический вид. Все бесплатны.')) + '</div>' + h;
       }
       $('.xs-body').innerHTML = h;
       if (tab === 'colors') bindColors();
@@ -1432,7 +1438,7 @@
     var sk = SHOP.find(function (x) { return x.id === st.skin && x.kind === 'skin'; });
     if (sk && (st.owned.indexOf(sk.id) !== -1 || window._ludTrying)) {
       root.setAttribute('data-x-skin', sk.v);
-      if (!document.getElementById('x-skin-font')) { var lf = document.createElement('link'); lf.id = 'x-skin-font'; lf.rel = 'stylesheet'; lf.href = 'https://fonts.googleapis.com/css2?family=Geist:wght@300..800&display=swap'; document.head.appendChild(lf); }
+      if (!document.getElementById('x-skin-font')) { var lf = document.createElement('link'); lf.id = 'x-skin-font'; lf.rel = 'stylesheet'; lf.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=Outfit:wght@400..800&family=Space+Grotesk:wght@500..800&family=Plus+Jakarta+Sans:wght@400..800&family=Manrope:wght@400..800&display=swap'; document.head.appendChild(lf); }
     } else root.removeAttribute('data-x-skin');
     var bd = SHOP.find(function (x) { return x.id === st.badge; });
     if (bd) root.setAttribute('data-x-badge', bd.v); else root.removeAttribute('data-x-badge');
