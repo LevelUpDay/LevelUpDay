@@ -117,14 +117,22 @@ html[data-x-skin="quantum"] .x-sec span {
   border-radius: 11px; background: var(--sk-accent-glow); font-size: 18px !important;
 }
 html[data-x-skin="quantum"] .xs-open-sw { border-radius: 14px; background: linear-gradient(135deg, var(--sk-accent), var(--sk-accent2)) !important; box-shadow: none !important; }
-/* Joylashuv: Profil ro'yxatdan chiqib, pastki-chap burchakka suzuvchi tugma bo'lib yopishadi */
+/* Joylashuv: Profil ro'yxatdan ajralib, sidebar ICHIDA pastki qismga "hisob qatori" sifatida yopishadi
+   (Notion/Slack/Discord/VS Code'dagi kabi — keng tarqalgan, tashqariga suzib chiqmaydi) */
+html[data-x-skin="quantum"].layout-desktop #tabs-bar.tabs { flex: 1 1 auto; min-height: 0; }
 html[data-x-skin="quantum"].layout-desktop #tab-profile {
-  position: fixed !important; left: 18px; bottom: 18px; z-index: 40; width: auto; height: 46px;
-  padding: 0 16px !important; border-radius: 999px !important; display: flex; align-items: center; gap: 6px;
-  background: var(--sk-accent) !important; color: var(--sk-on-accent) !important; font-weight: 600;
-  box-shadow: 0 14px 30px -10px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.08) !important;
+  order: 99 !important; margin-top: auto !important; width: 100% !important; height: auto !important;
+  padding: 11px 10px !important; border-radius: 12px !important; display: flex !important; align-items: center; gap: 9px;
+  background: var(--sk-ghost) !important; color: var(--sk-text) !important; font-weight: 600 !important;
+  border-top: 1px solid var(--sk-card-border); padding-top: 14px !important; box-shadow: none !important;
 }
-html[data-x-skin="quantum"].layout-desktop #tab-profile:hover { filter: brightness(1.08); }
+html[data-x-skin="quantum"].layout-desktop #tab-profile:hover { background: var(--sk-accent-glow) !important; color: var(--sk-accent) !important; }
+/* O'ng panel: "Hozirgi holat" kartasi eng tepaga, keyin daraja yo'li, so'ng hamrohlar */
+html[data-x-skin="quantum"].layout-desktop #ds-aside #level-panel { order: 1; }
+html[data-x-skin="quantum"].layout-desktop #ds-aside #header-actions-right { order: 2; }
+html[data-x-skin="quantum"].layout-desktop #ds-aside #ds-aside-title { order: 3; }
+html[data-x-skin="quantum"].layout-desktop #ds-aside #header-friends-btn { order: 4; }
+html[data-x-skin="quantum"].layout-desktop #ds-aside #ds-shortcuts { order: 5; }
 
 /* =========================================================
    2) NOVA FROST (nova) — muzdek shisha, keng bo'shliq, oq-ko'k porlash
@@ -149,10 +157,17 @@ html[data-x-skin="nova"] {
 @media (min-width: 900px) {
   html[data-x-skin="nova"].layout-desktop :is(#ds-sidebar, #ds-aside) { border: 14px solid transparent !important; background-clip: padding-box !important; border-radius: 40px !important; }
 }
-/* Joylashuv: Profil ro'yxat boshiga, Hub'dan ham yuqoriga ko'tariladi */
+/* Joylashuv: Profil ro'yxat boshiga — "hisob kartasi" sifatida, Hub'dan ham yuqoriga */
 html[data-x-skin="nova"].layout-desktop #tab-profile {
-  order: -1; margin-bottom: 6px; padding-bottom: 12px !important; border-bottom: 1px solid var(--sk-card-border);
+  order: -1 !important; margin-bottom: 8px; padding: 12px 10px !important; border-radius: 16px !important;
+  background: var(--sk-card) !important; border: 1px solid var(--sk-card-border) !important; font-weight: 700 !important;
 }
+/* O'ng panel: teskari tartib — avval hamrohlar, keyin daraja, oxirida tanga/spin */
+html[data-x-skin="nova"].layout-desktop #ds-aside #ds-aside-title { order: 1; }
+html[data-x-skin="nova"].layout-desktop #ds-aside #header-friends-btn { order: 2; }
+html[data-x-skin="nova"].layout-desktop #ds-aside #level-panel { order: 3; }
+html[data-x-skin="nova"].layout-desktop #ds-aside #ds-shortcuts { order: 4; }
+html[data-x-skin="nova"].layout-desktop #ds-aside #header-actions-right { order: 5; }
 
 /* =========================================================
    3) TERRA FORGE (forge) — sanoat uslubi: qattiq burchak, chap chiziq, chuqur to'q-amber
@@ -180,7 +195,13 @@ html[data-x-skin="forge"].layout-desktop #ds-sidebar { border-right: 1px solid v
 html[data-x-skin="forge"].layout-desktop #ds-aside { border-left: 1px solid var(--sk-card-border) !important; border-radius: 0 !important; }
 /* Joylashuv: navigatsiya 2 ustunli panjara, Profil panjaraning pastki-o'ng katagida */
 html[data-x-skin="forge"].layout-desktop #tabs-bar.tabs { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px; }
-html[data-x-skin="forge"].layout-desktop #tab-profile { order: 99; justify-content: center !important; }
+html[data-x-skin="forge"].layout-desktop #tab-profile { order: 99; justify-content: center !important; grid-column: 2; }
+/* O'ng panel: tezkor havolalar tepaga, daraja va hamrohlar pastga siljiydi */
+html[data-x-skin="forge"].layout-desktop #ds-aside #ds-shortcuts { order: 1; }
+html[data-x-skin="forge"].layout-desktop #ds-aside #header-actions-right { order: 2; }
+html[data-x-skin="forge"].layout-desktop #ds-aside #level-panel { order: 3; }
+html[data-x-skin="forge"].layout-desktop #ds-aside #ds-aside-title { order: 4; }
+html[data-x-skin="forge"].layout-desktop #ds-aside #header-friends-btn { order: 5; }
 
 /* =========================================================
    4) MOBILE PULSE (pulse) 📱 — telefon uchun: katta teginish nuqtalari, pushti+firuza, siyraklashtirilgan tartib
@@ -232,16 +253,22 @@ html[data-x-skin="orbit"] {
 html[data-x-skin="orbit"].layout-mobile #x-bnav { border-width: 1px; }
 html[data-x-skin="orbit"].layout-mobile #x-bnav button { border-radius: 999px !important; }
 html[data-x-skin="orbit"].layout-mobile :is(.task-card, .stat, .x-card, .x-sec, .fg-card, .chx-card) { border-radius: 18px !important; }
-/* Joylashuv: Profil pastki menyudan chiqib, ekranning pastki-chap burchagiga alohida suzuvchi doira bo'lib yopishadi */
-html[data-x-skin="orbit"].layout-mobile #x-bnav { left: 76px !important; }
+/* Joylashuv: Profil pastki menyu ICHIDA, o'rtada ko'tarilgan dumaloq tugma (ko'p ilovalardagi
+   markaziy FAB naqshi — Instagram/kamera tugmasi kabi) — tashqariga chiqib ketmaydi */
+html[data-x-skin="orbit"].layout-mobile #x-bnav { align-items: flex-end !important; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="tasks"] { order: 1; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="goals"] { order: 2; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] { order: 3; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="hub"] { order: 4; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="rewards"] { order: 5; }
 html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] {
-  position: fixed !important; left: 14px; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  width: 52px; height: 52px; padding: 0 !important; border-radius: 999px !important;
-  background: var(--sk-accent) !important; box-shadow: 0 14px 30px -10px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.1) !important;
-  display: flex !important; align-items: center; justify-content: center; z-index: 41;
+  position: relative; transform: translateY(-14px); flex: 0 0 auto;
+  width: 56px; height: 56px; padding: 0 !important; border-radius: 999px !important;
+  background: var(--sk-accent) !important; box-shadow: 0 10px 22px -6px rgba(0,0,0,0.55), 0 0 0 5px var(--sk-bg) !important;
+  display: flex !important; align-items: center; justify-content: center;
 }
 html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] .x-bn-l { display: none; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] .x-bn-i { font-size: 20px; filter: none !important; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] .x-bn-i { font-size: 22px; filter: none !important; }
 html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"].on { color: var(--sk-on-accent) !important; }
 
 /* ---------- Do'kon/studiya ko'rinishi (kichik maket) ---------- */
