@@ -107,6 +107,14 @@ html[data-x-skin="quantum"] {
 html[data-x-skin="quantum"] :is(.task-card, .stat, .x-card, .x-sec, #level-panel, .friend-card, .fg-card, .chx-card) { border-radius: 16px !important; }
 html[data-x-skin="quantum"] .tab.active { box-shadow: 0 0 0 1px rgba(139,123,255,0.35), 0 6px 18px -6px rgba(139,123,255,0.55) !important; }
 html[data-x-skin="quantum"] :is(.stat .ic, .task-card .ic, .x-sec .ic) { border-radius: 12px !important; }
+/* Joylashuv: Profil ro'yxatdan chiqib, pastki-chap burchakka suzuvchi tugma bo'lib yopishadi */
+html[data-x-skin="quantum"].layout-desktop #tab-profile {
+  position: fixed !important; left: 18px; bottom: 18px; z-index: 40; width: auto; height: 46px;
+  padding: 0 16px !important; border-radius: 999px !important; display: flex; align-items: center; gap: 6px;
+  background: var(--sk-accent) !important; color: var(--sk-on-accent) !important; font-weight: 600;
+  box-shadow: 0 14px 30px -10px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.08) !important;
+}
+html[data-x-skin="quantum"].layout-desktop #tab-profile:hover { filter: brightness(1.08); }
 
 /* =========================================================
    2) NOVA FROST (nova) — muzdek shisha, keng bo'shliq, oq-ko'k porlash
@@ -130,6 +138,10 @@ html[data-x-skin="nova"] {
 }
 @media (min-width: 900px) {
   html[data-x-skin="nova"].layout-desktop :is(#ds-sidebar, #ds-aside) { border: 14px solid transparent !important; background-clip: padding-box !important; border-radius: 40px !important; }
+}
+/* Joylashuv: Profil ro'yxat boshiga, Hub'dan ham yuqoriga ko'tariladi */
+html[data-x-skin="nova"].layout-desktop #tab-profile {
+  order: -1; margin-bottom: 6px; padding-bottom: 12px !important; border-bottom: 1px solid var(--sk-card-border);
 }
 
 /* =========================================================
@@ -156,6 +168,9 @@ html[data-x-skin="forge"] :is(.task-card, .stat, .x-card, .x-sec, #level-panel, 
 html[data-x-skin="forge"] :is(.stat-label, .stat .lbl, .x-sec-t, .chx-sec, .pmx-sub, .fg-group-t) { letter-spacing: 0.12em !important; text-transform: uppercase; color: var(--sk-accent) !important; }
 html[data-x-skin="forge"].layout-desktop #ds-sidebar { border-right: 1px solid var(--sk-card-border) !important; border-radius: 0 !important; }
 html[data-x-skin="forge"].layout-desktop #ds-aside { border-left: 1px solid var(--sk-card-border) !important; border-radius: 0 !important; }
+/* Joylashuv: navigatsiya 2 ustunli panjara, Profil panjaraning pastki-o'ng katagida */
+html[data-x-skin="forge"].layout-desktop #tabs-bar.tabs { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px; }
+html[data-x-skin="forge"].layout-desktop #tab-profile { order: 99; justify-content: center !important; }
 
 /* =========================================================
    4) MOBILE PULSE (pulse) 📱 — telefon uchun: katta teginish nuqtalari, pushti+firuza, siyraklashtirilgan tartib
@@ -181,6 +196,8 @@ html[data-x-skin="pulse"].layout-mobile :is(.task-card, .stat, .x-card, .x-sec, 
 html[data-x-skin="pulse"].layout-mobile #x-bnav button { padding-block: 8px !important; }
 html[data-x-skin="pulse"].layout-mobile #x-bnav button.on { box-shadow: 0 6px 18px -6px rgba(255,95,174,0.5); }
 html[data-x-skin="pulse"].layout-mobile .add-task-btn { border-radius: 20px !important; box-shadow: var(--sk-btn-glow); }
+/* Joylashuv: pastki menyuda Profil eng chapga (boshiga) chiqadi */
+html[data-x-skin="pulse"].layout-mobile #x-bnav button[data-bn="profile"] { order: -1 !important; }
 
 /* =========================================================
    5) ORBIT MINI (orbit) 📱 — telefon uchun: juda minimal, bitta ko'k urg'u, yumshoq yumaloq shakllar
@@ -205,6 +222,17 @@ html[data-x-skin="orbit"] {
 html[data-x-skin="orbit"].layout-mobile #x-bnav { border-width: 1px; }
 html[data-x-skin="orbit"].layout-mobile #x-bnav button { border-radius: 999px !important; }
 html[data-x-skin="orbit"].layout-mobile :is(.task-card, .stat, .x-card, .x-sec, .fg-card, .chx-card) { border-radius: 18px !important; }
+/* Joylashuv: Profil pastki menyudan chiqib, ekranning pastki-chap burchagiga alohida suzuvchi doira bo'lib yopishadi */
+html[data-x-skin="orbit"].layout-mobile #x-bnav { left: 76px !important; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] {
+  position: fixed !important; left: 14px; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  width: 52px; height: 52px; padding: 0 !important; border-radius: 999px !important;
+  background: var(--sk-accent) !important; box-shadow: 0 14px 30px -10px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.1) !important;
+  display: flex !important; align-items: center; justify-content: center; z-index: 41;
+}
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] .x-bn-l { display: none; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] .x-bn-i { font-size: 20px; filter: none !important; }
+html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"].on { color: var(--sk-on-accent) !important; }
 
 /* ---------- Do'kon/studiya ko'rinishi (kichik maket) ---------- */
 .x-skin-pv { display: grid; grid-template-columns: 22% 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; width: 100%; height: 54px; padding: 5px; border-radius: 12px; box-sizing: border-box; background: #07070a; }
