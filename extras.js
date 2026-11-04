@@ -672,10 +672,6 @@
       d: ['Qalin chegara va qattiq soya — 90-yillar uslubi', 'Bold outlines and hard shadows, 90s style', 'Жирные рамки и жёсткие тени в стиле 90-х'] },
     { id: 'ui_aurora', kind: 'uistyle', v: 'aurora', icon: '🌈', n: ['Gradient', 'Gradient', 'Градиент'], gems: 35,
       d: ['Kartalarda yumshoq rangli gradient', 'Soft colorful gradients on cards', 'Мягкие цветные градиенты на карточках'] },
-    // 🪐 To'liq interfeys to'plami (skin) — butun ilova ko'rinishi: fon, panellar, kartalar, menyu, shrift (skins.css, html[data-x-skin])
-    // Bepul (free:true). Yuborilgan maketga mos — barcha bo'limlarga qo'llanadi (desktop + telefon).
-    { id: 'sk_quantum', kind: 'skin', v: 'quantum', icon: '🟣', n: ['Quantum Dusk', 'Quantum Dusk', 'Quantum Dusk'], coins: 0, free: true,
-      d: ['Tekis qora panellar, binafsha+amber urg\'u, ixcham navigatsiya', 'Flat dark panels, violet+amber accent, compact nav', 'Плоские тёмные панели, фиолетово-янтарный акцент'] },
     // ➕ yangi nishon
     { id: 'b_dragon', kind: 'badge', v: '🐉', icon: '🐉', n: ['Ajdar nishon', 'Dragon badge', 'Значок дракон'], gems: 35 },
     // ➕ yangi unvonlar
@@ -694,7 +690,6 @@
   ];
   // 🏷 Barcha narxlar 64% arzonlashtirilgan (asl narx × 0.36 — ikki marta 40% chegirma). Dizayn va effekt narxlari o'z fayllarida xuddi shunday kamaytirilgan
   SHOP.forEach(function (it) {
-    if (it.kind === 'skin') return; // 🪐 to'plamlar bepul (free:true), narx hisoblanmaydi
     if (it.coins) it.coins = Math.max(5, Math.round(it.coins * 0.36 / 5) * 5);
     if (it.gems) it.gems = Math.max(1, Math.round(it.gems * 0.36 * 1.3)); // 💎 olmos narxlari tangadan farqli 30% qimmatroq
   });
@@ -942,7 +937,7 @@
     window._ludTrying = false;
     if (!b) return;
     st = st || shopState();
-    ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle', 'skin'].forEach(function (k) { st[k] = b[k] || null; });
+    ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { st[k] = b[k] || null; });
     st.ufx = b.ufx || []; st.custom = b.custom || {};
     if (b.design && window.LUDesign && window.LUDesign.current() !== b.design) { try { window.LUDesign.apply(b.design, { force: true, silent: true }); } catch (e) {} }
     try { localStorage.removeItem('ludTryBackup'); } catch (e) {}
@@ -1000,7 +995,7 @@
         if (!same(D.frame.a, of.a)) out.push(['🖼 ' + L('Ramka rangi', 'Frame color', 'Цвет рамки'), STUDIO_PRICE.frame]);
         if (D.frame.b && !same(D.frame.b, of.b)) out.push(['🖼 ' + L('Ikkinchi halqa', 'Second ring', 'Второе кольцо'), STUDIO_PRICE.frame2]);
       }
-      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle', 'skin'].forEach(function (k) {
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) {
         var id = sel[k], it = id && item(id);
         if (it && !it.hidden && !own(id)) out.push([(it.icon || '') + ' ' + nm(it), pr(it), id]);
       });
@@ -1046,7 +1041,7 @@
     // ---------- Bo'limlar ----------
     var TABS = [['colors', '🎨', L('Ranglar', 'Colors', 'Цвета')], ['designs', '🌌', L('Fonlar', 'Backgrounds', 'Фоны')], ['ufx', '✨', L('Effektlar', 'Effects', 'Эффекты')],
       ['theme', '🎯', L('Mavzu', 'Theme', 'Тема')], ['frame', '🖼', L('Ramka', 'Frame', 'Рамка')], ['nick', '✏️', L('Nik', 'Nickname', 'Ник')], ['badge', '🏅', L('Nishon', 'Badge', 'Значок')],
-      ['title', '🏷', L('Unvon', 'Title', 'Титул')], ['effect', '🎉', L('Bajarilganda', 'On done', 'При выполнении')], ['uistyle', '🧩', L('Interfeys', 'UI', 'Интерфейс')], ['skin', '🪐', L('To\'plam', 'Skin', 'Скин')]];
+      ['title', '🏷', L('Unvon', 'Title', 'Титул')], ['effect', '🎉', L('Bajarilganda', 'On done', 'При выполнении')], ['uistyle', '🧩', L('Interfeys', 'UI', 'Интерфейс')]];
     function drawTabs() {
       $('.xs-tabs').innerHTML = TABS.filter(function (x) { return x[0] !== 'designs' || hasD; }).filter(function (x) { return x[0] !== 'ufx' || hasFx; }).map(function (x) {
         return '<button type="button" role="tab" aria-selected="' + (tab === x[0]) + '" class="' + (tab === x[0] ? 'on' : '') + '" data-xs-tab="' + x[0] + '"><span>' + x[1] + '</span>' + H(x[2]) + '</button>';
@@ -1072,7 +1067,6 @@
       if (it.kind === 'badge') return '<span class="xs-it-pv"><span class="x-shop-nk">' + n + ' ' + it.v + '</span></span>';
       if (it.kind === 'title') return '<span class="xs-it-pv"><span class="x-shop-tt">' + H(L(it.tv[0], it.tv[1], it.tv[2])) + '</span></span>';
       if (it.kind === 'uistyle') return '<span class="xs-it-pv"><span class="x-shop-ui uip-' + it.v + '"><i></i><i></i><i></i></span></span>';
-      if (it.kind === 'skin') return '<span class="xs-it-pv"><span class="x-skin-pv skp-' + it.v + '"><i></i><b></b><b></b><b></b></span></span>';
       if (it.kind === 'ufx') return '<span class="xs-it-pv">' + (hasFx ? window.LUFx.previewHtml(it.v) : it.icon) + '</span>';
       return '<span class="xs-it-pv">' + (it.icon || '') + '</span>';
     }
@@ -1092,10 +1086,9 @@
       } else {
         var list = SHOP.filter(function (x) { return x.kind === tab && !x.hidden; });
         h = '<div class="xs-grid">' + noneCard(tab) + list.map(function (it) {
-          return cardHtml(it.id, prevOf(it), nm(it), pr(it), sel[tab] === it.id, (tab === 'uistyle' || tab === 'skin') ? L(it.d[0], it.d[1], it.d[2]) : '');
+          return cardHtml(it.id, prevOf(it), nm(it), pr(it), sel[tab] === it.id, tab === 'uistyle' ? L(it.d[0], it.d[1], it.d[2]) : '');
         }).join('') + '</div>';
         if (tab === 'uistyle') h = '<div class="xs-hint">' + H(L('"Yo\'q" — standart interfeys (bepul). Boshqalari kartalar va tugmalar ko\'rinishini o\'zgartiradi.', '"None" — the default UI (free). Others restyle cards and buttons.', '«Нет» — стандартный интерфейс. Остальные меняют вид карточек и кнопок.')) + '</div>' + h;
-        if (tab === 'skin') h = '<div class="xs-hint">' + H(L('"Yo\'q" — Klassik ko\'rinish. Barchasi bepul — tanlang va qo\'llang.', '"None" — Classic look. All are free — pick and apply.', '«Нет» — классический вид. Все бесплатны.')) + '</div>' + h;
       }
       $('.xs-body').innerHTML = h;
       if (tab === 'colors') bindColors();
@@ -1108,7 +1101,7 @@
       else {
         var it = item(id); if (!it) return;
         if (it.kind === 'ufx') { var i = sel.ufx.indexOf(id); if (i === -1) sel.ufx.push(id); else sel.ufx.splice(i, 1); }
-        else if (it.kind === 'uistyle' || it.kind === 'skin') sel[it.kind] = sel[it.kind] === id ? null : id;
+        else if (it.kind === 'uistyle') sel[it.kind] = sel[it.kind] === id ? null : id;
         else {
           sel[it.kind] = sel[it.kind] === id ? null : id;
           if (it.kind === 'effect' && sel.effect && el) { var r = el.getBoundingClientRect(); try { fxBurst(it.v, r.left + r.width / 2, r.top + r.height / 2); } catch (e) {} }
@@ -1190,7 +1183,7 @@
       var bak = tryBackup(st, hasD);
       try { localStorage.setItem('ludTryBackup', JSON.stringify(bak)); } catch (e) {}
       window._ludTrying = true;
-      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle', 'skin'].forEach(function (k) { st[k] = sel[k] || null; });
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { st[k] = sel[k] || null; });
       st.ufx = sel.ufx.slice();
       st.custom = Object.assign({}, st.custom || {});
       if (sel.theme === 'c_custom' && D.accent) st.custom.accent = D.accent;
@@ -1229,7 +1222,7 @@
       if (sel.nick === 'n_custom' && D.nick && D.nick.a) { st.custom.nick = { a: D.nick.a, b: D.nick.b || null }; if (!own('n_custom')) st.owned.push('n_custom'); }
       if (sel.frame === 'f_custom' && D.frame && D.frame.a) { st.custom.frame = { a: D.frame.a, b: D.frame.b || null }; if (!own('f_custom')) st.owned.push('f_custom'); }
       // Kiyish
-      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle', 'skin'].forEach(function (k) { var id = sel[k]; st[k] = id && own(id) ? id : null; });
+      ['theme', 'nick', 'frame', 'badge', 'title', 'effect', 'uistyle'].forEach(function (k) { var id = sel[k]; st[k] = id && own(id) ? id : null; });
       st.ufx = sel.ufx.filter(own);
       save();
       if (hasD && sel.design && sel.design !== window.LUDesign.current()) { try { window.LUDesign.apply(sel.design); } catch (e) {} }
@@ -1426,12 +1419,6 @@
     else if (root.getAttribute('data-x-theme')) { root.style.removeProperty('--accent'); root.style.removeProperty('--accent-glow'); root.removeAttribute('data-x-theme'); }
     var ui = SHOP.find(function (x) { return x.id === st.uistyle && x.kind === 'uistyle'; });
     if (ui && ui.v !== 'classic' && (st.owned.indexOf(ui.id) !== -1 || window._ludTrying)) root.setAttribute('data-x-ui', ui.v); else root.removeAttribute('data-x-ui');
-    // 🪐 To'liq interfeys to'plami (sinov rejimida sotib olinmagan ham qo'llanadi)
-    var sk = SHOP.find(function (x) { return x.id === st.skin && x.kind === 'skin'; });
-    if (sk && (st.owned.indexOf(sk.id) !== -1 || window._ludTrying)) {
-      root.setAttribute('data-x-skin', sk.v);
-      if (!document.getElementById('x-skin-font')) { var lf = document.createElement('link'); lf.id = 'x-skin-font'; lf.rel = 'stylesheet'; lf.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap'; document.head.appendChild(lf); }
-    } else root.removeAttribute('data-x-skin');
     var bd = SHOP.find(function (x) { return x.id === st.badge; });
     if (bd) root.setAttribute('data-x-badge', bd.v); else root.removeAttribute('data-x-badge');
     ['user-title', 'profile-name-big'].forEach(function (id) {
@@ -1455,7 +1442,7 @@
     var groups = [['frame', '🖼 ' + L('Avatar ramkalari', 'Avatar frames', 'Рамки аватара')], ['nick', '✏️ ' + L('Nik rangi', 'Nickname color', 'Цвет ника')],
       ['badge', '🏅 ' + L('Nik yonidagi nishon', 'Nickname badge', 'Значок у ника')], ['title', '🏷 ' + L('Unvonlar', 'Titles', 'Титулы')],
       ['theme', '🎨 ' + L('Ilova rangi', 'App color', 'Цвет приложения')], ['effect', '🎉 ' + L('Bajarilganda effekt', 'Task-done effect', 'Эффект выполнения')],
-      ['uistyle', '🧩 ' + L('Interfeys uslubi', 'UI style', 'Стиль интерфейса')], ['skin', '🪐 ' + L('Interfeys to\'plamlari (yangi)', 'Full UI skins (new)', 'Скины интерфейса (новое)')]];
+      ['uistyle', '🧩 ' + L('Interfeys uslubi', 'UI style', 'Стиль интерфейса')]];
     var h = '<div class="x-shop-bal"><span>🪙 <b>' + (S.coins || 0) + '</b></span><span>💎 <b>' + (S.gems || 0) + '</b></span></div>';
     h += '<button type="button" class="xs-open" data-studio-open="1"><span class="xs-open-sw" aria-hidden="true"></span><span class="xs-open-t"><b>🛍 ' + H(L('Do\'kon studiyasi', 'Shop studio', 'Студия магазина')) + ' <span class="xs-sale">−40%</span></b>' +
       '<span>' + H(L('Hammasi bitta oynada: ranglar, fonlar, effektlar, ramka, nik, nishon, unvon. Narx pastda jamlanadi, oxirida to\'laysiz', 'Everything in one window: colors, backgrounds, effects, frames, nicknames, badges, titles. Total adds up below, pay at the end', 'Всё в одном окне: цвета, фоны, эффекты, рамки, ники, значки, титулы. Итог внизу, оплата в конце')) + '</span></span><span class="xs-open-go">›</span></button>';
@@ -1496,12 +1483,11 @@
           : it.kind === 'effect' ? '<div class="x-shop-fx" data-fx="' + it.id + '">' + it.v + '</div>'
           : it.kind === 'badge' ? '<div class="x-shop-nk">' + H(getDisplayUsername() || 'Nick') + ' ' + it.v + '</div>'
           : it.kind === 'uistyle' ? '<div class="x-shop-ui uip-' + it.v + '"><i></i><i></i><i></i></div>'
-          : it.kind === 'skin' ? '<div class="x-skin-pv skp-' + it.v + '"><i></i><b></b><b></b><b></b></div>'
           : '<div class="x-shop-tt">' + L(it.tv[0], it.tv[1], it.tv[2]) + '</div>';
         h += '<button class="x-shop-it ' + (on ? 'on' : own ? 'own' : '') + '" data-shop="' + it.id + '" data-shop-item="' + it.id + '">' + prev +
           '<div class="x-shop-n">' + L(it.n[0], it.n[1], it.n[2]).replace(/^[^:]+:\s*/, '') + '</div>' +
           (it.d ? '<div class="x-shop-note">' + H(L(it.d[0], it.d[1], it.d[2])) + '</div>' : '') +
-          '<div class="x-shop-p">' + (it.kind === 'uistyle' || it.kind === 'skin'
+          '<div class="x-shop-p">' + (it.kind === 'uistyle'
             ? (on ? '✅ ' + L('Yoqilgan', 'On', 'Вкл') : own ? L('Yoqish', 'Turn on', 'Включить') : (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))
             : (on ? '✅ ' + L('Kiyilgan', 'Equipped', 'Надето') : own ? L('Kiyish', 'Equip', 'Надеть') : (giftLevelOf(it.id) ? '🎁 Lv ' + giftLevelOf(it.id) + ' · ' : '') + (it.gems ? it.gems + ' 💎' : it.coins + ' 🪙'))) + '</div></button>';
       });
