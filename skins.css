@@ -1,100 +1,21 @@
 /* =========================================================
-   🪐 INTERFEYS TO'PLAMLARI (do'kon → "To'plam") — butun ilova ko'rinishi.
-   html[data-x-skin="quantum" | "nova" | "forge" | "pulse" | "orbit"] — extras.js shopApply qo'yadi.
-   Har bir to'plam o'z palitrasi, shrifti va shaklini oladi (quyida "n) NOMI" bloklari).
-   "Klassik" — to'plam tanlanmaganda (None), standart interfeys, har doim bepul.
+   🪐 INTERFEYS TO'PLAMI (do'kon → "To'plam") — butun ilova ko'rinishi.
+   html[data-x-skin="quantum"] — extras.js shopApply qo'yadi.
+   Yuborilgan maketga mos: tekis qora panellar, binafsha+amber urg'u,
+   ixcham navigatsiya. Barcha bo'limlarga (Tasks/Rewards/Goals/Hub/
+   Profile/Focusgate...) umumiy selektorlar orqali qo'llanadi.
+   "Klassik" — to'plam tanlanmaganda (None), standart interfeys.
    ========================================================= */
 
-/* ---------- Umumiy mexanika: barcha to'plamlarda bir xil, rang o'zgaruvchilar orqali ---------- */
-html[data-x-skin] { --radius-md: 16px; --radius-lg: 22px; --radius-xl: 28px; color-scheme: dark; }
-html[data-x-skin], html[data-x-skin] body, html[data-x-skin] body.light {
-  --bg: var(--sk-bg) !important; --surface: var(--sk-surface) !important; --surface2: var(--sk-surface2) !important;
-  --border: var(--sk-border) !important; --border-hover: var(--sk-accent-glow) !important;
-  --accent: var(--sk-accent) !important; --accent-glow: var(--sk-accent-glow) !important;
-  --gold: var(--sk-accent2) !important; --gold-dim: var(--sk-accent2-dim) !important;
-  --green: #4ade80 !important; --red: #ff8a80 !important; --info: var(--sk-accent2) !important;
-  --text: var(--sk-text) !important; --text-muted: var(--sk-text-muted) !important; --text-dim: var(--sk-text-dim) !important;
-}
-html[data-x-skin] body { background: var(--sk-bg) !important; color: var(--sk-text); font-family: var(--sk-font) !important; letter-spacing: var(--sk-tracking, -0.005em); }
-html[data-x-skin] body :is(h1, h2, h3, h4, button, input, select, textarea, .tab, [style*="Syne"], [style*="DM Sans"]) { font-family: var(--sk-font) !important; }
-html[data-x-skin] body::before {
-  top: -20vh; left: 5vw; width: 70vw; height: 70vw; max-width: 900px; max-height: 900px;
-  background: radial-gradient(circle, var(--sk-blob1) 0%, transparent 62%) !important; filter: blur(10px);
-}
-html[data-x-skin] body::after {
-  bottom: -25vh; right: -10vw; width: 65vw; height: 65vw; max-width: 820px; max-height: 820px;
-  background: radial-gradient(circle, var(--sk-blob2) 0%, transparent 66%) !important; filter: blur(10px);
-}
-html[data-x-skin] #design-bg { display: none !important; }
-html[data-x-skin] ::selection { background: var(--sk-accent-glow); color: #fff; }
-
-/* Kartalar */
-html[data-x-skin] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn, .x-tchip, #level-panel, .friend-card, .fg-card, .chx-card, .tb-timeline, .gx-sh, .pmx-goal, .pmx-plan, .xst-card, .xs-open, .dz-card) {
-  background: var(--sk-card) !important; border-color: var(--sk-card-border) !important; border-radius: var(--sk-r-card) !important;
-  backdrop-filter: var(--sk-blur, none); -webkit-backdrop-filter: var(--sk-blur, none);
-  box-shadow: var(--sk-card-shadow);
-}
-html[data-x-skin] :is(.modal, .x-box, .xs-box, .fg-sheet, .x-ov .x-box) {
-  background: var(--sk-panel) !important; border: 1px solid var(--sk-card-border) !important; border-radius: var(--sk-r-panel) !important;
-  backdrop-filter: var(--sk-blur-strong, var(--sk-blur, none)); -webkit-backdrop-filter: var(--sk-blur-strong, var(--sk-blur, none));
-  box-shadow: var(--sk-panel-shadow);
-}
-html[data-x-skin] :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
-  background: var(--sk-input) !important; border-color: var(--sk-card-border) !important; color: var(--sk-text) !important; border-radius: var(--sk-r-sm, 10px) !important;
-}
-html[data-x-skin] :is(input, select, textarea):focus { border-color: var(--sk-accent) !important; box-shadow: 0 0 0 3px var(--sk-accent-glow) !important; outline: none; }
-
-/* Tugmalar */
-html[data-x-skin] :is(.btn-save, .x-btn:not(.ghost), .fg-btn:not(.ghost), .xs-pay:not(:disabled), .pomo-hero-start-btn) {
-  background: var(--sk-accent) !important; color: var(--sk-on-accent) !important; border-color: transparent !important; border-radius: var(--sk-r-btn) !important;
-  box-shadow: var(--sk-btn-glow); font-weight: 600;
-}
-html[data-x-skin] :is(.btn-save, .x-btn:not(.ghost), .fg-btn:not(.ghost)):hover { filter: brightness(1.08); }
-html[data-x-skin] :is(.btn-cancel, .x-btn.ghost, .fg-btn.ghost) { background: var(--sk-ghost) !important; border-color: var(--sk-card-border) !important; color: var(--sk-text) !important; border-radius: var(--sk-r-btn) !important; box-shadow: none; }
-
-/* Menyu (tablar) */
-html[data-x-skin] .tab { background: transparent !important; border-color: transparent !important; color: var(--sk-text-muted) !important; border-radius: var(--sk-r-tab) !important; }
-html[data-x-skin] .tab:hover { background: var(--sk-ghost) !important; color: var(--sk-text) !important; }
-html[data-x-skin] .tab.active { background: var(--sk-accent) !important; color: var(--sk-on-accent) !important; font-weight: 600; box-shadow: var(--sk-btn-glow) !important; }
-html[data-x-skin] .tab.active .x-pomo-live { color: var(--sk-on-accent) !important; }
-
-/* Yon panellar (kompyuter) */
-html[data-x-skin].layout-desktop :is(#ds-sidebar, #ds-aside) {
-  background: var(--sk-rail) !important; border-color: var(--sk-card-border) !important;
-  backdrop-filter: var(--sk-blur, none); -webkit-backdrop-filter: var(--sk-blur, none);
-  box-shadow: var(--sk-rail-shadow, none);
-}
-
-/* Telefon: pastki menyu */
-html[data-x-skin].layout-mobile #x-bnav {
-  left: var(--sk-bnav-x, 10px); right: var(--sk-bnav-x, 10px); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 6px 4px;
-  border-radius: var(--sk-r-bnav, 22px); border: 1px solid var(--sk-card-border);
-  background: var(--sk-bnav) !important; backdrop-filter: var(--sk-blur, none); -webkit-backdrop-filter: var(--sk-blur, none);
-  box-shadow: var(--sk-rail-shadow, none);
-}
-html[data-x-skin].layout-mobile #x-bnav button.on { color: var(--sk-accent) !important; background: var(--sk-accent-glow) !important; }
-html[data-x-skin].layout-mobile #x-bnav button.on .x-bn-i { filter: drop-shadow(0 0 8px var(--sk-accent-glow)); }
-html[data-x-skin].layout-mobile body { padding-bottom: calc(var(--sk-bnav-h, 84px) + env(safe-area-inset-bottom, 0px)) !important; }
-
-/* Raqamlar va progress */
-html[data-x-skin] :is(.stat-val, .stat .val, #stats-total-coins, .xs-sum b) { text-shadow: var(--sk-num-glow, none); }
-html[data-x-skin] :is(.progress-fill, .xp-fill, .lvl-fill, .lvp-fill, .pmx-bar-it i, .chx-pb i, .fg-bar i) {
-  background: linear-gradient(90deg, var(--sk-accent), var(--sk-accent2)) !important; box-shadow: 0 0 10px var(--sk-accent-glow);
-}
-html[data-x-skin] ::-webkit-scrollbar { width: 8px; height: 8px; }
-html[data-x-skin] ::-webkit-scrollbar-thumb { background: var(--sk-card-border); border-radius: 8px; }
-
-/* =========================================================
-   1) QUANTUM DUSK (quantum) — rasmdagi maket: tekis qora panellar, binafsha+amber urg'u, ixcham nav
-   ========================================================= */
 html[data-x-skin="quantum"] {
+  --radius-md: 16px; --radius-lg: 22px; --radius-xl: 28px; color-scheme: dark;
   --sk-bg: #06060a; --sk-surface: #121218; --sk-surface2: #191922; --sk-border: rgba(255,255,255,0.07);
   --sk-accent: #8b7bff; --sk-accent-glow: rgba(139,123,255,0.26); --sk-on-accent: #0c0820;
   --sk-accent2: #ffb648; --sk-accent2-dim: rgba(255,182,72,0.14);
   --sk-text: #f1f0f5; --sk-text-muted: rgba(205,203,220,0.72); --sk-text-dim: rgba(205,203,220,0.5);
   --sk-font: 'Inter', system-ui, sans-serif; --sk-tracking: -0.01em;
   --sk-blob1: rgba(139,123,255,0.14); --sk-blob2: rgba(255,182,72,0.10);
-  --sk-card: #121218; --sk-card-border: rgba(255,255,255,0.06); --sk-r-card: 18px;
+  --sk-card: #121218; --sk-card-border: rgba(255,255,255,0.06); --sk-r-card: 16px;
   --sk-blur: none; --sk-card-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 0 rgba(0,0,0,0.4);
   --sk-panel: #15151c; --sk-r-panel: 22px; --sk-panel-shadow: 0 30px 70px -24px rgba(0,0,0,0.8);
   --sk-input: #0d0d12; --sk-r-sm: 10px;
@@ -104,10 +25,85 @@ html[data-x-skin="quantum"] {
   --sk-bnav: rgba(18,18,24,0.92); --sk-r-bnav: 18px;
   --sk-num-glow: none;
 }
-html[data-x-skin="quantum"] :is(.task-card, .stat, .x-card, .x-sec, #level-panel, .friend-card, .fg-card, .chx-card) { border-radius: 16px !important; }
-html[data-x-skin="quantum"] .tab.active { box-shadow: 0 0 0 1px rgba(139,123,255,0.35), 0 6px 18px -6px rgba(139,123,255,0.55) !important; }
-html[data-x-skin="quantum"] :is(.stat .ic, .task-card .ic, .x-sec .ic) { border-radius: 12px !important; }
-/* Rasmdagi "Sections" kartalari: chapga tekislangan, ikonka — rangli dumaloq kvadrat yorliq */
+
+/* ---------- Umumiy mexanika: shu bitta to'plam uchun ---------- */
+html[data-x-skin="quantum"], html[data-x-skin="quantum"] body, html[data-x-skin="quantum"] body.light {
+  --bg: var(--sk-bg) !important; --surface: var(--sk-surface) !important; --surface2: var(--sk-surface2) !important;
+  --border: var(--sk-border) !important; --border-hover: var(--sk-accent-glow) !important;
+  --accent: var(--sk-accent) !important; --accent-glow: var(--sk-accent-glow) !important;
+  --gold: var(--sk-accent2) !important; --gold-dim: var(--sk-accent2-dim) !important;
+  --green: #4ade80 !important; --red: #ff8a80 !important; --info: var(--sk-accent2) !important;
+  --text: var(--sk-text) !important; --text-muted: var(--sk-text-muted) !important; --text-dim: var(--sk-text-dim) !important;
+}
+html[data-x-skin="quantum"] body { background: var(--sk-bg) !important; color: var(--sk-text); font-family: var(--sk-font) !important; letter-spacing: var(--sk-tracking); }
+html[data-x-skin="quantum"] body :is(h1, h2, h3, h4, button, input, select, textarea, .tab, [style*="Syne"], [style*="DM Sans"]) { font-family: var(--sk-font) !important; }
+html[data-x-skin="quantum"] body::before {
+  top: -20vh; left: 5vw; width: 70vw; height: 70vw; max-width: 900px; max-height: 900px;
+  background: radial-gradient(circle, var(--sk-blob1) 0%, transparent 62%) !important; filter: blur(10px);
+}
+html[data-x-skin="quantum"] body::after {
+  bottom: -25vh; right: -10vw; width: 65vw; height: 65vw; max-width: 820px; max-height: 820px;
+  background: radial-gradient(circle, var(--sk-blob2) 0%, transparent 66%) !important; filter: blur(10px);
+}
+html[data-x-skin="quantum"] #design-bg { display: none !important; }
+html[data-x-skin="quantum"] ::selection { background: var(--sk-accent-glow); color: #fff; }
+
+/* Kartalar — "Sections", "Designs Shelf", vazifa kartalari va h.k. — BARCHA bo'limlarda bir xil */
+html[data-x-skin="quantum"] :is(.task-card, .stat, .x-card, .x-sec, .x-shop-it, .x-feed-it, .th-it, .add-task-btn, .x-tchip, #level-panel, .friend-card, .fg-card, .chx-card, .tb-timeline, .gx-sh, .pmx-goal, .pmx-plan, .xst-card, .xs-open, .dz-card) {
+  background: var(--sk-card) !important; border-color: var(--sk-card-border) !important; border-radius: var(--sk-r-card) !important;
+  box-shadow: var(--sk-card-shadow);
+}
+html[data-x-skin="quantum"] :is(.modal, .x-box, .xs-box, .fg-sheet, .x-ov .x-box) {
+  background: var(--sk-panel) !important; border: 1px solid var(--sk-card-border) !important; border-radius: var(--sk-r-panel) !important;
+  box-shadow: var(--sk-panel-shadow);
+}
+html[data-x-skin="quantum"] :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  background: var(--sk-input) !important; border-color: var(--sk-card-border) !important; color: var(--sk-text) !important; border-radius: var(--sk-r-sm) !important;
+}
+html[data-x-skin="quantum"] :is(input, select, textarea):focus { border-color: var(--sk-accent) !important; box-shadow: 0 0 0 3px var(--sk-accent-glow) !important; outline: none; }
+
+/* Tugmalar */
+html[data-x-skin="quantum"] :is(.btn-save, .x-btn:not(.ghost), .fg-btn:not(.ghost), .xs-pay:not(:disabled), .pomo-hero-start-btn) {
+  background: var(--sk-accent) !important; color: var(--sk-on-accent) !important; border-color: transparent !important; border-radius: var(--sk-r-btn) !important;
+  box-shadow: var(--sk-btn-glow); font-weight: 600;
+}
+html[data-x-skin="quantum"] :is(.btn-save, .x-btn:not(.ghost), .fg-btn:not(.ghost)):hover { filter: brightness(1.08); }
+html[data-x-skin="quantum"] :is(.btn-cancel, .x-btn.ghost, .fg-btn.ghost) { background: var(--sk-ghost) !important; border-color: var(--sk-card-border) !important; color: var(--sk-text) !important; border-radius: var(--sk-r-btn) !important; box-shadow: none !important; }
+
+/* Menyu (tablar) — barcha bo'limlarning tab-panellarida bir xil */
+html[data-x-skin="quantum"] .tab { background: transparent !important; border-color: transparent !important; color: var(--sk-text-muted) !important; border-radius: var(--sk-r-tab) !important; }
+html[data-x-skin="quantum"] .tab:hover { background: var(--sk-ghost) !important; color: var(--sk-text) !important; }
+html[data-x-skin="quantum"] .tab.active { background: var(--sk-accent) !important; color: var(--sk-on-accent) !important; font-weight: 600; box-shadow: 0 0 0 1px rgba(139,123,255,0.35), 0 6px 18px -6px rgba(139,123,255,0.55) !important; }
+html[data-x-skin="quantum"] .tab.active .x-pomo-live { color: var(--sk-on-accent) !important; }
+
+/* Yon panellar (kompyuter) — Tasks/Rewards/Goals/Hub/Profil — hammasida bir xil ramka */
+html[data-x-skin="quantum"].layout-desktop :is(#ds-sidebar, #ds-aside) {
+  background: var(--sk-rail) !important; border-color: var(--sk-card-border) !important; box-shadow: 1px 0 0 rgba(255,255,255,0.05);
+}
+
+/* Telefon: pastki menyu */
+html[data-x-skin="quantum"].layout-mobile #x-bnav {
+  left: 10px; right: 10px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 6px 4px;
+  border-radius: 18px; border: 1px solid var(--sk-card-border);
+  background: var(--sk-bnav) !important;
+}
+html[data-x-skin="quantum"].layout-mobile #x-bnav button.on { color: var(--sk-accent) !important; background: var(--sk-accent-glow) !important; }
+html[data-x-skin="quantum"].layout-mobile #x-bnav button.on .x-bn-i { filter: drop-shadow(0 0 8px var(--sk-accent-glow)); }
+html[data-x-skin="quantum"].layout-mobile body { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
+/* Telefonda ham rasmdagidek: tepada o'ng burchakda aylana profil tugmasi ko'rinadi (pastki menyudan tashqari, qo'shimcha tezkor kirish) */
+html[data-x-skin="quantum"].layout-mobile #profile-nav-btn {
+  width: 34px !important; height: 34px !important; background: var(--sk-accent) !important; border: none !important;
+  color: var(--sk-on-accent) !important; box-shadow: 0 4px 14px -4px rgba(0,0,0,0.6) !important;
+}
+
+/* Raqamlar va progress */
+html[data-x-skin="quantum"] :is(.progress-fill, .xp-fill, .lvl-fill, .lvp-fill, .pmx-bar-it i, .chx-pb i, .fg-bar i) {
+  background: linear-gradient(90deg, var(--sk-accent), var(--sk-accent2)) !important; box-shadow: 0 0 10px var(--sk-accent-glow);
+}
+html[data-x-skin="quantum"] ::-webkit-scrollbar { width: 8px; height: 8px; }
+html[data-x-skin="quantum"] ::-webkit-scrollbar-thumb { background: var(--sk-card-border); border-radius: 8px; }
+
+/* Rasmdagi "Sections" kartalari: chapga tekislangan, ikonka — rangli dumaloq kvadrat yorliq (Hub bo'limida) */
 html[data-x-skin="quantum"] .x-sec {
   flex-direction: row !important; align-items: center !important; justify-content: flex-start !important;
   gap: 10px !important; padding: 11px 12px !important; text-align: left !important;
@@ -117,159 +113,23 @@ html[data-x-skin="quantum"] .x-sec span {
   border-radius: 11px; background: var(--sk-accent-glow); font-size: 18px !important;
 }
 html[data-x-skin="quantum"] .xs-open-sw { border-radius: 14px; background: linear-gradient(135deg, var(--sk-accent), var(--sk-accent2)) !important; box-shadow: none !important; }
-/* Joylashuv: Profil ro'yxatdan ajralib, sidebar ICHIDA pastki qismga "hisob qatori" sifatida yopishadi
-   (Notion/Slack/Discord/VS Code'dagi kabi — keng tarqalgan, tashqariga suzib chiqmaydi) */
-html[data-x-skin="quantum"].layout-desktop #tabs-bar.tabs { flex: 1 1 auto; min-height: 0; }
-html[data-x-skin="quantum"].layout-desktop #tab-profile {
-  order: 99 !important; margin-top: auto !important; width: 100% !important; height: auto !important;
-  padding: 11px 10px !important; border-radius: 12px !important; display: flex !important; align-items: center; gap: 9px;
-  background: var(--sk-ghost) !important; color: var(--sk-text) !important; font-weight: 600 !important;
-  border-top: 1px solid var(--sk-card-border); padding-top: 14px !important; box-shadow: none !important;
-}
-html[data-x-skin="quantum"].layout-desktop #tab-profile:hover { background: var(--sk-accent-glow) !important; color: var(--sk-accent) !important; }
-/* O'ng panel: "Hozirgi holat" kartasi eng tepaga, keyin daraja yo'li, so'ng hamrohlar */
-html[data-x-skin="quantum"].layout-desktop #ds-aside #level-panel { order: 1; }
-html[data-x-skin="quantum"].layout-desktop #ds-aside #header-actions-right { order: 2; }
-html[data-x-skin="quantum"].layout-desktop #ds-aside #ds-aside-title { order: 3; }
-html[data-x-skin="quantum"].layout-desktop #ds-aside #header-friends-btn { order: 4; }
-html[data-x-skin="quantum"].layout-desktop #ds-aside #ds-shortcuts { order: 5; }
 
-/* =========================================================
-   2) NOVA FROST (nova) — muzdek shisha, keng bo'shliq, oq-ko'k porlash
-   ========================================================= */
-html[data-x-skin="nova"] {
-  --sk-bg: #05070a; --sk-surface: #10151c; --sk-surface2: #171e27; --sk-border: rgba(170,220,255,0.08);
-  --sk-accent: #6fd8ff; --sk-accent-glow: rgba(111,216,255,0.24); --sk-on-accent: #00232e;
-  --sk-accent2: #c9b8ff; --sk-accent2-dim: rgba(201,184,255,0.14);
-  --sk-text: #eaf6ff; --sk-text-muted: rgba(196,222,232,0.76); --sk-text-dim: rgba(196,222,232,0.55);
-  --sk-font: 'Outfit', system-ui, sans-serif; --sk-tracking: -0.005em;
-  --sk-blob1: rgba(111,216,255,0.16); --sk-blob2: rgba(201,184,255,0.14);
-  --sk-card: rgba(23,30,39,0.6); --sk-card-border: rgba(255,255,255,0.08); --sk-r-card: 26px;
-  --sk-blur: blur(22px) saturate(1.3); --sk-card-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 20px 45px -28px rgba(0,0,0,0.75);
-  --sk-panel: rgba(16,21,28,0.88); --sk-r-panel: 30px; --sk-panel-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 30px 80px -20px rgba(0,0,0,0.8);
-  --sk-input: rgba(10,13,17,0.8); --sk-r-sm: 14px;
-  --sk-r-btn: 999px; --sk-btn-glow: 0 0 24px rgba(111,216,255,0.35);
-  --sk-ghost: rgba(255,255,255,0.07); --sk-r-tab: 999px;
-  --sk-rail: rgba(255,255,255,0.04); --sk-rail-shadow: 0 20px 44px rgba(0,0,0,0.5);
-  --sk-bnav: rgba(16,21,28,0.78); --sk-r-bnav: 26px;
-  --sk-num-glow: 0 0 16px rgba(111,216,255,0.3);
-}
-@media (min-width: 900px) {
-  html[data-x-skin="nova"].layout-desktop :is(#ds-sidebar, #ds-aside) { border: 14px solid transparent !important; background-clip: padding-box !important; border-radius: 40px !important; }
-}
-/* Joylashuv: Profil ro'yxat boshiga — "hisob kartasi" sifatida, Hub'dan ham yuqoriga */
-html[data-x-skin="nova"].layout-desktop #tab-profile {
-  order: -1 !important; margin-bottom: 8px; padding: 12px 10px !important; border-radius: 16px !important;
-  background: var(--sk-card) !important; border: 1px solid var(--sk-card-border) !important; font-weight: 700 !important;
-}
-/* O'ng panel: teskari tartib — avval hamrohlar, keyin daraja, oxirida tanga/spin */
-html[data-x-skin="nova"].layout-desktop #ds-aside #ds-aside-title { order: 1; }
-html[data-x-skin="nova"].layout-desktop #ds-aside #header-friends-btn { order: 2; }
-html[data-x-skin="nova"].layout-desktop #ds-aside #level-panel { order: 3; }
-html[data-x-skin="nova"].layout-desktop #ds-aside #ds-shortcuts { order: 4; }
-html[data-x-skin="nova"].layout-desktop #ds-aside #header-actions-right { order: 5; }
+/* Joylashuv: Profil ro'yxatning ENG OXIRIGA tushadi (rasmdagidek) */
+html[data-x-skin="quantum"].layout-desktop #tab-profile { order: 99 !important; }
 
-/* =========================================================
-   3) TERRA FORGE (forge) — sanoat uslubi: qattiq burchak, chap chiziq, chuqur to'q-amber
-   ========================================================= */
-html[data-x-skin="forge"] {
-  --sk-bg: #0a0705; --sk-surface: #16110c; --sk-surface2: #1f1811; --sk-border: rgba(255,170,100,0.1);
-  --sk-accent: #ff8a3d; --sk-accent-glow: rgba(255,138,61,0.26); --sk-on-accent: #2a0f00;
-  --sk-accent2: #ff5d6c; --sk-accent2-dim: rgba(255,93,108,0.14);
-  --sk-text: #f5ece2; --sk-text-muted: rgba(224,199,178,0.76); --sk-text-dim: rgba(224,199,178,0.54);
-  --sk-font: 'Space Grotesk', system-ui, sans-serif; --sk-tracking: 0;
-  --sk-blob1: rgba(255,138,61,0.14); --sk-blob2: rgba(255,93,108,0.1);
-  --sk-card: #16110c; --sk-card-border: rgba(255,170,100,0.12); --sk-r-card: 6px;
-  --sk-blur: none; --sk-card-shadow: inset 3px 0 0 var(--sk-accent), 0 1px 0 rgba(0,0,0,0.5);
-  --sk-panel: #18130d; --sk-r-panel: 10px; --sk-panel-shadow: 0 30px 70px -24px rgba(0,0,0,0.85);
-  --sk-input: #0e0b07; --sk-r-sm: 4px;
-  --sk-r-btn: 6px; --sk-btn-glow: 0 0 0 1px rgba(255,138,61,0.5);
-  --sk-ghost: rgba(255,170,100,0.08); --sk-r-tab: 6px;
-  --sk-rail: #0c0906; --sk-rail-shadow: 1px 0 0 rgba(255,170,100,0.1);
-  --sk-bnav: rgba(22,17,12,0.94); --sk-r-bnav: 10px;
-  --sk-num-glow: none;
+/* Rasmdagi o'ng-yuqori burchakdagi aylana profil belgisi: ilovada bu tugma allaqachon bor
+   (#profile-nav-btn, sidebar'ning header-left ichida), lekin kompyuterda yashirilgan edi.
+   Uni qaytarib, ekranning o'ng-yuqori burchagiga mahkamlaymiz. #ds-sidebar o'zi position:fixed
+   stacking-context bo'lgani uchun, tugma tashqarida (#ds-aside ustida) ko'rinishi uchun
+   sidebar'ning z-index'ini ham ko'tarish kerak — aks holda #ds-aside uni yashirib qo'yadi. */
+html[data-x-skin="quantum"].layout-desktop #ds-sidebar { z-index: 60 !important; }
+html[data-x-skin="quantum"].layout-desktop #profile-nav-btn {
+  display: inline-flex !important; position: fixed !important; top: 14px; right: 14px; z-index: 61;
+  width: 36px !important; height: 36px !important; border-radius: 999px !important; border: none !important;
+  background: var(--sk-accent) !important; color: var(--sk-on-accent) !important; font-size: 15px !important;
+  box-shadow: 0 10px 22px -8px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08) !important;
 }
-html[data-x-skin="forge"] :is(.task-card, .stat, .x-card, .x-sec, #level-panel, .friend-card, .fg-card, .chx-card) { position: relative; }
-html[data-x-skin="forge"] :is(.stat-label, .stat .lbl, .x-sec-t, .chx-sec, .pmx-sub, .fg-group-t) { letter-spacing: 0.12em !important; text-transform: uppercase; color: var(--sk-accent) !important; }
-html[data-x-skin="forge"].layout-desktop #ds-sidebar { border-right: 1px solid var(--sk-card-border) !important; border-radius: 0 !important; }
-html[data-x-skin="forge"].layout-desktop #ds-aside { border-left: 1px solid var(--sk-card-border) !important; border-radius: 0 !important; }
-/* Joylashuv: navigatsiya 2 ustunli panjara, Profil panjaraning pastki-o'ng katagida */
-html[data-x-skin="forge"].layout-desktop #tabs-bar.tabs { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px; }
-html[data-x-skin="forge"].layout-desktop #tab-profile { order: 99; justify-content: center !important; grid-column: 2; }
-/* O'ng panel: tezkor havolalar tepaga, daraja va hamrohlar pastga siljiydi */
-html[data-x-skin="forge"].layout-desktop #ds-aside #ds-shortcuts { order: 1; }
-html[data-x-skin="forge"].layout-desktop #ds-aside #header-actions-right { order: 2; }
-html[data-x-skin="forge"].layout-desktop #ds-aside #level-panel { order: 3; }
-html[data-x-skin="forge"].layout-desktop #ds-aside #ds-aside-title { order: 4; }
-html[data-x-skin="forge"].layout-desktop #ds-aside #header-friends-btn { order: 5; }
-
-/* =========================================================
-   4) MOBILE PULSE (pulse) 📱 — telefon uchun: katta teginish nuqtalari, pushti+firuza, siyraklashtirilgan tartib
-   ========================================================= */
-html[data-x-skin="pulse"] {
-  --sk-bg: #08060b; --sk-surface: #15101c; --sk-surface2: #1e1627; --sk-border: rgba(255,120,200,0.1);
-  --sk-accent: #ff5fae; --sk-accent-glow: rgba(255,95,174,0.26); --sk-on-accent: #2a0017;
-  --sk-accent2: #3fe0c5; --sk-accent2-dim: rgba(63,224,197,0.14);
-  --sk-text: #f6eef5; --sk-text-muted: rgba(221,201,219,0.78); --sk-text-dim: rgba(221,201,219,0.56);
-  --sk-font: 'Plus Jakarta Sans', system-ui, sans-serif; --sk-tracking: -0.005em;
-  --sk-blob1: rgba(255,95,174,0.16); --sk-blob2: rgba(63,224,197,0.12);
-  --sk-card: #15101c; --sk-card-border: rgba(255,255,255,0.07); --sk-r-card: 22px;
-  --sk-blur: none; --sk-card-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 14px 30px -22px rgba(0,0,0,0.75);
-  --sk-panel: #17121f; --sk-r-panel: 26px; --sk-panel-shadow: 0 30px 70px -24px rgba(0,0,0,0.8);
-  --sk-input: #100c16; --sk-r-sm: 14px;
-  --sk-r-btn: 16px; --sk-btn-glow: 0 10px 24px -8px rgba(255,95,174,0.55);
-  --sk-ghost: rgba(255,255,255,0.06); --sk-r-tab: 14px;
-  --sk-rail: #0c0910; --sk-rail-shadow: 1px 0 0 rgba(255,255,255,0.05);
-  --sk-bnav: rgba(21,16,28,0.9); --sk-r-bnav: 26px; --sk-bnav-x: 14px; --sk-bnav-h: 92px;
-  --sk-num-glow: 0 0 14px rgba(255,95,174,0.3);
-}
-html[data-x-skin="pulse"].layout-mobile :is(.task-card, .stat, .x-card, .x-sec, .fg-card, .chx-card) { border-radius: 24px !important; padding-block: calc(var(--pad, 1em) * 1.15); }
-html[data-x-skin="pulse"].layout-mobile #x-bnav button { padding-block: 8px !important; }
-html[data-x-skin="pulse"].layout-mobile #x-bnav button.on { box-shadow: 0 6px 18px -6px rgba(255,95,174,0.5); }
-html[data-x-skin="pulse"].layout-mobile .add-task-btn { border-radius: 20px !important; box-shadow: var(--sk-btn-glow); }
-/* Joylashuv: pastki menyuda Profil eng chapga (boshiga) chiqadi */
-html[data-x-skin="pulse"].layout-mobile #x-bnav button[data-bn="profile"] { order: -1 !important; }
-
-/* =========================================================
-   5) ORBIT MINI (orbit) 📱 — telefon uchun: juda minimal, bitta ko'k urg'u, yumshoq yumaloq shakllar
-   ========================================================= */
-html[data-x-skin="orbit"] {
-  --sk-bg: #06080d; --sk-surface: #10141c; --sk-surface2: #161c26; --sk-border: rgba(120,170,255,0.08);
-  --sk-accent: #5b9dff; --sk-accent-glow: rgba(91,157,255,0.24); --sk-on-accent: #04101f;
-  --sk-accent2: #5b9dff; --sk-accent2-dim: rgba(91,157,255,0.12);
-  --sk-text: #eef3fb; --sk-text-muted: rgba(196,210,230,0.74); --sk-text-dim: rgba(196,210,230,0.52);
-  --sk-font: 'Manrope', system-ui, sans-serif; --sk-tracking: -0.005em;
-  --sk-blob1: rgba(91,157,255,0.14); --sk-blob2: rgba(91,157,255,0.08);
-  --sk-card: #10141c; --sk-card-border: rgba(255,255,255,0.055); --sk-r-card: 20px;
-  --sk-blur: none; --sk-card-shadow: 0 1px 0 rgba(255,255,255,0.03);
-  --sk-panel: #12161f; --sk-r-panel: 24px; --sk-panel-shadow: 0 30px 70px -24px rgba(0,0,0,0.82);
-  --sk-input: #0b0e14; --sk-r-sm: 12px;
-  --sk-r-btn: 999px; --sk-btn-glow: 0 0 0 1px rgba(91,157,255,0.4);
-  --sk-ghost: rgba(255,255,255,0.05); --sk-r-tab: 999px;
-  --sk-rail: #0a0d13; --sk-rail-shadow: 1px 0 0 rgba(255,255,255,0.05);
-  --sk-bnav: rgba(16,20,28,0.9); --sk-r-bnav: 999px; --sk-bnav-x: 18px; --sk-bnav-h: 90px;
-  --sk-num-glow: none;
-}
-html[data-x-skin="orbit"].layout-mobile #x-bnav { border-width: 1px; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button { border-radius: 999px !important; }
-html[data-x-skin="orbit"].layout-mobile :is(.task-card, .stat, .x-card, .x-sec, .fg-card, .chx-card) { border-radius: 18px !important; }
-/* Joylashuv: Profil pastki menyu ICHIDA, o'rtada ko'tarilgan dumaloq tugma (ko'p ilovalardagi
-   markaziy FAB naqshi — Instagram/kamera tugmasi kabi) — tashqariga chiqib ketmaydi */
-html[data-x-skin="orbit"].layout-mobile #x-bnav { align-items: flex-end !important; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="tasks"] { order: 1; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="goals"] { order: 2; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] { order: 3; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="hub"] { order: 4; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="rewards"] { order: 5; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] {
-  position: relative; transform: translateY(-14px); flex: 0 0 auto;
-  width: 56px; height: 56px; padding: 0 !important; border-radius: 999px !important;
-  background: var(--sk-accent) !important; box-shadow: 0 10px 22px -6px rgba(0,0,0,0.55), 0 0 0 5px var(--sk-bg) !important;
-  display: flex !important; align-items: center; justify-content: center;
-}
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] .x-bn-l { display: none; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"] .x-bn-i { font-size: 22px; filter: none !important; }
-html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"].on { color: var(--sk-on-accent) !important; }
+html[data-x-skin="quantum"].layout-desktop #profile-nav-btn:hover { filter: brightness(1.08); }
 
 /* ---------- Do'kon/studiya ko'rinishi (kichik maket) ---------- */
 .x-skin-pv { display: grid; grid-template-columns: 22% 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; width: 100%; height: 54px; padding: 5px; border-radius: 12px; box-sizing: border-box; background: #07070a; }
@@ -280,20 +140,3 @@ html[data-x-skin="orbit"].layout-mobile #x-bnav button[data-bn="profile"].on { c
 .skp-quantum { background: radial-gradient(circle at 12% 0%, rgba(139,123,255,0.3), transparent 55%), radial-gradient(circle at 92% 100%, rgba(255,182,72,0.22), transparent 60%), #06060a; }
 .skp-quantum i, .skp-quantum b { border-radius: 6px; }
 .skp-quantum b:first-of-type { background: #8b7bff; }
-
-.skp-nova { background: radial-gradient(circle at 15% 10%, rgba(111,216,255,0.32), transparent 55%), radial-gradient(circle at 85% 90%, rgba(201,184,255,0.28), transparent 60%), #05070a; }
-.skp-nova i, .skp-nova b { border-radius: 14px; }
-.skp-nova b:first-of-type { background: linear-gradient(90deg, rgba(111,216,255,0.65), rgba(201,184,255,0.45)); }
-
-.skp-forge { background: linear-gradient(180deg, rgba(255,138,61,0.12), transparent 60%), #0a0705; }
-.skp-forge i, .skp-forge b { border-radius: 2px; }
-.skp-forge i { box-shadow: inset 3px 0 0 #ff8a3d; }
-.skp-forge b:first-of-type { background: linear-gradient(90deg, #ff8a3d, #ff5d6c); }
-
-.skp-pulse { background: radial-gradient(circle at 15% 0%, rgba(255,95,174,0.32), transparent 55%), radial-gradient(circle at 90% 100%, rgba(63,224,197,0.26), transparent 60%), #08060b; }
-.skp-pulse i, .skp-pulse b { border-radius: 12px; }
-.skp-pulse b:first-of-type { background: linear-gradient(90deg, #ff5fae, #3fe0c5); }
-
-.skp-orbit { background: radial-gradient(circle at 20% 20%, rgba(91,157,255,0.3), transparent 60%), #06080d; }
-.skp-orbit i, .skp-orbit b { border-radius: 999px; }
-.skp-orbit b:first-of-type { background: #5b9dff; }
