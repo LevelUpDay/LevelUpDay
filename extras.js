@@ -3281,21 +3281,30 @@
   // ✈️ Botdagi amallarni ilovada qo'llash: «✅ Bajardim» (mukofot bilan) va /add (Inbox'ga)
   var _tgaBusy = false, _tgaAt = 0;
   async function applyTgActions() {
-    if (!cloudOk() || _tgaBusy || Date.now() - _tgaAt < 20000) return;
+    // _cloudPullDone: tasklar bulutdan hali to'liq o'qilmagan bo'lishi mumkin (S.tasks eski/to'liqsiz) —
+    // shu holatda urinib, topilmagan taskni "yo'q" deb hisoblab, amalni abadiy yo'qotib qo'ymaslik uchun kutamiz.
+    if (!cloudOk() || !window._cloudPullDone || _tgaBusy || Date.now() - _tgaAt < 20000) return;
     _tgaBusy = true; _tgaAt = Date.now();
     try {
       var r = await supabase.from('tg_actions').select('id,kind,task_id,payload,created_at').is('applied_at', null).order('id').limit(50);
       var rows = (r && !r.error && r.data) || [], ids = [], nDone = 0, nAdd = 0, td = today();
       rows.forEach(function (a) {
+        var skip = false;
         try {
           if (a.kind === 'done') {
             var day = (a.payload && a.payload.day) || td;
             var t = (S.tasks || []).find(function (x) { return x && Number(x.id) === Number(a.task_id); });
-            // Bir martalik vazifa — qaysi kuni ochilsa ham bajariladi; takrorlanuvchi — faqat o'sha kuni
-            if (t && (day === td || t.repeat === 'once') && !(t.repeat === 'once' ? t.done : t.doneDate === td)) { toggleTaskInternal(t.id); nDone++; }
+            if (!t && Date.now() - new Date(a.created_at).getTime() < 7 * 86400000) {
+              // Task hali bu qurilmaga sinxronlanmagan bo'lishi mumkin (masalan yangi qurilma/tab) — 7 kungacha
+              // qayta urinib ko'ramiz, "applied" deb belgilamaymiz (aks holda amal abadiy yo'qolib qolardi)
+              skip = true;
+            } else if (t && (day === td || t.repeat === 'once') && !(t.repeat === 'once' ? t.done : t.doneDate === td)) {
+              // Bir martalik vazifa — qaysi kuni ochilsa ham bajariladi; takrorlanuvchi — faqat o'sha kuni
+              toggleTaskInternal(t.id); nDone++;
+            }
           } else if (a.kind === 'add' && a.payload && a.payload.name && window.xInboxAddText) { if (window.xInboxAddText(a.payload.name)) nAdd++; }
         } catch (e) { console.warn('[tg action]', e); }
-        ids.push(a.id);
+        if (!skip) ids.push(a.id);
       });
       if (ids.length) await supabase.from('tg_actions').update({ applied_at: new Date().toISOString() }).in('id', ids);
       if (nDone || nAdd) {

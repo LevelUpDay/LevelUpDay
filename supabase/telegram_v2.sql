@@ -7,6 +7,10 @@ create index if not exists tg_actions_user_pending on public.tg_actions(user_id)
 alter table public.tg_actions enable row level security;
 create policy tga_sel on public.tg_actions for select using (user_id = auth.uid());
 create policy tga_upd on public.tg_actions for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- RLS siyosati o'zi yetarli emas — jadvalga asosiy GRANT ham kerak, aks holda "authenticated"
+-- (oddiy login qilgan foydalanuvchi) uchun SELECT/UPDATE "permission denied" bilan xatolikka
+-- uchraydi (jim yutiladi) va Telegram botdagi "✅ Bajardim" tugmasi saytga hech qachon yetib bormaydi.
+grant select, update on public.tg_actions to authenticated;
 alter table public.telegram_links add column if not exists times jsonb not null default '{}'::jsonb;
 create table if not exists public.tg_snooze (user_id uuid not null, task_id bigint not null, fire_at timestamptz not null, sent_at timestamptz, primary key (user_id, task_id));
 alter table public.tg_snooze enable row level security;
