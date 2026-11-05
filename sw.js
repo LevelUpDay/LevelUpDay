@@ -10,7 +10,7 @@
 // MUHIM: har safar index.html/styles.css/script.js (yoki boshqa kod)ni
 // yangilab qayta joylashtirganingizda, bu raqamni oshiring (v19 -> v20 -> ...).
 // Shunda eski kesh butunlay o'chiriladi va yangi fayllar qayta yuklanadi.
-const CACHE_VERSION = 'v151';
+const CACHE_VERSION = 'v152';
 const CACHE_NAME = `todolist-cache-${CACHE_VERSION}`;
 // Fon tovushlari (sounds/*.mp3, ~0.8 MB) — alohida, versiyalar o'rtasida o'chirilmaydigan kesh
 const SOUND_CACHE = 'lud-sounds-v2';
@@ -343,4 +343,132 @@ self.addEventListener('notificationclick', (event) => {
     }
     await self.clients.openWindow(target);
   })());
+});
+
+// ============================================================
+// 🌙 BACKGROUND SYNC — ilova yopiq bo'lsa ham, internet/wifi qaytganda
+// navbatdagi task o'zgarishlarini Supabase'ga yuboradi.
+// ------------------------------------------------------------
+// script.js tomonidan IndexedDB (lud_bgsync) ga yozilgan navbat (task
+// upsert/delete) va sessiya tokenini shu yerda o'qib, to'g'ridan-to'g'ri
+// Supabase REST API'ga yuboramiz (bu yerda to'liq ilova holati yo'q,
+// shuning uchun faqat tasklar — oddiy va xavfsiz, murakkab birlashtirish
+// talab qilmaydigan yagona navbat). Tanga/XP/sozlamalar (app_state,
+// profiles) ESA bu yerda sinxronlanmaydi — ular bulut bilan uch tomonlama
+// birlashtirishni talab qiladi va faqat ilova ochilganda, to'liq holat
+// bilan sinxronlanadi (hozirgidek) — tangalar xavfsiz qoladi.
+// Eslatma: Background Sync API hozircha asosan Android/Chrome'da ishlaydi;
+// qo'llamaydigan brauzerda (iPhone/Safari) bu kod chaqirilmaydi — ilova
+// ochilganda avvalgidek sinxronlanadi, hech narsa buzilmaydi.
+// ============================================================
+const BG_DB_NAME = 'lud_bgsync', BG_DB_VER = 1, BG_STORE = 'kv';
+const BG_SB_URL = 'https://zzcvpenkevxlurgpjltz.supabase.co';
+const BG_SB_ANON = 'sb_publishable_KbjJQoICYY8BoIqeBw_OKQ_xTTk_yu8';
+
+function bgDb() {
+  return new Promise((resolve) => {
+    try {
+      const rq = indexedDB.open(BG_DB_NAME, BG_DB_VER);
+      rq.onupgradeneeded = () => { try { rq.result.createObjectStore(BG_STORE); } catch (e) {} };
+      rq.onsuccess = () => resolve(rq.result);
+      rq.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+function bgGet(key) {
+  return bgDb().then((db) => new Promise((resolve) => {
+    if (!db) return resolve(null);
+    try {
+      const rq = db.transaction(BG_STORE, 'readonly').objectStore(BG_STORE).get(key);
+      rq.onsuccess = () => resolve(rq.result == null ? null : rq.result);
+      rq.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  }));
+}
+function bgSet(key, val) {
+  return bgDb().then((db) => new Promise((resolve) => {
+    if (!db) return resolve(false);
+    try {
+      const tx = db.transaction(BG_STORE, 'readwrite');
+      tx.objectStore(BG_STORE).put(val, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) { resolve(false); }
+  }));
+}
+
+// access_token muddati tugagan bo'lsa, refresh_token bilan yangisini olamiz
+async function bgRefreshToken(session) {
+  try {
+    const r = await fetch(`${BG_SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { apikey: BG_SB_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d || !d.access_token) return null;
+    const next = { uid: session.uid, access_token: d.access_token, refresh_token: d.refresh_token || session.refresh_token };
+    await bgSet('session', next);
+    return next;
+  } catch (e) { return null; }
+}
+
+async function bgAuthedFetch(url, opts, session) {
+  const headers = Object.assign({ apikey: BG_SB_ANON, Authorization: `Bearer ${session.access_token}` }, opts.headers || {});
+  let r = await fetch(url, Object.assign({}, opts, { headers }));
+  if (r.status === 401) {
+    const fresh = await bgRefreshToken(session);
+    if (fresh) {
+      headers.Authorization = `Bearer ${fresh.access_token}`;
+      r = await fetch(url, Object.assign({}, opts, { headers }));
+    }
+  }
+  return r;
+}
+
+async function bgSyncTodos() {
+  const session = await bgGet('session');
+  const queue = await bgGet('queue');
+  if (!session || !session.access_token || !queue || queue.uid !== session.uid) return;
+  const ups = queue.ups || {}, dels = queue.dels || {};
+  const upIds = Object.keys(ups), delIds = Object.keys(dels).map(Number);
+  if (!upIds.length && !delIds.length) return;
+
+  let okUp = true, okDel = true;
+  if (upIds.length) {
+    const rows = upIds.map((k) => ({
+      user_id: session.uid, task_id: Number(k), order_index: ups[k].orderIndex || 0,
+      task_data: ups[k].task, updated_at: new Date().toISOString()
+    }));
+    const r = await bgAuthedFetch(`${BG_SB_URL}/rest/v1/todos?on_conflict=user_id,task_id`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(rows)
+    }, session);
+    okUp = r.ok;
+    if (okUp) upIds.forEach((k) => delete ups[k]);
+  }
+  if (delIds.length) {
+    const r = await bgAuthedFetch(`${BG_SB_URL}/rest/v1/todos?user_id=eq.${session.uid}&task_id=in.(${delIds.join(',')})`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    }, session);
+    okDel = r.ok;
+    if (okDel) delIds.forEach((id) => delete dels[id]);
+  }
+  await bgSet('queue', { uid: session.uid, ups, dels });
+
+  try {
+    const clientsList = await self.clients.matchAll();
+    clientsList.forEach((c) => c.postMessage({ type: 'lud-bg-sync-done' }));
+  } catch (e) {}
+
+  // Muvaffaqiyatsiz qolgan qism bo'lsa, xatolik tashlaymiz — brauzer o'zi
+  // keyinroq (backoff bilan) qayta urinib ko'radi (Background Sync API'ning o'z kafolati)
+  if (!okUp || !okDel) throw new Error('lud-todos-sync: incomplete, will retry');
+}
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'lud-todos-sync') event.waitUntil(bgSyncTodos());
 });

@@ -8704,6 +8704,78 @@ function writeLocalTasks(tasksArr) {
 
 
 // ============================================================
+// 🌙 Fon sinxronizatsiyasi (Background Sync) uchun IndexedDB ko'prik
+// ------------------------------------------------------------
+// Servis-worker (sw.js) localStorage'ni o'qiy olmaydi, shuning uchun
+// navbatdagi task o'zgarishlari va sessiya tokeni bu yerda IndexedDB'ga
+// ham "ko'chiriladi". Ilova yopiq bo'lsa ham, internet/wifi qaytganda
+// brauzer servis-workerni fonda uyg'otib, shu ma'lumot bilan navbatni
+// Supabase'ga yuboradi (Background Sync API — hozircha asosan
+// Android/Chrome qo'llab-quvvatlaydi; qo'llamaydigan brauzerlarda bu
+// yerdagi kod shunchaki sezilmaydi, ilova ochilganda avvalgidek
+// sinxronlanadi — hech narsa buzilmaydi).
+// ============================================================
+var _BG_DB_NAME = 'lud_bgsync', _BG_DB_VER = 1, _BG_STORE = 'kv';
+function _bgDb() {
+  return new Promise(function (resolve) {
+    try {
+      if (!window.indexedDB) return resolve(null);
+      var rq = indexedDB.open(_BG_DB_NAME, _BG_DB_VER);
+      rq.onupgradeneeded = function () { try { rq.result.createObjectStore(_BG_STORE); } catch (e) {} };
+      rq.onsuccess = function () { resolve(rq.result); };
+      rq.onerror = function () { resolve(null); };
+    } catch (e) { resolve(null); }
+  });
+}
+function _bgPut(key, val) {
+  return _bgDb().then(function (db) {
+    if (!db) return;
+    try { db.transaction(_BG_STORE, 'readwrite').objectStore(_BG_STORE).put(val, key); } catch (e) {}
+  });
+}
+function _bgGet(key) {
+  return _bgDb().then(function (db) {
+    if (!db) return null;
+    return new Promise(function (resolve) {
+      try {
+        var rq = db.transaction(_BG_STORE, 'readonly').objectStore(_BG_STORE).get(key);
+        rq.onsuccess = function () { resolve(rq.result == null ? null : rq.result); };
+        rq.onerror = function () { resolve(null); };
+      } catch (e) { resolve(null); }
+    });
+  });
+}
+// Navbatda biror narsa bo'lsa, servis-workerga "internet qaytganda shuni yubor" deb so'rov qo'yamiz
+function _bgRequestSync() {
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready.then(function (reg) {
+      if (reg && reg.sync && reg.sync.register) reg.sync.register('lud-todos-sync').catch(function () {});
+    }).catch(function () {});
+  } catch (e) {}
+}
+// Ilova (qayta) ochilganda: servis-worker ilova yopiq paytda allaqachon yuborib yulgan
+// task'larni IndexedDB navbatidan o'chirgan bo'lishi mumkin — shularni mahalliy navbatdan
+// ham olib tashlaymiz (aks holda ular qayta-qayta, keraksiz yuborilardi).
+function _bgReconcileQueue() {
+  var uid = S && S.cloudUserId; if (!uid) return;
+  _bgGet('queue').then(function (q2) {
+    if (!q2 || q2.uid !== uid) return;
+    var changed = false;
+    Object.keys(_pendingTodoUpserts).forEach(function (k) { if (!(q2.ups || {}).hasOwnProperty(k)) { delete _pendingTodoUpserts[k]; changed = true; } });
+    Object.keys(_pendingTodoDeletes).forEach(function (k) { if (!(q2.dels || {}).hasOwnProperty(k)) { delete _pendingTodoDeletes[k]; changed = true; } });
+    if (changed) _cloudQueueSave();
+  }).catch(function () {});
+}
+try {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function (ev) {
+      if (ev && ev.data && ev.data.type === 'lud-bg-sync-done') _bgReconcileQueue();
+    });
+  }
+} catch (e) {}
+
+// ============================================================
 // ☁️ TASKLAR (vazifalar) — Supabase "todos" jadvaliga sinxronlash
 // ------------------------------------------------------------
 // Har bir save() → syncTasksToLocalStorage() → har bir task uchun
@@ -8739,12 +8811,14 @@ function _cloudQueueLoad() {
     if (q.ups && typeof q.ups === 'object') Object.keys(q.ups).forEach(function (k) { if (!_pendingTodoUpserts[k] && !_pendingTodoDeletes[k]) _pendingTodoUpserts[k] = q.ups[k]; });
     if (q.dels && typeof q.dels === 'object') Object.keys(q.dels).forEach(function (k) { if (!_pendingTodoUpserts[k] && !here[k]) _pendingTodoDeletes[k] = true; });
   } catch (e) {}
+  _bgReconcileQueue();
 }
 // Bulut o'qilgach: navbat tozalanadi va darhol saqlanadi (eski navbat keyingi ochilishda qayta o'qilmasin)
 function _cloudQueueReset(uid) {
   _pendingTodoUpserts = {}; _pendingTodoDeletes = {};
   _cloudQueueUid = uid;
   try { localStorage.setItem(_cloudQueueKey(uid), JSON.stringify({ base: _lastSyncedTasks, ups: {}, dels: {}, at: Date.now() })); } catch (e) {}
+  _bgPut('queue', { uid: uid, ups: {}, dels: {} });
 }
 // 🛡 Ommaviy o'chirishdan himoya: foydalanuvchi o'zi ko'p task o'chirmagan bo'lsa (bulk, reset), bir yo'la ko'p task
 // bulutdan o'chirilmaydi — bu odatda bo'sh/yuklanmagan holatdan kelgan xato. Ruxsat 15 soniya amal qiladi.
@@ -8760,6 +8834,9 @@ function _cloudQueueSave() {
     _cloudQueueSaveT = null;
     var uid = S && S.cloudUserId; if (!uid || _cloudQueueUid !== uid) return;
     try { localStorage.setItem(_cloudQueueKey(uid), JSON.stringify({ base: _lastSyncedTasks, ups: _pendingTodoUpserts, dels: _pendingTodoDeletes, at: Date.now() })); } catch (e) {}
+    var hasPending = !!(Object.keys(_pendingTodoUpserts).length || Object.keys(_pendingTodoDeletes).length);
+    _bgPut('queue', { uid: uid, ups: _pendingTodoUpserts, dels: _pendingTodoDeletes });
+    if (hasPending) _bgRequestSync();
   }, 400);
 }
 function cloudPendingCount() { return Object.keys(_pendingTodoUpserts).length + Object.keys(_pendingTodoDeletes).length + (typeof _appStateTimer !== 'undefined' && _appStateTimer ? 1 : 0) + (typeof _cloudSyncTimer !== 'undefined' && _cloudSyncTimer ? 1 : 0); }
@@ -36253,6 +36330,18 @@ try {
     }
   });
 } catch (e) { console.warn('[auth listener]', e); }
+
+// 🌙 Sessiya tokenini IndexedDB'ga ham ko'chiramiz — fon sinxronizatsiyasi
+// (servis-worker) internet qaytganda shu token bilan navbatni yuboradi.
+try {
+  supabase.auth.onAuthStateChange(function (ev, session) {
+    if (session && session.user && session.access_token) {
+      _bgPut('session', { uid: session.user.id, access_token: session.access_token, refresh_token: session.refresh_token });
+    } else if (ev === 'SIGNED_OUT') {
+      _bgPut('session', null);
+    }
+  });
+} catch (e) {}
 
 // Sessiyani tekshirish (modul to'liq yuklangandan keyin)
 try { if (typeof wsCheckSupabaseSession === 'function') wsCheckSupabaseSession(); } catch (e) {}
