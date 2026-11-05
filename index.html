@@ -405,33 +405,51 @@
     <!-- Calendar (ko'p foydalaniladigan bo'lim, shuning uchun tepada) -->
     <div id="calendar-section" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:12px">
       <div style="font-size:var(--fs-xs);color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px" data-i18n="calendar_title">📅 Kalendar</div>
-      <!-- O'tkazib yuborilgan kunlar haqida eslatma (renderCalMissedBanner) -->
-      <div id="cal-missed-banner" onclick="calMissedBannerClick()" style="display:none;cursor:pointer;font-size:var(--fs-2xs);font-weight:600;color:#F5A623;background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:12px"></div>
-      <!-- Month nav -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:6px">
-        <button onclick="calPrevMonth()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">‹</button>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;min-width:0">
-          <div id="cal-month-label" onclick="openCalMonthYearModal()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCalMonthYearModal();}" style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);cursor:pointer;padding:2px 8px;border-radius:var(--radius-sm)"></div>
-          <button type="button" id="cal-today-btn" onclick="calGoToday()" data-i18n="cal_today_btn" style="font-size:var(--fs-3xs);color:var(--accent);background:none;border:none;cursor:pointer;padding:0;line-height:1.4">Bugun</button>
-        </div>
-        <button onclick="calNextMonth()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">›</button>
-      </div>
-      <!-- Sana oralig'ini tanlash rejimi — renderCalRangeToggle() / calToggleRangeMode() -->
-      <div style="display:flex;justify-content:flex-end;margin:-6px 0 10px">
+      <!-- Oy/Yil ko'rinishini almashtirish va sana oralig'ini tanlash — renderCalRangeToggle()/renderCalViewToggle()
+           (har doim ko'rinadi, ikkala ko'rinishda ham) -->
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:10px">
+        <button type="button" id="cal-export-btn" onclick="calExportMonthImage()" title="" style="font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:var(--radius-full);padding:4px 10px;cursor:pointer">📤</button>
+        <button type="button" id="cal-view-toggle-btn" onclick="calToggleYearView()" style="font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:var(--radius-full);padding:4px 10px;cursor:pointer"></button>
         <button type="button" id="cal-range-toggle-btn" onclick="calToggleRangeMode()" style="font-size:var(--fs-2xs);font-weight:600;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:var(--radius-full);padding:4px 10px;cursor:pointer"></button>
       </div>
-      <!-- Tanlangan oraliq uchun umumiy statistika (calRangeDayClick) -->
-      <div id="cal-range-summary" style="display:none;font-size:var(--fs-2xs);color:var(--text-muted);background:var(--surface2);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:12px"></div>
-      <!-- Bo'lim (kategoriya) bo'yicha filtr — renderCalCatFilter() -->
+      <!-- Bo'lim (kategoriya) bo'yicha filtr — renderCalCatFilter() (har doim ko'rinadi) -->
       <div id="cal-cat-filter" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
-      <!-- Oy uchun umumiy statistika xulosasi -->
-      <div id="cal-month-summary" style="display:none;font-size:var(--fs-2xs);color:var(--text-muted);background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px;text-align:center;font-weight:600"></div>
-      <!-- O'tgan oyga nisbatan taqqoslash (renderCalMonthTrend) -->
-      <div id="cal-month-trend" style="display:none;font-size:var(--fs-2xs);color:var(--text-muted);text-align:center;margin:-6px 0 12px;font-weight:600"></div>
-      <!-- Day headers — endi tilga qarab dinamik to'ldiriladi, qarang: renderCalDayHeaders() -->
-      <div id="cal-day-headers" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px"></div>
-      <!-- Calendar grid -->
-      <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:14px;max-width:100%"></div>
+      <!-- Faqat OYLIK ko'rinishga xos hamma narsa shu wrapper ichida — renderCalYearView()
+           yillik rejimda butun wrapperni bitta joyda yashiradi (ichidagi elementlarning
+           o'z CSS qoidalari bilan to'qnashmasligi uchun, masalan .calx-sum'dagi !important) -->
+      <div id="cal-month-view-wrap">
+        <!-- O'tkazib yuborilgan kunlar haqida eslatma (renderCalMissedBanner) -->
+        <div id="cal-missed-banner" onclick="calMissedBannerClick()" style="display:none;cursor:pointer;font-size:var(--fs-2xs);font-weight:600;color:#F5A623;background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:12px"></div>
+        <!-- Month nav -->
+        <div id="cal-month-nav-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:6px">
+          <button onclick="calPrevMonth()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">‹</button>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;min-width:0">
+            <div id="cal-month-label" onclick="openCalMonthYearModal()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCalMonthYearModal();}" style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text);cursor:pointer;padding:2px 8px;border-radius:var(--radius-sm)"></div>
+            <button type="button" id="cal-today-btn" onclick="calGoToday()" data-i18n="cal_today_btn" style="font-size:var(--fs-3xs);color:var(--accent);background:none;border:none;cursor:pointer;padding:0;line-height:1.4">Bugun</button>
+          </div>
+          <button onclick="calNextMonth()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">›</button>
+        </div>
+        <!-- Tanlangan oraliq uchun umumiy statistika (calRangeDayClick) -->
+        <div id="cal-range-summary" style="display:none;font-size:var(--fs-2xs);color:var(--text-muted);background:var(--surface2);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:12px"></div>
+        <!-- Oy uchun umumiy statistika xulosasi -->
+        <div id="cal-month-summary" style="display:none;font-size:var(--fs-2xs);color:var(--text-muted);background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px;text-align:center;font-weight:600"></div>
+        <!-- O'tgan oyga nisbatan taqqoslash (renderCalMonthTrend) -->
+        <div id="cal-month-trend" style="display:none;font-size:var(--fs-2xs);color:var(--text-muted);text-align:center;margin:-6px 0 12px;font-weight:600"></div>
+        <!-- Day headers — endi tilga qarab dinamik to'ldiriladi, qarang: renderCalDayHeaders() -->
+        <div id="cal-day-headers" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px"></div>
+        <!-- Calendar grid -->
+        <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:14px;max-width:100%"></div>
+      </div>
+      <!-- Yillik heatmap ko'rinishi (GitHub-uslubidagi) — renderCalYearView() -->
+      <div id="cal-year-section" style="display:none;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:6px">
+          <button onclick="calPrevYear()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">‹</button>
+          <div id="cal-year-label" style="font-family:Syne,sans-serif;font-size:var(--fs-base);font-weight:700;color:var(--text)"></div>
+          <button onclick="calNextYear()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--fs-md);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">›</button>
+        </div>
+        <div id="cal-year-summary" style="display:none;font-size:var(--fs-2xs);color:var(--text-muted);background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px;text-align:center;font-weight:600"></div>
+        <div id="cal-year-heatmap" style="overflow-x:auto;padding-bottom:6px"></div>
+      </div>
       <!-- Legend -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <span style="font-size:var(--fs-2xs);color:var(--text-muted);display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:var(--radius-2xs);background:#34D399;display:inline-block"></span><span data-i18n="cal_legend_all">Hammasi</span></span>

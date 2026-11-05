@@ -24058,6 +24058,223 @@ function renderCalRangeSummary() {
     '✅ ' + pct + '% · 🪙 ' + (coins > 0 ? '+' : '') + coins + ' · 🌟 ' + perfect + '/' + active + ' ' + _cl('mukammal kun', 'perfect days', 'идеальных дней');
 }
 
+// ============================================================
+// 📆 YILLIK HEATMAP KO'RINISHI — GitHub "contribution graph"ga o'xshash,
+// bitta yilning barcha kunlarini kichik kataklar sifatida ko'rsatadi.
+// ============================================================
+var _calYearView = false, _calHeatmapYear = new Date().getFullYear();
+function calToggleYearView() {
+  _calYearView = !_calYearView;
+  if (_calYearView) { _calRangeMode = false; _calRangeStart = null; _calRangeEnd = null; _calHeatmapYear = _calYear; }
+  renderCalendar();
+}
+function calPrevYear() { _calHeatmapYear--; renderCalYearView(); }
+function calNextYear() { _calHeatmapYear++; renderCalYearView(); }
+function renderCalViewToggle() {
+  var btn = document.getElementById('cal-view-toggle-btn');
+  if (!btn) return;
+  btn.textContent = _calYearView
+    ? '🗓 ' + _cl('Oylik', 'Monthly', 'По месяцам')
+    : '📆 ' + _cl('Yillik', 'Yearly', 'По годам');
+  btn.style.borderColor = _calYearView ? 'var(--accent)' : 'var(--border)';
+  btn.style.color = _calYearView ? 'var(--accent)' : 'var(--text-muted)';
+  var rangeBtn = document.getElementById('cal-range-toggle-btn');
+  if (rangeBtn) rangeBtn.style.display = _calYearView ? 'none' : '';
+  var exportBtn = document.getElementById('cal-export-btn');
+  if (exportBtn) { exportBtn.style.display = _calYearView ? 'none' : ''; exportBtn.title = _cl('Oyni rasm sifatida yuklash/ulashish', 'Download/share this month as an image', 'Скачать/поделиться этим месяцем как изображением'); }
+}
+// Butun bir yil uchun har bir kunning statistikasi — getDayStats() ustiga qurilgan
+// (sodda, chunki faqat yil ko'rinishi ochilganda bir martagina chaqiriladi).
+function getYearDayStatsMap(year) {
+  var todayStr = today();
+  var map = {};
+  var d = new Date(year, 0, 1);
+  var end = new Date(year, 11, 31);
+  while (d <= end) {
+    var ds = getDateStr(d.getFullYear(), d.getMonth(), d.getDate());
+    map[ds] = (ds > todayStr) ? null : getDayStats(ds);
+    d.setDate(d.getDate() + 1);
+  }
+  return map;
+}
+function renderCalYearView() {
+  // Oylik ko'rinishga xos HAMMA narsa (banner/nav/oraliq/xulosa/trend/kunlar) bitta
+  // #cal-month-view-wrap ichida — shuni butunlay yashirib/ko'rsatib qo'yamiz. Har bir
+  // ichki elementni alohida yashirish ishonchsiz edi: ba'zilari (masalan .calx-sum
+  // klassi) o'z CSS qoidasida `display:grid !important` beradi, bu inline
+  // `style.display='none'`ni yutib yuborardi — wrapper darajasida yashirish bunday
+  // ichki o'ziga xosliklarga (specificity) bog'liq emas.
+  var wrap = document.getElementById('cal-month-view-wrap');
+  if (wrap) wrap.style.display = _calYearView ? 'none' : '';
+  var yearSection = document.getElementById('cal-year-section');
+  if (yearSection) yearSection.style.display = _calYearView ? '' : 'none';
+  if (!_calYearView) return;
+
+  var label = document.getElementById('cal-year-label');
+  if (label) label.textContent = String(_calHeatmapYear);
+
+  var map = getYearDayStatsMap(_calHeatmapYear);
+  var jan1 = new Date(_calHeatmapYear, 0, 1);
+  var startOffset = (jan1.getDay() === 0) ? 6 : jan1.getDay() - 1;
+  var gridStart = new Date(jan1); gridStart.setDate(jan1.getDate() - startOffset);
+  var dec31 = new Date(_calHeatmapYear, 11, 31);
+  var endOffsetRaw = (dec31.getDay() === 0) ? 6 : dec31.getDay() - 1;
+  var gridEnd = new Date(dec31); gridEnd.setDate(dec31.getDate() + (6 - endOffsetRaw));
+
+  var cells = [];
+  for (var d = new Date(gridStart); d <= gridEnd; d.setDate(d.getDate() + 1)) cells.push(new Date(d));
+  var weeks = Math.ceil(cells.length / 7);
+
+  var totalDue = 0, totalDone = 0, totalCoins = 0, perfect = 0, active = 0;
+  var monthLabels = '';
+  for (var m = 0; m < 12; m++) {
+    var firstOfMonth = new Date(_calHeatmapYear, m, 1);
+    var diffDays = Math.round((firstOfMonth - gridStart) / 86400000);
+    var col = Math.floor(diffDays / 7) + 1;
+    monthLabels += '<span style="grid-column:' + col + '" class="caly-mlabel">' + esc(getMonthsArr()[m]) + '</span>';
+  }
+
+  var cellsHtml = cells.map(function (dt) {
+    var ds = getDateStr(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    var inYear = dt.getFullYear() === _calHeatmapYear;
+    var st = inYear ? map[ds] : undefined;
+    if (!inYear || st == null) return '<div class="caly-cell caly-empty"></div>';
+    var bg = 'var(--surface2)';
+    if (st.due > 0) {
+      active++; totalDue += st.due; totalDone += st.done;
+      if (st.done + st.skipped >= st.due) perfect++;
+      var pct = (st.done + st.skipped) / st.due;
+      bg = pct >= 1 ? '#34D399' : pct >= 0.5 ? '#F5A623' : pct > 0 ? 'rgba(248,113,113,0.7)' : '#F87171';
+    }
+    totalCoins += getDayCoins(ds);
+    var tip = ds + (st.due > 0 ? ' • ✅ ' + st.done + '/' + st.due : '');
+    return '<div class="caly-cell" style="background:' + bg + '" title="' + esc(tip) + '" onclick="calYearCellClick(\'' + ds + '\')"></div>';
+  }).join('');
+
+  var hm = document.getElementById('cal-year-heatmap');
+  if (hm) {
+    hm.innerHTML =
+      '<div class="caly-mrow" style="grid-template-columns:repeat(' + weeks + ',10px)">' + monthLabels + '</div>' +
+      '<div class="caly-grid" style="grid-template-columns:repeat(' + weeks + ',10px)">' + cellsHtml + '</div>';
+  }
+  var sumEl = document.getElementById('cal-year-summary');
+  if (sumEl) {
+    if (totalDue === 0) { sumEl.style.display = 'none'; }
+    else {
+      sumEl.style.display = '';
+      var pct2 = Math.round((totalDone / totalDue) * 100);
+      sumEl.innerHTML = '✅ ' + pct2 + '% · 🪙 ' + (totalCoins > 0 ? '+' : '') + totalCoins + ' · 🌟 ' + perfect + '/' + active + ' ' + esc(_cl('mukammal kun', 'perfect days', 'идеальных дней'));
+    }
+  }
+}
+function calYearCellClick(ds) {
+  var parts = ds.split('-');
+  _calYear = Number(parts[0]); _calMonth = Number(parts[1]) - 1;
+  _calYearView = false;
+  renderCalendar();
+  showDayDetail(ds);
+}
+
+// 📤 Joriy oyni rasim (PNG) sifatida eksport qilish/ulashish — tashqi kutubxonasiz,
+// to'g'ridan-to'g'ri <canvas>ga qo'lda chiziladi (html2canvas kabi narsa shart emas).
+function _calCanvasRoundRect(ctx, x, y, w, h, r) {
+  if (typeof ctx.roundRect === 'function') { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function calExportMonthImage() {
+  var btn = document.getElementById('cal-export-btn');
+  try {
+    var W = 720, H = 880;
+    var canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext('2d');
+
+    var bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#1b1530'); bg.addColorStop(1, '#0B0B12');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 36px Syne, Arial, sans-serif';
+    ctx.fillText('LevelUpDay', 44, 68);
+    ctx.fillStyle = '#C9B8FF';
+    ctx.font = '600 22px "DM Sans", Arial, sans-serif';
+    ctx.fillText(getMonthsFullArr()[_calMonth] + ' ' + _calYear, 44, 102);
+
+    var summary = getMonthSummary(_calYear, _calMonth);
+    var perfect = 0, active = 0, dim = new Date(_calYear, _calMonth + 1, 0).getDate();
+    for (var dd = 1; dd <= dim; dd++) {
+      var ds0 = getDateStr(_calYear, _calMonth, dd); if (ds0 > today()) break;
+      var st0 = getDayStats(ds0); if (st0.due > 0) { active++; if (st0.done + st0.skipped >= st0.due) perfect++; }
+    }
+    var stats = [
+      [summary.pct + '%', _cl('Bajarilgan', 'Completed', 'Выполнено'), '#34D399'],
+      [(summary.coins > 0 ? '+' : '') + summary.coins, _cl('Tanga', 'Coins', 'Монеты'), '#F5A623'],
+      [perfect + '/' + active, _cl('Mukammal kun', 'Perfect days', 'Идеальных дней'), '#7C5CFC']
+    ];
+    var statW = (W - 88) / 3;
+    stats.forEach(function (s, i) {
+      var x = 44 + i * statW;
+      ctx.fillStyle = s[2]; ctx.font = '700 32px Syne, Arial, sans-serif'; ctx.fillText(s[0], x, 170);
+      ctx.fillStyle = '#9a93ad'; ctx.font = '400 14px "DM Sans", Arial, sans-serif'; ctx.fillText(s[1], x, 192);
+    });
+
+    var daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+    var firstDay = new Date(_calYear, _calMonth, 1).getDay();
+    var startOffset = (firstDay === 0) ? 6 : firstDay - 1;
+    var cell = 34, gap = 8, gridW = 7 * (cell + gap) - gap;
+    var gridX = (W - gridW) / 2, gridY = 234;
+    var wd = getShortDaysArr(), order = [1, 2, 3, 4, 5, 6, 0];
+    ctx.font = '600 11px "DM Sans", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#6b6480';
+    order.forEach(function (dow, i) { ctx.fillText(wd[dow], gridX + i * (cell + gap) + cell / 2, gridY - 8); });
+
+    var todayStr = today();
+    for (var day = 1; day <= daysInMonth; day++) {
+      var idx = startOffset + day - 1, col = idx % 7, row = Math.floor(idx / 7);
+      var ds = getDateStr(_calYear, _calMonth, day);
+      var isFuture = ds > todayStr;
+      var st = isFuture ? { due: 0, done: 0, skipped: 0 } : getDayStats(ds);
+      var cx = gridX + col * (cell + gap), cy = gridY + row * (cell + gap);
+      var bgc = '#232030';
+      if (!isFuture && st.due > 0) {
+        var pct = (st.done + st.skipped) / st.due;
+        bgc = pct >= 1 ? '#34D399' : pct >= 0.5 ? '#F5A623' : pct > 0 ? '#c2504f' : '#F87171';
+      }
+      ctx.fillStyle = bgc;
+      _calCanvasRoundRect(ctx, cx, cy, cell, cell, 9); ctx.fill();
+      ctx.fillStyle = isFuture ? '#514a66' : '#ffffff';
+      ctx.font = '600 13px "DM Sans", Arial, sans-serif';
+      ctx.fillText(String(day), cx + cell / 2, cy + cell / 2 + 5);
+    }
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#5a5470'; ctx.font = '400 13px "DM Sans", Arial, sans-serif';
+    ctx.fillText('levelupday.github.io/LevelUpDay', 44, H - 28);
+
+    canvas.toBlob(function (blob) {
+      if (!blob) { toast('⚠️ ' + _cl('Rasmni yaratib bo\'lmadi', 'Could not create the image', 'Не удалось создать изображение')); return; }
+      var filename = 'levelupday-' + _calYear + '-' + String(_calMonth + 1).padStart(2, '0') + '.png';
+      var file = (typeof File !== 'undefined') ? new File([blob], filename, { type: 'image/png' }) : null;
+      if (navigator.share && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'LevelUpDay' }).catch(function () {});
+      } else {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+        toast('✅ ' + _cl('Rasm yuklandi', 'Image downloaded', 'Изображение скачано'));
+      }
+    }, 'image/png');
+  } catch (e) {
+    console.warn('[cal export]', e);
+    toast('⚠️ ' + _cl('Rasmni yaratib bo\'lmadi', 'Could not create the image', 'Не удалось создать изображение'));
+  } finally {
+    if (btn) try { SFX.click(); } catch (e2) {}
+  }
+}
+
 function calMissedBannerClick() {
   if (!_calMissedDays.length) return;
   var ds = _calMissedDays[_calMissedDays.length - 1]; // eng so'nggi (bugunga eng yaqin) o'tkazib yuborilgan kun
@@ -24176,6 +24393,7 @@ function renderCalendar() {
 
   renderCalCatFilter();
   renderCalRangeToggle();
+  renderCalViewToggle();
   _buildDayStatsCache(_calYear, _calMonth);
   _buildDayCoinsCache(_calYear, _calMonth);
 
@@ -24183,6 +24401,7 @@ function renderCalendar() {
   renderCalDayHeaders();
   renderCalMonthSummary();
   renderCalRangeSummary();
+  renderCalYearView();
 
   var grid = document.getElementById('cal-grid');
   if (!grid) return;
