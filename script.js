@@ -9057,7 +9057,7 @@ function _backupParts(data, isAll) {
 }
 
 function requestExportWithSecurity(chosen) {
-  if (pcHasPinSet()) {
+  if (pcHasRealPin()) {
     openExportPinPrompt(chosen);
   } else {
     performExport(chosen);
@@ -19616,6 +19616,14 @@ function pcHasPinSet() {
   if (S.secretHabit && S.secretHabit.log && Object.keys(S.secretHabit.log).length > 0) return true;
   return false;
 }
+// 🔑 PIN chindan ham o'rnatilganmi — pcHasPinSet() dan farqli: u faqat eski foydalanuvchi
+// uchun "Personal Check avvaldan ishlatilganmi" degan tахmin (yozuv tarixi bo'lsa ham true
+// qaytaradi), shuning uchun PIN so'rash/talab qilish kerak bo'lgan joylarda ishlatilmaydi —
+// aks holda hech qachon PIN qo'ymagan, faqat yozuvi bor foydalanuvchiga ham "parol qo'yilgan"
+// deb PIN so'rab qolaverardi. Bu funksiya faqat haqiqatan PIN yaratilgan bo'lsa true qaytaradi.
+function pcHasRealPin() {
+  return !!(S.secretHabit && S.secretHabit.pinSet);
+}
 
 var _pcSessionPin = null;
 function pcSetSessionPin(pin) {
@@ -19728,7 +19736,7 @@ function toggleSettingsPanel() {
 
 function togglePersonalCheck() {
   if (S.personalCheckEnabled) {
-    if (pcHasPinSet()) {
+    if (pcHasRealPin()) {
       openPcVerifyPinModal('disablePc');
       return;
     }
@@ -19816,7 +19824,7 @@ function togglePinProtection() {
     // OFF: PIN himoyasini o'chirishdan oldin joriy PIN kodni tasdiqlash
     // shart — shu bilan faqat PIN'ni biladigan kishigina o'chira oladi.
     openPcVerifyPinModal('disablePin');
-  } else if (pcHasPinSet()) {
+  } else if (pcHasRealPin()) {
     S.pcPinProtectionEnabled = true;
     save();
     updatePcToggleUI();
