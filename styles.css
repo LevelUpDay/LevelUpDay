@@ -3399,12 +3399,13 @@ body.light .undo-toast { background: #fff; }
 .calx-day.empty { background: var(--surface2); border-color: transparent; opacity: .55; }
 .calx-day.today { box-shadow: 0 0 0 2px var(--accent); }
 .calx-day.perfect { background: color-mix(in srgb, var(--cc) 30%, var(--surface2)); }
+.calx-day.in-range { box-shadow: 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--surface2)); }
 .calx-num { font-size: var(--fs-xs); font-weight: 700; color: var(--text); line-height: 1; }
 .calx-day.future .calx-num, .calx-day.empty .calx-num { color: var(--text-dim); font-weight: 500; }
 .calx-coin { font-size: 8.5px; line-height: 1; font-weight: 700; color: var(--green, #34D399); }
 .calx-coin.neg { color: var(--red, #F87171); }
 .calx-bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--cc); border-radius: 0 3px 0 0; }
-.calx-mood { position: absolute; top: 1px; right: 2px; font-size: 10px; line-height: 1; }
+.calx-mood { position: absolute; top: 1px; right: 2px; font-size: 12px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5)); }
 .calx-sum { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6px; background: none !important; padding: 0 !important; }
 .calx-sum > div { background: var(--surface2); border-radius: 12px; padding: 8px 4px; text-align: center; }
 .calx-sum b { display: block; font-family: Syne, sans-serif; font-size: var(--fs-base); color: var(--text); }
