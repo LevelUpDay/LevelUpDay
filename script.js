@@ -20823,17 +20823,20 @@ function goalsCalPrevMonth() {
   _gCalMonth--;
   if (_gCalMonth < 0) { _gCalMonth = 11; _gCalYear--; }
   renderGoalsCalendar();
+  if (typeof _calSyncMonths === 'function') _calSyncMonths(_gCalYear, _gCalMonth, 'goals');
 }
 function goalsCalNextMonth() {
   _gCalMonth++;
   if (_gCalMonth > 11) { _gCalMonth = 0; _gCalYear++; }
   renderGoalsCalendar();
+  if (typeof _calSyncMonths === 'function') _calSyncMonths(_gCalYear, _gCalMonth, 'goals');
 }
 function goalsCalGoToday() {
   var d = new Date();
   _gCalYear = d.getFullYear();
   _gCalMonth = d.getMonth();
   renderGoalsCalendar();
+  if (typeof _calSyncMonths === 'function') _calSyncMonths(_gCalYear, _gCalMonth, 'goals');
 }
 
 function renderGoalsCalDayHeaders() {
@@ -23837,15 +23840,31 @@ var _calYear  = new Date().getFullYear();
 var _calMonth = new Date().getMonth(); // 0-based
 var _calMYYear = _calYear; // Oy/Yil tanlash popover ichida vaqtincha ko'rsatiladigan yil
 
+// 🔗 Tasklar va Maqsadlar kalendarlari — alohida-alohida oy/yil holatiga (_calYear/_calMonth
+// va _gCalYear/_gCalMonth) ega bo'lsa ham, biri boshqa oyga o'tganda ikkinchisi ham ergashib
+// o'sha oyga o'tadi ("bitta navigatsiya" tuyg'usi uchun) — ularning render/ma'lumot mantig'i
+// mustaqil qoladi, faqat qaysi oy ko'rsatilayotgani moslashtiriladi.
+function _calSyncMonths(year, month, from) {
+  if (from !== 'tasks' && typeof _calYear !== 'undefined' && (_calYear !== year || _calMonth !== month)) {
+    _calYear = year; _calMonth = month;
+    if (typeof renderCalendar === 'function' && document.getElementById('cal-grid')) renderCalendar();
+  }
+  if (from !== 'goals' && typeof _gCalYear !== 'undefined' && (_gCalYear !== year || _gCalMonth !== month)) {
+    _gCalYear = year; _gCalMonth = month;
+    if (typeof renderGoalsCalendar === 'function' && document.getElementById('gcal-grid')) renderGoalsCalendar();
+  }
+}
 function calPrevMonth() {
   _calMonth--;
   if (_calMonth < 0) { _calMonth = 11; _calYear--; }
   renderCalendar();
+  _calSyncMonths(_calYear, _calMonth, 'tasks');
 }
 function calNextMonth() {
   _calMonth++;
   if (_calMonth > 11) { _calMonth = 0; _calYear++; }
   renderCalendar();
+  _calSyncMonths(_calYear, _calMonth, 'tasks');
 }
 // "Bugun" tugmasi — boshqa oylarga o'tib ketilgan bo'lsa, bir bosish
 // bilan joriy oy/yilga va bugungi kunga tezda qaytaradi.
@@ -23854,6 +23873,7 @@ function calGoToday() {
   _calYear = d.getFullYear();
   _calMonth = d.getMonth();
   renderCalendar();
+  _calSyncMonths(_calYear, _calMonth, 'tasks');
 }
 
 // Kalendar sarlavhasini ("Avgust 2026") bosganda ochiladigan Oy/Yil
@@ -23891,6 +23911,7 @@ function calMYSelectMonth(idx) {
   _calMonth = idx;
   _calYear = _calMYYear;
   renderCalendar();
+  _calSyncMonths(_calYear, _calMonth, 'tasks');
   closeCalMonthYearModal();
 }
 
@@ -24172,6 +24193,7 @@ function calYearCellClick(ds) {
   _calYear = Number(parts[0]); _calMonth = Number(parts[1]) - 1;
   _calYearView = false;
   renderCalendar();
+  _calSyncMonths(_calYear, _calMonth, 'tasks');
   showDayDetail(ds);
 }
 
@@ -24281,6 +24303,7 @@ function calMissedBannerClick() {
   var parts = ds.split('-');
   _calYear = Number(parts[0]); _calMonth = Number(parts[1]) - 1;
   renderCalendar();
+  _calSyncMonths(_calYear, _calMonth, 'tasks');
   showDayDetail(ds);
 }
 
@@ -24652,6 +24675,19 @@ function renderDayDetailContent(dateStr) {
 
   list.innerHTML = html;
 
+  var bulkEl = document.getElementById('cal-detail-bulk');
+  if (bulkEl) {
+    var canBulk = anyTask && totalCount > 1 && !isDateFrozen(dateStr) && !isDateOffline(dateStr);
+    if (!canBulk) { bulkEl.style.display = 'none'; bulkEl.innerHTML = ''; }
+    else {
+      bulkEl.style.display = 'flex';
+      var bh = '';
+      if (doneCount < totalCount) bh += '<button type="button" onclick="calBulkMarkDay(\'' + dateStr + '\',true)" style="flex:1;padding:7px;border-radius:var(--radius-sm);border:1px solid rgba(52,211,153,0.35);background:rgba(52,211,153,0.1);color:#34D399;font-size:var(--fs-2xs);font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">✅ ' + esc(_cl("Hammasini belgilash", "Mark all done", "Отметить все")) + '</button>';
+      if (doneCount > 0) bh += '<button type="button" onclick="calBulkMarkDay(\'' + dateStr + '\',false)" style="flex:1;padding:7px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:var(--fs-2xs);font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">↩️ ' + esc(_cl("Hammasini bekor qilish", "Unmark all", "Снять все отметки")) + '</button>';
+      bulkEl.innerHTML = bh;
+    }
+  }
+
   var progressEl = document.getElementById('cal-detail-progress');
   if (progressEl) {
     if (anyTask) {
@@ -24661,6 +24697,42 @@ function renderDayDetailContent(dateStr) {
       progressEl.textContent = '';
     }
   }
+}
+
+// 📦 Bulk: shu kundagi barcha tegishli tasklarni bir bosishda bajarilgan/bajarilmagan
+// deb belgilash. Sub-task tasdiqlash oynasini (har bir task uchun alohida ochilib,
+// ketma-ket chaqirilsa to'qnashib qolardi) chetlab o'tadi — to'g'ridan-to'g'ri "Internal"
+// funksiyalarga murojaat qiladi (xuddi foydalanuvchi o'sha so'rovga "yo'q" degandek).
+function _calDueTasksForDay(dateStr) {
+  var dow = new Date(dateStr + 'T00:00:00').getDay();
+  var isToday = dateStr === today();
+  var out = [];
+  (S.tasks || []).forEach(function (tsk) {
+    if (tsk.createdAt && dateStr < tsk.createdAt) return;
+    var pinnedOnDate = !!(S.calPinnedDates && S.calPinnedDates[tsk.id] && S.calPinnedDates[tsk.id].indexOf(dateStr) !== -1);
+    var isDue = calIsTaskDueOnDate(tsk, dateStr, dow);
+    if (!isDue && pinnedOnDate) isDue = true;
+    if (!isDue) return;
+    var done = isToday ? !!tsk.done : !!(S.taskDoneLog && S.taskDoneLog[tsk.id] && S.taskDoneLog[tsk.id].indexOf(dateStr) !== -1);
+    out.push({ id: tsk.id, done: done });
+  });
+  return out;
+}
+function calBulkMarkDay(dateStr, markDone) {
+  if (isDateFrozen(dateStr) || isDateOffline(dateStr)) {
+    toast('❄️ ' + (isDateFrozen(dateStr) ? t('freeze_day_label') : t('offline_day_label')) + ' — ' + _cl("bu kun neytral, qo'lda o'zgartirib bo'lmaydi", "this day is neutral and can't be changed manually", "этот день нейтральный, изменить вручную нельзя"));
+    return;
+  }
+  var toToggle = _calDueTasksForDay(dateStr).filter(function (x) { return markDone ? !x.done : x.done; });
+  if (!toToggle.length) return;
+  var isToday = dateStr === today();
+  toToggle.forEach(function (x) {
+    // Har ikkala "Internal" funksiya ham o'z ichida save()/render()ni chaqiradi
+    if (isToday) toggleTaskInternal(x.id); else calToggleTaskDoneInternal(x.id, dateStr);
+  });
+  renderCalendar();
+  showDayDetail(dateStr);
+  toast((markDone ? '✅ ' : '↩️ ') + toToggle.length + ' ' + _cl('ta vazifa yangilandi', 'tasks updated', 'задач обновлено'));
 }
 
 function showDayDetail(dateStr) {
