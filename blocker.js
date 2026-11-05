@@ -13,6 +13,7 @@
   function E(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function T(a) { return L(a[0], a[1], a[2]); }
   var AGENT_VERSION = '0.6.6'; // downloads/version.json bilan bir xil bo'lsin
+  var FOCUS_XP_DAY_CAP = 30; // 🧢 Fokusdan kuniga olinadigan eng ko'p XP — ertasi kuni qayta ochiladi
   var DOWNLOAD_URL = 'downloads/Focusgate.exe?v=' + AGENT_VERSION;
   // 🐧 Linux: bir qatorli o'rnatish (arxitekturani o'zi tanlaydi, sha256 ni tekshiradi) yoki to'g'ridan-to'g'ri fayl
   var LINUX_CMD = 'curl -fsSL https://levelupday.github.io/LevelUpDay/downloads/install-linux.sh | sh';
@@ -962,7 +963,7 @@
     var total = sumArr(list.map(metricVal)) || 1;
     var h = setupCard() + filterBar(dm) + freshLine() + summaryCard(dm) + catBar(dm.apps) + chartCard(dm) + timelineCard();
 
-    if (LOCAL.reward) h += '<div class="fg-reward"><span>🪙</span><div><b>' + E(L('Limitda qol — tanga ol', 'Stay within limits — earn coins', 'Не превышай лимиты — получай монеты')) + '</b><span>' + E(L('Kun davomida barcha kunlik limitlarda qolsangiz, ertasi kuni +10 🪙 olasiz. Fokus sessiyasi: har daqiqa = 1 XP.', 'Stay within every daily limit and get +10 🪙 the next day. Focus sessions: 1 XP per minute.', 'Уложитесь во все дневные лимиты — получите +10 🪙 на следующий день. Фокус: 1 XP за минуту.')) + '</span></div></div>';
+    if (LOCAL.reward) h += '<div class="fg-reward"><span>🪙</span><div><b>' + E(L('Limitda qol — tanga ol', 'Stay within limits — earn coins', 'Не превышай лимиты — получай монеты')) + '</b><span>' + E(L('Kun davomida barcha kunlik limitlarda qolsangiz, ertasi kuni +10 🪙 olasiz. Fokus sessiyasi: har daqiqa = 1 XP (kuniga max 30 XP).', 'Stay within every daily limit and get +10 🪙 the next day. Focus sessions: 1 XP per minute (max 30 XP/day).', 'Уложитесь во все дневные лимиты — получите +10 🪙 на следующий день. Фокус: 1 XP за минуту (макс. 30 XP/день).')) + '</span></div></div>';
 
     h += '<div class="fg-sec-t">' + E(L('Batafsil ko\'rish uchun ilovani bosing', 'Tap an app for details', 'Нажмите на приложение для деталей')) + '</div><div class="fg-list">';
     if (!list.length) h += '<div class="fg-empty">' + E(real() ? (opens && dm.apps.length ? L('Ochilishlar soni Focusgate v0.6 va kengaytma v0.6 dan boshlab hisoblanadi.', 'Session counts are recorded from Focusgate v0.6 and extension v0.6.', 'Число запусков считается с Focusgate v0.6 и расширения v0.6.') : L('Bu kun uchun ma\'lumot yo\'q. Focusgate kompyuterda ishlayotganiga ishonch hosil qiling.', 'No data for this day yet. Make sure Focusgate is running on your PC.', 'Нет данных за этот день. Проверьте, что Focusgate работает на ПК.')) : L('Statistika qurilma ulangach paydo bo\'ladi.', 'Stats appear once a device is connected.', 'Статистика появится после подключения устройства.')) + '</div>';
@@ -1331,7 +1332,7 @@
       ['notif', '🔔', ['Windows bildirishnomalari', 'Windows notifications', 'Уведомления Windows'], ['Limit tugashiga 5 daqiqa qolganda va bloklanganda', '5 minutes before a limit ends and when blocking', 'За 5 минут до лимита и при блокировке'], c.notif !== false],
       ['linkFocus', '🔗', ['Pomodoro va Fokus rejimi bilan', 'Link Pomodoro & Focus mode', 'Связать с Pomodoro и фокусом'], ['Ular ishlaganda ham fokus ro\'yxatidagi dasturlar bloklanadi', 'Apps in the focus list are blocked while they run', 'Приложения из списка фокуса блокируются и во время них'], c.linkFocus !== false],
       ['strict', '🔐', ['Qat\'iy rejim', 'Strict mode', 'Строгий режим'], c.strictOffAt ? ['⏳ O\'chadi: ' + new Date(c.strictOffAt).toLocaleString(), '⏳ Turns off: ' + new Date(c.strictOffAt).toLocaleString(), '⏳ Выключится: ' + new Date(c.strictOffAt).toLocaleString()] : ['Limitlarni o\'chirib, pauza qilib va fokusni to\'xtatib bo\'lmaydi', 'No turning off limits, pausing or stopping focus', 'Нельзя отключить лимиты, поставить паузу или остановить фокус'], !!c.strict],
-      ['reward', '🪙', ['LevelUpDay mukofotlari', 'LevelUpDay rewards', 'Награды LevelUpDay'], ['Limitlarda qolgan kun: +10 🪙 · fokus: har daqiqa 1 XP', 'Day within limits: +10 🪙 · focus: 1 XP per minute', 'День в лимитах: +10 🪙 · фокус: 1 XP за минуту'], LOCAL.reward],
+      ['reward', '🪙', ['LevelUpDay mukofotlari', 'LevelUpDay rewards', 'Награды LevelUpDay'], ['Limitlarda qolgan kun: +10 🪙 · fokus: har daqiqa 1 XP (kuniga max 30)', 'Day within limits: +10 🪙 · focus: 1 XP per minute (max 30/day)', 'День в лимитах: +10 🪙 · фокус: 1 XP за минуту (макс. 30/день)'], LOCAL.reward],
       ['share', '👥', ['Do\'stlarim ko\'rsin', 'Visible to friends', 'Видно друзьям'], ['Fokus va ekran vaqti do\'stlar reytingida chiqadi (dasturlar ko\'rinmaydi)', 'Focus and screen time appear in the friends board (apps stay private)', 'Фокус и экранное время видны в рейтинге друзей (приложения скрыты)'], c.share !== false],
       ['tg', '✈️', ['Telegram\'ga xabar', 'Telegram alerts', 'Сообщения в Telegram'], [FG.tg ? 'Dastur bloklansa yoki limit tugasa — botdan xabar' : 'Telegram ulanmagan — Profil → Sozlamalar → Telegram', FG.tg ? 'Message from the bot when something is blocked or a limit ends' : 'Telegram not connected — Profile → Settings → Telegram', FG.tg ? 'Сообщение от бота при блокировке или исчерпании лимита' : 'Telegram не подключён — Профиль → Настройки → Telegram'], !!(FG.tg && FG.tg.enabled && !(FG.tg.prefs && FG.tg.prefs.fg === false))],
       ['eye', '👁', ['Ko\'z uchun 20-20-20', 'Eye break 20-20-20', 'Глаза: 20-20-20'], ['Har 20 daqiqa uzluksiz ekranda — 20 soniya uzoqqa qarash eslatmasi (Focusgate dasturi)', 'Every 20 minutes on screen — a reminder to look away for 20 seconds (Focusgate app)', 'Каждые 20 минут — напоминание посмотреть вдаль 20 секунд'], !!c.eye],
@@ -1578,7 +1579,7 @@
     h += focusingHtml(true) + badgesHtml() + recordsHtml();
     // Mukofotlar
     h += '<div class="fg-card fg-rewards"><b>🎁 ' + E(L('Nima uchun mukofot beriladi', 'How you earn rewards', 'За что награды')) + '</b><ul>' +
-      '<li>🎯 ' + E(L('Fokus sessiyasini oxirigacha yakunlash: har daqiqa = 1 XP, har 5 daqiqa = 1 🪙', 'Finish a focus session: 1 XP per minute, 1 🪙 per 5 minutes', 'Завершить фокус: 1 XP за минуту, 1 🪙 за 5 минут')) + '</li>' +
+      '<li>🎯 ' + E(L('Fokus sessiyasini oxirigacha yakunlash: har daqiqa = 1 XP (kuniga max 30 XP), har 5 daqiqa = 1 🪙', 'Finish a focus session: 1 XP per minute (max 30 XP/day), 1 🪙 per 5 minutes', 'Завершить фокус: 1 XP за минуту (макс. 30 XP/день), 1 🪙 за 5 минут')) + '</li>' +
       '<li>🤝 ' + E(L('Do\'st bilan birga fokus: +20% bonus', 'Focus with a friend: +20% bonus', 'Фокус с другом: +20% бонус')) + '</li>' +
       '<li>🌿 ' + E(L('Kun bo\'yi barcha limitlarda qolish: +10 🪙', 'Stay within all limits for a day: +10 🪙', 'День в пределах всех лимитов: +10 🪙')) + '</li></ul></div>';
     return h;
@@ -1888,12 +1889,20 @@
     S.focusgate.fhist = (S.focusgate.fhist || []).concat([{ t: s.start, m: s.min }]).slice(-200);
     S.focusgate.fblocks = (S.focusgate.fblocks || 0) + fev.length;
     if (fev.length) { var fby = {}; fev.forEach(function (e) { var n = e.label || labelOf(e.app); fby[n] = (fby[n] || 0) + 1; }); setTimeout(function () { try { toast('🛡 ' + L('Fokusda ' + fev.length + ' marta chalg\'ish to\'sildi: ', 'Focus blocked ' + fev.length + ' distractions: ', 'Во время фокуса заблокировано ' + fev.length + ': ') + Object.keys(fby).slice(0, 3).map(function (k) { return k + ' ×' + fby[k]; }).join(', ')); } catch (e) {} }, 3500); }
-    var xp = Math.round(s.min * (s.joined ? 1.2 : 1)), coins = Math.floor(s.min / 5 * (s.joined ? 1.2 : 1));
-    try { addXP(xp, '🎯 Focusgate: ' + s.min + ' ' + L('daqiqa fokus', 'min focus', 'мин фокуса')); } catch (e) {}
+    var rawXp = Math.round(s.min * (s.joined ? 1.2 : 1)), coins = Math.floor(s.min / 5 * (s.joined ? 1.2 : 1));
+    // 🧢 Kunlik limit: fokusdan olinadigan XP kuniga FOCUS_XP_DAY_CAP bilan cheklanadi — aks holda
+    // ilovani yoqib qo'yib ketilsa (yoki ketma-ket qisqa sessiyalar) cheksiz XP yig'ib bo'lardi.
+    var td = today();
+    if (S.focusgate.xpDay !== td) { S.focusgate.xpDay = td; S.focusgate.xpDayAmt = 0; }
+    var already = S.focusgate.xpDayAmt || 0;
+    var xp = Math.max(0, Math.min(rawXp, FOCUS_XP_DAY_CAP - already));
+    S.focusgate.xpDayAmt = already + xp;
+    if (xp > 0) try { addXP(xp, '🎯 Focusgate: ' + s.min + ' ' + L('daqiqa fokus', 'min focus', 'мин фокуса')); } catch (e) {}
     if (coins > 0) { S.coins = (S.coins || 0) + coins; try { addTarixLog('in', '🎯 Focusgate: ' + s.min + ' ' + L('daqiqa fokus', 'min focus', 'мин фокуса'), coins, 'fg-focus-' + s.start); } catch (e) {} }
     save();
     try { if (typeof render === 'function') render(); } catch (e) {}
-    try { toast('🎉 ' + L('Fokus yakunlandi! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : ''), 'Focus complete! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : ''), 'Фокус завершён! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : ''))); } catch (e) {}
+    var cappedMsg = xp < rawXp ? L(' (bugungi fokus XP limiti tugadi, ertaga ochiladi)', ' (today\'s focus XP limit reached, resets tomorrow)', ' (дневной лимит XP за фокус исчерпан, откроется завтра)') : '';
+    try { toast('🎉 ' + L('Fokus yakunlandi! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : '') + cappedMsg, 'Focus complete! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : '') + cappedMsg, 'Фокус завершён! +' + xp + ' XP' + (coins ? ', +' + coins + ' 🪙' : '') + cappedMsg)); } catch (e) {}
     try { if (window.xFeedPost) window.xFeedPost('focus', L(s.min + ' daqiqa fokusni yakunladi', 'completed ' + s.min + ' minutes of focus', 'завершил(а) ' + s.min + ' мин фокуса'), '🏁'); } catch (e) {}
     SOC.at = 0;
   }
