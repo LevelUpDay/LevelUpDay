@@ -28206,13 +28206,36 @@ function showWelcomeSurvey() {
   overlay.className = 'ws-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:260;display:flex;align-items:center;justify-content:center;padding:20px';
   overlay.innerHTML = '<div class="ws-blob ws-blob-1"></div><div class="ws-blob ws-blob-2"></div><div class="ws-blob ws-blob-3"></div>';
+  // Saytga birinchi marta kirganda: chapda savol-javob karta, o'ngda brend vizuali — boshqa saytlardagi
+  // "split" ro'yxatdan o'tish ekranlariga o'xshash. Tor ekranda (CSS, <860px) o'ng panel yashiriladi.
+  var split = document.createElement('div');
+  split.className = 'ws-split';
   var box = document.createElement('div');
   box.id = 'ws-box';
   box.className = 'ws-box';
-  box.style.cssText = 'position:relative;border:1px solid var(--border);border-radius:var(--radius-xl);padding:22px 18px 18px;width:100%;max-width:360px;max-height:90vh;overflow-y:auto;z-index:1';
-  overlay.appendChild(box);
+  var visual = document.createElement('div');
+  visual.className = 'ws-visual';
+  visual.setAttribute('aria-hidden', 'true');
+  visual.innerHTML = wsVisualHtml();
+  split.appendChild(box);
+  split.appendChild(visual);
+  overlay.appendChild(split);
   document.body.appendChild(overlay);
   wsRenderShell();
+}
+
+// 🎨 O'ng paneldagi brend vizuali: ikonka halqasi + ilova imkoniyatlari (birinchi marta kirish ekrani)
+function wsVisualHtml() {
+  var feats = [
+    ['🍅', _cl('Pomodoro taymer bilan ishlang', 'Work with a Pomodoro timer', 'Работайте с таймером Pomodoro')],
+    ['🛡', _cl('Focusgate chalg\'ituvchi sayt va dasturlarni bloklaydi', 'Focusgate blocks distracting sites and apps', 'Focusgate блокирует отвлекающие сайты и приложения')],
+    ['🪙', _cl('Vazifa bajarib tanga va XP yig\'ing', 'Earn coins and XP for tasks done', 'Зарабатывайте монеты и XP за задачи')],
+    ['👥', _cl('Do\'stlar bilan reytingda bellashing', 'Compete with friends on the leaderboard', 'Соревнуйтесь с друзьями в рейтинге')]
+  ];
+  return (window.LUBlocks && LUBlocks.orbitHtml ? LUBlocks.orbitHtml() : '') +
+    '<div class="ws-visual-title">LevelUpDay</div>' +
+    '<p class="ws-visual-sub">' + esc(_cl('Vazifalaringizni tartibga soling, chalg\'ishlardan himoyalaning va har kuni bir qadam oldinga yuring.', 'Organize your tasks, stay protected from distractions, and move one step forward every day.', 'Организуйте задачи, защититесь от отвлечений и двигайтесь на шаг вперёд каждый день.')) + '</p>' +
+    '<div class="ws-visual-feats">' + feats.map(function (f) { return '<div class="ws-visual-feat"><span>' + f[0] + '</span><b>' + f[1] + '</b></div>'; }).join('') + '</div>';
 }
 
 function closeWelcomeSurvey() {
@@ -28238,7 +28261,6 @@ function openAccountLinkModal() {
   var box = document.createElement('div');
   box.id = 'ws-box';
   box.className = 'ws-box';
-  box.style.cssText = 'position:relative;border:1px solid var(--border);border-radius:var(--radius-xl);padding:22px 18px 18px;width:100%;max-width:360px;max-height:90vh;overflow-y:auto;z-index:1';
   overlay.appendChild(box);
   document.body.appendChild(overlay);
   wsRenderShell();
@@ -28387,7 +28409,8 @@ function wsRenderStep() {
   } else if (wsState.step === 2) {
     if (!wsState.authMode) {
       html +=
-        (window.LUBlocks && LUBlocks.orbitHtml ? LUBlocks.orbitHtml() : '') +
+        // Keng ekranda o'ngda alohida brend vizuali bor (.ws-visual) — shu orbit shu yerda takrorlanmasin
+        '<div class="ws-step-orbit">' + (window.LUBlocks && LUBlocks.orbitHtml ? LUBlocks.orbitHtml() : '') + '</div>' +
         '<div style="' + titleStyle + '">' + (wsState.miniMode ? t('ws_account_link_title') : t('ws_step_auth_title')) + '</div>' +
         '<div style="' + descStyle + '">' + (wsState.miniMode ? t('ws_account_link_desc') : t('ws_step_auth_desc')) + '</div>' +
         '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">' +
@@ -35754,17 +35777,22 @@ var cloudResolveAvatarUrl = async function() {
   }
 };
 
+// 🔵 Google provayderi Supabase'da yoqilganmi — login va "ulash" (linkIdentity) ikkalasi ham shu bitta
+// tekshiruvdan foydalanadi, aks holda xom JSON xato sahifasiga yuborib qo'yardi
+var cloudGoogleEnabled = async function () {
+  try {
+    var st = await (await fetch('https://zzcvpenkevxlurgpjltz.supabase.co/auth/v1/settings', { headers: { apikey: 'sb_publishable_KbjJQoICYY8BoIqeBw_OKQ_xTTk_yu8' } })).json();
+    return !(st && st.external && st.external.google === false);
+  } catch (e) { return true; }
+};
 var cloudGoogleSignIn = async function() {
   try {
     try { save(); } catch (e) {}
     // Google provayderi Supabase'da yoqilmagan bo'lsa, xom JSON xato sahifasiga yubormaymiz
-    try {
-      var st = await (await fetch('https://zzcvpenkevxlurgpjltz.supabase.co/auth/v1/settings', { headers: { apikey: 'sb_publishable_KbjJQoICYY8BoIqeBw_OKQ_xTTk_yu8' } })).json();
-      if (st && st.external && st.external.google === false) {
-        _cloudToast(_cl('Google orqali kirish hozircha yoqilmagan — email va parol bilan kiring', 'Google sign-in is not enabled yet — please use email and password', 'Вход через Google пока не включён — используйте email и пароль'));
-        return;
-      }
-    } catch (e) {}
+    if (!(await cloudGoogleEnabled())) {
+      _cloudToast(_cl('Google orqali kirish hozircha yoqilmagan — email va parol bilan kiring', 'Google sign-in is not enabled yet — please use email and password', 'Вход через Google пока не включён — используйте email и пароль'));
+      return;
+    }
     var r = await supabase.auth.signInWithOAuth({
       provider: 'google',
       // Har safar Google akkaunt tanlash oynasini ko'rsatamiz (aks holda brauzerdagi akkaunt avtomatik tanlanadi)
