@@ -23930,7 +23930,7 @@ function renderCalMonthSummary() {
   var el = document.getElementById('cal-month-summary');
   if (!el) return;
   var summary = getMonthSummary(_calYear, _calMonth);
-  if (summary.due === 0) { el.style.display = 'none'; return; }
+  if (summary.due === 0) { el.style.display = 'none'; var trendEl0 = document.getElementById('cal-month-trend'); if (trendEl0) trendEl0.style.display = 'none'; return; }
   el.style.display = '';
   var perfect = 0, active = 0, dim = new Date(_calYear, _calMonth + 1, 0).getDate();
   for (var dd = 1; dd <= dim; dd++) {
@@ -23941,13 +23941,188 @@ function renderCalMonthSummary() {
   el.innerHTML = '<div><b>' + summary.pct + '%</b><span>✅ ' + esc(t('cal_summary_done')) + '</span></div>' +
     '<div><b>' + (summary.coins > 0 ? '+' : '') + summary.coins + '</b><span>🪙 ' + esc(t('cal_summary_earned')) + '</span></div>' +
     '<div><b>' + perfect + '/' + active + '</b><span>🌟 ' + _cl('mukammal kun', 'perfect days', 'идеальных дней') + '</span></div>';
+  renderCalMonthTrend(summary);
+}
+
+// 📈 O'tgan oyga nisbatan taqqoslash: joriy oyning bajarilish foizi oldingi oynikidan
+// yuqori/past/bir xilligini ko'rsatadi — foydalanuvchi tendensiyani darhol ko'radi.
+function renderCalMonthTrend(summary) {
+  var el = document.getElementById('cal-month-trend');
+  if (!el) return;
+  var pm = _calMonth - 1, py = _calYear;
+  if (pm < 0) { pm = 11; py--; }
+  var prevSummary = getMonthSummary(py, pm);
+  if (prevSummary.due === 0) { el.style.display = 'none'; return; }
+  var delta = summary.pct - prevSummary.pct;
+  var icon = delta > 0 ? '📈' : delta < 0 ? '📉' : '➡️';
+  var sign = delta > 0 ? '+' : '';
+  var color = delta > 0 ? 'var(--green, #34D399)' : delta < 0 ? 'var(--red, #F87171)' : 'var(--text-muted)';
+  el.style.display = '';
+  el.innerHTML = icon + ' ' + esc(_cl("O'tgan oyga nisbatan", 'vs last month', 'по сравнению с прошлым месяцем')) +
+    ': <b style="color:' + color + '">' + sign + delta + '%</b> <span style="opacity:0.7">(' + prevSummary.pct + '% → ' + summary.pct + '%)</span>';
+}
+
+// ⚠️ O'tkazib yuborilgan kunlar haqida eslatma: oxirgi 7 kun ichida to'liq
+// bajarilmagan (due>0 lekin done+skipped<due) kunlar bo'lsa, kalendar tepasida
+// kichik banner ko'rsatiladi. Bosilsa — eng so'nggi shunday kunga olib boradi.
+var _calMissedDays = [];
+function renderCalMissedBanner() {
+  var el = document.getElementById('cal-missed-banner');
+  if (!el) return;
+  var todayStr = today();
+  _calMissedDays = [];
+  for (var i = 1; i <= 7; i++) {
+    var ds = addDays(todayStr, -i);
+    if (isDateFrozen(ds) || isDateOffline(ds)) continue;
+    var st = getDayStats(ds);
+    if (st.due > 0 && (st.done + st.skipped) < st.due) _calMissedDays.push(ds);
+  }
+  if (!_calMissedDays.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  var n = _calMissedDays.length;
+  el.innerHTML = '⚠️ ' + esc(_cl(
+    "Oxirgi 7 kunda " + n + (n === 1 ? ' kun' : ' kun') + " to'liq bajarilmagan — ko'rish uchun bosing",
+    n + ' of the last 7 days were not fully completed — tap to review',
+    'За последние 7 дней ' + n + ' дней не выполнены полностью — нажмите, чтобы посмотреть'
+  ));
+}
+// 🗂 Kalendarni bo'lim (kategoriya) bo'yicha filtrlash — faqat shu sessiyada amal qiladi
+// (bulutga yozilmaydi), Vazifalar sahifasidagi filtrdan mustaqil.
+var _calCatFilter = 'all';
+function renderCalCatFilter() {
+  var bar = document.getElementById('cal-cat-filter');
+  if (!bar) return;
+  ensureTaskCats();
+  var anyCat = (S.tasks || []).some(function (t) { return taskCatIds(t).length > 0; });
+  if (!anyCat) { bar.style.display = 'none'; bar.innerHTML = ''; _calCatFilter = 'all'; return; }
+  bar.style.display = 'flex';
+  var chip = function (key, label, color) {
+    return '<button type="button" class="tc-chip' + (_calCatFilter === key ? ' on' : '') + '" data-f="' + esc(key) + '"' + (color ? ' style="--tc:' + esc(color) + '"' : '') +
+      ' onclick="calSetCatFilter(\'' + esc(key) + '\')">' + label + '</button>';
+  };
+  var h = chip('all', _cl('Hammasi', 'All', 'Все'));
+  (S.taskCats || []).forEach(function (c) { h += chip(c.id, esc(taskCatLabel(c)), c.color); });
+  bar.innerHTML = h;
+}
+function calSetCatFilter(f) {
+  _calCatFilter = f || 'all';
+  renderCalendar();
+}
+function _calTaskPassesCatFilter(t) {
+  return _calCatFilter === 'all' || taskCatIds(t).indexOf(_calCatFilter) !== -1;
+}
+
+// 📊 Sana oralig'i bo'yicha umumiy statistika: ikkita kunni bosib, orasidagi
+// barcha kunlar uchun yig'indi (bajarilish %, tanga, mukammal kunlar) ko'rsatiladi.
+var _calRangeMode = false, _calRangeStart = null, _calRangeEnd = null;
+function calToggleRangeMode() {
+  _calRangeMode = !_calRangeMode;
+  _calRangeStart = null; _calRangeEnd = null;
+  renderCalendar();
+}
+function renderCalRangeToggle() {
+  var btn = document.getElementById('cal-range-toggle-btn');
+  if (!btn) return;
+  btn.textContent = _calRangeMode
+    ? '✕ ' + _cl('Oraliqni bekor qilish', 'Cancel range', 'Отменить диапазон')
+    : '📊 ' + _cl('Oraliq statistika', 'Range stats', 'Статистика за период');
+  btn.style.borderColor = _calRangeMode ? 'var(--accent)' : 'var(--border)';
+  btn.style.color = _calRangeMode ? 'var(--accent)' : 'var(--text-muted)';
+}
+function calRangeDayClick(ds) {
+  if (!_calRangeStart || _calRangeEnd) {
+    // Yangi oraliq boshlanadi (birinchi bosish, yoki avvalgi oraliq yakunlangandan keyingi bosish)
+    _calRangeStart = ds; _calRangeEnd = null;
+  } else if (ds < _calRangeStart) {
+    _calRangeEnd = _calRangeStart; _calRangeStart = ds;
+  } else {
+    _calRangeEnd = ds;
+  }
+  renderCalendar();
+}
+function renderCalRangeSummary() {
+  var el = document.getElementById('cal-range-summary');
+  if (!el) return;
+  if (!_calRangeMode || !_calRangeStart || !_calRangeEnd) { el.style.display = 'none'; return; }
+  var cur = _calRangeStart, due = 0, done = 0, skipped = 0, coins = 0, days = 0, perfect = 0, active = 0, guard = 0;
+  while (cur <= _calRangeEnd && guard < 400) {
+    var st = getDayStats(cur);
+    if (st.due > 0) { active++; due += st.due; done += st.done; skipped += st.skipped; if (st.done + st.skipped >= st.due) perfect++; }
+    coins += getDayCoins(cur);
+    days++; guard++;
+    cur = addDays(cur, 1);
+  }
+  var pct = due > 0 ? Math.round((done / due) * 100) : 0;
+  el.style.display = '';
+  el.innerHTML = '<b>' + esc(_calRangeStart) + ' → ' + esc(_calRangeEnd) + '</b> (' + days + ' ' + _cl('kun', 'days', 'дн.') + ')<br>' +
+    '✅ ' + pct + '% · 🪙 ' + (coins > 0 ? '+' : '') + coins + ' · 🌟 ' + perfect + '/' + active + ' ' + _cl('mukammal kun', 'perfect days', 'идеальных дней');
+}
+
+function calMissedBannerClick() {
+  if (!_calMissedDays.length) return;
+  var ds = _calMissedDays[_calMissedDays.length - 1]; // eng so'nggi (bugunga eng yaqin) o'tkazib yuborilgan kun
+  var parts = ds.split('-');
+  _calYear = Number(parts[0]); _calMonth = Number(parts[1]) - 1;
+  renderCalendar();
+  showDayDetail(ds);
 }
 
 function getDateStr(y, m, d) {
   return y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
 }
 
+// ⚡ Oylik keshlar: renderCalendar() har chaqirilganda (ya'ni har safar kalendar
+// chindan qayta chizilganda) joriy oy uchun BIR martalik to'liq hisoblab, shu yerga
+// yozadi — shu render ichida getMonthSummary/renderCalMonthSummary/kun-katakchalari
+// har biri alohida-alohida butun oy bo'yicha qayta hisoblab chiqmaydi (ilgari 3 marta
+// takrorlanardi). Kesh renderCalendar() har safar YANGIDAN tuziladi (hech qachon
+// saqlanib qolmaydi), shuning uchun eskirib qolish xavfi yo'q — boshqa oy/kontekst
+// uchun so'ralsa (kesh mos kelmasa), pastdagi funksiyalar avvalgidek to'g'ridan-to'g'ri
+// hisoblab beradi.
+var _dsCache = null, _dcCache = null;
+function _buildDayStatsCache(year, month) {
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var todayStr = today();
+  var due = {}, done = {}, skipped = {};
+  for (var day = 1; day <= daysInMonth; day++) {
+    var ds0 = getDateStr(year, month, day);
+    due[ds0] = 0; done[ds0] = 0; skipped[ds0] = 0;
+  }
+  S.tasks.forEach(function (t) {
+    if (!_calTaskPassesCatFilter(t)) return;
+    for (var day = 1; day <= daysInMonth; day++) {
+      var ds = getDateStr(year, month, day);
+      if (ds > todayStr) continue;
+      if (t.createdAt && ds < t.createdAt) continue;
+      var dow = new Date(ds + 'T00:00:00').getDay();
+      if (!calIsTaskDueOnDate(t, ds, dow)) continue;
+      due[ds]++;
+      if (ds === todayStr) {
+        if (t.done) done[ds]++;
+        else if (t.skipped) skipped[ds]++;
+      } else {
+        var doneOnDate = !!(S.taskDoneLog && S.taskDoneLog[t.id] && S.taskDoneLog[t.id].indexOf(ds) !== -1);
+        var skipOnDate = !!(S.taskSkipLog && S.taskSkipLog[t.id] && S.taskSkipLog[t.id].indexOf(ds) !== -1);
+        if (doneOnDate) done[ds]++;
+        else if (skipOnDate) skipped[ds]++;
+      }
+    }
+  });
+  _dsCache = { y: year, m: month, due: due, done: done, skipped: skipped };
+}
+function _buildDayCoinsCache(year, month) {
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var coins = {};
+  for (var day = 1; day <= daysInMonth; day++) coins[getDateStr(year, month, day)] = 0;
+  (S.tarix || []).forEach(function (item) { if (item && item.date && coins.hasOwnProperty(item.date)) coins[item.date] += (item.amount || 0); });
+  _dcCache = { y: year, m: month, coins: coins };
+}
+
 function getDayCoins(dateStr) {
+  if (_dcCache) {
+    var dp = dateStr.split('-'), y = Number(dp[0]), m = Number(dp[1]) - 1;
+    if (_dcCache.y === y && _dcCache.m === m && _dcCache.coins.hasOwnProperty(dateStr)) return _dcCache.coins[dateStr];
+  }
   var tarix = S.tarix || [];
   var net = 0;
   tarix.forEach(function(item) {
@@ -23957,6 +24132,12 @@ function getDayCoins(dateStr) {
 }
 
 function getDayStats(dateStr) {
+  if (_dsCache) {
+    var dp = dateStr.split('-'), y = Number(dp[0]), m = Number(dp[1]) - 1;
+    if (_dsCache.y === y && _dsCache.m === m && _dsCache.due.hasOwnProperty(dateStr)) {
+      return { due: _dsCache.due[dateStr], done: _dsCache.done[dateStr], skipped: _dsCache.skipped[dateStr] };
+    }
+  }
   var tdStr = today();
   // Timezone-safe "today" string comparison already uses ISO string slice
   var d = new Date(dateStr + 'T00:00:00');
@@ -23964,6 +24145,7 @@ function getDayStats(dateStr) {
   var due = 0, done = 0, skipped = 0;
 
   S.tasks.forEach(function(t) {
+    if (!_calTaskPassesCatFilter(t)) return;
     // Vazifa qo'shilguncha bo'lgan kunlarga ta'sir qilmasin
     if (t.createdAt && dateStr < t.createdAt) return;
 
@@ -23992,8 +24174,15 @@ function renderCalendar() {
   var label = document.getElementById('cal-month-label');
   if (label) label.textContent = getMonthsFullArr()[_calMonth] + ' ' + _calYear;
 
+  renderCalCatFilter();
+  renderCalRangeToggle();
+  _buildDayStatsCache(_calYear, _calMonth);
+  _buildDayCoinsCache(_calYear, _calMonth);
+
+  renderCalMissedBanner();
   renderCalDayHeaders();
   renderCalMonthSummary();
+  renderCalRangeSummary();
 
   var grid = document.getElementById('cal-grid');
   if (!grid) return;
@@ -24053,7 +24242,8 @@ function renderCalendar() {
     // pastida bajarilganlik chizig'i va kayfiyat emojisi
     var solid = (bg && bg !== 'transparent' && bg !== 'var(--surface2)');
     var donePct = (!isFuture && stats.due > 0) ? Math.round((stats.done + stats.skipped) / stats.due * 100) : 0;
-    cell.className = 'calx-day' + (isFuture ? ' future' : '') + (isToday ? ' today' : '') + (!isFuture && stats.due === 0 && !isFrozenDay && !isOfflineDay ? ' empty' : '') + (donePct >= 100 && !isFrozenDay ? ' perfect' : '');
+    var inRange = _calRangeMode && _calRangeStart && (_calRangeEnd ? (dateStr >= _calRangeStart && dateStr <= _calRangeEnd) : dateStr === _calRangeStart);
+    cell.className = 'calx-day' + (isFuture ? ' future' : '') + (isToday ? ' today' : '') + (!isFuture && stats.due === 0 && !isFrozenDay && !isOfflineDay ? ' empty' : '') + (donePct >= 100 && !isFrozenDay ? ' perfect' : '') + (inRange ? ' in-range' : '');
     if (solid) cell.style.setProperty('--cc', bg);
     cell.style.cursor = isFuture ? 'default' : 'pointer';
 
@@ -24078,9 +24268,10 @@ function renderCalendar() {
 
     if (!isFuture) {
       var coinTip = dayCoins > 0 ? ('🪙 +' + dayCoins) : dayCoins < 0 ? ('🪙 ' + dayCoins) : '🪙 0';
+      var moodTip = (_md && _md.emoji) ? ('  •  ' + _md.emoji + (_md.label ? ' ' + _md.label : '')) : '';
       cell.title = isOfflineDay
         ? '⚫ ' + t('offline_day_label')
-        : (isFrozenDay ? '❄️ ' + t('freeze_day_label') + '  •  ' : '') + coinTip + '  •  ✅ ' + stats.done + '/' + stats.due;
+        : (isFrozenDay ? '❄️ ' + t('freeze_day_label') + '  •  ' : '') + coinTip + '  •  ✅ ' + stats.done + '/' + stats.due + moodTip;
     }
 
     // Streak dot
@@ -24102,6 +24293,7 @@ function renderCalendar() {
 
       cell.addEventListener('click', function(e) {
         var ds = e.currentTarget.dataset.date;
+        if (_calRangeMode) { calRangeDayClick(ds); return; }
         showDayDetail(ds);
         // Highlight selected
         grid.querySelectorAll('[data-date]').forEach(function(c) {
