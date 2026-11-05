@@ -283,9 +283,13 @@ Deno.serve(async (req) => {
       }
       if (parent && (parent !== dev.parent_id || src !== dev.link_src)) {
         upd.parent_id = parent; upd.link_src = src;
-        // Shu kompyuterdagi shu brauzerning eski (qayta o'rnatilgan) nusxalari — o'chiriladi
+        // Shu kompyuterdagi shu brauzerning eski (qayta o'rnatilgan, haqiqatan tashlab ketilgan) nusxalari — o'chiriladi.
+        // "dev.created_at"dan oldin ko'rilgan bo'lishi yetarli emas edi: bir xil nomdagi ikkinchi profil (masalan,
+        // ikkinchi Google akkaunt uchun alohida kengaytma) ham deyarli doim shu shartga tushib, hali faol bo'lsa ham
+        // o'chirilib ketardi. Shuning uchun faqat chindan ham uzoq vaqt (12+ daqiqa, "oflayn" chegarasi bilan bir xil)
+        // ko'rinmagan nusxalarni tozalaymiz — faol ikkinchi profil beriladigan vaqt ichida saqlanib qoladi.
         await sb.from("fg_devices").delete().eq("user_id", dev.user_id).eq("kind", "ext").eq("parent_id", parent).eq("name", dev.name)
-          .neq("id", dev.id).lt("last_seen", dev.created_at);
+          .neq("id", dev.id).lt("last_seen", new Date(now - 12 * 60000).toISOString());
       }
     }
     // Windows agenti nomi: "Windows · KOMPYUTER · foydalanuvchi" — bitta kompyuterdagi har bir Windows foydalanuvchisi alohida qurilma.
