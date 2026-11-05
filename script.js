@@ -436,9 +436,18 @@ var loadUserDataAndInit = async function() {
   }
 
   if (remote) {
-    ensureFreezeGrants();
-    recalcStreakFromLog();
-    checkReset();
+    if (S.cloudLinked) {
+      // ☁️ Bulutga ulangan bo'lsa: kun almashishi jarimasi va streak hisobi birinchi
+      // sinxronlash tugaguncha kutadi. Aks holda bu qurilma hali eski (sinxronlanmagan)
+      // mahalliy nusxaga qarab ishlaydi — boshqa qurilmada allaqachon qo'llangan jarimani
+      // bilmay, uni yana hisoblab, necha qurilma ochilsa shuncha marta yechib qo'yardi.
+      runDailyRolloverWhenSynced();
+    } else {
+      ensureFreezeGrants();
+      recalcStreakFromLog();
+      checkReset();
+      showPendingRolloverMessages();
+    }
   }
 
   migrateLegacyRewards();
@@ -461,7 +470,11 @@ var loadUserDataAndInit = async function() {
     save();
     setTimeout(function(){ if (typeof showWelcomeSurvey === 'function') showWelcomeSurvey(); }, 500);
   }
+};
 
+// 🌅 checkReset() kun almashishida yozadigan xabarlar (jarima, streak, muzlatish va h.k.) —
+// darhol (mehmon) va bulut sinxronlanishini kutib (runDailyRolloverWhenSynced) ikkala yo'ldan ham chaqiriladi.
+function showPendingRolloverMessages() {
   if (S.pendingStreakMsg) {
     setTimeout(()=>{ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 600);
   }
@@ -480,7 +493,22 @@ var loadUserDataAndInit = async function() {
   if (S.pendingReytingReward) {
     setTimeout(function(){ showReytingMonthlyRewardModal(S.pendingReytingReward.rank, S.pendingReytingReward.reward); S.pendingReytingReward=null; save(); }, 2200);
   }
-};
+}
+// ☁️ Bulutdan birinchi to'liq tortib olish tugashini kutadi (eng ko'p ~30s), keyin ushbu
+// qurilmada hali qo'llanmagan kun-almashish ishlarini (jarima, streak) shu safar bajaradi —
+// agar boshqa qurilma ulgurgan bo'lsa, S.lastDate allaqachon bugungi bo'lib, checkReset() hech narsa qilmaydi.
+function runDailyRolloverWhenSynced(tries) {
+  tries = tries || 0;
+  if (!window._cloudPullDone && tries < 20) { setTimeout(function () { runDailyRolloverWhenSynced(tries + 1); }, 1500); return; }
+  _ludWithLock(function () {
+    ensureFreezeGrants();
+    recalcStreakFromLog();
+    checkReset();
+    try { render(); refreshAllModulesFromState(); } catch (e) {}
+    showPendingRolloverMessages();
+    return Promise.resolve();
+  });
+}
 
 var fetchReytingList = async function(scope, metric, subjectFilter) {
   var me = getRealUserEntry();
@@ -16231,23 +16259,29 @@ function refreshAllModulesFromState() {
   function runRollover() {
     if (_rolloverBusy) return Promise.resolve();
     _rolloverBusy = true;
-    return _ludWithLock(function() {
-      // Bir nechta tab ochiq bo'lsa, har biri yarim tunda shu yerga keladi —
-      // avval diskdagi eng so'nggi holatni olamiz: boshqa tab kunni allaqachon
-      // almashtirgan bo'lsa (S.lastDate === bugun), checkReset hech narsa qilmaydi
-      // va jarima/streak ikki marta qo'llanmaydi.
-      try { _ludAdoptDiskState(); _ludAdoptDiskTasks(); } catch (e) {}
-      ensureFreezeGrants();
-      checkReset(); // jazo va reset
-      if (typeof pomoRolloverStaleActivities === 'function') {
-        pomoRolloverStaleActivities(); // 🍅 to'xtatilgan amaliyliklarning kunlik hisoblagichini ham shu yerda tozalaymiz
-        if (typeof pomoRenderActivityList === 'function') pomoRenderActivityList();
-      }
-      render();
-      if(S.pendingMissedMsg){ toast(S.pendingMissedMsg); S.pendingMissedMsg=null; save(); }
-      if(S.pendingSubtaskPenaltyMsg){ setTimeout(function(){ toast(S.pendingSubtaskPenaltyMsg); S.pendingSubtaskPenaltyMsg=null; save(); }, 500); }
-      if(S.pendingStreakMsg){ setTimeout(function(){ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 800); }
-      if(S.pendingFreezeGrantMsg){ setTimeout(function(){ toast(S.pendingFreezeGrantMsg); S.pendingFreezeGrantMsg=null; save(); renderProfile(); }, 1300); }
+    // ☁️ Bulutga ulangan bo'lsa, avval eng so'nggi holatni tortib olamiz — aks holda bu qurilma
+    // fonda/uxlab yotgan paytda boshqa qurilmada allaqachon qo'llangan jarima/streak'ni bilmay,
+    // o'zi ham xuddi shuni qayta qo'llab qo'yishi mumkin (necha qurilma — shuncha marta jarima).
+    var pre = (S.cloudLinked && typeof cloudPullAppState === 'function') ? cloudPullAppState(true).catch(function () {}) : Promise.resolve();
+    return pre.then(function () {
+      return _ludWithLock(function() {
+        // Bir nechta tab ochiq bo'lsa, har biri yarim tunda shu yerga keladi —
+        // avval diskdagi eng so'nggi holatni olamiz: boshqa tab kunni allaqachon
+        // almashtirgan bo'lsa (S.lastDate === bugun), checkReset hech narsa qilmaydi
+        // va jarima/streak ikki marta qo'llanmaydi.
+        try { _ludAdoptDiskState(); _ludAdoptDiskTasks(); } catch (e) {}
+        ensureFreezeGrants();
+        checkReset(); // jazo va reset
+        if (typeof pomoRolloverStaleActivities === 'function') {
+          pomoRolloverStaleActivities(); // 🍅 to'xtatilgan amaliyliklarning kunlik hisoblagichini ham shu yerda tozalaymiz
+          if (typeof pomoRenderActivityList === 'function') pomoRenderActivityList();
+        }
+        render();
+        if(S.pendingMissedMsg){ toast(S.pendingMissedMsg); S.pendingMissedMsg=null; save(); }
+        if(S.pendingSubtaskPenaltyMsg){ setTimeout(function(){ toast(S.pendingSubtaskPenaltyMsg); S.pendingSubtaskPenaltyMsg=null; save(); }, 500); }
+        if(S.pendingStreakMsg){ setTimeout(function(){ toast(S.pendingStreakMsg); confetti(); SFX.firework(); S.pendingStreakMsg=null; save(); }, 800); }
+        if(S.pendingFreezeGrantMsg){ setTimeout(function(){ toast(S.pendingFreezeGrantMsg); S.pendingFreezeGrantMsg=null; save(); renderProfile(); }, 1300); }
+      });
     }).then(function() { _rolloverBusy = false; }, function() { _rolloverBusy = false; });
   }
   var _midTimer = null;
