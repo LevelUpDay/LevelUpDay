@@ -1,18 +1,18 @@
 {
-  "version": "0.6.6",
-  "sha256": "0a19f07b65779e23ae6d20ca8482022e9544034aabf3b410678999baf8c8be1a",
+  "version": "0.6.7",
+  "sha256": "41a65b39f7f9b451218e1d56b53872b5fe6e98bf1c9b4115e7904b877be36014",
   "url": "https://levelupday.github.io/LevelUpDay/downloads/Focusgate.exe",
-  "notes": "Tungi jim rejim, bildirishnoma turlari, masofaviy yangilash",
-  "ext": "0.6.7",
+  "notes": "Qurilma ulanishi: qisqa tarmoq uzilishida tezroq qayta ulanadi (kutib o'tirmasdan)",
+  "ext": "0.6.8",
   "linux": {
     "amd64": {
-      "version": "0.6.6",
-      "sha256": "d48667ca485942e43e511334e41ae32b10f94a1e981005506a0ba613160e391e",
+      "version": "0.6.7",
+      "sha256": "7c52b60542d7a452ff2a7461b6e2c184ad472287bf9c638a8df25ce6b51a2c76",
       "url": "https://levelupday.github.io/LevelUpDay/downloads/focusgate-linux-amd64"
     },
     "arm64": {
-      "version": "0.6.6",
-      "sha256": "fd422c81811a0d8e2cad1deb26081e02e82f631b7ebc3fd651a10acdf55a1468",
+      "version": "0.6.7",
+      "sha256": "dc15529c7427d534a02f24ef4d53a10cb950a4d7c7c819ee44b2d61a586e3fb5",
       "url": "https://levelupday.github.io/LevelUpDay/downloads/focusgate-linux-arm64"
     }
   }

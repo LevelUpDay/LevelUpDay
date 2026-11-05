@@ -1437,7 +1437,7 @@
       sec('dev', '📱 ' + E(L('Qurilmalar', 'Devices', 'Устройства')), devHealthHtml() + devicesHtml() + (real() ? '<div class="fg-card">' + codeFormHtml() + '</div>' : '') + getCards()) +
       '<div class="fg-hint">⚙️ ' + E(L('Bu sozlamalar Profil → Sozlamalar → Focusgate bo\'limida ham bor.', 'These settings also live in Profile → Settings → Focusgate.', 'Эти настройки есть и в Профиль → Настройки → Focusgate.')) + '</div>';
   }
-  var EXT_VERSION = '0.6.7'; // downloads/version.json → ext
+  var EXT_VERSION = '0.6.8'; // downloads/version.json → ext
   function selHtml(attr, val, opts) { return '<select class="fg-sel" ' + attr + '>' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + E(o[1]) + '</option>'; }).join('') + '</select>'; }
   // 🌙 Tungi jim rejim (cfg.quiet; cfg.tzOff — server Telegram uchun)
   function quietRow() {
