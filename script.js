@@ -8704,6 +8704,78 @@ function writeLocalTasks(tasksArr) {
 
 
 // ============================================================
+// 🌙 Fon sinxronizatsiyasi (Background Sync) uchun IndexedDB ko'prik
+// ------------------------------------------------------------
+// Servis-worker (sw.js) localStorage'ni o'qiy olmaydi, shuning uchun
+// navbatdagi task o'zgarishlari va sessiya tokeni bu yerda IndexedDB'ga
+// ham "ko'chiriladi". Ilova yopiq bo'lsa ham, internet/wifi qaytganda
+// brauzer servis-workerni fonda uyg'otib, shu ma'lumot bilan navbatni
+// Supabase'ga yuboradi (Background Sync API — hozircha asosan
+// Android/Chrome qo'llab-quvvatlaydi; qo'llamaydigan brauzerlarda bu
+// yerdagi kod shunchaki sezilmaydi, ilova ochilganda avvalgidek
+// sinxronlanadi — hech narsa buzilmaydi).
+// ============================================================
+var _BG_DB_NAME = 'lud_bgsync', _BG_DB_VER = 1, _BG_STORE = 'kv';
+function _bgDb() {
+  return new Promise(function (resolve) {
+    try {
+      if (!window.indexedDB) return resolve(null);
+      var rq = indexedDB.open(_BG_DB_NAME, _BG_DB_VER);
+      rq.onupgradeneeded = function () { try { rq.result.createObjectStore(_BG_STORE); } catch (e) {} };
+      rq.onsuccess = function () { resolve(rq.result); };
+      rq.onerror = function () { resolve(null); };
+    } catch (e) { resolve(null); }
+  });
+}
+function _bgPut(key, val) {
+  return _bgDb().then(function (db) {
+    if (!db) return;
+    try { db.transaction(_BG_STORE, 'readwrite').objectStore(_BG_STORE).put(val, key); } catch (e) {}
+  });
+}
+function _bgGet(key) {
+  return _bgDb().then(function (db) {
+    if (!db) return null;
+    return new Promise(function (resolve) {
+      try {
+        var rq = db.transaction(_BG_STORE, 'readonly').objectStore(_BG_STORE).get(key);
+        rq.onsuccess = function () { resolve(rq.result == null ? null : rq.result); };
+        rq.onerror = function () { resolve(null); };
+      } catch (e) { resolve(null); }
+    });
+  });
+}
+// Navbatda biror narsa bo'lsa, servis-workerga "internet qaytganda shuni yubor" deb so'rov qo'yamiz
+function _bgRequestSync() {
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready.then(function (reg) {
+      if (reg && reg.sync && reg.sync.register) reg.sync.register('lud-todos-sync').catch(function () {});
+    }).catch(function () {});
+  } catch (e) {}
+}
+// Ilova (qayta) ochilganda: servis-worker ilova yopiq paytda allaqachon yuborib yulgan
+// task'larni IndexedDB navbatidan o'chirgan bo'lishi mumkin — shularni mahalliy navbatdan
+// ham olib tashlaymiz (aks holda ular qayta-qayta, keraksiz yuborilardi).
+function _bgReconcileQueue() {
+  var uid = S && S.cloudUserId; if (!uid) return;
+  _bgGet('queue').then(function (q2) {
+    if (!q2 || q2.uid !== uid) return;
+    var changed = false;
+    Object.keys(_pendingTodoUpserts).forEach(function (k) { if (!(q2.ups || {}).hasOwnProperty(k)) { delete _pendingTodoUpserts[k]; changed = true; } });
+    Object.keys(_pendingTodoDeletes).forEach(function (k) { if (!(q2.dels || {}).hasOwnProperty(k)) { delete _pendingTodoDeletes[k]; changed = true; } });
+    if (changed) _cloudQueueSave();
+  }).catch(function () {});
+}
+try {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function (ev) {
+      if (ev && ev.data && ev.data.type === 'lud-bg-sync-done') _bgReconcileQueue();
+    });
+  }
+} catch (e) {}
+
+// ============================================================
 // ☁️ TASKLAR (vazifalar) — Supabase "todos" jadvaliga sinxronlash
 // ------------------------------------------------------------
 // Har bir save() → syncTasksToLocalStorage() → har bir task uchun
@@ -8739,12 +8811,14 @@ function _cloudQueueLoad() {
     if (q.ups && typeof q.ups === 'object') Object.keys(q.ups).forEach(function (k) { if (!_pendingTodoUpserts[k] && !_pendingTodoDeletes[k]) _pendingTodoUpserts[k] = q.ups[k]; });
     if (q.dels && typeof q.dels === 'object') Object.keys(q.dels).forEach(function (k) { if (!_pendingTodoUpserts[k] && !here[k]) _pendingTodoDeletes[k] = true; });
   } catch (e) {}
+  _bgReconcileQueue();
 }
 // Bulut o'qilgach: navbat tozalanadi va darhol saqlanadi (eski navbat keyingi ochilishda qayta o'qilmasin)
 function _cloudQueueReset(uid) {
   _pendingTodoUpserts = {}; _pendingTodoDeletes = {};
   _cloudQueueUid = uid;
   try { localStorage.setItem(_cloudQueueKey(uid), JSON.stringify({ base: _lastSyncedTasks, ups: {}, dels: {}, at: Date.now() })); } catch (e) {}
+  _bgPut('queue', { uid: uid, ups: {}, dels: {} });
 }
 // 🛡 Ommaviy o'chirishdan himoya: foydalanuvchi o'zi ko'p task o'chirmagan bo'lsa (bulk, reset), bir yo'la ko'p task
 // bulutdan o'chirilmaydi — bu odatda bo'sh/yuklanmagan holatdan kelgan xato. Ruxsat 15 soniya amal qiladi.
@@ -8760,6 +8834,9 @@ function _cloudQueueSave() {
     _cloudQueueSaveT = null;
     var uid = S && S.cloudUserId; if (!uid || _cloudQueueUid !== uid) return;
     try { localStorage.setItem(_cloudQueueKey(uid), JSON.stringify({ base: _lastSyncedTasks, ups: _pendingTodoUpserts, dels: _pendingTodoDeletes, at: Date.now() })); } catch (e) {}
+    var hasPending = !!(Object.keys(_pendingTodoUpserts).length || Object.keys(_pendingTodoDeletes).length);
+    _bgPut('queue', { uid: uid, ups: _pendingTodoUpserts, dels: _pendingTodoDeletes });
+    if (hasPending) _bgRequestSync();
   }, 400);
 }
 function cloudPendingCount() { return Object.keys(_pendingTodoUpserts).length + Object.keys(_pendingTodoDeletes).length + (typeof _appStateTimer !== 'undefined' && _appStateTimer ? 1 : 0) + (typeof _cloudSyncTimer !== 'undefined' && _cloudSyncTimer ? 1 : 0); }
@@ -28203,39 +28280,73 @@ function showWelcomeSurvey() {
 
   var overlay = document.createElement('div');
   overlay.id = 'welcome-survey-modal';
-  overlay.className = 'ws-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:260;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.className = 'ws-overlay ws-overlay-full';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:260';
   overlay.innerHTML = '<div class="ws-blob ws-blob-1"></div><div class="ws-blob ws-blob-2"></div><div class="ws-blob ws-blob-3"></div>';
-  // Saytga birinchi marta kirganda: chapda savol-javob karta, o'ngda brend vizuali — boshqa saytlardagi
-  // "split" ro'yxatdan o'tish ekranlariga o'xshash. Tor ekranda (CSS, <860px) o'ng panel yashiriladi.
+  // Saytga birinchi marta kirganda: chapda savol-javob karta (ekranning chap yarmida markazlashgan,
+  // orqa fondagi "blob"lar ko'rinib turadi), o'ngda esa butun ekran balandligini egallagan brend
+  // vizuali — boshqa saytlardagi "split" ro'yxatdan o'tish ekranlariga o'xshash. O'ng paneldagi
+  // matn/ikonka har bir qadam/tanlovdan keyin (wsRenderStep) yangilanadi — statik qolib ketmasin.
+  // Tor ekranda (CSS, <860px) o'ng panel butunlay yashiriladi.
   var split = document.createElement('div');
   split.className = 'ws-split';
+  var left = document.createElement('div');
+  left.className = 'ws-left';
   var box = document.createElement('div');
   box.id = 'ws-box';
   box.className = 'ws-box';
+  left.appendChild(box);
   var visual = document.createElement('div');
   visual.className = 'ws-visual';
   visual.setAttribute('aria-hidden', 'true');
   visual.innerHTML = wsVisualHtml();
-  split.appendChild(box);
+  split.appendChild(left);
   split.appendChild(visual);
   overlay.appendChild(split);
   document.body.appendChild(overlay);
   wsRenderShell();
 }
 
-// 🎨 O'ng paneldagi brend vizuali: ikonka halqasi + ilova imkoniyatlari (birinchi marta kirish ekrani)
-function wsVisualHtml() {
+// 🎨 O'ng paneldagi brend vizuali: joriy qadam/tanlovga (wsState) qarab o'zgaradi —
+// masalan maqsad SAT tanlansa SAT haqida, akkaunt bosqichida xavfsizlik haqida va h.k.
+function wsVisualScene() {
   var feats = [
     ['🍅', _cl('Pomodoro taymer bilan ishlang', 'Work with a Pomodoro timer', 'Работайте с таймером Pomodoro')],
     ['🛡', _cl('Focusgate chalg\'ituvchi sayt va dasturlarni bloklaydi', 'Focusgate blocks distracting sites and apps', 'Focusgate блокирует отвлекающие сайты и приложения')],
     ['🪙', _cl('Vazifa bajarib tanga va XP yig\'ing', 'Earn coins and XP for tasks done', 'Зарабатывайте монеты и XP за задачи')],
     ['👥', _cl('Do\'stlar bilan reytingda bellashing', 'Compete with friends on the leaderboard', 'Соревнуйтесь с друзьями в рейтинге')]
   ];
-  return (window.LUBlocks && LUBlocks.orbitHtml ? LUBlocks.orbitHtml() : '') +
-    '<div class="ws-visual-title">LevelUpDay</div>' +
-    '<p class="ws-visual-sub">' + esc(_cl('Vazifalaringizni tartibga soling, chalg\'ishlardan himoyalaning va har kuni bir qadam oldinga yuring.', 'Organize your tasks, stay protected from distractions, and move one step forward every day.', 'Организуйте задачи, защититесь от отвлечений и двигайтесь на шаг вперёд каждый день.')) + '</p>' +
-    '<div class="ws-visual-feats">' + feats.map(function (f) { return '<div class="ws-visual-feat"><span>' + f[0] + '</span><b>' + f[1] + '</b></div>'; }).join('') + '</div>';
+  var defaultScene = {
+    icon: 'orbit',
+    title: 'LevelUpDay',
+    sub: _cl('Vazifalaringizni tartibga soling, chalg\'ishlardan himoyalaning va har kuni bir qadam oldinga yuring.', 'Organize your tasks, stay protected from distractions, and move one step forward every day.', 'Организуйте задачи, защититесь от отвлечений и двигайтесь на шаг вперёд каждый день.'),
+    feats: feats
+  };
+  if (!wsState) return defaultScene;
+  if (wsState.step === 0) {
+    if (wsState.goal === 'sat') return { icon: '🎯', title: 'SAT', sub: _cl('SAT imtihoniga tayyorlaning — mock testlar, so\'z boyligi va vaqtni boshqarish shu yerda.', 'Get ready for the SAT — mock tests, vocabulary and time management, all in one place.', 'Готовьтесь к SAT — пробные тесты, словарный запас и тайм-менеджмент в одном месте.'), feats: feats };
+    if (wsState.goal === 'ielts') return { icon: '🗣️', title: 'IELTS', sub: _cl('IELTS ball oshirishga yordam beramiz — mavzular, so\'z boyligi va mashqlar bilan.', 'We help you raise your IELTS score — with topics, vocabulary and practice drills.', 'Поможем повысить балл IELTS — темами, словарным запасом и практикой.'), feats: feats };
+    if (wsState.goal === 'cefr') return { icon: '🌍', title: 'CEFR', sub: _cl('CEFR darajangizni A1\'dan C1\'gacha, bosqichma-bosqich oshirib boring.', 'Raise your CEFR level step by step, from A1 all the way to C1.', 'Повышайте уровень CEFR шаг за шагом — от A1 до C1.'), feats: feats };
+    if (wsState.goal === 'other') return { icon: '🚀', title: _cl('Sizning maqsadingiz', 'Your goal', 'Ваша цель'), sub: _cl('Qaysi maqsad bo\'lishidan qat\'i nazar, LevelUpDay sizga intizom va izchillik bag\'ishlaydi.', 'Whatever your goal is, LevelUpDay gives you discipline and consistency to reach it.', 'Какой бы ни была цель, LevelUpDay даёт дисциплину и постоянство для её достижения.'), feats: feats };
+    return defaultScene;
+  }
+  if (wsState.step === 1) return { icon: '🧭', title: _cl('Xush kelibsiz!', 'Welcome!', 'Добро пожаловать!'), sub: _cl('Bizni qayerdan topganingizni bilish yangi foydalanuvchilarga ko\'proq yordam berishga yordam beradi.', 'Knowing where you found us helps us support new users even better.', 'Знание того, где вы нас нашли, помогает нам лучше поддерживать новых пользователей.'), feats: feats };
+  // step 2 — hisob/kirish bosqichi
+  if (!wsState.authMode) return { icon: 'orbit', title: 'LevelUpDay', sub: _cl('Deyarli tayyor — hisobingizni ulang va vazifalaringiz barcha qurilmalarda saqlanib qoladi.', 'Almost there — link your account and your tasks will be saved across every device.', 'Почти готово — привяжите аккаунт, и задачи сохранятся на всех устройствах.'), feats: feats };
+  if (wsState.authMode === 'register') return { icon: '🔐', title: _cl('Xavfsiz ro\'yxatdan o\'tish', 'Secure sign-up', 'Безопасная регистрация'), sub: _cl('Ma\'lumotlaringiz shifrlangan holda saqlanadi — Google, Telegram yoki email orqali ro\'yxatdan o\'tishingiz mumkin.', 'Your data is stored encrypted — sign up with Google, Telegram or email.', 'Ваши данные хранятся в зашифрованном виде — регистрируйтесь через Google, Telegram или email.'), feats: feats };
+  if (wsState.authMode === 'login') return { icon: '🔑', title: _cl('Qaytib kelganingizdan xursandmiz', 'Welcome back', 'Рады видеть вас снова'), sub: _cl('Hisobingizga kiring va boshqa qurilmada qolgan joyingizdan davom ettiring.', 'Sign in and pick up right where you left off on your other device.', 'Войдите и продолжите с того места, где остановились на другом устройстве.'), feats: feats };
+  if (wsState.authMode === 'verify') return { icon: '📬', title: _cl('Emailni tasdiqlash', 'Verify your email', 'Подтверждение email'), sub: _cl('Qutingizga 6 xonali kod yubordik — bir necha soniyada tayyor bo\'lasiz.', 'We sent a 6-digit code to your inbox — you\'ll be ready in a few seconds.', 'Мы отправили 6-значный код на вашу почту — вы будете готовы через несколько секунд.'), feats: feats };
+  return defaultScene;
+}
+function wsVisualHtml() {
+  var scene = wsVisualScene();
+  var badge = scene.icon === 'orbit'
+    ? (window.LUBlocks && LUBlocks.orbitHtml ? LUBlocks.orbitHtml() : '')
+    : '<div class="ws-visual-badge">' + scene.icon + '</div>';
+  return badge +
+    '<div class="ws-visual-title">' + esc(scene.title) + '</div>' +
+    '<p class="ws-visual-sub">' + esc(scene.sub) + '</p>' +
+    '<div class="ws-visual-feats">' + scene.feats.map(function (f) { return '<div class="ws-visual-feat"><span>' + f[0] + '</span><b>' + f[1] + '</b></div>'; }).join('') + '</div>';
 }
 
 function closeWelcomeSurvey() {
@@ -28364,6 +28475,9 @@ function wsRenderStep() {
   if (!body) return;
   wsUpdateDots();
   wsRenderSkipRow();
+  // O'ng paneldagi brend vizuali har bir qadam/tanlovdan keyin yangilanadi (keng ekranda bor bo'lsa)
+  var visualEl = document.querySelector('#welcome-survey-modal .ws-visual');
+  if (visualEl) visualEl.innerHTML = wsVisualHtml();
 
   var fieldStyle = "width:100%;box-sizing:border-box;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:var(--fs-sm);outline:none;margin-top:10px;font-family:'DM Sans',sans-serif";
   var descStyle = 'font-size:var(--fs-xs);color:var(--text-muted);line-height:1.6;margin-bottom:2px';
@@ -36253,6 +36367,18 @@ try {
     }
   });
 } catch (e) { console.warn('[auth listener]', e); }
+
+// 🌙 Sessiya tokenini IndexedDB'ga ham ko'chiramiz — fon sinxronizatsiyasi
+// (servis-worker) internet qaytganda shu token bilan navbatni yuboradi.
+try {
+  supabase.auth.onAuthStateChange(function (ev, session) {
+    if (session && session.user && session.access_token) {
+      _bgPut('session', { uid: session.user.id, access_token: session.access_token, refresh_token: session.refresh_token });
+    } else if (ev === 'SIGNED_OUT') {
+      _bgPut('session', null);
+    }
+  });
+} catch (e) {}
 
 // Sessiyani tekshirish (modul to'liq yuklangandan keyin)
 try { if (typeof wsCheckSupabaseSession === 'function') wsCheckSupabaseSession(); } catch (e) {}

@@ -2104,6 +2104,10 @@
      Blob'lar sekin suzib yuradi (float animatsiya), modal oynasi esa
      nozik gradient + porlash bilan chiziladi. */
   .ws-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
     background: radial-gradient(ellipse 900px 700px at 50% 8%, rgba(124,92,252,0.22) 0%, transparent 60%),
                 radial-gradient(ellipse 700px 600px at 90% 95%, rgba(245,166,35,0.14) 0%, transparent 55%),
                 rgba(6,6,10,0.86);
@@ -2111,6 +2115,13 @@
     -webkit-backdrop-filter: blur(10px) saturate(1.15);
     animation: wsOverlayFadeIn 0.35s ease;
     overflow: hidden;
+  }
+  /* Birinchi marta kirish ekrani (showWelcomeSurvey): butun ekranni egallaydi —
+     keng ekranda chetlarda bo'sh joy qolmasin (quyida .ws-split to'liq kenglik/balandlik oladi) */
+  .ws-overlay.ws-overlay-full {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
   }
   @keyframes wsOverlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
   .ws-blob {
@@ -2179,22 +2190,34 @@
   }
 
   /* ============ 🎬 Birinchi marta kirish — chap/o'ng joylashuv ============
-     Chap: savol-javob karta (.ws-box, yuqoridagi o'zgarmagan holicha).
-     O'ng: brend/vizual panel — orbital ikonka halqasi + qisqa imkoniyatlar ro'yxati
-     (video/rasm o'rniga — statik fayl hostligi yo'q, shuning uchun ilovaning o'z
-     SVG/CSS vizuali qayta ishlatiladi). Tor ekranda (<860px) o'ng panel butunlay
-     yashiriladi — mobil ko'rinish avvalgidek bitta markazdagi karta bo'lib qoladi. */
+     Butun ekranni egallaydi (chetlarda bo'sh joy qolmasligi uchun): chap yarmida
+     savol-javob karta (.ws-box) ekranning o'rtasida (orqadagi "blob" fon ko'rinib
+     turadi), o'ng yarmida esa chetdan-chetgacha cho'zilgan brend/vizual panel —
+     ikonka/emoji + sarlavha + qisqa imkoniyatlar ro'yxati, HAR BIR qadam/tanlovdan
+     keyin (wsVisualHtml) yangilanadi, bir xilligicha qolib ketmaydi. Tor ekranda
+     (<860px) o'ng panel butunlay yashiriladi — mobil ko'rinish avvalgidek bitta
+     markazdagi karta bo'lib qoladi. */
   .ws-split {
     display: flex;
     align-items: stretch;
     width: 100%;
-    max-width: 860px;
+    height: 100%;
+  }
+  .ws-left {
+    flex: 1 1 46%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    position: relative;
+    z-index: 1;
   }
   .ws-split .ws-box {
-    flex: 0 0 380px;
+    flex: none;
+    width: 100%;
     max-width: 380px;
-    border-radius: var(--radius-xl) 0 0 var(--radius-xl);
-    border-right: 0;
+    border-radius: var(--radius-xl);
     display: flex;
     flex-direction: column;
   }
@@ -2206,33 +2229,41 @@
     justify-content: center;
   }
   .ws-visual {
-    flex: 1 1 auto;
+    flex: 1 1 54%;
     min-width: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 40px 32px;
+    padding: 40px 48px;
     position: relative;
     overflow: hidden;
-    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
     background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 16%, var(--surface)) 0%, var(--surface2) 120%);
-    box-shadow: 0 24px 60px -12px rgba(0,0,0,0.55), 0 0 0 1px var(--border-hover);
+    box-shadow: -1px 0 0 0 var(--border-hover);
+  }
+  .ws-visual-badge {
+    font-size: 56px;
+    line-height: 1;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 6px 18px var(--accent-glow));
     animation: wsBoxPop 0.4s cubic-bezier(0.16,1,0.3,1);
   }
   .ws-visual .lub-orb { width: 220px; height: 220px; margin: 0 auto 26px; }
   .ws-visual .lub-orb-it { width: 42px; height: 42px; margin: -21px 0 0 -21px; transform: rotate(var(--a)) translateY(-108px) rotate(calc(-1 * var(--a))); }
   .ws-visual .lub-orb-it i { font-size: 20px; }
   .ws-visual .lub-orb-cap { font-size: 12.5px; margin-bottom: 22px; }
-  .ws-visual-title { font-family: Syne, sans-serif; font-size: 22px; font-weight: 700; color: var(--text); margin: 0 0 10px; }
-  .ws-visual-sub { font-size: 13.5px; color: var(--text-muted); max-width: 300px; margin: 0 0 24px; line-height: 1.55; }
+  .ws-visual-title { font-family: Syne, sans-serif; font-size: 22px; font-weight: 700; color: var(--text); margin: 0 0 10px; animation: wsBoxPop 0.35s cubic-bezier(0.16,1,0.3,1); }
+  .ws-visual-sub { font-size: 13.5px; color: var(--text-muted); max-width: 320px; margin: 0 0 24px; line-height: 1.55; }
   .ws-visual-feats { display: flex; flex-direction: column; gap: 9px; text-align: left; width: 100%; max-width: 290px; }
   .ws-visual-feat { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; }
   .ws-visual-feat span { font-size: 17px; flex: none; }
   @media (max-width: 860px) {
-    .ws-split { display: block; max-width: 400px; }
-    .ws-split .ws-box { flex: none; max-width: 100%; border-radius: var(--radius-xl); border-right: 1px solid var(--border); }
+    .ws-overlay.ws-overlay-full { padding: 20px; align-items: center; justify-content: center; }
+    .ws-split { display: block; width: auto; height: auto; max-width: 400px; }
+    .ws-left { padding: 0; }
+    .ws-split .ws-box { max-width: 100%; border-radius: var(--radius-xl); }
     .ws-visual { display: none; }
   }
   @media (min-width: 861px) {
