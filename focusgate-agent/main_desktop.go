@@ -612,14 +612,16 @@ func niceName(exe string) string {
 // ---------- Sinxronlash ----------
 var syncMu sync.Mutex
 
-func doSync() {
+// doSync — true: sinxronlash muvaffaqiyatli (yoki hali ulanmagan — qilinadigan ish yo'q).
+// false: tarmoq/server xatosi — syncLoop buni ko'rib, keyingi odatdagi 30s o'rniga tezroq qayta urinadi.
+func doSync() bool {
 	syncMu.Lock()
 	defer syncMu.Unlock()
 	st.mu.Lock()
 	tok := st.Token
 	st.mu.Unlock()
 	if tok == "" {
-		return
+		return true
 	}
 	// O'rnatilgan dasturlar ro'yxati — 6 soatda bir marta (yoki birinchi sinxronlashda)
 	var apps []InstalledApp
@@ -647,11 +649,11 @@ func doSync() {
 		_ = st.Save()
 		setStatus(Tr("unpaired"))
 		mPair.SetTitle(Tr("pair"))
-		return
+		return true
 	}
 	if err != nil {
 		setStatus(Tr("offline"))
-		return
+		return false
 	}
 	if st.ApplyReset(res.Config.StatsResetAt) {
 		_ = st.Save() // saytda statistika tozalandi — bu kompyuterdagi hisob ham noldan
@@ -700,14 +702,27 @@ func doSync() {
 			}()
 		}
 	}
+	return true
 }
 
 func syncLoop() {
 	time.Sleep(3 * time.Second)
+	fails := 0
 	for {
-		doSync()
-		// fokus boshlanishini tezroq sezish uchun tez-tez so'raymiz
-		time.Sleep(30 * time.Second)
+		if doSync() {
+			fails = 0
+			// fokus boshlanishini tezroq sezish uchun tez-tez so'raymiz
+			time.Sleep(30 * time.Second)
+		} else {
+			// 🔁 Qisqa tarmoq uzilishi — keyingi odatdagi 30s'ni kutib o'tirmasdan tezroq qayta
+			// urinamiz (uzoq muddatli uzilishda cheksiz tez urinmasin deb — ko'pi bilan 3 marta).
+			fails++
+			if fails <= 3 {
+				time.Sleep(5 * time.Second)
+			} else {
+				time.Sleep(30 * time.Second)
+			}
+		}
 	}
 }
 

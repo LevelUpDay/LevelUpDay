@@ -229,20 +229,27 @@ const LOCAL_PORTS = [47613, 47614, 47615, 47616, 47617]; // focusgate-agent/loca
 async function findAgent() {
   const { agent } = await chrome.storage.session.get('agent');
   if (agent && Date.now() - agent.at < (agent.id ? 5 : 2) * 60000) return agent.id || null;
-  let id = null;
-  for (const port of LOCAL_PORTS) {
+  // 🔀 Portlarni ketma-ket emas, parallel so'raymiz — ketma-ket (5 × 700ms = 3.5s gacha) sekinlik
+  // ba'zan shu sinxronlash siklida agentni "topolmay qoldi" deb, kengaytma vaqtincha
+  // kompyuterdan uzilib-ulanib turganday ko'rinishiga olib kelardi.
+  const probes = LOCAL_PORTS.map((port) => {
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 700);
-    try {
-      const r = await fetch('http://127.0.0.1:' + port + '/focusgate/id', { signal: ctl.signal, cache: 'no-store' });
-      if (r.status === 200) { const j = await r.json().catch(() => ({})); if (j.app === 'focusgate' && /^[0-9a-f-]{36}$/i.test(j.id || '')) { id = j.id; break; } }
-    } catch (e) { /* port yopiq — keyingisi */ } finally { clearTimeout(t); }
-  }
+    return fetch('http://127.0.0.1:' + port + '/focusgate/id', { signal: ctl.signal, cache: 'no-store' })
+      .then((r) => r.status === 200 ? r.json().catch(() => ({})) : null)
+      .then((j) => (j && j.app === 'focusgate' && /^[0-9a-f-]{36}$/i.test(j.id || '')) ? j.id : null)
+      .catch(() => null)
+      .finally(() => clearTimeout(t));
+  });
+  const results = await Promise.all(probes);
+  const id = results.find((x) => x) || null;
   await chrome.storage.session.set({ agent: { id, at: Date.now() } });
   return id;
 }
 
 // ---------- Sinxronlash ----------
 let syncing = false;
+let syncFailStreak = 0;
+let syncRetryTimer = null;
 async function sync() {
   if (syncing) return; syncing = true;
   try {
@@ -283,10 +290,21 @@ async function sync() {
     await enforceAll();
     await warnCheck().catch(() => {});
     notifyPopup();
-  } catch (e) { /* oflayn — keyingi daqiqada qayta urinadi */ }
+    syncFailStreak = 0;
+  } catch (e) {
+    // 🔁 Oflayn yoki qisqa tarmoq uzilishi — keyingi daqiqalik alarmni kutib o'tirmasdan,
+    // 8 soniyadan keyin bir necha marta tezroq qayta urinamiz (server haqiqatan uzoq vaqt
+    // ishlamasa — cheksiz urinmasin deb ko'pi bilan 3 marta, keyin odatdagi alarm davom etadi).
+    syncFailStreak++;
+    if (syncFailStreak <= 3) { clearTimeout(syncRetryTimer); syncRetryTimer = setTimeout(sync, 8000); }
+  }
   finally { syncing = false; }
 }
 function notifyPopup() { chrome.runtime.sendMessage({ type: 'fg:update' }).catch(() => {}); }
+// 🌐 Tarmoq qaytganda keyingi daqiqalik alarmni kutmasdan darhol sinxronlashga urinamiz
+if (typeof self !== 'undefined' && self.addEventListener) {
+  self.addEventListener('online', () => { syncFailStreak = 0; sync(); });
+}
 
 // ---------- Hodisalar ----------
 chrome.runtime.onInstalled.addListener(async (d) => {
