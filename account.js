@@ -487,11 +487,27 @@
   }
   async function linkGoogle() {
     if (!supabase.auth.linkIdentity) { tst('⚠️ ' + L('Brauzeringizda bu imkoniyat yo\'q', 'Not supported here', 'Не поддерживается')); return; }
+    // Google provayderi serverda o'chirilgan bo'lsa, xom xato o'rniga tushunarli xabar (login tugmasi bilan bir xil tekshiruv)
+    try { if (typeof cloudGoogleEnabled === 'function' && !(await cloudGoogleEnabled())) { tst('⚠️ ' + L('Google hozircha yoqilmagan', 'Google is not enabled yet', 'Google пока не включён')); return; } } catch (e) {}
     try { sessionStorage.setItem('ludLinkingGoogle', '1'); } catch (e) {}
     var r = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });
     if (r && r.error) {
-      tst('⚠️ ' + (/manual linking|disabled/i.test(r.error.message) ? L('Server sozlamasida "Manual linking" yoqilmagan', '"Manual linking" is disabled on the server', 'На сервере выключено «Manual linking»') : r.error.message));
+      tst('⚠️ ' + (/manual linking|disabled/i.test(r.error.message) ? L('Server sozlamasida "Manual linking" yoqilmagan', '"Manual linking" is disabled on the server', 'На сервере выключено «Manual linking»')
+        : /identity.*(exist|already)|already.*(linked|exist)/i.test(r.error.message) ? L('Bu Google akkaunt boshqa bir LevelUpDay akkauntiga allaqachon ulangan', 'This Google account is already linked to another LevelUpDay account', 'Этот Google аккаунт уже привязан к другому аккаунту LevelUpDay')
+        : r.error.message));
     }
+  }
+  async function unlinkGoogle(identity) {
+    if (!identity) return;
+    if (!supabase.auth.unlinkIdentity) { tst('⚠️ ' + L('Brauzeringizda bu imkoniyat yo\'q', 'Not supported here', 'Не поддерживается')); return; }
+    var ok = await confirmBox('🟢 ' + L('Google\'ni uzish', 'Unlink Google', 'Отвязать Google'),
+      H(L('Bundan keyin Google orqali kira olmaysiz. Boshqa usul (parol yoki Telegram) ishlashiga ishonch hosil qiling.', 'You will no longer be able to sign in with Google. Make sure another method (password or Telegram) still works.', 'Вы больше не сможете входить через Google. Убедитесь, что другой способ (пароль или Telegram) работает.')),
+      L('Uzish', 'Unlink', 'Отвязать'), true);
+    if (!ok) return;
+    var r = await supabase.auth.unlinkIdentity(identity);
+    if (r && r.error) { tst('⚠️ ' + r.error.message); return; }
+    tst('✅ ' + L('Google uzildi', 'Google unlinked', 'Google отвязан'));
+    renderCenter();
   }
 
   // =========================================================
@@ -644,24 +660,36 @@
   async function tabLogin(body) {
     if (needAcc(body)) return;
     body.innerHTML = '<div class="acc-empty">⏳</div>';
-    var ids = [];
-    try { var g = await supabase.auth.getUserIdentities(); ids = ((g && g.data && g.data.identities) || []).map(function (i) { return i.provider; }); } catch (e) {}
+    var identities = [];
+    try { var g = await supabase.auth.getUserIdentities(); identities = (g && g.data && g.data.identities) || []; } catch (e) {}
+    var ids = identities.map(function (i) { return i.provider; });
+    var googleIdentity = identities.filter(function (i) { return i.provider === 'google'; })[0];
     var u = null; try { u = (await supabase.auth.getUser()).data.user; } catch (e) {}
     var tgLinked = false; try { var t = await supabase.from('telegram_links').select('chat_id').maybeSingle(); tgLinked = !!(t && t.data); } catch (e) {}
     var email = (u && u.email) || S.cloudEmail || '';
     var fakeEmail = /@(telegram|tg)\./i.test(email) || /^tg[_-]?\d+@/i.test(email);
     var row = function (ic, name, on, sub, btn) { return '<div class="acc-row"><span class="acc-ic">' + ic + '</span><div class="acc-row-m"><b>' + H(name) + ' ' + (on ? '<em class="acc-tag ok">✓ ' + H(L('ulangan', 'linked', 'привязан')) + '</em>' : '') + '</b><small>' + H(sub) + '</small></div>' + (btn || '') + '</div>'; };
     var hasGoogle = ids.indexOf('google') !== -1, hasEmail = ids.indexOf('email') !== -1;
+    // Google'ni uzish faqat boshqa kirish usuli (haqiqiy parol yoki Telegram) ishlaydigan bo'lsa taklif qilinadi —
+    // aks holda uzilgach akkauntdan umuman kira olmay qolish xavfi bor
+    var canUnlinkGoogle = hasGoogle && ((hasEmail && !fakeEmail) || tgLinked);
     body.innerHTML = '<p class="acc-p acc-muted">' + H(L('Bitta akkauntga bir nechta kirish usulini bog\'lang — biri ishlamasa, boshqasi bilan kirasiz.', 'Link several sign-in methods to one account — if one fails, use another.', 'Привяжите несколько способов входа — если один не сработает, войдёте другим.')) + '</p><div class="acc-list">' +
       row('📧', 'Email', hasEmail && !fakeEmail, fakeEmail ? L('Haqiqiy email qo\'shing', 'Add a real email', 'Добавьте настоящий email') : email, '<button type="button" class="x-btn sm ghost" data-email>' + H(fakeEmail ? L('Qo\'shish', 'Add', 'Добавить') : L('O\'zgartirish', 'Change', 'Сменить')) + '</button>') +
       row('🔑', L('Parol', 'Password', 'Пароль'), false, L('Email + parol bilan kirish uchun', 'For email + password sign-in', 'Для входа по email и паролю'), '<button type="button" class="x-btn sm ghost" data-pass>' + H(L('O\'rnatish', 'Set', 'Задать')) + '</button>') +
-      row('🟢', 'Google', hasGoogle, hasGoogle ? L('Google bilan kira olasiz', 'You can sign in with Google', 'Можно входить через Google') : L('Google akkauntni ulash', 'Link a Google account', 'Привязать Google'), hasGoogle ? '' : '<button type="button" class="x-btn sm" data-google>' + H(L('Ulash', 'Link', 'Привязать')) + '</button>') +
-      row('✈️', 'Telegram', tgLinked, tgLinked ? L('Bot ulangan', 'Bot connected', 'Бот подключён') : L('Eslatmalar va kirish', 'Reminders and sign-in', 'Напоминания и вход'), tgLinked ? '' : '<button type="button" class="x-btn sm ghost" data-tg>' + H(L('Ulash', 'Link', 'Привязать')) + '</button>') +
+      row('🟢', 'Google', hasGoogle, hasGoogle ? L('Google bilan kira olasiz', 'You can sign in with Google', 'Можно входить через Google') : L('Google akkauntni ulash', 'Link a Google account', 'Привязать Google'),
+        hasGoogle
+          ? (canUnlinkGoogle ? '<button type="button" class="x-btn sm ghost acc-danger-t" data-google-unlink>' + H(L('Uzish', 'Unlink', 'Отвязать')) + '</button>' : '')
+          : '<button type="button" class="x-btn sm" data-google>' + H(L('Ulash', 'Link', 'Привязать')) + '</button>') +
+      row('✈️', 'Telegram', tgLinked,
+        tgLinked ? L('Bot ulangan — shu Telegram bilan ham kira olasiz', 'Bot connected — you can also sign in with this Telegram', 'Бот подключён — можно входить и через этот Telegram')
+          : L('Eslatmalar olish va Telegram bilan kirish uchun ulang', 'Connect for reminders and Telegram sign-in', 'Подключите для напоминаний и входа через Telegram'),
+        '<button type="button" class="x-btn sm ghost" data-tg>' + H(tgLinked ? L('Boshqarish', 'Manage', 'Управление') : L('Ulash', 'Link', 'Привязать')) + '</button>') +
       '</div>';
     var q = function (s) { return body.querySelector(s); };
     q('[data-email]').onclick = openEmail;
     q('[data-pass]').onclick = openPassword;
     if (q('[data-google]')) q('[data-google]').onclick = linkGoogle;
+    if (q('[data-google-unlink]')) q('[data-google-unlink]').onclick = function () { unlinkGoogle(googleIdentity); };
     if (q('[data-tg]')) q('[data-tg]').onclick = function () { if (_ov) _ov._close(); try { showTab('profile'); showProfileSubtab('settings'); } catch (e) {} setTimeout(function () { var c = document.getElementById('x-tg-card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 400); };
   }
   function tabAccounts(body) {

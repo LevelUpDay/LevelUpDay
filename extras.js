@@ -3271,7 +3271,7 @@
     };
     card.querySelector('#x-tg-open').onclick = function () { window.open('https://t.me/' + TG_BOT, '_blank'); };
     card.querySelector('#x-tg-unlink').onclick = async function () {
-      if (!confirm(L('Telegram eslatmalari uzilsinmi?', 'Disconnect Telegram reminders?', 'Отключить напоминания в Telegram?'))) return;
+      if (!confirm(L('Telegram uzilsinmi? Eslatmalar kelmay qo\'yadi va bu Telegram bilan akkauntga kirib bo\'lmaydi.', 'Disconnect Telegram? Reminders will stop and you will no longer be able to sign in with this Telegram.', 'Отключить Telegram? Напоминания прекратятся, и вход через этот Telegram станет недоступен.'))) return;
       await supabase.from('telegram_links').delete().eq('chat_id', link.chat_id);
       toast(L('Telegram uzildi', 'Telegram disconnected', 'Telegram отключён')); renderTgSettings();
     };

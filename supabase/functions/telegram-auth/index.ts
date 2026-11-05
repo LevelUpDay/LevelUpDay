@@ -1,7 +1,9 @@
 // ✈️ telegram-auth — Telegram Login Widget orqali kirish.
 //  1) Telegram yuborgan ma'lumot (id, first_name, username, photo_url, auth_date, hash)
 //     bot tokeni bilan HMAC-SHA256 orqali tekshiriladi (https://core.telegram.org/widgets/login#checking-authorization).
-//  2) Foydalanuvchi topiladi yoki yaratiladi: email = tg<id>@telegram.levelupday.app (xat yuborilmaydi).
+//  2) Bu Telegram (chat_id) telegram_links'da biror HAQIQIY akkaunga ulangan bo'lsa — o'sha akkaunga
+//     kiritiladi. Aks holda foydalanuvchi topiladi yoki yaratiladi: email = tg<id>@telegram.levelupday.app
+//     (xat yuborilmaydi) — faqat shu Telegram hali hech qaysi akkaunga ulanmagan bo'lsa.
 //  3) Bir martalik magiclink token_hash qaytariladi — mijoz supabase.auth.verifyOtp({ token_hash, type: 'email' })
 //     bilan sessiya oladi.
 // Sir: TELEGRAM_BOT_TOKEN (Edge Functions → Secrets). JWT tekshiruvi o'chirilgan — himoya HMAC imzoda.
@@ -61,27 +63,40 @@ Deno.serve(async (req) => {
   if (!(await verifyTelegram(data))) return json({ error: "bad_signature" }, 401);
 
   const sb = createClient(SB_URL, SB_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
-  const email = `tg${id}@telegram.levelupday.app`;
   const name = String(data.username || [data.first_name, data.last_name].filter(Boolean).join(" ") || `tg${id}`).slice(0, 30);
-  const meta = { name, full_name: name, avatar_url: data.photo_url || null, telegram_id: id, telegram_username: data.username || null, provider_hint: "telegram" };
 
-  // Yangi bo'lsa yaratamiz (allaqachon bor bo'lsa — xato e'tiborsiz qoldiriladi)
-  const created = await sb.auth.admin.createUser({ email, email_confirm: true, user_metadata: meta });
-  const isNew = !created.error;
-  if (created.error && !/already|registered|exists/i.test(created.error.message)) {
-    return json({ error: "create_failed", detail: created.error.message }, 500);
+  // 🔗 Bu Telegram (chat_id) allaqachon biror HAQIQIY akkaunga ulangan bo'lsa (Profil → Sozlamalar →
+  // Telegram orqali, yoki avvalgi "faqat Telegram" kirishdan) — aynan o'sha akkaunga kiritamiz.
+  // Aks holda har safar "tg<id>@telegram.levelupday.app" soxta-email akkaunti qidirilib/yaratilib,
+  // odam Google/email akkauntidan butunlay ALOHIDA, ikkinchi akkauntga tushib qolardi.
+  const { data: existingLink } = await sb.from("telegram_links").select("user_id,username").eq("chat_id", id).maybeSingle();
+  let targetEmail: string | null = null;
+  if (existingLink?.user_id) {
+    const got = await sb.auth.admin.getUserById(existingLink.user_id);
+    if (got.data?.user?.email) targetEmail = got.data.user.email;
   }
 
-  const link = await sb.auth.admin.generateLink({ type: "magiclink", email });
+  let isNew = false;
+  if (!targetEmail) {
+    // Bu Telegram hali hech qanday akkaunga ulanmagan — o'ziga xos soxta-email akkaunt (birinchi marta)
+    targetEmail = `tg${id}@telegram.levelupday.app`;
+    const meta = { name, full_name: name, avatar_url: data.photo_url || null, telegram_id: id, telegram_username: data.username || null, provider_hint: "telegram" };
+    const created = await sb.auth.admin.createUser({ email: targetEmail, email_confirm: true, user_metadata: meta });
+    isNew = !created.error;
+    if (created.error && !/already|registered|exists/i.test(created.error.message)) {
+      return json({ error: "create_failed", detail: created.error.message }, 500);
+    }
+  }
+
+  const link = await sb.auth.admin.generateLink({ type: "magiclink", email: targetEmail });
   // ✈️ Telegram orqali kirgan foydalanuvchi bot xabarlariga avtomatik ulanadi (request_access: write)
-  const uid = link.data?.user?.id;
-  // (chat boshqa akkauntga — masalan email akkauntga — ulangan bo'lsa, o'sha bog'lanishga tegmaymiz)
+  const uid = existingLink?.user_id || link.data?.user?.id;
   if (uid) {
-    const { data: ex } = await sb.from("telegram_links").select("user_id").or(`user_id.eq.${uid},chat_id.eq.${id}`).limit(1);
-    if (!ex?.length) await sb.from("telegram_links").insert({ user_id: uid, chat_id: id, username: data.username || null });
+    if (!existingLink) await sb.from("telegram_links").insert({ user_id: uid, chat_id: id, username: data.username || null });
+    else if (data.username && data.username !== existingLink.username) await sb.from("telegram_links").update({ username: data.username }).eq("chat_id", id);
   }
   const tokenHash = link.data?.properties?.hashed_token;
   if (link.error || !tokenHash) return json({ error: "link_failed", detail: link.error?.message }, 500);
 
-  return json({ email, token_hash: tokenHash, is_new: isNew });
+  return json({ email: targetEmail, token_hash: tokenHash, is_new: isNew });
 });
