@@ -6330,6 +6330,13 @@
     var c = cfg(); if (!c.on || S.xCheckinSkip === td()) return;
     if (document.querySelector('.x-ci-ov, .xs-ov') || document.hidden) return;
     if (window.ludPopupBusy && window.ludPopupBusy()) { clearTimeout(maybeAsk._t); maybeAsk._t = setTimeout(maybeAsk, 1500); return; } // boshqa savol oynasi yopilishini kutamiz
+    // ☁️ Bulutga ulangan bo'lsa: birinchi sinxronlash tugamasdan so'ramaymiz — aks holda boshqa
+    // qurilmada allaqachon javob berilgan/"Keyinroq" bosilgan bo'lsa ham, bu qurilma eski (hali
+    // sinxronlanmagan) mahalliy nusxaga qarab, xuddi birinchi marta so'rayotgandek qayta so'rab qolardi.
+    if (S.cloudLinked && !window._cloudPullDone) {
+      maybeAsk._tries = (maybeAsk._tries || 0) + 1;
+      if (maybeAsk._tries < 20) { clearTimeout(maybeAsk._t); maybeAsk._t = setTimeout(maybeAsk, 1500); return; }
+    }
     var n = need(); if (!n.sleep && !n.mood && !n.energy) return;
     open(n);
   }
@@ -6350,7 +6357,10 @@
       '<div class="x-ci-note">' + H(L('Sozlamalar → "Har kuni so\'rash" orqali o\'chirish mumkin', 'Turn off in Settings → "Daily check-in"', 'Отключить: Настройки → «Ежедневный опрос»')) + '</div></div>';
     ov.innerHTML = h; document.body.appendChild(ov);
     requestAnimationFrame(function () { ov.classList.add('open'); });
-    var close = function () { ov.classList.remove('open'); setTimeout(function () { ov.remove(); }, 180); };
+    var later = function () { S.xCheckinSkip = td(); try { save(); } catch (er) {} close(); };
+    var close = function () { ov.classList.remove('open'); document.removeEventListener('keydown', onKey, true); setTimeout(function () { ov.remove(); }, 180); };
+    var onKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); later(); } };
+    document.addEventListener('keydown', onKey, true);
     ov.addEventListener('click', function (e) {
       var b = e.target.closest('[data-k]');
       if (b) {
@@ -6358,8 +6368,8 @@
         b.parentNode.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
         ov.querySelector('[data-ci="save"]').disabled = false; return;
       }
-      var a = e.target.closest('[data-ci]'); if (!a) { if (e.target === ov) { S.xCheckinSkip = d; try { save(); } catch (er) {} close(); } return; }
-      if (a.getAttribute('data-ci') === 'later') { S.xCheckinSkip = d; try { save(); } catch (er) {} close(); return; }
+      var a = e.target.closest('[data-ci]'); if (!a) { if (e.target === ov) later(); return; }
+      if (a.getAttribute('data-ci') === 'later') { later(); return; }
       // Saqlash
       if (ans.sleep != null) {
         if (!yd && window.xSleepSet) { try { window.xSleepSet(+ans.sleep); } catch (er) {} }
