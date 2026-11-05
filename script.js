@@ -35637,6 +35637,7 @@ var _cloudRetryPull = function(uid, onDone) {
     try { applyLanguage(); } catch (e) {}
     try { updateHeaderUserTitle(); renderProfile(); } catch (e) {}
     try { render(); } catch (e) {}
+    try { _refreshCalendarIfVisible(); } catch (e) {}
     try { startRealtimeSync(); } catch (e) {}
     try { scheduleAppStateSync(true); } catch (e) {}
     _cloudToast('✅ ' + _cl('Bulut bilan ulandi — ma\'lumotlaringiz tiklandi', 'Connected to the cloud — your data is restored', 'Связь с облаком восстановлена — данные загружены'));
@@ -35661,7 +35662,7 @@ var _cloudRetryBoot = function(uid) {
     if (!as.ok) { _cloudRetryBoot(uid); return; }
     _cloudRetryBootN = 0;
     window._cloudPullDone = true;
-    if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
+    if (as.applied) { try { applyLanguage(); render(); _refreshCalendarIfVisible(); } catch (e) {} }
     try { await _cloudRefreshTodos(); } catch (e) {}
     try { scheduleCloudSync(true); scheduleTodosCloudSync(true); scheduleAppStateSync(true); } catch (e) {}
   }, delay);
@@ -35864,13 +35865,13 @@ var _cloudBootInner = async function(session, isOAuthReturn) {
     // Holat boshqa akkaunt/mehmonniki — bulutdan to'liq tiklaymiz, yozishdan oldin
     var full = null; try { full = await cloudPullAll(S.cloudUserId); } catch (e) {}
     if (!full || !full.ok) { _cloudPullFailToast(); _cloudRetryPull(S.cloudUserId); return; }
-    try { applyLanguage(); render(); } catch (e) {}
+    try { applyLanguage(); render(); _refreshCalendarIfVisible(); } catch (e) {}
   }
   window._cloudPullDone = !!as.ok;
   startRealtimeSync();
   if (!as.ok) { _cloudRetryBoot(S.cloudUserId); return; }
   if (as.ok) {
-    if (as.applied) { try { applyLanguage(); render(); } catch (e) {} }
+    if (as.applied) { try { applyLanguage(); render(); _refreshCalendarIfVisible(); } catch (e) {} }
     try { await _cloudTodosIfChanged(); } catch (e) {}
     try { if (fixInvalidNick()) { save(); updateHeaderUserTitle(); renderProfile(); scheduleCloudSync(true); } } catch (e) {}
     try { var _pr = await supabase.from('profiles').select('coins,season_coins').eq('id', S.cloudUserId).maybeSingle(); if (_pr && _pr.data && _seasonFromServer(_pr.data)) { save(); render(); } } catch (e) {}
@@ -36083,7 +36084,22 @@ function _profileEchoSeen(p) {
 var _rtRenderTimer = null;
 function _rtRenderSoon() {
   if (_rtRenderTimer) clearTimeout(_rtRenderTimer);
-  _rtRenderTimer = setTimeout(function () { _rtRenderTimer = null; try { render(); } catch (e) {} }, 250);
+  _rtRenderTimer = setTimeout(function () { _rtRenderTimer = null; try { render(); } catch (e) {} try { _refreshCalendarIfVisible(); } catch (e) {} }, 250);
+}
+// 📅 Profildagi kalendar (va maqsadlar kalendari) umumiy render()ga kirmaydi — faqat
+// showTab('profile') yoki kalendarning o'z kun-toggle tugmasi uning qayta chizilishiga
+// sabab bo'ladi. Shu sabab: agar ilova Profil bo'limi ochiq paytida (masalan, mahalliy
+// keshdan darhol ko'rsatilgan, keyin bulutdan yangiroq tarix kelgan) fon sinxronizatsiyasi
+// S.taskDoneLog/S.tarix/S.tasks'ni yangilasa, kalendar eski ko'rinishda qolib ketardi —
+// foydalanuvchi buni faqat kalendardagi biror kunni qo'lda bosib "tuzatardi". Shu funksiya
+// har qanday fon-yangilanishdan keyin chaqiriladi va, faqat Profil bo'limi ochiq bo'lsa,
+// kalendarni ham qayta chizadi.
+function _refreshCalendarIfVisible() {
+  try {
+    if (document.documentElement.getAttribute('data-tab') !== 'profile') return;
+    if (typeof renderCalendar === 'function' && document.getElementById('cal-grid')) renderCalendar();
+    if (typeof renderGoalsCalendar === 'function' && document.getElementById('gcal-grid')) renderGoalsCalendar();
+  } catch (e) {}
 }
 // Bulutda bor deb bilingan task id'lari (qurilmada saqlanadi) — boshqa qurilmada o'chirilgan
 // vazifa bu yerda qolib, qaytadan yuklanib "tirilib" ketmasligi uchun.
@@ -36132,6 +36148,7 @@ async function _cloudRefreshTodos() {
       try { ensureFullTaskOrder(); } catch (e) {}
       try { writeLocalTasks(S.tasks); } catch (e) {}
       try { render(); } catch (e) {}
+      try { _refreshCalendarIfVisible(); } catch (e) {}
     }
     return changed;
   } catch (e) { return false; } finally { _cloudTodosBusy = false; }
@@ -36151,6 +36168,7 @@ function _cloudRefreshAppState(showToast) {
     if (r && r.applied) {
       try { applyLanguage(); } catch (e) {}
       try { render(); } catch (e) {}
+      try { _refreshCalendarIfVisible(); } catch (e) {}
       try { if (typeof renderTimeline === 'function') renderTimeline(); } catch (e) {}
       if (showToast) { try { toast(t('realtime_updated_toast')); } catch (e) {} }
     }
