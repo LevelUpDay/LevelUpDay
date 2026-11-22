@@ -408,9 +408,10 @@ var loadUserDataAndInit = async function() {
     // 💰 Har bir qiyinlikdan bittadan misol vazifa — har bir vazifa qancha tanga berishini darrov ko'rsatadi
     try { econSampleTasks(); } catch (e) {}
     S.econV = 2;
-    // 🎉 Yangi foydalanuvchi — birinchi marta ochilganda "Xush kelibsiz"
-    // so'rovnomasini ko'rsatish uchun bayroq o'rnatamiz (render() dan keyin ishlatiladi).
-    S.showWelcomeSurveyPending = true;
+    // 🎉 Yangi foydalanuvchi — hech narsa so'ramasdan, to'g'ridan-to'g'ri mehmon
+    // sifatida ilovadan foydalana boshlaydi (yutuq/mukofotlar darhol ishlaydi).
+    // Akkaunt yaratish/kirish — faqat tepadagi banner orqali, xohlasa.
+    S.welcomeSurveyDone = true;
     ensureCefrDefaults();
     saveToLocalStorage(S);
   }
@@ -455,11 +456,12 @@ var loadUserDataAndInit = async function() {
   refreshAllModulesFromState();
   removeTestDataForJuly1();
 
-  // 🎉 Yangi foydalanuvchi bo'lsa — "Xush kelibsiz" so'rovnoma oynasini ochamiz
+  // Eski (allaqachon diskda) "ko'rsatilishi kutilayotgan" bayrog'i bo'lsa ham —
+  // endi so'rovnoma majburiy ko'rsatilmaydi, mehmon sifatida davom etadi.
   if (S.showWelcomeSurveyPending) {
     S.showWelcomeSurveyPending = false;
+    S.welcomeSurveyDone = true;
     save();
-    setTimeout(function(){ if (typeof showWelcomeSurvey === 'function') showWelcomeSurvey(); }, 500);
   }
 
   if (S.pendingStreakMsg) {
@@ -1460,6 +1462,14 @@ var I18N = {
     ws_login_submit_btn: "Kirish",
     ws_login_fail_toast: "Nik yoki parol noto'g'ri",
     ws_login_success_toast: "✅ Xush kelibsiz, qaytganingizdan xursandmiz!",
+    ws_toggle_to_register: "Akkauntingiz yo'qmi? Ro'yxatdan o'ting",
+    ws_toggle_to_login: "Akkauntingiz bormi? Kiring",
+    ws_step_penalty_title: "🌙 Kechasi jarima kerakmi?",
+    ws_step_penalty_desc: "Kun tugaganda bajarilmay qolgan vazifalar uchun tanga jarimasi yechilsinmi? Buni keyinroq Profil → Sozlamalar bo'limidan ham o'zgartirishingiz mumkin.",
+    ws_penalty_on_label: "🪙 Jarima yoqilgan bo'lsin (tavsiya etiladi)",
+    ws_penalty_off_label: "🌙 Jarima o'chirilgan bo'lsin",
+    guest_banner_text: "Jarayoningizni saqlash uchun akkaunt yarating yoki kiring",
+    guest_banner_login_btn: "Kirish",
     onb_step_rewards_advanced: "Mukofot qo'shishda uning nomi va narxini (tanga hisobida) belgilaysiz. Yetarli tanga to'plaganingizdan so'ng \"Sotib olish\" tugmasini bosib, o'zingizga shu mukofotni his qilib bering. Sotib olingan mukofotlar tarixi Profil bo'limidagi statistikada saqlanadi.",
     onb_step_goals_advanced: "Yangi maqsad qo'shganda sanani (masalan imtihon kuni) tanlaysiz — shundan so'ng ekranda avtomatik hisoblagich (countdown) paydo bo'ladi. IELTS/SAT natijalaringizni har safar kiritib borsangiz, o'rtacha ball va progress grafigi avtomatik yangilanadi.",
     onb_step_chest_advanced: "Sandiqni ochish uchun ko'proq vazifa bajarib, uni to'ldirishingiz kerak. To'lgach, yuqoridagi Spin tugmasi orqali aylanma o'yin o'ynab tasodifiy miqdorda bonus tanga yoki maxsus mukofot yutib olasiz. Spin bepul emas — har safar bir nechta tanga sarflanadi.",
@@ -3077,6 +3087,14 @@ var I18N = {
     ws_login_submit_btn: "Log in",
     ws_login_fail_toast: "Incorrect nickname or password",
     ws_login_success_toast: "✅ Welcome back!",
+    ws_toggle_to_register: "Don't have an account? Create one",
+    ws_toggle_to_login: "Already have an account? Log in",
+    ws_step_penalty_title: "🌙 Overnight penalty?",
+    ws_step_penalty_desc: "Should unfinished tasks cost you coins at day rollover? You can change this anytime later in Profile → Settings.",
+    ws_penalty_on_label: "🪙 Keep the penalty on (recommended)",
+    ws_penalty_off_label: "🌙 Turn the penalty off",
+    guest_banner_text: "Create an account or log in to save your progress",
+    guest_banner_login_btn: "Log in",
     onb_step_rewards_advanced: "When adding a reward, you set its name and its price in coins. Once you've saved up enough, tap \"Buy\" to treat yourself. Your purchase history is kept in your stats on the Profile tab.",
     onb_step_goals_advanced: "When you add a new goal you pick a date (e.g. exam day) — the app then shows a live countdown. Log your IELTS/SAT results as you go, and your average score and progress chart update automatically.",
     onb_step_chest_advanced: "Complete more tasks to fill up the Chest before you can open it. Once it's full, use the Spin button up top to play a wheel for a random amount of bonus coins or a special reward. Spinning isn't free — it costs a few coins each time.",
@@ -4690,6 +4708,14 @@ var I18N = {
     ws_login_submit_btn: 'Войти',
     ws_login_fail_toast: 'Неверный ник или пароль',
     ws_login_success_toast: '✅ С возвращением!',
+    ws_toggle_to_register: 'Нет аккаунта? Зарегистрироваться',
+    ws_toggle_to_login: 'Уже есть аккаунт? Войти',
+    ws_step_penalty_title: '🌙 Ночной штраф?',
+    ws_step_penalty_desc: 'Списывать ли монеты за невыполненные задачи в конце дня? Это можно изменить позже в Профиль → Настройки.',
+    ws_penalty_on_label: '🪙 Оставить штраф включённым (рекомендуется)',
+    ws_penalty_off_label: '🌙 Выключить штраф',
+    guest_banner_text: 'Создайте аккаунт или войдите, чтобы сохранить прогресс',
+    guest_banner_login_btn: 'Войти',
     onb_step_rewards_advanced: 'При добавлении награды вы указываете её название и цену в монетах. Накопив достаточно монет, нажмите «Купить», чтобы порадовать себя. История покупок сохраняется в статистике на вкладке Профиль.',
     onb_step_goals_advanced: 'При добавлении новой цели вы выбираете дату (например, день экзамена) — после этого на экране появляется живой обратный отсчёт. Регулярно вносите результаты IELTS/SAT, и средний балл с графиком прогресса будут обновляться автоматически.',
     onb_step_chest_advanced: 'Чтобы открыть сундук, нужно выполнить больше задач и заполнить его. Когда он полон, нажмите кнопку Spin вверху, чтобы сыграть в рулетку и получить случайное количество бонусных монет или особую награду. Spin не бесплатен — каждый раз списывается несколько монет.',
@@ -15265,9 +15291,24 @@ function econMigrate() {
   S.econV = 2;
 }
 
+// 💾 Mehmon rejimida ko'rinadigan "akkaunt yarating / kiring" banneri
+function updateGuestBannerUI() {
+  var bar = document.getElementById('guest-save-banner');
+  if (!bar) return;
+  var isGuest = !(typeof S !== 'undefined' && S.cloudLinked);
+  var dismissed = false;
+  try { dismissed = sessionStorage.getItem('guestBannerDismissed') === '1'; } catch (e) {}
+  bar.style.display = (isGuest && !dismissed) ? 'flex' : 'none';
+}
+function dismissGuestBanner() {
+  try { sessionStorage.setItem('guestBannerDismissed', '1'); } catch (e) {}
+  updateGuestBannerUI();
+}
+
 function render() {
   try { econMigrate(); } catch (e) { console.warn('[econ]', e); }
   if (dedupeTaskIds()) { try { save(); } catch (e) {} }
+  try { updateGuestBannerUI(); } catch (e) {}
   updateHeaderUserTitle();
   recordIntervalDueLog(today());
   recalcStreakFromLog();
@@ -28377,6 +28418,7 @@ var wsSubmitLogin = async function() {
       wsState.goal = null; wsState.ref = null;
       wsState.difficulty = S.difficulty || 'normal';
       wsState.ambientFocusEnabled = !!S.ambientFocusEnabled;
+      wsState.noOvernightPenalty = !!S.noOvernightPenalty;
     }
     wsFinish('login', 'ws_login_success_toast');
   } catch (e) {
@@ -28785,7 +28827,7 @@ var wsState = {
   ambientFocusEnabled: false, difficulty: 'normal',
   authMode: null, regName: ''
 };
-var WS_TOTAL_STEPS = 3;
+var WS_TOTAL_STEPS = 4;
 
 function showWelcomeSurvey() {
   // Google'dan qaytishda sessiya allaqachon tiklangan bo'lsa, "Create account" oynasini qayta ochmaymiz
@@ -28796,6 +28838,7 @@ function showWelcomeSurvey() {
     step: 0, name: '', goal: null, goalOther: '', ref: null, refOther: '',
     ambientFocusEnabled: !!(typeof S !== 'undefined' && S.ambientFocusEnabled),
     difficulty: (typeof S !== 'undefined' && S.difficulty) || 'normal',
+    noOvernightPenalty: !!(typeof S !== 'undefined' && S.noOvernightPenalty),
     authMode: null, regName: ''
   };
 
@@ -28852,7 +28895,8 @@ function wsVisualScene() {
     return defaultScene;
   }
   if (wsState.step === 1) return { icon: '🧭', title: _cl('Xush kelibsiz!', 'Welcome!', 'Добро пожаловать!'), sub: _cl('Bizni qayerdan topganingizni bilish yangi foydalanuvchilarga ko\'proq yordam berishga yordam beradi.', 'Knowing where you found us helps us support new users even better.', 'Знание того, где вы нас нашли, помогает нам лучше поддерживать новых пользователей.'), feats: feats };
-  // step 2 — hisob/kirish bosqichi
+  if (wsState.step === 2) return { icon: '🌙', title: _cl('Kechasi jarima', 'Overnight penalty', 'Ночной штраф'), sub: _cl('Istasangiz, bajarilmagan vazifalar uchun tanga jarimasini o\'chirib qo\'yishingiz mumkin — buni keyin ham o\'zgartira olasiz.', 'If you want, you can turn off the coin penalty for unfinished tasks — you can always change this later.', 'При желании можно отключить штраф за невыполненные задачи — это можно изменить и позже.'), feats: feats };
+  // step 3 — hisob/kirish bosqichi
   if (!wsState.authMode) return { icon: 'orbit', title: 'LevelUpDay', sub: _cl('Deyarli tayyor — hisobingizni ulang va vazifalaringiz barcha qurilmalarda saqlanib qoladi.', 'Almost there — link your account and your tasks will be saved across every device.', 'Почти готово — привяжите аккаунт, и задачи сохранятся на всех устройствах.'), feats: feats };
   if (wsState.authMode === 'register') return { icon: '🔐', title: _cl('Xavfsiz ro\'yxatdan o\'tish', 'Secure sign-up', 'Безопасная регистрация'), sub: _cl('Ma\'lumotlaringiz shifrlangan holda saqlanadi — Google, Telegram yoki email orqali ro\'yxatdan o\'tishingiz mumkin.', 'Your data is stored encrypted — sign up with Google, Telegram or email.', 'Ваши данные хранятся в зашифрованном виде — регистрируйтесь через Google, Telegram или email.'), feats: feats };
   if (wsState.authMode === 'login') return { icon: '🔑', title: _cl('Qaytib kelganingizdan xursandmiz', 'Welcome back', 'Рады видеть вас снова'), sub: _cl('Hisobingizga kiring va boshqa qurilmada qolgan joyingizdan davom ettiring.', 'Sign in and pick up right where you left off on your other device.', 'Войдите и продолжите с того места, где остановились на другом устройстве.'), feats: feats };
@@ -28879,10 +28923,11 @@ function openAccountLinkModal() {
   var old = document.getElementById('welcome-survey-modal');
   if (old) old.remove();
   wsState = {
-    step: 2, name: (S.profile && S.profile.name) || '', goal: null, goalOther: '', ref: null, refOther: '',
+    step: 3, name: (S.profile && S.profile.name) || '', goal: null, goalOther: '', ref: null, refOther: '',
     ambientFocusEnabled: !!(typeof S !== 'undefined' && S.ambientFocusEnabled),
     difficulty: (typeof S !== 'undefined' && S.difficulty) || 'normal',
-    authMode: null, regName: '', miniMode: true
+    noOvernightPenalty: !!(typeof S !== 'undefined' && S.noOvernightPenalty),
+    authMode: 'login', regName: '', miniMode: true
   };
 
   var overlay = document.createElement('div');
@@ -28945,14 +28990,14 @@ function wsRenderShell() {
 function wsRenderSkipRow() {
   var row = document.getElementById('ws-skip-row');
   if (!row) return;
-  if (wsState.step >= 2) { row.innerHTML = ''; return; }
+  if (wsState.step >= 3) { row.innerHTML = ''; return; }
   row.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:2px">' +
     '<button type="button" id="ws-skip-btn" style="background:none;border:none;color:var(--text-muted);font-size:var(--fs-xs);font-weight:600;cursor:pointer;padding:4px 2px;font-family:\'DM Sans\',sans-serif">' + t('ws_skip_btn') + '</button>' +
   '</div>';
   var skipBtn = document.getElementById('ws-skip-btn');
   if (skipBtn) skipBtn.onclick = function () {
-    wsState.step = 2;
-    wsState.authMode = null;
+    wsState.step = 3;
+    wsState.authMode = 'login';
     wsRenderStep();
   };
 }
@@ -29042,49 +29087,38 @@ function wsRenderStep() {
         '<button class="onboarding-btn onboarding-btn-primary" id="ws-next-btn"' + (wsCanProceed() ? '' : ' disabled') + '>' + t('guide_next_btn') + '</button>' +
       '</div>';
   } else if (wsState.step === 2) {
-    if (!wsState.authMode) {
+    html +=
+      '<div style="' + titleStyle + '">' + t('ws_step_penalty_title') + '</div>' +
+      '<div style="' + descStyle + '">' + t('ws_step_penalty_desc') + '</div>' +
+      '<div id="ws-penalty-pills" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' +
+        '<button type="button" class="pe-prep-pill' + (!wsState.noOvernightPenalty ? ' sel' : '') + '" data-penalty="0" style="width:100%;text-align:left"><span class="pe-prep-check">✅</span>' + t('ws_penalty_on_label') + '</button>' +
+        '<button type="button" class="pe-prep-pill' + (wsState.noOvernightPenalty ? ' sel' : '') + '" data-penalty="1" style="width:100%;text-align:left"><span class="pe-prep-check">✅</span>' + t('ws_penalty_off_label') + '</button>' +
+      '</div>' +
+      '<div class="onboarding-tt-actions" style="margin-top:16px">' +
+        '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn">' + t('guide_back_btn') + '</button>' +
+        '<button class="onboarding-btn onboarding-btn-primary" id="ws-next-btn">' + t('guide_next_btn') + '</button>' +
+      '</div>';
+  } else if (wsState.step === 3) {
+    if (wsState.authMode === 'register' || wsState.authMode === 'login') {
+      var isReg = wsState.authMode === 'register';
       html +=
-        // Keng ekranda o'ngda alohida brend vizuali bor (.ws-visual) — shu orbit shu yerda takrorlanmasin
-        '<div class="ws-step-orbit">' + (window.LUBlocks && LUBlocks.orbitHtml ? LUBlocks.orbitHtml() : '') + '</div>' +
-        '<div style="' + titleStyle + '">' + (wsState.miniMode ? t('ws_account_link_title') : t('ws_step_auth_title')) + '</div>' +
-        '<div style="' + descStyle + '">' + (wsState.miniMode ? t('ws_account_link_desc') : t('ws_step_auth_desc')) + '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">' +
-          (wsState.miniMode ? '' :
-            '<button type="button" id="ws-mode-guest" style="padding:12px;border-radius:var(--radius-md);border:1px dashed var(--border-hover);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('ws_auth_guest_btn') + '</button>' +
-            '<div style="display:flex;align-items:center;gap:10px;margin:2px 0"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:var(--fs-2xs);color:var(--text-dim)">' + t('ws_login_or') + '</span><div style="flex:1;height:1px;background:var(--border)"></div></div>'
-          ) +
-          '<button type="button" id="ws-mode-register" style="padding:12px;border-radius:var(--radius-md);border:none;background:var(--accent);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('ws_auth_register_btn') + '</button>' +
-          '<button type="button" id="ws-mode-login" style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--border-hover);background:var(--surface2);color:var(--text);font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('ws_auth_login_btn') + '</button>' +
-          wsTelegramBtnHtml() +
+        '<div style="' + titleStyle + '">' + (isReg ? t('ws_reg_title') : (wsState.miniMode ? t('ws_account_link_title') : t('ws_step_auth_title'))) + '</div>' +
+        '<div style="' + descStyle + '">' + (isReg ? t('ws_reg_desc') : t('ws_login_desc_simple')) + '</div>' +
+        '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-top:12px">' + t(isReg ? 'ws_reg_google_btn' : 'ws_login_google_btn') + '</button>' +
+        wsTelegramBtnHtml('margin:8px 0 0') +
+        '<div style="display:flex;align-items:center;gap:10px;margin:12px 0 0"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:var(--fs-2xs);color:var(--text-dim)">' + t('ws_login_or') + '</span><div style="flex:1;height:1px;background:var(--border)"></div></div>' +
+        (isReg ? '<input id="ws-reg-name-input" type="text" maxlength="' + USERNAME_MAX_LEN + '" placeholder="' + t('ws_reg_name_ph') + '" value="' + esc(wsState.regName) + '" style="' + fieldStyle + '" />' : '') +
+        '<input id="' + (isReg ? 'ws-reg-email-input' : 'ws-login-email-input') + '" type="email" placeholder="' + t(isReg ? 'ws_reg_email_ph' : 'ws_login_email_ph') + '" value="' + esc((isReg ? wsState.regEmail : wsState.loginEmail) || '') + '" style="' + fieldStyle + '" />' +
+        '<input id="' + (isReg ? 'ws-reg-pass-input' : 'ws-login-pass-input') + '" type="password" placeholder="' + t(isReg ? 'ws_reg_pass_ph' : 'ws_login_pass_ph') + '" value="' + esc((isReg ? wsState.regPass : wsState.loginPass) || '') + '" style="' + fieldStyle + '" />' +
+        (isReg ? '' : '<div id="ws-forgot-link" style="text-align:right;font-size:12px;opacity:.75;cursor:pointer;margin-top:-4px;text-decoration:underline">' + _cl('Parolni unutdingizmi?', 'Forgot password?', 'Забыли пароль?') + '</div>') +
+        '<div style="text-align:center;margin-top:10px">' +
+          '<button type="button" id="ws-toggle-authmode-btn" style="background:none;border:none;color:var(--accent);font-size:var(--fs-xs);font-weight:700;cursor:pointer;text-decoration:underline;font-family:\'DM Sans\',sans-serif">' +
+            t(isReg ? 'ws_toggle_to_login' : 'ws_toggle_to_register') +
+          '</button>' +
         '</div>' +
-        '<div class="onboarding-tt-actions" style="margin-top:16px">' +
+        '<div class="onboarding-tt-actions" style="margin-top:12px">' +
           '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn" style="flex:1">' + t(wsState.miniMode ? 'btn_cancel' : 'guide_back_btn') + '</button>' +
-        '</div>';
-    } else if (wsState.authMode === 'register') {
-      html +=
-        '<div style="' + titleStyle + '">' + t('ws_reg_title') + '</div>' +
-        '<div style="' + descStyle + '">' + t('ws_reg_desc') + '</div>' +
-        '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-bottom:10px">' + t('ws_reg_google_btn') + '</button>' +
-        wsTelegramBtnHtml('margin:-2px 0 10px') +
-        '<input id="ws-reg-name-input" type="text" maxlength="' + USERNAME_MAX_LEN + '" placeholder="' + t('ws_reg_name_ph') + '" value="' + esc(wsState.regName) + '" style="' + fieldStyle + '" />' +
-        '<input id="ws-reg-email-input" type="email" placeholder="' + t('ws_reg_email_ph') + '" value="' + esc(wsState.regEmail || '') + '" style="' + fieldStyle + '" />' +
-        '<input id="ws-reg-pass-input" type="password" placeholder="' + t('ws_reg_pass_ph') + '" value="' + esc(wsState.regPass || '') + '" style="' + fieldStyle + '" />' +
-        '<div class="onboarding-tt-actions" style="margin-top:16px">' +
-          '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn">' + t('guide_back_btn') + '</button>' +
-          '<button class="onboarding-btn onboarding-btn-primary" id="ws-reg-submit-btn">' + t('ws_reg_submit_btn') + '</button>' +
-        '</div>';
-    } else if (wsState.authMode === 'login') {
-      html +=
-        '<div style="' + titleStyle + '">' + t('ws_login_title') + '</div>' +
-        '<div style="' + descStyle + '">' + t('ws_login_desc_simple') + '</div>' +
-        '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-bottom:10px">' + t('ws_login_google_btn') + '</button>' +
-        wsTelegramBtnHtml('margin:-2px 0 10px') +
-        '<input id="ws-login-email-input" type="email" placeholder="' + t('ws_login_email_ph') + '" value="' + esc(wsState.loginEmail || '') + '" style="' + fieldStyle + '" />' +
-        '<input id="ws-login-pass-input" type="password" placeholder="' + t('ws_login_pass_ph') + '" value="' + esc(wsState.loginPass || '') + '" style="' + fieldStyle + '" />' +
-        '<div id="ws-forgot-link" style="text-align:right;font-size:12px;opacity:.75;cursor:pointer;margin-top:-4px;text-decoration:underline">' + _cl('Parolni unutdingizmi?', 'Forgot password?', 'Забыли пароль?') + '</div>' +
-        '<div class="onboarding-tt-actions" style="margin-top:16px">' +
-          '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn">' + t('guide_back_btn') + '</button>' +
-          '<button class="onboarding-btn onboarding-btn-primary" id="ws-login-submit-btn">' + t('ws_login_submit_btn') + '</button>' +
+          '<button class="onboarding-btn onboarding-btn-primary" id="' + (isReg ? 'ws-reg-submit-btn' : 'ws-login-submit-btn') + '" style="flex:1">' + t(isReg ? 'ws_reg_submit_btn' : 'ws_login_submit_btn') + '</button>' +
         '</div>';
     } else if (wsState.authMode === 'verify') {
       // 🔢 Auth 6 — olti xonali kod
@@ -29136,14 +29170,16 @@ function wsAttachHandlers() {
   document.querySelectorAll('#ws-ref-pills .pe-prep-pill').forEach(function (btn) {
     btn.onclick = function () { wsState.ref = btn.getAttribute('data-ref'); wsRenderStep(); };
   });
+  document.querySelectorAll('#ws-penalty-pills .pe-prep-pill').forEach(function (btn) {
+    btn.onclick = function () { wsState.noOvernightPenalty = btn.getAttribute('data-penalty') === '1'; wsRenderStep(); };
+  });
 
-  // ── Yakuniy qadam: Mehmon (avtomatik ism) / O'zi tanlagan ism ──
-  var modeGuestBtn = document.getElementById('ws-mode-guest');
-  if (modeGuestBtn) modeGuestBtn.onclick = wsGuestLogin;
-  var modeRegisterBtn = document.getElementById('ws-mode-register');
-  if (modeRegisterBtn) modeRegisterBtn.onclick = function () { wsState.authMode = 'register'; wsRenderStep(); };
-  var modeLoginBtn = document.getElementById('ws-mode-login');
-  if (modeLoginBtn) modeLoginBtn.onclick = function () { wsState.authMode = 'login'; wsRenderStep(); };
+  // ── Hisob/kirish qadami: Kirish ↔ Ro'yxatdan o'tish shakli bir xil ekranda almashadi ──
+  var toggleAuthModeBtn = document.getElementById('ws-toggle-authmode-btn');
+  if (toggleAuthModeBtn) toggleAuthModeBtn.onclick = function () {
+    wsState.authMode = wsState.authMode === 'register' ? 'login' : 'register';
+    wsRenderStep();
+  };
 
   // Ro'yxatdan o'tish formasi — Supabase Auth orqali haqiqiy akkaunt yaratadi
   var regNameInput = document.getElementById('ws-reg-name-input');
@@ -29246,15 +29282,15 @@ function wsTelegramBtnHtml(extraStyle) {
 function wsNext() {
   if (!wsCanProceed()) return; // ehtiyot chorasi — tugma disabled bo'lsa ham bosilib qolishining oldini oladi
   wsState.step++;
+  if (wsState.step === 3 && !wsState.authMode) wsState.authMode = 'login';
   wsRenderStep();
 }
 
 function wsBack() {
-  // Yakuniy qadamda avval "Register/Login" tanlovi tanlangan bo'lsa,
-  // Orqaga tugmasi avval o'sha tanlov ekraniga qaytaradi, keyin qadamlar bo'ylab.
-  if (wsState.step === 2 && wsState.authMode) {
-    if (wsState.authMode === 'verify') { wsState.authMode = 'register'; wsRenderStep(); return; }
-    wsState.authMode = null;
+  // Hisob/kirish qadamida avval emailni tasdiqlash (verify) oynasi ochilgan bo'lsa,
+  // Orqaga tugmasi ro'yxatdan o'tish shakliga qaytaradi, keyin qadamlar bo'ylab.
+  if (wsState.step === 3 && wsState.authMode === 'verify') {
+    wsState.authMode = 'register';
     wsRenderStep();
     return;
   }
@@ -29708,6 +29744,8 @@ function wsFinish(method, toastKey) {
   try { ensureAmbientFocusDefaults(); } catch (e) {}
   S.ambientFocusEnabled = !!wsState.ambientFocusEnabled;
   S.difficulty = (typeof DIFFICULTY_MULTIPLIERS !== 'undefined' && DIFFICULTY_MULTIPLIERS[wsState.difficulty]) ? wsState.difficulty : 'normal';
+  S.noOvernightPenalty = !!wsState.noOvernightPenalty;
+  try { if (typeof updateNoOvernightPenaltyToggleUI === 'function') updateNoOvernightPenaltyToggleUI(); } catch (e) {}
 
   S.profile.loginMethod = method;
   S.welcomeSurveyDone = true;
