@@ -3287,7 +3287,7 @@
     _tgaBusy = true; _tgaAt = Date.now();
     try {
       var r = await supabase.from('tg_actions').select('id,kind,task_id,payload,created_at').is('applied_at', null).order('id').limit(50);
-      var rows = (r && !r.error && r.data) || [], ids = [], nDone = 0, nAdd = 0, td = today();
+      var rows = (r && !r.error && r.data) || [], ids = [], nDone = 0, nSub = 0, nAdd = 0, td = today();
       rows.forEach(function (a) {
         var skip = false;
         try {
@@ -3299,17 +3299,38 @@
               // qayta urinib ko'ramiz, "applied" deb belgilamaymiz (aks holda amal abadiy yo'qolib qolardi)
               skip = true;
             } else if (t && (day === td || t.repeat === 'once') && !(t.repeat === 'once' ? t.done : t.doneDate === td)) {
+              // ✈️ Telegramda "sub-tasklarni ham belgilashmi?" so'roviga "Ha" deyilgan bo'lsa —
+              // avval ularni jim (toast'siz) bajarilgan deb belgilaymiz, keyin asosiy vazifani.
+              if (a.payload && a.payload.includeSubtasks) {
+                try {
+                  _suppressAutoParentComplete = true;
+                  ensureSubtasks(t).forEach(function (s) {
+                    if (!s.skipped && subtaskDueToday(s, day) && !subtaskDoneOnDate(t.id, s.id, day)) toggleSubtask(t.id, s.id, day, true);
+                  });
+                } finally { _suppressAutoParentComplete = false; }
+              }
               // Bir martalik vazifa — qaysi kuni ochilsa ham bajariladi; takrorlanuvchi — faqat o'sha kuni
               toggleTaskInternal(t.id); nDone++;
+            }
+          } else if (a.kind === 'subtask_done') {
+            var sday = (a.payload && a.payload.day) || td;
+            var subId = a.payload && a.payload.subId;
+            var st2 = (S.tasks || []).find(function (x) { return x && Number(x.id) === Number(a.task_id); });
+            if (!st2 && Date.now() - new Date(a.created_at).getTime() < 7 * 86400000) {
+              skip = true;
+            } else if (st2) {
+              var sub = ensureSubtasks(st2).find(function (s) { return String(s.id) === String(subId); });
+              if (sub && !sub.skipped && !subtaskDoneOnDate(st2.id, sub.id, sday)) { toggleSubtask(st2.id, sub.id, sday, true); nSub++; }
             }
           } else if (a.kind === 'add' && a.payload && a.payload.name && window.xInboxAddText) { if (window.xInboxAddText(a.payload.name)) nAdd++; }
         } catch (e) { console.warn('[tg action]', e); }
         if (!skip) ids.push(a.id);
       });
       if (ids.length) await supabase.from('tg_actions').update({ applied_at: new Date().toISOString() }).in('id', ids);
-      if (nDone || nAdd) {
+      if (nDone || nSub || nAdd) {
         try { save(); render(); } catch (e) {}
-        toast('✈️ Telegram: ' + (nDone ? '✅ ' + nDone + ' ' + L('ta bajarildi', 'done', 'выполнено') : '') + (nDone && nAdd ? ' · ' : '') + (nAdd ? '📥 ' + nAdd + ' ' + L('ta Inbox\'ga', 'to Inbox', 'во «Входящие»') : ''));
+        var nDoneTotal = nDone + nSub;
+        toast('✈️ Telegram: ' + (nDoneTotal ? '✅ ' + nDoneTotal + ' ' + L('ta bajarildi', 'done', 'выполнено') : '') + (nDoneTotal && nAdd ? ' · ' : '') + (nAdd ? '📥 ' + nAdd + ' ' + L('ta Inbox\'ga', 'to Inbox', 'во «Входящие»') : ''));
       }
     } catch (e) {}
     _tgaBusy = false;
