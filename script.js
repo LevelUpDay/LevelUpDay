@@ -14871,6 +14871,9 @@ function debtTaskToday() {
 function debtTaskDoneToday() { var t = debtTaskToday(); return !!(t && t.done); }
 // Jazo vazifasi rejimi: qarzda bo'lsa bugungi jazo vazifasini qo'shadi, qarz yopilsa olib tashlaydi
 function ensureDebtTask() {
+  // debtDailyTick()dagi kabi — bulutdan hali holat tortib olinmasa, eski tanga balansi
+  // bilan "qarzdaman" deb xato jazo vazifasi qo'shib qo'ymaslik uchun kutamiz.
+  if (S.cloudLinked && !window._cloudPullDone) return false;
   var td = today(), inDebt = (S.coins || 0) < 0 && debtMode() === 'task';
   var changed = false;
   // eski (bajarilmagan) jazo vazifalari va qarz yopilgandagilar olib tashlanadi
@@ -14897,6 +14900,13 @@ function ensureDebtTask() {
 function debtDailyTick() {
   var td = today();
   if (S.debtTickDate === td) return false;
+  // 📡 Bulutdan hali holat tortib olinmagan bo'lsa (masalan ilova endigina ochilgan,
+  // yoki bu qurilma ko'p kundan beri ochilmagan edi) — kutamiz. Aks holda eski, hali
+  // sinxronlanmagan tanga balansi asosida jarima hisoblab qo'yilardi: boshqa qurilmada
+  // allaqachon to'langan/o'zgargan qarzga yana ustidan jarima qo'shilib, bir necha
+  // qurilmada mustaqil ikki marta yechilib ketishi mumkin edi. render() tez-tez
+  // chaqirilgani uchun, sinxronlanishi bilan keyingi chaqiriqda o'zi qayta tekshiriladi.
+  if (S.cloudLinked && !window._cloudPullDone) return false;
   S.debtTickDate = td;
   var c = S.coins || 0;
   if (c >= 0) return true;
