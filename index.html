@@ -1005,56 +1005,30 @@
         </div>
       </div>
 
-      <!-- 0a2. Sub-task sozlamalari — vazifani Done qilishda sub-tasklar bilan
-           bog'liq 2 ta mustaqil on/off qoida (ikkalasi ham default: OFF) -->
-      <div id="subtask-settings-card" class="settings-sub-card">
-        <button type="button" class="settings-sub-header" onclick="toggleSettingsSubCard('subtask-settings-card')">
+      <!-- 0a2. Vazifa sozlamalari — sub-tasklar tugallanishi bilan bog'liq so'rovlar
+           endi har doim faol (sozlama kerak emas). Shu yerda faqat bitta tanlov
+           qoladi: bir martalik ("faqat bugun") vazifa/sub-task bajarilmasa nima bo'ladi. -->
+      <div id="task-settings-card" class="settings-sub-card">
+        <button type="button" class="settings-sub-header" onclick="toggleSettingsSubCard('task-settings-card')">
           <span class="settings-sub-header-left">
             <span class="settings-sub-icon icon-blue">🧩</span>
             <span style="min-width:0">
-              <span class="settings-sub-title" data-i18n="subtask_settings_card_title">Sub-task sozlamalari</span>
-              <span class="settings-sub-subtitle" data-i18n="settings_sub_subtask_desc">Done bo'lishi bilan bog'liq qoidalar</span>
+              <span class="settings-sub-title" data-i18n="task_settings_card_title">Vazifa sozlamalari</span>
+              <span class="settings-sub-subtitle" data-i18n="settings_sub_task_desc">Bir martalik vazifalar muddati</span>
             </span>
           </span>
           <span class="settings-sub-arrow-wrap"><span class="settings-sub-arrow">▾</span></span>
         </button>
         <div class="settings-sub-body" style="display:none">
 
-          <!-- 1) Sub-tasklar tugallanmasdan asosiy task Done qilinsa — so'rasinmi -->
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0">
-            <div style="min-width:0">
-              <div style="font-size:var(--fs-base);font-weight:600;color:var(--text)" data-i18n="subtask_ask_setting_title">❓ Tugallanmagan sub-tasklar bo'lsa so'rash</div>
-              <div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px;line-height:1.5" data-i18n="subtask_ask_setting_desc">Yoqilsa: sub-tasklari hali tugallanmagan vazifani "✅ Bajarildi" qilsangiz, "ichidagi sub-tasklar ham bajarilgan deb belgilansinmi?" deb so'raladi. O'chirilgan bo'lsa (default) — so'ralmaydi.</div>
-            </div>
-            <div id="subtask-ask-switch" onclick="toggleSubtaskAskOnParentDone()" role="switch" style="flex-shrink:0;width:46px;height:26px;border-radius:var(--radius-full);background:var(--surface2);border:1px solid var(--border);position:relative;cursor:pointer;transition:background 0.2s,border-color 0.2s">
-              <div id="subtask-ask-knob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--text-dim);transition:left 0.2s ease,background 0.2s"></div>
-            </div>
-          </div>
-
-          <div class="settings-sub-divider"></div>
-
-          <!-- 2) Barcha sub-tasklar bajarilsa — asosiy task avtomatik Done bo'lsinmi -->
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0">
-            <div style="min-width:0">
-              <div style="font-size:var(--fs-base);font-weight:600;color:var(--text)" data-i18n="subtask_autocomplete_setting_title">⚡ Barcha sub-task bajarilsa — avtomatik Done</div>
-              <div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px;line-height:1.5" data-i18n="subtask_autocomplete_setting_desc">Yoqilsa: vazifaning barcha sub-tasklari bajarilgach, asosiy vazifa avtomatik ravishda "✅ Bajarildi" deb belgilanadi. O'chirilgan bo'lsa (default) — avtomatik belgilanmaydi.</div>
-            </div>
-            <div id="subtask-autocomplete-switch" onclick="toggleSubtaskAutoCompleteParent()" role="switch" style="flex-shrink:0;width:46px;height:26px;border-radius:var(--radius-full);background:var(--surface2);border:1px solid var(--border);position:relative;cursor:pointer;transition:background 0.2s,border-color 0.2s">
-              <div id="subtask-autocomplete-knob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--text-dim);transition:left 0.2s ease,background 0.2s"></div>
-            </div>
-          </div>
-
-          <div class="settings-sub-divider"></div>
-
-          <!-- 3) Asosiy vazifa Done qilinganda, ichidagi tugallanmagan sub-tasklar
-               alohida mustaqil vazifaga aylansinmi -->
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0">
-            <div style="min-width:0">
-              <div style="font-size:var(--fs-base);font-weight:600;color:var(--text)" data-i18n="subtask_extract_setting_title">🔀 Tugallanmagan sub-tasklarni ajratib chiqarish</div>
-              <div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px;line-height:1.5" data-i18n="subtask_extract_setting_desc">Yoqilsa: asosiy vazifa "✅ Bajarildi" qilinganda, ichidagi hali tugallanmagan sub-tasklar alohida mustaqil vazifaga aylanadi. O'chirilgan bo'lsa (default) — sub-tasklar ota-vazifa ichida qoladi.</div>
-            </div>
-            <div id="subtask-extract-switch" onclick="toggleSubtaskExtractOnDone()" role="switch" style="flex-shrink:0;width:46px;height:26px;border-radius:var(--radius-full);background:var(--surface2);border:1px solid var(--border);position:relative;cursor:pointer;transition:background 0.2s,border-color 0.2s">
-              <div id="subtask-extract-knob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--text-dim);transition:left 0.2s ease,background 0.2s"></div>
+          <!-- Bir martalik ("faqat bugun") vazifa/sub-task bajarilmay qolsa: bir
+               kundan keyin yo'qolsinmi yoki bajarilgunicha tursinmi -->
+          <div style="padding:6px 0">
+            <div style="font-size:var(--fs-base);font-weight:600;color:var(--text)" data-i18n="once_task_expiry_title">⏳ Bir martalik vazifalar</div>
+            <div style="font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px;margin-bottom:10px;line-height:1.5" data-i18n="once_task_expiry_desc">"Faqat bugun" turidagi vazifa/sub-task bajarilmay qolsa, u bilan nima bo'lsin? Bu tanlov tasklarga ham, sub-tasklarga ham tegishli.</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button type="button" id="once-expiry-untilDone" class="pe-prep-pill sel" onclick="setOnceTaskExpiry('untilDone')" style="width:100%;text-align:left"><span class="pe-prep-check">✅</span> Bajarguningizcha tursin (default)</button>
+              <button type="button" id="once-expiry-oneDay" class="pe-prep-pill" onclick="setOnceTaskExpiry('oneDay')" style="width:100%;text-align:left"><span class="pe-prep-check">✅</span> 1 kundan keyin avtomatik yo'qolsin</button>
             </div>
           </div>
 

@@ -963,23 +963,19 @@ var I18N = {
     goals_stat_done: "Bajarilgan",
     goals_stat_today: "Bugun belgilandi",
     // Sub-task sozlamalari (2 ta on/off qoida)
-    subtask_settings_card_title: "Sub-task sozlamalari",
-    settings_sub_subtask_desc: "Done bo'lishi bilan bog'liq qoidalar",
-    subtask_ask_setting_title: "❓ Tugallanmagan sub-tasklar bo'lsa so'rash",
-    subtask_ask_setting_desc: "Yoqilsa: sub-tasklari hali tugallanmagan vazifani \"✅ Bajarildi\" qilsangiz, \"ichidagi sub-tasklar ham bajarilgan deb belgilansinmi?\" deb so'raladi. O'chirilgan bo'lsa (default) — so'ralmaydi.",
-    subtask_ask_setting_on_toast: "✅ So'rash yoqildi",
-    subtask_ask_setting_off_toast: "⭕ So'rash o'chirildi",
+    task_settings_card_title: "Vazifa sozlamalari",
+    settings_sub_task_desc: "Bir martalik vazifalar muddati",
+    once_task_expiry_title: "⏳ Bir martalik vazifalar",
+    once_task_expiry_desc: "\"Faqat bugun\" turidagi vazifa/sub-task bajarilmay qolsa, u bilan nima bo'lsin? Bu tanlov tasklarga ham, sub-tasklarga ham tegishli.",
+    once_task_expiry_until_done: "Bajarguningizcha tursin (default)",
+    once_task_expiry_one_day: "1 kundan keyin avtomatik yo'qolsin",
+    once_task_expiry_until_done_toast: "✅ Endi bajarguningizcha turaveradi",
+    once_task_expiry_one_day_toast: "⏳ Endi 1 kundan keyin avtomatik yo'qoladi",
     subtask_ask_confirm_text: "Bu vazifaning ichida hali bajarilmagan sub-tasklar bor. Ularni ham bajarilgan deb belgilaymizmi?",
     subtask_ask_confirm_yes: "✅ Ha, barchasini belgilash",
     subtask_ask_confirm_no: "Yo'q",
-    subtask_autocomplete_setting_title: "⚡ Barcha sub-task bajarilsa — avtomatik Done",
-    subtask_autocomplete_setting_desc: "Yoqilsa: vazifaning barcha sub-tasklari bajarilgach, asosiy vazifa avtomatik ravishda \"✅ Bajarildi\" deb belgilanadi. O'chirilgan bo'lsa (default) — avtomatik belgilanmaydi.",
-    subtask_autocomplete_setting_on_toast: "✅ Avtomatik Done yoqildi",
-    subtask_autocomplete_setting_off_toast: "⭕ Avtomatik Done o'chirildi",
-    subtask_extract_setting_title: "🔀 Tugallanmagan sub-tasklarni ajratib chiqarish",
-    subtask_extract_setting_desc: "Yoqilsa: asosiy vazifa \\\"✅ Bajarildi\\\" qilinganda, ichidagi hali tugallanmagan sub-tasklar alohida mustaqil vazifaga aylanadi. O'chirilgan bo'lsa (default) — sub-tasklar ota-vazifa ichida qoladi.",
-    subtask_extract_setting_on_toast: "✅ Ajratib chiqarish yoqildi",
-    subtask_extract_setting_off_toast: "⭕ Ajratib chiqarish o'chirildi",
+    subtask_ask_parent_confirm_text: "«{name}» ning barcha sub-tasklari bajarildi. Asosiy vazifani ham \"✅ Bajarildi\" deb belgilaymizmi?",
+    subtask_ask_parent_confirm_yes: "✅ Ha, bajarildi deb belgilash",
     no_overnight_penalty_title: "🌙 Kechasi jarima olinmasin",
     no_overnight_penalty_desc: "Yoqilsa: kun tugaganda bajarilmay qolgan tasklar (va sub-tasklar) uchun tanga jarimasi yechilmaydi. O'chirilgan bo'lsa (default) — jarima odatdagidek yechiladi.",
     no_overnight_penalty_on_toast: "🌙 Kechasi jarima o'chirildi — tanga olinmaydi",
@@ -2582,24 +2578,20 @@ var I18N = {
     goals_stat_active: "Active",
     goals_stat_done: "Completed",
     goals_stat_today: "Checked today",
-    // Sub-task settings (2 on/off rules)
-    subtask_settings_card_title: "Sub-task settings",
-    settings_sub_subtask_desc: "Rules related to marking tasks Done",
-    subtask_ask_setting_title: "❓ Ask when subtasks are incomplete",
-    subtask_ask_setting_desc: "If enabled: marking a task with unfinished subtasks as \"✅ Done\" will ask whether the subtasks inside should be marked done too. If disabled (default) — it won't ask.",
-    subtask_ask_setting_on_toast: "✅ Asking enabled",
-    subtask_ask_setting_off_toast: "⭕ Asking disabled",
+    // Task settings — one-time task expiry
+    task_settings_card_title: "Task settings",
+    settings_sub_task_desc: "One-time task expiry",
+    once_task_expiry_title: "⏳ One-time tasks",
+    once_task_expiry_desc: "What should happen to a \"today only\" task/subtask that's left unfinished? This applies to both tasks and subtasks.",
+    once_task_expiry_until_done: "Stay until you complete it (default)",
+    once_task_expiry_one_day: "Disappear automatically after 1 day",
+    once_task_expiry_until_done_toast: "✅ It will now stay until you complete it",
+    once_task_expiry_one_day_toast: "⏳ It will now disappear automatically after 1 day",
     subtask_ask_confirm_text: "This task still has unfinished subtasks. Mark them all as done too?",
     subtask_ask_confirm_yes: "✅ Yes, mark all done",
     subtask_ask_confirm_no: "No",
-    subtask_autocomplete_setting_title: "⚡ Auto-complete when all subtasks are done",
-    subtask_autocomplete_setting_desc: "If enabled: once all of a task's subtasks are done, the task is automatically marked \"✅ Done\". If disabled (default) — it won't auto-complete.",
-    subtask_autocomplete_setting_on_toast: "✅ Auto-complete enabled",
-    subtask_autocomplete_setting_off_toast: "⭕ Auto-complete disabled",
-    subtask_extract_setting_title: "🔀 Extract unfinished subtasks",
-    subtask_extract_setting_desc: "If enabled: when the main task is marked \\\"✅ Done\\\", its still-unfinished subtasks become separate standalone tasks. If disabled (default) — subtasks stay inside the parent task.",
-    subtask_extract_setting_on_toast: "✅ Extraction enabled",
-    subtask_extract_setting_off_toast: "⭕ Extraction disabled",
+    subtask_ask_parent_confirm_text: "All subtasks of \"{name}\" are done. Mark the task itself as \"✅ Done\" too?",
+    subtask_ask_parent_confirm_yes: "✅ Yes, mark it done",
     no_overnight_penalty_title: "🌙 No overnight penalty",
     no_overnight_penalty_desc: "If enabled: no coin penalty is charged at day rollover for tasks (and subtasks) left unfinished. If disabled (default) — the penalty is charged as usual.",
     no_overnight_penalty_on_toast: "🌙 Overnight penalty off — no coins deducted",
@@ -4204,24 +4196,20 @@ var I18N = {
     goals_stat_active: "Активные",
     goals_stat_done: "Завершено",
     goals_stat_today: "Отмечено сегодня",
-    // Настройки подзадач (2 переключателя вкл/выкл)
-    subtask_settings_card_title: "Настройки подзадач",
-    settings_sub_subtask_desc: "Правила, связанные с завершением задачи",
-    subtask_ask_setting_title: "❓ Спрашивать, если подзадачи не завершены",
-    subtask_ask_setting_desc: "Если включено: при отметке задачи с незавершёнными подзадачами как «✅ Выполнено» появится вопрос — отметить ли подзадачи внутри тоже как выполненные. Если выключено (по умолчанию) — вопрос не задаётся.",
-    subtask_ask_setting_on_toast: "✅ Вопрос включён",
-    subtask_ask_setting_off_toast: "⭕ Вопрос выключен",
+    // Настройки задач — срок одноразовых задач
+    task_settings_card_title: "Настройки задач",
+    settings_sub_task_desc: "Срок одноразовых задач",
+    once_task_expiry_title: "⏳ Одноразовые задачи",
+    once_task_expiry_desc: "Что делать с невыполненной задачей/подзадачей типа «только сегодня»? Этот выбор касается и задач, и подзадач.",
+    once_task_expiry_until_done: "Оставаться, пока не выполните (по умолчанию)",
+    once_task_expiry_one_day: "Автоматически исчезать через 1 день",
+    once_task_expiry_until_done_toast: "✅ Теперь будет оставаться, пока не выполните",
+    once_task_expiry_one_day_toast: "⏳ Теперь будет исчезать автоматически через 1 день",
     subtask_ask_confirm_text: "В этой задаче ещё есть незавершённые подзадачи. Отметить их все как выполненные?",
     subtask_ask_confirm_yes: "✅ Да, отметить все",
     subtask_ask_confirm_no: "Нет",
-    subtask_autocomplete_setting_title: "⚡ Авто-завершение при выполнении всех подзадач",
-    subtask_autocomplete_setting_desc: "Если включено: как только все подзадачи задачи выполнены, сама задача автоматически отмечается «✅ Выполнено». Если выключено (по умолчанию) — авто-завершения не будет.",
-    subtask_autocomplete_setting_on_toast: "✅ Авто-завершение включено",
-    subtask_autocomplete_setting_off_toast: "⭕ Авто-завершение выключено",
-    subtask_extract_setting_title: "🔀 Выделять незавершённые подзадачи",
-    subtask_extract_setting_desc: "Если включено: когда основная задача отмечается «✅ Выполнено», её ещё незавершённые подзадачи становятся отдельными самостоятельными задачами. Если выключено (по умолчанию) — подзадачи остаются внутри основной задачи.",
-    subtask_extract_setting_on_toast: "✅ Выделение включено",
-    subtask_extract_setting_off_toast: "⭕ Выделение выключено",
+    subtask_ask_parent_confirm_text: "Все подзадачи «{name}» выполнены. Отметить и саму задачу как «✅ Выполнено»?",
+    subtask_ask_parent_confirm_yes: "✅ Да, отметить выполненной",
     no_overnight_penalty_title: "🌙 Без штрафа за ночь",
     no_overnight_penalty_desc: "Если включено: за задачи (и подзадачи), не выполненные к концу дня, монеты не списываются. Если выключено (по умолчанию) — штраф списывается как обычно.",
     no_overnight_penalty_on_toast: "🌙 Ночной штраф выключен — монеты не списываются",
@@ -7478,6 +7466,9 @@ function applyLanguage() {
   }
   // Header'dagi ism (yoki neytral "Profile" so'zi) tilga qarab yangilansin
   try { if (typeof S !== 'undefined') updateHeaderUserTitle(); } catch(e) {}
+  // Bir martalik vazifalar muddati tanlovi (ichida ikonka span bo'lgani uchun
+  // data-i18n o'rniga alohida yangilanadi).
+  try { if (typeof updateOnceTaskExpiryUI === 'function') updateOnceTaskExpiryUI(); } catch (e) {}
   // 🍅 Pomodoro Tarix bo'limi ochiq bo'lsa, uning matnlari ham yangi tilda qayta chizilsin
   try { if (typeof window.pomoRenderHistoryIfOpen === 'function') window.pomoRenderHistoryIfOpen(); } catch(e) {}
   // Kalendar hafta-kunlari sarlavhasi va oy xulosasi ham til o'zgarganda
@@ -10204,6 +10195,8 @@ function checkReset() {
     }
 
     // reset daily tasks
+    ensureOnceTaskExpiryDefault();
+    var _onceExpiresInOneDay = S.onceTaskExpiry === 'oneDay';
     S.tasks.forEach(t => {
       if (t.repeat !== 'once') {
         t.done = false; t.doneDate = null; t.skipped = false; t.skippedDate = null;
@@ -10220,11 +10213,23 @@ function checkReset() {
         }
       });
       // Bajarilgan "bir martalik" sub-tasklarni ro'yxatdan olib tashlaymiz
-      // (asosiy "once" tasklar bilan bir xil xulq-atvor).
-      t.subtasks = ensureSubtasks(t).filter(function(s){ return !(s.repeat==='once' && s.done); });
+      // (asosiy "once" tasklar bilan bir xil xulq-atvor). "1 kundan keyin
+      // yo'qolsin" sozlamasi yoqilgan bo'lsa — bajarilmagan bo'lsa ham,
+      // qo'shilgan kunidan keyingi kun o'tgach olib tashlanadi.
+      t.subtasks = ensureSubtasks(t).filter(function(s){
+        if (s.repeat !== 'once') return true;
+        if (s.done) return false;
+        if (_onceExpiresInOneDay && s.addedDate && s.addedDate < td) return false;
+        return true;
+      });
     });
-    // remove completed once tasks
-    S.tasks = S.tasks.filter(t => !(t.repeat==='once' && t.done));
+    // remove completed once tasks (va "1 kundan keyin yo'qolsin" yoqilgan bo'lsa — eskirgan bajarilmaganlarini ham)
+    S.tasks = S.tasks.filter(t => {
+      if (t.repeat !== 'once') return true;
+      if (t.done) return false;
+      if (_onceExpiresInOneDay && t.createdAt && t.createdAt < td) return false;
+      return true;
+    });
     // ⏩ qoldirilgan (bir martalik ham) vazifa ko'chirilgan kuni yana faol bo'lsin
     S.tasks.forEach(function(t) {
       if (isTaskPostponedOverdue(t, td)) { t.skipped = false; t.skippedDate = null; }
@@ -10671,70 +10676,34 @@ function genSubtaskId() {
   return candidate;
 }
 
-function ensureSubtaskAutoSettingsDefaults() {
-  if (typeof S.subtaskAskCompleteOnParentDone === 'undefined' || S.subtaskAskCompleteOnParentDone === null) S.subtaskAskCompleteOnParentDone = false;
-  if (typeof S.subtaskAutoCompleteParent === 'undefined' || S.subtaskAutoCompleteParent === null) S.subtaskAutoCompleteParent = false;
-  if (typeof S.subtaskExtractOnDone === 'undefined' || S.subtaskExtractOnDone === null) S.subtaskExtractOnDone = false;
+// ⏳ Bir martalik ("faqat bugun") vazifa/sub-tasklar bajarilmay qolsa nima bo'ladi:
+// 'untilDone' (default) — bajarilguncha ro'yxatda qolaveradi; 'oneDay' — yaratilgan
+// kunidan keyingi kun o'tgach, bajarilmagan bo'lsa ham avtomatik yo'qoladi.
+function ensureOnceTaskExpiryDefault() {
+  if (S.onceTaskExpiry !== 'oneDay' && S.onceTaskExpiry !== 'untilDone') S.onceTaskExpiry = 'untilDone';
 }
 
-function updateSubtaskAskToggleUI() {
-  var sw = document.getElementById('subtask-ask-switch');
-  var knob = document.getElementById('subtask-ask-knob');
-  if (!sw || !knob) return;
-  var on = !!S.subtaskAskCompleteOnParentDone;
-  sw.style.background = on ? 'var(--accent)' : 'var(--surface2)';
-  sw.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-  knob.style.left = on ? '22px' : '2px';
-  knob.style.background = on ? '#fff' : 'var(--text-dim)';
+function updateOnceTaskExpiryUI() {
+  var untilBtn = document.getElementById('once-expiry-untilDone');
+  var dayBtn = document.getElementById('once-expiry-oneDay');
+  if (!untilBtn || !dayBtn) return;
+  ensureOnceTaskExpiryDefault();
+  var isOneDay = S.onceTaskExpiry === 'oneDay';
+  untilBtn.classList.toggle('sel', !isOneDay);
+  dayBtn.classList.toggle('sel', isOneDay);
+  untilBtn.innerHTML = '<span class="pe-prep-check">✅</span> ' + t('once_task_expiry_until_done');
+  dayBtn.innerHTML = '<span class="pe-prep-check">✅</span> ' + t('once_task_expiry_one_day');
 }
 
-function updateSubtaskAutoCompleteToggleUI() {
-  var sw = document.getElementById('subtask-autocomplete-switch');
-  var knob = document.getElementById('subtask-autocomplete-knob');
-  if (!sw || !knob) return;
-  var on = !!S.subtaskAutoCompleteParent;
-  sw.style.background = on ? 'var(--accent)' : 'var(--surface2)';
-  sw.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-  knob.style.left = on ? '22px' : '2px';
-  knob.style.background = on ? '#fff' : 'var(--text-dim)';
-}
-
-function toggleSubtaskAskOnParentDone() {
-  ensureSubtaskAutoSettingsDefaults();
-  S.subtaskAskCompleteOnParentDone = !S.subtaskAskCompleteOnParentDone;
+function setOnceTaskExpiry(mode) {
+  if (mode !== 'oneDay' && mode !== 'untilDone') return;
+  ensureOnceTaskExpiryDefault();
+  if (S.onceTaskExpiry === mode) return;
+  S.onceTaskExpiry = mode;
   save();
-  updateSubtaskAskToggleUI();
+  updateOnceTaskExpiryUI();
   try { SFX.click(); } catch (e) {}
-  try { toast(S.subtaskAskCompleteOnParentDone ? t('subtask_ask_setting_on_toast') : t('subtask_ask_setting_off_toast')); } catch (e) {}
-}
-
-function toggleSubtaskAutoCompleteParent() {
-  ensureSubtaskAutoSettingsDefaults();
-  S.subtaskAutoCompleteParent = !S.subtaskAutoCompleteParent;
-  save();
-  updateSubtaskAutoCompleteToggleUI();
-  try { SFX.click(); } catch (e) {}
-  try { toast(S.subtaskAutoCompleteParent ? t('subtask_autocomplete_setting_on_toast') : t('subtask_autocomplete_setting_off_toast')); } catch (e) {}
-}
-
-function updateSubtaskExtractToggleUI() {
-  var sw = document.getElementById('subtask-extract-switch');
-  var knob = document.getElementById('subtask-extract-knob');
-  if (!sw || !knob) return;
-  var on = !!S.subtaskExtractOnDone;
-  sw.style.background = on ? 'var(--accent)' : 'var(--surface2)';
-  sw.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-  knob.style.left = on ? '22px' : '2px';
-  knob.style.background = on ? '#fff' : 'var(--text-dim)';
-}
-
-function toggleSubtaskExtractOnDone() {
-  ensureSubtaskAutoSettingsDefaults();
-  S.subtaskExtractOnDone = !S.subtaskExtractOnDone;
-  save();
-  updateSubtaskExtractToggleUI();
-  try { SFX.click(); } catch (e) {}
-  try { toast(S.subtaskExtractOnDone ? t('subtask_extract_setting_on_toast') : t('subtask_extract_setting_off_toast')); } catch (e) {}
+  try { toast(mode === 'oneDay' ? t('once_task_expiry_one_day_toast') : t('once_task_expiry_until_done_toast')); } catch (e) {}
 }
 
 // 🌙 Kechasi bajarilmagan tasklar jarimasi: S.noOvernightPenalty === true bo'lsa
@@ -10766,7 +10735,7 @@ function toggleNoOvernightPenalty() {
 var _suppressAutoParentComplete = false;
 
 // "Ha/Yo'q" so'rovi — sub-tasklari hali tugallanmagan vazifani Done
-// qilishga urinilganda (faqat subtaskAskCompleteOnParentDone yoqilgan bo'lsa) chiqadi.
+// qilishga urinilganda chiqadi (har doim faol).
 function askMarkSubtasksDoneModal(tsk, callback) {
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:650;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -10787,16 +10756,37 @@ function askMarkSubtasksDoneModal(tsk, callback) {
   ov.addEventListener('mousedown', function (e) { if (e.target === ov) close(false); });
 }
 
+// "Ha/Yo'q" so'rovi — vazifaning barcha sub-tasklari tugallanganda, asosiy
+// vazifani ham Done qilish kerakmi deb so'rash uchun chiqadi (har doim faol).
+function askMarkParentDoneModal(tsk, callback) {
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:650;display:flex;align-items:center;justify-content:center;padding:20px';
+  var box = document.createElement('div');
+  box.style.cssText = "background:#1C1C25;border:2px solid rgba(124,92,252,0.4);border-radius:var(--radius-xl);padding:26px 22px;width:100%;max-width:320px;text-align:center;font-family:'DM Sans',sans-serif";
+  box.innerHTML =
+    '<div style="font-size:34px;margin-bottom:10px">✅</div>' +
+    '<div style="color:var(--text);font-size:var(--fs-sm);line-height:1.6;margin-bottom:20px">' + esc(t('subtask_ask_parent_confirm_text').replace('{name}', tsk.name)) + '</div>' +
+    '<div style="display:flex;gap:10px">' +
+      '<button id="pmd-no" style="flex:1;padding:11px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-weight:600;cursor:pointer;font-size:13px">' + t('subtask_ask_confirm_no') + '</button>' +
+      '<button id="pmd-yes" style="flex:1;padding:11px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,#7C5CFC,#5B3FD4);color:#fff;font-weight:700;cursor:pointer;font-size:13px">' + t('subtask_ask_parent_confirm_yes') + '</button>' +
+    '</div>';
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  function close(markDone) { ov.remove(); callback(markDone); }
+  document.getElementById('pmd-no').onclick = function () { close(false); };
+  document.getElementById('pmd-yes').onclick = function () { close(true); };
+  ov.addEventListener('mousedown', function (e) { if (e.target === ov) close(false); });
+}
+
 function toggleTask(id) {
   var tsk = S.tasks.find(function (x) { return x.id === id; });
   if (!tsk) return;
   if (!tsk.done) {
-    ensureSubtaskAutoSettingsDefaults();
     var _subs = ensureSubtasks(tsk);
     // Faqat BUGUN bajarilishi kerak bo'lgan sub-tasklar (boshqa kunlarnikiga tegmaymiz)
     var _td = today();
     var _hasPending = _subs.some(function (s) { return !s.done && !s.skipped && subtaskDueToday(s, _td); });
-    if (S.subtaskAskCompleteOnParentDone && _hasPending) {
+    if (_hasPending) {
       askMarkSubtasksDoneModal(tsk, function (markAll) {
         if (markAll) {
           _suppressAutoParentComplete = true;
@@ -10857,11 +10847,6 @@ function toggleTaskInternal(id) {
     if (_onTimeBonus) setTimeout(function () { toast('⏱ ' + _cl("O'z vaqtida bajarildi", "Done on time", "Выполнено вовремя") + ' · +' + _onTimeBonus + ' 🪙'); }, 1400);
     // Kunlik 100% tekshiruvi (kechiktirib)
     setTimeout(checkDailyComplete, 300);
-
-    ensureSubtaskAutoSettingsDefaults();
-    if (S.subtaskExtractOnDone) {
-      extractPendingSubtasksOnParentDone(tsk);
-    }
 
     var _foldedBack = false;
     if (tsk.fromParentId) {
@@ -12767,42 +12752,6 @@ function extractSubtaskToTask(taskId, subId) {
   toast(t('subtask_extracted_toast'));
 }
 
-function extractPendingSubtasksOnParentDone(tk) {
-  if (!tk) return;
-  const subs = ensureSubtasks(tk);
-  if (!subs.length) return;
-  const pending = subs.filter(function (s) { return !s.done && !s.skipped; });
-  if (!pending.length) return;
-  pending.forEach(function (sub) {
-    const newTask = {
-      id: S.nextId++, name: sub.name, diff: sub.diff||0, coins: sub.coins||0,
-      repeat: sub.repeat || 'daily',
-      days: sub.repeat==='custom-days' ? (sub.days||[]) : null,
-      interval: sub.repeat==='interval' ? (sub.interval||4) : null,
-      nextDate: sub.repeat==='interval' ? (sub.nextDate || sub.startDate || today()) : null,
-      done: false, doneDate: null, skipped: false, skippedDate: null, lastDoneDate: null,
-      createdAt: sub.repeat==='interval' ? (sub.startDate || today()) : today(),
-      label: sub.label || null,
-      note: null, emoji: null,
-      isFrozen: false, frozenAt: null,
-      subtasks: Array.isArray(sub.subtasks) ? sub.subtasks : [],
-      fromParentId: tk.id,
-      fromParentName: tk.name,
-      fromSubtaskMeta: {
-        diff: sub.diff||0, coins: sub.coins||0, repeat: sub.repeat||'daily',
-        days: sub.repeat==='custom-days' ? (sub.days||[]) : null,
-        interval: sub.repeat==='interval' ? (sub.interval||4) : null,
-        startDate: sub.startDate || null,
-        label: sub.label || null,
-      },
-    };
-    S.tasks.push(newTask);
-  });
-  tk.subtasks = subs.filter(function (s) { return s.done || s.skipped; });
-  ensureFullTaskOrder();
-  toast(t('subtask_extracted_toast'));
-}
-
 function taskDoneOnDate(taskId, dateStr) {
   if (dateStr === today()) {
     var _tsk = S.tasks.find(function (x) { return x.id === taskId; });
@@ -12877,22 +12826,21 @@ function toggleSubtask(taskId, subId, dateStr, silent) {
   }
 
   if (!_suppressAutoParentComplete) {
-    ensureSubtaskAutoSettingsDefaults();
-    if (S.subtaskAutoCompleteParent) {
-      var _allSubs = ensureSubtasks(tk).filter(function (s) { return subtaskDueToday(s, dateStr); }); // faqat shu kunga tegishlilari
-      var _allResolved = _allSubs.length > 0 && _allSubs.every(function (s) {
-        return subtaskDoneOnDate(tk.id, s.id, dateStr) || s.skipped;
+    var _allSubs = ensureSubtasks(tk).filter(function (s) { return subtaskDueToday(s, dateStr); }); // faqat shu kunga tegishlilari
+    var _allResolved = _allSubs.length > 0 && _allSubs.every(function (s) {
+      return subtaskDoneOnDate(tk.id, s.id, dateStr) || s.skipped;
+    });
+    var _parentDoneOnDate = taskDoneOnDate(tk.id, dateStr);
+    if (_allResolved && !_parentDoneOnDate) {
+      // Barcha sub-tasklar shu sanada tugallandi, ota-vazifa esa hali shu
+      // sanada Done emas — uni ham Done qilamizmi deb so'raymiz.
+      askMarkParentDoneModal(tk, function (markDone) {
+        if (markDone) { if (isToday) toggleTask(tk.id); else calToggleTaskDone(tk.id, dateStr); }
       });
-      var _parentDoneOnDate = taskDoneOnDate(tk.id, dateStr);
-      if (_allResolved && !_parentDoneOnDate) {
-        // Barcha sub-tasklar shu sanada tugallangan, ota-vazifa esa hali
-        // shu sanada Done emas — avtomatik Done qilamiz.
-        if (isToday) toggleTask(tk.id); else calToggleTaskDone(tk.id, dateStr);
-      } else if (!_allResolved && _parentDoneOnDate) {
-        // Sub-task qaytadan "bajarilmagan"ga o'tdi, lekin ota-vazifa shu
-        // sanada hali ham Done bo'lib turibdi — uni ham qaytaramiz.
-        if (isToday) toggleTask(tk.id); else calToggleTaskDone(tk.id, dateStr);
-      }
+    } else if (!_allResolved && _parentDoneOnDate) {
+      // Sub-task qaytadan "bajarilmagan"ga o'tdi, lekin ota-vazifa shu
+      // sanada hali ham Done bo'lib turibdi — uni avtomatik qaytaramiz.
+      if (isToday) toggleTask(tk.id); else calToggleTaskDone(tk.id, dateStr);
     }
   }
 
@@ -15333,10 +15281,8 @@ function render() {
   })();
   ensurePersonalCheckDefaults();
   updatePcToggleUI();
-  ensureSubtaskAutoSettingsDefaults();
-  updateSubtaskAskToggleUI();
-  updateSubtaskAutoCompleteToggleUI();
-  updateSubtaskExtractToggleUI();
+  ensureOnceTaskExpiryDefault();
+  updateOnceTaskExpiryUI();
   ensureNoOvernightPenaltyDefault();
   updateNoOvernightPenaltyToggleUI();
   try { renderChestStats(); } catch (e) {}
@@ -24856,7 +24802,6 @@ function calToggleTaskDone(id, dateStr) {
   var _willBeDone = S.taskDoneLog[id].indexOf(dateStr) === -1;
 
   if (_willBeDone) {
-    ensureSubtaskAutoSettingsDefaults();
     var _subs = ensureSubtasks(tk);
     var _hasPending = _subs.some(function (s) {
       if (!subtaskDueToday(s, dateStr)) return false; // boshqa kunning sub-taski
@@ -24865,7 +24810,7 @@ function calToggleTaskDone(id, dateStr) {
       }
       return !subtaskDoneOnDate(tk.id, s.id, dateStr);
     });
-    if (S.subtaskAskCompleteOnParentDone && _hasPending) {
+    if (_hasPending) {
       askMarkSubtasksDoneModal(tk, function (markAll) {
         if (markAll) {
           _suppressAutoParentComplete = true;
