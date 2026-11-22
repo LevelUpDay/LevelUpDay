@@ -408,9 +408,10 @@ var loadUserDataAndInit = async function() {
     // 💰 Har bir qiyinlikdan bittadan misol vazifa — har bir vazifa qancha tanga berishini darrov ko'rsatadi
     try { econSampleTasks(); } catch (e) {}
     S.econV = 2;
-    // 🎉 Yangi foydalanuvchi — birinchi marta ochilganda "Xush kelibsiz"
-    // so'rovnomasini ko'rsatish uchun bayroq o'rnatamiz (render() dan keyin ishlatiladi).
-    S.showWelcomeSurveyPending = true;
+    // 🎉 Yangi foydalanuvchi — hech narsa so'ramasdan, to'g'ridan-to'g'ri mehmon
+    // sifatida ilovadan foydalana boshlaydi (yutuq/mukofotlar darhol ishlaydi).
+    // Akkaunt yaratish/kirish — faqat tepadagi banner orqali, xohlasa.
+    S.welcomeSurveyDone = true;
     ensureCefrDefaults();
     saveToLocalStorage(S);
   }
@@ -455,11 +456,12 @@ var loadUserDataAndInit = async function() {
   refreshAllModulesFromState();
   removeTestDataForJuly1();
 
-  // 🎉 Yangi foydalanuvchi bo'lsa — "Xush kelibsiz" so'rovnoma oynasini ochamiz
+  // Eski (allaqachon diskda) "ko'rsatilishi kutilayotgan" bayrog'i bo'lsa ham —
+  // endi so'rovnoma majburiy ko'rsatilmaydi, mehmon sifatida davom etadi.
   if (S.showWelcomeSurveyPending) {
     S.showWelcomeSurveyPending = false;
+    S.welcomeSurveyDone = true;
     save();
-    setTimeout(function(){ if (typeof showWelcomeSurvey === 'function') showWelcomeSurvey(); }, 500);
   }
 
   if (S.pendingStreakMsg) {
@@ -961,23 +963,19 @@ var I18N = {
     goals_stat_done: "Bajarilgan",
     goals_stat_today: "Bugun belgilandi",
     // Sub-task sozlamalari (2 ta on/off qoida)
-    subtask_settings_card_title: "Sub-task sozlamalari",
-    settings_sub_subtask_desc: "Done bo'lishi bilan bog'liq qoidalar",
-    subtask_ask_setting_title: "❓ Tugallanmagan sub-tasklar bo'lsa so'rash",
-    subtask_ask_setting_desc: "Yoqilsa: sub-tasklari hali tugallanmagan vazifani \"✅ Bajarildi\" qilsangiz, \"ichidagi sub-tasklar ham bajarilgan deb belgilansinmi?\" deb so'raladi. O'chirilgan bo'lsa (default) — so'ralmaydi.",
-    subtask_ask_setting_on_toast: "✅ So'rash yoqildi",
-    subtask_ask_setting_off_toast: "⭕ So'rash o'chirildi",
+    task_settings_card_title: "Vazifa sozlamalari",
+    settings_sub_task_desc: "Bir martalik vazifalar muddati",
+    once_task_expiry_title: "⏳ Bir martalik vazifalar",
+    once_task_expiry_desc: "\"Faqat bugun\" turidagi vazifa/sub-task bajarilmay qolsa, u bilan nima bo'lsin? Bu tanlov tasklarga ham, sub-tasklarga ham tegishli.",
+    once_task_expiry_until_done: "Bajarguningizcha tursin (default)",
+    once_task_expiry_one_day: "1 kundan keyin avtomatik yo'qolsin",
+    once_task_expiry_until_done_toast: "✅ Endi bajarguningizcha turaveradi",
+    once_task_expiry_one_day_toast: "⏳ Endi 1 kundan keyin avtomatik yo'qoladi",
     subtask_ask_confirm_text: "Bu vazifaning ichida hali bajarilmagan sub-tasklar bor. Ularni ham bajarilgan deb belgilaymizmi?",
     subtask_ask_confirm_yes: "✅ Ha, barchasini belgilash",
     subtask_ask_confirm_no: "Yo'q",
-    subtask_autocomplete_setting_title: "⚡ Barcha sub-task bajarilsa — avtomatik Done",
-    subtask_autocomplete_setting_desc: "Yoqilsa: vazifaning barcha sub-tasklari bajarilgach, asosiy vazifa avtomatik ravishda \"✅ Bajarildi\" deb belgilanadi. O'chirilgan bo'lsa (default) — avtomatik belgilanmaydi.",
-    subtask_autocomplete_setting_on_toast: "✅ Avtomatik Done yoqildi",
-    subtask_autocomplete_setting_off_toast: "⭕ Avtomatik Done o'chirildi",
-    subtask_extract_setting_title: "🔀 Tugallanmagan sub-tasklarni ajratib chiqarish",
-    subtask_extract_setting_desc: "Yoqilsa: asosiy vazifa \\\"✅ Bajarildi\\\" qilinganda, ichidagi hali tugallanmagan sub-tasklar alohida mustaqil vazifaga aylanadi. O'chirilgan bo'lsa (default) — sub-tasklar ota-vazifa ichida qoladi.",
-    subtask_extract_setting_on_toast: "✅ Ajratib chiqarish yoqildi",
-    subtask_extract_setting_off_toast: "⭕ Ajratib chiqarish o'chirildi",
+    subtask_ask_parent_confirm_text: "«{name}» ning barcha sub-tasklari bajarildi. Asosiy vazifani ham \"✅ Bajarildi\" deb belgilaymizmi?",
+    subtask_ask_parent_confirm_yes: "✅ Ha, bajarildi deb belgilash",
     no_overnight_penalty_title: "🌙 Kechasi jarima olinmasin",
     no_overnight_penalty_desc: "Yoqilsa: kun tugaganda bajarilmay qolgan tasklar (va sub-tasklar) uchun tanga jarimasi yechilmaydi. O'chirilgan bo'lsa (default) — jarima odatdagidek yechiladi.",
     no_overnight_penalty_on_toast: "🌙 Kechasi jarima o'chirildi — tanga olinmaydi",
@@ -1460,6 +1458,14 @@ var I18N = {
     ws_login_submit_btn: "Kirish",
     ws_login_fail_toast: "Nik yoki parol noto'g'ri",
     ws_login_success_toast: "✅ Xush kelibsiz, qaytganingizdan xursandmiz!",
+    ws_toggle_to_register: "Akkauntingiz yo'qmi? Ro'yxatdan o'ting",
+    ws_toggle_to_login: "Akkauntingiz bormi? Kiring",
+    ws_step_penalty_title: "🌙 Kechasi jarima kerakmi?",
+    ws_step_penalty_desc: "Kun tugaganda bajarilmay qolgan vazifalar uchun tanga jarimasi yechilsinmi? Buni keyinroq Profil → Sozlamalar bo'limidan ham o'zgartirishingiz mumkin.",
+    ws_penalty_on_label: "🪙 Jarima yoqilgan bo'lsin (tavsiya etiladi)",
+    ws_penalty_off_label: "🌙 Jarima o'chirilgan bo'lsin",
+    guest_banner_text: "Jarayoningizni saqlash uchun akkaunt yarating yoki kiring",
+    guest_banner_login_btn: "Kirish",
     onb_step_rewards_advanced: "Mukofot qo'shishda uning nomi va narxini (tanga hisobida) belgilaysiz. Yetarli tanga to'plaganingizdan so'ng \"Sotib olish\" tugmasini bosib, o'zingizga shu mukofotni his qilib bering. Sotib olingan mukofotlar tarixi Profil bo'limidagi statistikada saqlanadi.",
     onb_step_goals_advanced: "Yangi maqsad qo'shganda sanani (masalan imtihon kuni) tanlaysiz — shundan so'ng ekranda avtomatik hisoblagich (countdown) paydo bo'ladi. IELTS/SAT natijalaringizni har safar kiritib borsangiz, o'rtacha ball va progress grafigi avtomatik yangilanadi.",
     onb_step_chest_advanced: "Sandiqni ochish uchun ko'proq vazifa bajarib, uni to'ldirishingiz kerak. To'lgach, yuqoridagi Spin tugmasi orqali aylanma o'yin o'ynab tasodifiy miqdorda bonus tanga yoki maxsus mukofot yutib olasiz. Spin bepul emas — har safar bir nechta tanga sarflanadi.",
@@ -2572,24 +2578,20 @@ var I18N = {
     goals_stat_active: "Active",
     goals_stat_done: "Completed",
     goals_stat_today: "Checked today",
-    // Sub-task settings (2 on/off rules)
-    subtask_settings_card_title: "Sub-task settings",
-    settings_sub_subtask_desc: "Rules related to marking tasks Done",
-    subtask_ask_setting_title: "❓ Ask when subtasks are incomplete",
-    subtask_ask_setting_desc: "If enabled: marking a task with unfinished subtasks as \"✅ Done\" will ask whether the subtasks inside should be marked done too. If disabled (default) — it won't ask.",
-    subtask_ask_setting_on_toast: "✅ Asking enabled",
-    subtask_ask_setting_off_toast: "⭕ Asking disabled",
+    // Task settings — one-time task expiry
+    task_settings_card_title: "Task settings",
+    settings_sub_task_desc: "One-time task expiry",
+    once_task_expiry_title: "⏳ One-time tasks",
+    once_task_expiry_desc: "What should happen to a \"today only\" task/subtask that's left unfinished? This applies to both tasks and subtasks.",
+    once_task_expiry_until_done: "Stay until you complete it (default)",
+    once_task_expiry_one_day: "Disappear automatically after 1 day",
+    once_task_expiry_until_done_toast: "✅ It will now stay until you complete it",
+    once_task_expiry_one_day_toast: "⏳ It will now disappear automatically after 1 day",
     subtask_ask_confirm_text: "This task still has unfinished subtasks. Mark them all as done too?",
     subtask_ask_confirm_yes: "✅ Yes, mark all done",
     subtask_ask_confirm_no: "No",
-    subtask_autocomplete_setting_title: "⚡ Auto-complete when all subtasks are done",
-    subtask_autocomplete_setting_desc: "If enabled: once all of a task's subtasks are done, the task is automatically marked \"✅ Done\". If disabled (default) — it won't auto-complete.",
-    subtask_autocomplete_setting_on_toast: "✅ Auto-complete enabled",
-    subtask_autocomplete_setting_off_toast: "⭕ Auto-complete disabled",
-    subtask_extract_setting_title: "🔀 Extract unfinished subtasks",
-    subtask_extract_setting_desc: "If enabled: when the main task is marked \\\"✅ Done\\\", its still-unfinished subtasks become separate standalone tasks. If disabled (default) — subtasks stay inside the parent task.",
-    subtask_extract_setting_on_toast: "✅ Extraction enabled",
-    subtask_extract_setting_off_toast: "⭕ Extraction disabled",
+    subtask_ask_parent_confirm_text: "All subtasks of \"{name}\" are done. Mark the task itself as \"✅ Done\" too?",
+    subtask_ask_parent_confirm_yes: "✅ Yes, mark it done",
     no_overnight_penalty_title: "🌙 No overnight penalty",
     no_overnight_penalty_desc: "If enabled: no coin penalty is charged at day rollover for tasks (and subtasks) left unfinished. If disabled (default) — the penalty is charged as usual.",
     no_overnight_penalty_on_toast: "🌙 Overnight penalty off — no coins deducted",
@@ -3077,6 +3079,14 @@ var I18N = {
     ws_login_submit_btn: "Log in",
     ws_login_fail_toast: "Incorrect nickname or password",
     ws_login_success_toast: "✅ Welcome back!",
+    ws_toggle_to_register: "Don't have an account? Create one",
+    ws_toggle_to_login: "Already have an account? Log in",
+    ws_step_penalty_title: "🌙 Overnight penalty?",
+    ws_step_penalty_desc: "Should unfinished tasks cost you coins at day rollover? You can change this anytime later in Profile → Settings.",
+    ws_penalty_on_label: "🪙 Keep the penalty on (recommended)",
+    ws_penalty_off_label: "🌙 Turn the penalty off",
+    guest_banner_text: "Create an account or log in to save your progress",
+    guest_banner_login_btn: "Log in",
     onb_step_rewards_advanced: "When adding a reward, you set its name and its price in coins. Once you've saved up enough, tap \"Buy\" to treat yourself. Your purchase history is kept in your stats on the Profile tab.",
     onb_step_goals_advanced: "When you add a new goal you pick a date (e.g. exam day) — the app then shows a live countdown. Log your IELTS/SAT results as you go, and your average score and progress chart update automatically.",
     onb_step_chest_advanced: "Complete more tasks to fill up the Chest before you can open it. Once it's full, use the Spin button up top to play a wheel for a random amount of bonus coins or a special reward. Spinning isn't free — it costs a few coins each time.",
@@ -4186,24 +4196,20 @@ var I18N = {
     goals_stat_active: "Активные",
     goals_stat_done: "Завершено",
     goals_stat_today: "Отмечено сегодня",
-    // Настройки подзадач (2 переключателя вкл/выкл)
-    subtask_settings_card_title: "Настройки подзадач",
-    settings_sub_subtask_desc: "Правила, связанные с завершением задачи",
-    subtask_ask_setting_title: "❓ Спрашивать, если подзадачи не завершены",
-    subtask_ask_setting_desc: "Если включено: при отметке задачи с незавершёнными подзадачами как «✅ Выполнено» появится вопрос — отметить ли подзадачи внутри тоже как выполненные. Если выключено (по умолчанию) — вопрос не задаётся.",
-    subtask_ask_setting_on_toast: "✅ Вопрос включён",
-    subtask_ask_setting_off_toast: "⭕ Вопрос выключен",
+    // Настройки задач — срок одноразовых задач
+    task_settings_card_title: "Настройки задач",
+    settings_sub_task_desc: "Срок одноразовых задач",
+    once_task_expiry_title: "⏳ Одноразовые задачи",
+    once_task_expiry_desc: "Что делать с невыполненной задачей/подзадачей типа «только сегодня»? Этот выбор касается и задач, и подзадач.",
+    once_task_expiry_until_done: "Оставаться, пока не выполните (по умолчанию)",
+    once_task_expiry_one_day: "Автоматически исчезать через 1 день",
+    once_task_expiry_until_done_toast: "✅ Теперь будет оставаться, пока не выполните",
+    once_task_expiry_one_day_toast: "⏳ Теперь будет исчезать автоматически через 1 день",
     subtask_ask_confirm_text: "В этой задаче ещё есть незавершённые подзадачи. Отметить их все как выполненные?",
     subtask_ask_confirm_yes: "✅ Да, отметить все",
     subtask_ask_confirm_no: "Нет",
-    subtask_autocomplete_setting_title: "⚡ Авто-завершение при выполнении всех подзадач",
-    subtask_autocomplete_setting_desc: "Если включено: как только все подзадачи задачи выполнены, сама задача автоматически отмечается «✅ Выполнено». Если выключено (по умолчанию) — авто-завершения не будет.",
-    subtask_autocomplete_setting_on_toast: "✅ Авто-завершение включено",
-    subtask_autocomplete_setting_off_toast: "⭕ Авто-завершение выключено",
-    subtask_extract_setting_title: "🔀 Выделять незавершённые подзадачи",
-    subtask_extract_setting_desc: "Если включено: когда основная задача отмечается «✅ Выполнено», её ещё незавершённые подзадачи становятся отдельными самостоятельными задачами. Если выключено (по умолчанию) — подзадачи остаются внутри основной задачи.",
-    subtask_extract_setting_on_toast: "✅ Выделение включено",
-    subtask_extract_setting_off_toast: "⭕ Выделение выключено",
+    subtask_ask_parent_confirm_text: "Все подзадачи «{name}» выполнены. Отметить и саму задачу как «✅ Выполнено»?",
+    subtask_ask_parent_confirm_yes: "✅ Да, отметить выполненной",
     no_overnight_penalty_title: "🌙 Без штрафа за ночь",
     no_overnight_penalty_desc: "Если включено: за задачи (и подзадачи), не выполненные к концу дня, монеты не списываются. Если выключено (по умолчанию) — штраф списывается как обычно.",
     no_overnight_penalty_on_toast: "🌙 Ночной штраф выключен — монеты не списываются",
@@ -4690,6 +4696,14 @@ var I18N = {
     ws_login_submit_btn: 'Войти',
     ws_login_fail_toast: 'Неверный ник или пароль',
     ws_login_success_toast: '✅ С возвращением!',
+    ws_toggle_to_register: 'Нет аккаунта? Зарегистрироваться',
+    ws_toggle_to_login: 'Уже есть аккаунт? Войти',
+    ws_step_penalty_title: '🌙 Ночной штраф?',
+    ws_step_penalty_desc: 'Списывать ли монеты за невыполненные задачи в конце дня? Это можно изменить позже в Профиль → Настройки.',
+    ws_penalty_on_label: '🪙 Оставить штраф включённым (рекомендуется)',
+    ws_penalty_off_label: '🌙 Выключить штраф',
+    guest_banner_text: 'Создайте аккаунт или войдите, чтобы сохранить прогресс',
+    guest_banner_login_btn: 'Войти',
     onb_step_rewards_advanced: 'При добавлении награды вы указываете её название и цену в монетах. Накопив достаточно монет, нажмите «Купить», чтобы порадовать себя. История покупок сохраняется в статистике на вкладке Профиль.',
     onb_step_goals_advanced: 'При добавлении новой цели вы выбираете дату (например, день экзамена) — после этого на экране появляется живой обратный отсчёт. Регулярно вносите результаты IELTS/SAT, и средний балл с графиком прогресса будут обновляться автоматически.',
     onb_step_chest_advanced: 'Чтобы открыть сундук, нужно выполнить больше задач и заполнить его. Когда он полон, нажмите кнопку Spin вверху, чтобы сыграть в рулетку и получить случайное количество бонусных монет или особую награду. Spin не бесплатен — каждый раз списывается несколько монет.',
@@ -7452,6 +7466,9 @@ function applyLanguage() {
   }
   // Header'dagi ism (yoki neytral "Profile" so'zi) tilga qarab yangilansin
   try { if (typeof S !== 'undefined') updateHeaderUserTitle(); } catch(e) {}
+  // Bir martalik vazifalar muddati tanlovi (ichida ikonka span bo'lgani uchun
+  // data-i18n o'rniga alohida yangilanadi).
+  try { if (typeof updateOnceTaskExpiryUI === 'function') updateOnceTaskExpiryUI(); } catch (e) {}
   // 🍅 Pomodoro Tarix bo'limi ochiq bo'lsa, uning matnlari ham yangi tilda qayta chizilsin
   try { if (typeof window.pomoRenderHistoryIfOpen === 'function') window.pomoRenderHistoryIfOpen(); } catch(e) {}
   // Kalendar hafta-kunlari sarlavhasi va oy xulosasi ham til o'zgarganda
@@ -10178,6 +10195,8 @@ function checkReset() {
     }
 
     // reset daily tasks
+    ensureOnceTaskExpiryDefault();
+    var _onceExpiresInOneDay = S.onceTaskExpiry === 'oneDay';
     S.tasks.forEach(t => {
       if (t.repeat !== 'once') {
         t.done = false; t.doneDate = null; t.skipped = false; t.skippedDate = null;
@@ -10194,11 +10213,23 @@ function checkReset() {
         }
       });
       // Bajarilgan "bir martalik" sub-tasklarni ro'yxatdan olib tashlaymiz
-      // (asosiy "once" tasklar bilan bir xil xulq-atvor).
-      t.subtasks = ensureSubtasks(t).filter(function(s){ return !(s.repeat==='once' && s.done); });
+      // (asosiy "once" tasklar bilan bir xil xulq-atvor). "1 kundan keyin
+      // yo'qolsin" sozlamasi yoqilgan bo'lsa — bajarilmagan bo'lsa ham,
+      // qo'shilgan kunidan keyingi kun o'tgach olib tashlanadi.
+      t.subtasks = ensureSubtasks(t).filter(function(s){
+        if (s.repeat !== 'once') return true;
+        if (s.done) return false;
+        if (_onceExpiresInOneDay && s.addedDate && s.addedDate < td) return false;
+        return true;
+      });
     });
-    // remove completed once tasks
-    S.tasks = S.tasks.filter(t => !(t.repeat==='once' && t.done));
+    // remove completed once tasks (va "1 kundan keyin yo'qolsin" yoqilgan bo'lsa — eskirgan bajarilmaganlarini ham)
+    S.tasks = S.tasks.filter(t => {
+      if (t.repeat !== 'once') return true;
+      if (t.done) return false;
+      if (_onceExpiresInOneDay && t.createdAt && t.createdAt < td) return false;
+      return true;
+    });
     // ⏩ qoldirilgan (bir martalik ham) vazifa ko'chirilgan kuni yana faol bo'lsin
     S.tasks.forEach(function(t) {
       if (isTaskPostponedOverdue(t, td)) { t.skipped = false; t.skippedDate = null; }
@@ -10645,70 +10676,34 @@ function genSubtaskId() {
   return candidate;
 }
 
-function ensureSubtaskAutoSettingsDefaults() {
-  if (typeof S.subtaskAskCompleteOnParentDone === 'undefined' || S.subtaskAskCompleteOnParentDone === null) S.subtaskAskCompleteOnParentDone = false;
-  if (typeof S.subtaskAutoCompleteParent === 'undefined' || S.subtaskAutoCompleteParent === null) S.subtaskAutoCompleteParent = false;
-  if (typeof S.subtaskExtractOnDone === 'undefined' || S.subtaskExtractOnDone === null) S.subtaskExtractOnDone = false;
+// ⏳ Bir martalik ("faqat bugun") vazifa/sub-tasklar bajarilmay qolsa nima bo'ladi:
+// 'untilDone' (default) — bajarilguncha ro'yxatda qolaveradi; 'oneDay' — yaratilgan
+// kunidan keyingi kun o'tgach, bajarilmagan bo'lsa ham avtomatik yo'qoladi.
+function ensureOnceTaskExpiryDefault() {
+  if (S.onceTaskExpiry !== 'oneDay' && S.onceTaskExpiry !== 'untilDone') S.onceTaskExpiry = 'untilDone';
 }
 
-function updateSubtaskAskToggleUI() {
-  var sw = document.getElementById('subtask-ask-switch');
-  var knob = document.getElementById('subtask-ask-knob');
-  if (!sw || !knob) return;
-  var on = !!S.subtaskAskCompleteOnParentDone;
-  sw.style.background = on ? 'var(--accent)' : 'var(--surface2)';
-  sw.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-  knob.style.left = on ? '22px' : '2px';
-  knob.style.background = on ? '#fff' : 'var(--text-dim)';
+function updateOnceTaskExpiryUI() {
+  var untilBtn = document.getElementById('once-expiry-untilDone');
+  var dayBtn = document.getElementById('once-expiry-oneDay');
+  if (!untilBtn || !dayBtn) return;
+  ensureOnceTaskExpiryDefault();
+  var isOneDay = S.onceTaskExpiry === 'oneDay';
+  untilBtn.classList.toggle('sel', !isOneDay);
+  dayBtn.classList.toggle('sel', isOneDay);
+  untilBtn.innerHTML = '<span class="pe-prep-check">✅</span> ' + t('once_task_expiry_until_done');
+  dayBtn.innerHTML = '<span class="pe-prep-check">✅</span> ' + t('once_task_expiry_one_day');
 }
 
-function updateSubtaskAutoCompleteToggleUI() {
-  var sw = document.getElementById('subtask-autocomplete-switch');
-  var knob = document.getElementById('subtask-autocomplete-knob');
-  if (!sw || !knob) return;
-  var on = !!S.subtaskAutoCompleteParent;
-  sw.style.background = on ? 'var(--accent)' : 'var(--surface2)';
-  sw.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-  knob.style.left = on ? '22px' : '2px';
-  knob.style.background = on ? '#fff' : 'var(--text-dim)';
-}
-
-function toggleSubtaskAskOnParentDone() {
-  ensureSubtaskAutoSettingsDefaults();
-  S.subtaskAskCompleteOnParentDone = !S.subtaskAskCompleteOnParentDone;
+function setOnceTaskExpiry(mode) {
+  if (mode !== 'oneDay' && mode !== 'untilDone') return;
+  ensureOnceTaskExpiryDefault();
+  if (S.onceTaskExpiry === mode) return;
+  S.onceTaskExpiry = mode;
   save();
-  updateSubtaskAskToggleUI();
+  updateOnceTaskExpiryUI();
   try { SFX.click(); } catch (e) {}
-  try { toast(S.subtaskAskCompleteOnParentDone ? t('subtask_ask_setting_on_toast') : t('subtask_ask_setting_off_toast')); } catch (e) {}
-}
-
-function toggleSubtaskAutoCompleteParent() {
-  ensureSubtaskAutoSettingsDefaults();
-  S.subtaskAutoCompleteParent = !S.subtaskAutoCompleteParent;
-  save();
-  updateSubtaskAutoCompleteToggleUI();
-  try { SFX.click(); } catch (e) {}
-  try { toast(S.subtaskAutoCompleteParent ? t('subtask_autocomplete_setting_on_toast') : t('subtask_autocomplete_setting_off_toast')); } catch (e) {}
-}
-
-function updateSubtaskExtractToggleUI() {
-  var sw = document.getElementById('subtask-extract-switch');
-  var knob = document.getElementById('subtask-extract-knob');
-  if (!sw || !knob) return;
-  var on = !!S.subtaskExtractOnDone;
-  sw.style.background = on ? 'var(--accent)' : 'var(--surface2)';
-  sw.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-  knob.style.left = on ? '22px' : '2px';
-  knob.style.background = on ? '#fff' : 'var(--text-dim)';
-}
-
-function toggleSubtaskExtractOnDone() {
-  ensureSubtaskAutoSettingsDefaults();
-  S.subtaskExtractOnDone = !S.subtaskExtractOnDone;
-  save();
-  updateSubtaskExtractToggleUI();
-  try { SFX.click(); } catch (e) {}
-  try { toast(S.subtaskExtractOnDone ? t('subtask_extract_setting_on_toast') : t('subtask_extract_setting_off_toast')); } catch (e) {}
+  try { toast(mode === 'oneDay' ? t('once_task_expiry_one_day_toast') : t('once_task_expiry_until_done_toast')); } catch (e) {}
 }
 
 // 🌙 Kechasi bajarilmagan tasklar jarimasi: S.noOvernightPenalty === true bo'lsa
@@ -10740,7 +10735,7 @@ function toggleNoOvernightPenalty() {
 var _suppressAutoParentComplete = false;
 
 // "Ha/Yo'q" so'rovi — sub-tasklari hali tugallanmagan vazifani Done
-// qilishga urinilganda (faqat subtaskAskCompleteOnParentDone yoqilgan bo'lsa) chiqadi.
+// qilishga urinilganda chiqadi (har doim faol).
 function askMarkSubtasksDoneModal(tsk, callback) {
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:650;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -10761,16 +10756,37 @@ function askMarkSubtasksDoneModal(tsk, callback) {
   ov.addEventListener('mousedown', function (e) { if (e.target === ov) close(false); });
 }
 
+// "Ha/Yo'q" so'rovi — vazifaning barcha sub-tasklari tugallanganda, asosiy
+// vazifani ham Done qilish kerakmi deb so'rash uchun chiqadi (har doim faol).
+function askMarkParentDoneModal(tsk, callback) {
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:650;display:flex;align-items:center;justify-content:center;padding:20px';
+  var box = document.createElement('div');
+  box.style.cssText = "background:#1C1C25;border:2px solid rgba(124,92,252,0.4);border-radius:var(--radius-xl);padding:26px 22px;width:100%;max-width:320px;text-align:center;font-family:'DM Sans',sans-serif";
+  box.innerHTML =
+    '<div style="font-size:34px;margin-bottom:10px">✅</div>' +
+    '<div style="color:var(--text);font-size:var(--fs-sm);line-height:1.6;margin-bottom:20px">' + esc(t('subtask_ask_parent_confirm_text').replace('{name}', tsk.name)) + '</div>' +
+    '<div style="display:flex;gap:10px">' +
+      '<button id="pmd-no" style="flex:1;padding:11px;border-radius:var(--radius-md);border:1px solid var(--border);background:transparent;color:var(--text-muted);font-weight:600;cursor:pointer;font-size:13px">' + t('subtask_ask_confirm_no') + '</button>' +
+      '<button id="pmd-yes" style="flex:1;padding:11px;border-radius:var(--radius-md);border:none;background:linear-gradient(135deg,#7C5CFC,#5B3FD4);color:#fff;font-weight:700;cursor:pointer;font-size:13px">' + t('subtask_ask_parent_confirm_yes') + '</button>' +
+    '</div>';
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  function close(markDone) { ov.remove(); callback(markDone); }
+  document.getElementById('pmd-no').onclick = function () { close(false); };
+  document.getElementById('pmd-yes').onclick = function () { close(true); };
+  ov.addEventListener('mousedown', function (e) { if (e.target === ov) close(false); });
+}
+
 function toggleTask(id) {
   var tsk = S.tasks.find(function (x) { return x.id === id; });
   if (!tsk) return;
   if (!tsk.done) {
-    ensureSubtaskAutoSettingsDefaults();
     var _subs = ensureSubtasks(tsk);
     // Faqat BUGUN bajarilishi kerak bo'lgan sub-tasklar (boshqa kunlarnikiga tegmaymiz)
     var _td = today();
     var _hasPending = _subs.some(function (s) { return !s.done && !s.skipped && subtaskDueToday(s, _td); });
-    if (S.subtaskAskCompleteOnParentDone && _hasPending) {
+    if (_hasPending) {
       askMarkSubtasksDoneModal(tsk, function (markAll) {
         if (markAll) {
           _suppressAutoParentComplete = true;
@@ -10831,11 +10847,6 @@ function toggleTaskInternal(id) {
     if (_onTimeBonus) setTimeout(function () { toast('⏱ ' + _cl("O'z vaqtida bajarildi", "Done on time", "Выполнено вовремя") + ' · +' + _onTimeBonus + ' 🪙'); }, 1400);
     // Kunlik 100% tekshiruvi (kechiktirib)
     setTimeout(checkDailyComplete, 300);
-
-    ensureSubtaskAutoSettingsDefaults();
-    if (S.subtaskExtractOnDone) {
-      extractPendingSubtasksOnParentDone(tsk);
-    }
 
     var _foldedBack = false;
     if (tsk.fromParentId) {
@@ -12741,42 +12752,6 @@ function extractSubtaskToTask(taskId, subId) {
   toast(t('subtask_extracted_toast'));
 }
 
-function extractPendingSubtasksOnParentDone(tk) {
-  if (!tk) return;
-  const subs = ensureSubtasks(tk);
-  if (!subs.length) return;
-  const pending = subs.filter(function (s) { return !s.done && !s.skipped; });
-  if (!pending.length) return;
-  pending.forEach(function (sub) {
-    const newTask = {
-      id: S.nextId++, name: sub.name, diff: sub.diff||0, coins: sub.coins||0,
-      repeat: sub.repeat || 'daily',
-      days: sub.repeat==='custom-days' ? (sub.days||[]) : null,
-      interval: sub.repeat==='interval' ? (sub.interval||4) : null,
-      nextDate: sub.repeat==='interval' ? (sub.nextDate || sub.startDate || today()) : null,
-      done: false, doneDate: null, skipped: false, skippedDate: null, lastDoneDate: null,
-      createdAt: sub.repeat==='interval' ? (sub.startDate || today()) : today(),
-      label: sub.label || null,
-      note: null, emoji: null,
-      isFrozen: false, frozenAt: null,
-      subtasks: Array.isArray(sub.subtasks) ? sub.subtasks : [],
-      fromParentId: tk.id,
-      fromParentName: tk.name,
-      fromSubtaskMeta: {
-        diff: sub.diff||0, coins: sub.coins||0, repeat: sub.repeat||'daily',
-        days: sub.repeat==='custom-days' ? (sub.days||[]) : null,
-        interval: sub.repeat==='interval' ? (sub.interval||4) : null,
-        startDate: sub.startDate || null,
-        label: sub.label || null,
-      },
-    };
-    S.tasks.push(newTask);
-  });
-  tk.subtasks = subs.filter(function (s) { return s.done || s.skipped; });
-  ensureFullTaskOrder();
-  toast(t('subtask_extracted_toast'));
-}
-
 function taskDoneOnDate(taskId, dateStr) {
   if (dateStr === today()) {
     var _tsk = S.tasks.find(function (x) { return x.id === taskId; });
@@ -12851,22 +12826,21 @@ function toggleSubtask(taskId, subId, dateStr, silent) {
   }
 
   if (!_suppressAutoParentComplete) {
-    ensureSubtaskAutoSettingsDefaults();
-    if (S.subtaskAutoCompleteParent) {
-      var _allSubs = ensureSubtasks(tk).filter(function (s) { return subtaskDueToday(s, dateStr); }); // faqat shu kunga tegishlilari
-      var _allResolved = _allSubs.length > 0 && _allSubs.every(function (s) {
-        return subtaskDoneOnDate(tk.id, s.id, dateStr) || s.skipped;
+    var _allSubs = ensureSubtasks(tk).filter(function (s) { return subtaskDueToday(s, dateStr); }); // faqat shu kunga tegishlilari
+    var _allResolved = _allSubs.length > 0 && _allSubs.every(function (s) {
+      return subtaskDoneOnDate(tk.id, s.id, dateStr) || s.skipped;
+    });
+    var _parentDoneOnDate = taskDoneOnDate(tk.id, dateStr);
+    if (_allResolved && !_parentDoneOnDate) {
+      // Barcha sub-tasklar shu sanada tugallandi, ota-vazifa esa hali shu
+      // sanada Done emas — uni ham Done qilamizmi deb so'raymiz.
+      askMarkParentDoneModal(tk, function (markDone) {
+        if (markDone) { if (isToday) toggleTask(tk.id); else calToggleTaskDone(tk.id, dateStr); }
       });
-      var _parentDoneOnDate = taskDoneOnDate(tk.id, dateStr);
-      if (_allResolved && !_parentDoneOnDate) {
-        // Barcha sub-tasklar shu sanada tugallangan, ota-vazifa esa hali
-        // shu sanada Done emas — avtomatik Done qilamiz.
-        if (isToday) toggleTask(tk.id); else calToggleTaskDone(tk.id, dateStr);
-      } else if (!_allResolved && _parentDoneOnDate) {
-        // Sub-task qaytadan "bajarilmagan"ga o'tdi, lekin ota-vazifa shu
-        // sanada hali ham Done bo'lib turibdi — uni ham qaytaramiz.
-        if (isToday) toggleTask(tk.id); else calToggleTaskDone(tk.id, dateStr);
-      }
+    } else if (!_allResolved && _parentDoneOnDate) {
+      // Sub-task qaytadan "bajarilmagan"ga o'tdi, lekin ota-vazifa shu
+      // sanada hali ham Done bo'lib turibdi — uni avtomatik qaytaramiz.
+      if (isToday) toggleTask(tk.id); else calToggleTaskDone(tk.id, dateStr);
     }
   }
 
@@ -15265,9 +15239,24 @@ function econMigrate() {
   S.econV = 2;
 }
 
+// 💾 Mehmon rejimida ko'rinadigan "akkaunt yarating / kiring" banneri
+function updateGuestBannerUI() {
+  var bar = document.getElementById('guest-save-banner');
+  if (!bar) return;
+  var isGuest = !(typeof S !== 'undefined' && S.cloudLinked);
+  var dismissed = false;
+  try { dismissed = sessionStorage.getItem('guestBannerDismissed') === '1'; } catch (e) {}
+  bar.style.display = (isGuest && !dismissed) ? 'flex' : 'none';
+}
+function dismissGuestBanner() {
+  try { sessionStorage.setItem('guestBannerDismissed', '1'); } catch (e) {}
+  updateGuestBannerUI();
+}
+
 function render() {
   try { econMigrate(); } catch (e) { console.warn('[econ]', e); }
   if (dedupeTaskIds()) { try { save(); } catch (e) {} }
+  try { updateGuestBannerUI(); } catch (e) {}
   updateHeaderUserTitle();
   recordIntervalDueLog(today());
   recalcStreakFromLog();
@@ -15292,10 +15281,8 @@ function render() {
   })();
   ensurePersonalCheckDefaults();
   updatePcToggleUI();
-  ensureSubtaskAutoSettingsDefaults();
-  updateSubtaskAskToggleUI();
-  updateSubtaskAutoCompleteToggleUI();
-  updateSubtaskExtractToggleUI();
+  ensureOnceTaskExpiryDefault();
+  updateOnceTaskExpiryUI();
   ensureNoOvernightPenaltyDefault();
   updateNoOvernightPenaltyToggleUI();
   try { renderChestStats(); } catch (e) {}
@@ -24815,7 +24802,6 @@ function calToggleTaskDone(id, dateStr) {
   var _willBeDone = S.taskDoneLog[id].indexOf(dateStr) === -1;
 
   if (_willBeDone) {
-    ensureSubtaskAutoSettingsDefaults();
     var _subs = ensureSubtasks(tk);
     var _hasPending = _subs.some(function (s) {
       if (!subtaskDueToday(s, dateStr)) return false; // boshqa kunning sub-taski
@@ -24824,7 +24810,7 @@ function calToggleTaskDone(id, dateStr) {
       }
       return !subtaskDoneOnDate(tk.id, s.id, dateStr);
     });
-    if (S.subtaskAskCompleteOnParentDone && _hasPending) {
+    if (_hasPending) {
       askMarkSubtasksDoneModal(tk, function (markAll) {
         if (markAll) {
           _suppressAutoParentComplete = true;
@@ -28377,6 +28363,7 @@ var wsSubmitLogin = async function() {
       wsState.goal = null; wsState.ref = null;
       wsState.difficulty = S.difficulty || 'normal';
       wsState.ambientFocusEnabled = !!S.ambientFocusEnabled;
+      wsState.noOvernightPenalty = !!S.noOvernightPenalty;
     }
     wsFinish('login', 'ws_login_success_toast');
   } catch (e) {
@@ -28785,7 +28772,7 @@ var wsState = {
   ambientFocusEnabled: false, difficulty: 'normal',
   authMode: null, regName: ''
 };
-var WS_TOTAL_STEPS = 3;
+var WS_TOTAL_STEPS = 4;
 
 function showWelcomeSurvey() {
   // Google'dan qaytishda sessiya allaqachon tiklangan bo'lsa, "Create account" oynasini qayta ochmaymiz
@@ -28796,6 +28783,7 @@ function showWelcomeSurvey() {
     step: 0, name: '', goal: null, goalOther: '', ref: null, refOther: '',
     ambientFocusEnabled: !!(typeof S !== 'undefined' && S.ambientFocusEnabled),
     difficulty: (typeof S !== 'undefined' && S.difficulty) || 'normal',
+    noOvernightPenalty: !!(typeof S !== 'undefined' && S.noOvernightPenalty),
     authMode: null, regName: ''
   };
 
@@ -28852,7 +28840,8 @@ function wsVisualScene() {
     return defaultScene;
   }
   if (wsState.step === 1) return { icon: '🧭', title: _cl('Xush kelibsiz!', 'Welcome!', 'Добро пожаловать!'), sub: _cl('Bizni qayerdan topganingizni bilish yangi foydalanuvchilarga ko\'proq yordam berishga yordam beradi.', 'Knowing where you found us helps us support new users even better.', 'Знание того, где вы нас нашли, помогает нам лучше поддерживать новых пользователей.'), feats: feats };
-  // step 2 — hisob/kirish bosqichi
+  if (wsState.step === 2) return { icon: '🌙', title: _cl('Kechasi jarima', 'Overnight penalty', 'Ночной штраф'), sub: _cl('Istasangiz, bajarilmagan vazifalar uchun tanga jarimasini o\'chirib qo\'yishingiz mumkin — buni keyin ham o\'zgartira olasiz.', 'If you want, you can turn off the coin penalty for unfinished tasks — you can always change this later.', 'При желании можно отключить штраф за невыполненные задачи — это можно изменить и позже.'), feats: feats };
+  // step 3 — hisob/kirish bosqichi
   if (!wsState.authMode) return { icon: 'orbit', title: 'LevelUpDay', sub: _cl('Deyarli tayyor — hisobingizni ulang va vazifalaringiz barcha qurilmalarda saqlanib qoladi.', 'Almost there — link your account and your tasks will be saved across every device.', 'Почти готово — привяжите аккаунт, и задачи сохранятся на всех устройствах.'), feats: feats };
   if (wsState.authMode === 'register') return { icon: '🔐', title: _cl('Xavfsiz ro\'yxatdan o\'tish', 'Secure sign-up', 'Безопасная регистрация'), sub: _cl('Ma\'lumotlaringiz shifrlangan holda saqlanadi — Google, Telegram yoki email orqali ro\'yxatdan o\'tishingiz mumkin.', 'Your data is stored encrypted — sign up with Google, Telegram or email.', 'Ваши данные хранятся в зашифрованном виде — регистрируйтесь через Google, Telegram или email.'), feats: feats };
   if (wsState.authMode === 'login') return { icon: '🔑', title: _cl('Qaytib kelganingizdan xursandmiz', 'Welcome back', 'Рады видеть вас снова'), sub: _cl('Hisobingizga kiring va boshqa qurilmada qolgan joyingizdan davom ettiring.', 'Sign in and pick up right where you left off on your other device.', 'Войдите и продолжите с того места, где остановились на другом устройстве.'), feats: feats };
@@ -28879,10 +28868,11 @@ function openAccountLinkModal() {
   var old = document.getElementById('welcome-survey-modal');
   if (old) old.remove();
   wsState = {
-    step: 2, name: (S.profile && S.profile.name) || '', goal: null, goalOther: '', ref: null, refOther: '',
+    step: 3, name: (S.profile && S.profile.name) || '', goal: null, goalOther: '', ref: null, refOther: '',
     ambientFocusEnabled: !!(typeof S !== 'undefined' && S.ambientFocusEnabled),
     difficulty: (typeof S !== 'undefined' && S.difficulty) || 'normal',
-    authMode: null, regName: '', miniMode: true
+    noOvernightPenalty: !!(typeof S !== 'undefined' && S.noOvernightPenalty),
+    authMode: 'login', regName: '', miniMode: true
   };
 
   var overlay = document.createElement('div');
@@ -28945,14 +28935,14 @@ function wsRenderShell() {
 function wsRenderSkipRow() {
   var row = document.getElementById('ws-skip-row');
   if (!row) return;
-  if (wsState.step >= 2) { row.innerHTML = ''; return; }
+  if (wsState.step >= 3) { row.innerHTML = ''; return; }
   row.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:2px">' +
     '<button type="button" id="ws-skip-btn" style="background:none;border:none;color:var(--text-muted);font-size:var(--fs-xs);font-weight:600;cursor:pointer;padding:4px 2px;font-family:\'DM Sans\',sans-serif">' + t('ws_skip_btn') + '</button>' +
   '</div>';
   var skipBtn = document.getElementById('ws-skip-btn');
   if (skipBtn) skipBtn.onclick = function () {
-    wsState.step = 2;
-    wsState.authMode = null;
+    wsState.step = 3;
+    wsState.authMode = 'login';
     wsRenderStep();
   };
 }
@@ -29042,49 +29032,38 @@ function wsRenderStep() {
         '<button class="onboarding-btn onboarding-btn-primary" id="ws-next-btn"' + (wsCanProceed() ? '' : ' disabled') + '>' + t('guide_next_btn') + '</button>' +
       '</div>';
   } else if (wsState.step === 2) {
-    if (!wsState.authMode) {
+    html +=
+      '<div style="' + titleStyle + '">' + t('ws_step_penalty_title') + '</div>' +
+      '<div style="' + descStyle + '">' + t('ws_step_penalty_desc') + '</div>' +
+      '<div id="ws-penalty-pills" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' +
+        '<button type="button" class="pe-prep-pill' + (!wsState.noOvernightPenalty ? ' sel' : '') + '" data-penalty="0" style="width:100%;text-align:left"><span class="pe-prep-check">✅</span>' + t('ws_penalty_on_label') + '</button>' +
+        '<button type="button" class="pe-prep-pill' + (wsState.noOvernightPenalty ? ' sel' : '') + '" data-penalty="1" style="width:100%;text-align:left"><span class="pe-prep-check">✅</span>' + t('ws_penalty_off_label') + '</button>' +
+      '</div>' +
+      '<div class="onboarding-tt-actions" style="margin-top:16px">' +
+        '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn">' + t('guide_back_btn') + '</button>' +
+        '<button class="onboarding-btn onboarding-btn-primary" id="ws-next-btn">' + t('guide_next_btn') + '</button>' +
+      '</div>';
+  } else if (wsState.step === 3) {
+    if (wsState.authMode === 'register' || wsState.authMode === 'login') {
+      var isReg = wsState.authMode === 'register';
       html +=
-        // Keng ekranda o'ngda alohida brend vizuali bor (.ws-visual) — shu orbit shu yerda takrorlanmasin
-        '<div class="ws-step-orbit">' + (window.LUBlocks && LUBlocks.orbitHtml ? LUBlocks.orbitHtml() : '') + '</div>' +
-        '<div style="' + titleStyle + '">' + (wsState.miniMode ? t('ws_account_link_title') : t('ws_step_auth_title')) + '</div>' +
-        '<div style="' + descStyle + '">' + (wsState.miniMode ? t('ws_account_link_desc') : t('ws_step_auth_desc')) + '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">' +
-          (wsState.miniMode ? '' :
-            '<button type="button" id="ws-mode-guest" style="padding:12px;border-radius:var(--radius-md);border:1px dashed var(--border-hover);background:transparent;color:var(--text-muted);font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('ws_auth_guest_btn') + '</button>' +
-            '<div style="display:flex;align-items:center;gap:10px;margin:2px 0"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:var(--fs-2xs);color:var(--text-dim)">' + t('ws_login_or') + '</span><div style="flex:1;height:1px;background:var(--border)"></div></div>'
-          ) +
-          '<button type="button" id="ws-mode-register" style="padding:12px;border-radius:var(--radius-md);border:none;background:var(--accent);color:#fff;font-size:var(--fs-sm);font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('ws_auth_register_btn') + '</button>' +
-          '<button type="button" id="ws-mode-login" style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--border-hover);background:var(--surface2);color:var(--text);font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + t('ws_auth_login_btn') + '</button>' +
-          wsTelegramBtnHtml() +
+        '<div style="' + titleStyle + '">' + (isReg ? t('ws_reg_title') : (wsState.miniMode ? t('ws_account_link_title') : t('ws_step_auth_title'))) + '</div>' +
+        '<div style="' + descStyle + '">' + (isReg ? t('ws_reg_desc') : t('ws_login_desc_simple')) + '</div>' +
+        '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-top:12px">' + t(isReg ? 'ws_reg_google_btn' : 'ws_login_google_btn') + '</button>' +
+        wsTelegramBtnHtml('margin:8px 0 0') +
+        '<div style="display:flex;align-items:center;gap:10px;margin:12px 0 0"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:var(--fs-2xs);color:var(--text-dim)">' + t('ws_login_or') + '</span><div style="flex:1;height:1px;background:var(--border)"></div></div>' +
+        (isReg ? '<input id="ws-reg-name-input" type="text" maxlength="' + USERNAME_MAX_LEN + '" placeholder="' + t('ws_reg_name_ph') + '" value="' + esc(wsState.regName) + '" style="' + fieldStyle + '" />' : '') +
+        '<input id="' + (isReg ? 'ws-reg-email-input' : 'ws-login-email-input') + '" type="email" placeholder="' + t(isReg ? 'ws_reg_email_ph' : 'ws_login_email_ph') + '" value="' + esc((isReg ? wsState.regEmail : wsState.loginEmail) || '') + '" style="' + fieldStyle + '" />' +
+        '<input id="' + (isReg ? 'ws-reg-pass-input' : 'ws-login-pass-input') + '" type="password" placeholder="' + t(isReg ? 'ws_reg_pass_ph' : 'ws_login_pass_ph') + '" value="' + esc((isReg ? wsState.regPass : wsState.loginPass) || '') + '" style="' + fieldStyle + '" />' +
+        (isReg ? '' : '<div id="ws-forgot-link" style="text-align:right;font-size:12px;opacity:.75;cursor:pointer;margin-top:-4px;text-decoration:underline">' + _cl('Parolni unutdingizmi?', 'Forgot password?', 'Забыли пароль?') + '</div>') +
+        '<div style="text-align:center;margin-top:10px">' +
+          '<button type="button" id="ws-toggle-authmode-btn" style="background:none;border:none;color:var(--accent);font-size:var(--fs-xs);font-weight:700;cursor:pointer;text-decoration:underline;font-family:\'DM Sans\',sans-serif">' +
+            t(isReg ? 'ws_toggle_to_login' : 'ws_toggle_to_register') +
+          '</button>' +
         '</div>' +
-        '<div class="onboarding-tt-actions" style="margin-top:16px">' +
+        '<div class="onboarding-tt-actions" style="margin-top:12px">' +
           '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn" style="flex:1">' + t(wsState.miniMode ? 'btn_cancel' : 'guide_back_btn') + '</button>' +
-        '</div>';
-    } else if (wsState.authMode === 'register') {
-      html +=
-        '<div style="' + titleStyle + '">' + t('ws_reg_title') + '</div>' +
-        '<div style="' + descStyle + '">' + t('ws_reg_desc') + '</div>' +
-        '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-bottom:10px">' + t('ws_reg_google_btn') + '</button>' +
-        wsTelegramBtnHtml('margin:-2px 0 10px') +
-        '<input id="ws-reg-name-input" type="text" maxlength="' + USERNAME_MAX_LEN + '" placeholder="' + t('ws_reg_name_ph') + '" value="' + esc(wsState.regName) + '" style="' + fieldStyle + '" />' +
-        '<input id="ws-reg-email-input" type="email" placeholder="' + t('ws_reg_email_ph') + '" value="' + esc(wsState.regEmail || '') + '" style="' + fieldStyle + '" />' +
-        '<input id="ws-reg-pass-input" type="password" placeholder="' + t('ws_reg_pass_ph') + '" value="' + esc(wsState.regPass || '') + '" style="' + fieldStyle + '" />' +
-        '<div class="onboarding-tt-actions" style="margin-top:16px">' +
-          '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn">' + t('guide_back_btn') + '</button>' +
-          '<button class="onboarding-btn onboarding-btn-primary" id="ws-reg-submit-btn">' + t('ws_reg_submit_btn') + '</button>' +
-        '</div>';
-    } else if (wsState.authMode === 'login') {
-      html +=
-        '<div style="' + titleStyle + '">' + t('ws_login_title') + '</div>' +
-        '<div style="' + descStyle + '">' + t('ws_login_desc_simple') + '</div>' +
-        '<button type="button" class="onboarding-btn onboarding-btn-ghost" id="ws-google-btn" style="width:100%;margin-bottom:10px">' + t('ws_login_google_btn') + '</button>' +
-        wsTelegramBtnHtml('margin:-2px 0 10px') +
-        '<input id="ws-login-email-input" type="email" placeholder="' + t('ws_login_email_ph') + '" value="' + esc(wsState.loginEmail || '') + '" style="' + fieldStyle + '" />' +
-        '<input id="ws-login-pass-input" type="password" placeholder="' + t('ws_login_pass_ph') + '" value="' + esc(wsState.loginPass || '') + '" style="' + fieldStyle + '" />' +
-        '<div id="ws-forgot-link" style="text-align:right;font-size:12px;opacity:.75;cursor:pointer;margin-top:-4px;text-decoration:underline">' + _cl('Parolni unutdingizmi?', 'Forgot password?', 'Забыли пароль?') + '</div>' +
-        '<div class="onboarding-tt-actions" style="margin-top:16px">' +
-          '<button class="onboarding-btn onboarding-btn-ghost" id="ws-back-btn">' + t('guide_back_btn') + '</button>' +
-          '<button class="onboarding-btn onboarding-btn-primary" id="ws-login-submit-btn">' + t('ws_login_submit_btn') + '</button>' +
+          '<button class="onboarding-btn onboarding-btn-primary" id="' + (isReg ? 'ws-reg-submit-btn' : 'ws-login-submit-btn') + '" style="flex:1">' + t(isReg ? 'ws_reg_submit_btn' : 'ws_login_submit_btn') + '</button>' +
         '</div>';
     } else if (wsState.authMode === 'verify') {
       // 🔢 Auth 6 — olti xonali kod
@@ -29136,14 +29115,16 @@ function wsAttachHandlers() {
   document.querySelectorAll('#ws-ref-pills .pe-prep-pill').forEach(function (btn) {
     btn.onclick = function () { wsState.ref = btn.getAttribute('data-ref'); wsRenderStep(); };
   });
+  document.querySelectorAll('#ws-penalty-pills .pe-prep-pill').forEach(function (btn) {
+    btn.onclick = function () { wsState.noOvernightPenalty = btn.getAttribute('data-penalty') === '1'; wsRenderStep(); };
+  });
 
-  // ── Yakuniy qadam: Mehmon (avtomatik ism) / O'zi tanlagan ism ──
-  var modeGuestBtn = document.getElementById('ws-mode-guest');
-  if (modeGuestBtn) modeGuestBtn.onclick = wsGuestLogin;
-  var modeRegisterBtn = document.getElementById('ws-mode-register');
-  if (modeRegisterBtn) modeRegisterBtn.onclick = function () { wsState.authMode = 'register'; wsRenderStep(); };
-  var modeLoginBtn = document.getElementById('ws-mode-login');
-  if (modeLoginBtn) modeLoginBtn.onclick = function () { wsState.authMode = 'login'; wsRenderStep(); };
+  // ── Hisob/kirish qadami: Kirish ↔ Ro'yxatdan o'tish shakli bir xil ekranda almashadi ──
+  var toggleAuthModeBtn = document.getElementById('ws-toggle-authmode-btn');
+  if (toggleAuthModeBtn) toggleAuthModeBtn.onclick = function () {
+    wsState.authMode = wsState.authMode === 'register' ? 'login' : 'register';
+    wsRenderStep();
+  };
 
   // Ro'yxatdan o'tish formasi — Supabase Auth orqali haqiqiy akkaunt yaratadi
   var regNameInput = document.getElementById('ws-reg-name-input');
@@ -29246,15 +29227,15 @@ function wsTelegramBtnHtml(extraStyle) {
 function wsNext() {
   if (!wsCanProceed()) return; // ehtiyot chorasi — tugma disabled bo'lsa ham bosilib qolishining oldini oladi
   wsState.step++;
+  if (wsState.step === 3 && !wsState.authMode) wsState.authMode = 'login';
   wsRenderStep();
 }
 
 function wsBack() {
-  // Yakuniy qadamda avval "Register/Login" tanlovi tanlangan bo'lsa,
-  // Orqaga tugmasi avval o'sha tanlov ekraniga qaytaradi, keyin qadamlar bo'ylab.
-  if (wsState.step === 2 && wsState.authMode) {
-    if (wsState.authMode === 'verify') { wsState.authMode = 'register'; wsRenderStep(); return; }
-    wsState.authMode = null;
+  // Hisob/kirish qadamida avval emailni tasdiqlash (verify) oynasi ochilgan bo'lsa,
+  // Orqaga tugmasi ro'yxatdan o'tish shakliga qaytaradi, keyin qadamlar bo'ylab.
+  if (wsState.step === 3 && wsState.authMode === 'verify') {
+    wsState.authMode = 'register';
     wsRenderStep();
     return;
   }
@@ -29708,6 +29689,8 @@ function wsFinish(method, toastKey) {
   try { ensureAmbientFocusDefaults(); } catch (e) {}
   S.ambientFocusEnabled = !!wsState.ambientFocusEnabled;
   S.difficulty = (typeof DIFFICULTY_MULTIPLIERS !== 'undefined' && DIFFICULTY_MULTIPLIERS[wsState.difficulty]) ? wsState.difficulty : 'normal';
+  S.noOvernightPenalty = !!wsState.noOvernightPenalty;
+  try { if (typeof updateNoOvernightPenaltyToggleUI === 'function') updateNoOvernightPenaltyToggleUI(); } catch (e) {}
 
   S.profile.loginMethod = method;
   S.welcomeSurveyDone = true;

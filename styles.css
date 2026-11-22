@@ -4185,3 +4185,47 @@ html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero-topbar {
   justify-content:space-between !important;
 }
 html.pomo-fs-on #pomo-modal-box.pomo-immersive #pomo-hero { padding:26px 28px 26px 28px; box-sizing:border-box; }
+
+/* 💾 Mehmon rejimida ko'rinadigan banner: jarayonni saqlash uchun akkaunt yaratish/kirish taklifi.
+   .wrapper'dan tashqarida — butun ekran kengligini egallaydi ("uzun chiziq"). */
+.guest-save-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 20px;
+  background: linear-gradient(90deg, rgba(124,92,252,0.18), rgba(124,92,252,0.07));
+  border-bottom: 1px solid var(--border);
+  font-family: 'DM Sans', sans-serif;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.guest-save-banner-icon { font-size: var(--fs-sm); flex-shrink: 0; }
+.guest-save-banner-text { flex: 1; min-width: 0; font-size: var(--fs-xs); font-weight: 600; color: var(--text); }
+.guest-save-banner-login-btn {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.guest-save-banner-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+@media (max-width: 560px) {
+  .guest-save-banner-text { font-size: 11px; }
+}
