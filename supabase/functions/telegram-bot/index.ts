@@ -7,7 +7,9 @@
 //  • /settings     — qaysi xabarlar kelishini tugmalar bilan sozlash
 //  • /music       — ambient tovushlar (tanlab eshitish; file_id telegram_state'da keshlanadi)
 //  • /stop /unlink /help
-//  • Tugmalar (callback): d:<id> bajarildi, z:<id>:<daq> keyinroq eslatish, p:<kalit> sozlama
+//  • Tugmalar (callback): d:<id> vazifa bajarildi (sub-tasklari bo'lsa avval so'raydi),
+//    dy:<id>/dn:<id> — "sub-tasklarni ham belgilashmi" javobi, sd:<id>:<subId> — faqat shu
+//    sub-taskni bajarildi deb belgilash, z:<id>:<daq> keyinroq eslatish, p:<kalit> sozlama
 // Bajarildi/qo'shish amallari tg_actions navbatiga yoziladi — ilova keyingi ochilishda qo'llaydi (mukofot bilan).
 // Ilovadan (foydalanuvchi JWT bilan) { action: "test" } — sinov xabari yuboradi.
 // Webhook so'rovlari X-Telegram-Bot-Api-Secret-Token sarlavhasi bilan tekshiriladi (bot tokenidan hosil qilinadi).
@@ -40,6 +42,9 @@ const T: Record<string, Record<string, string>> = {
     help: "🤖 <b>Buyruqlar</b>\n/today — bugungi vazifalar\n/add <i>matn</i> — Inbox'ga vazifa\n/stats — statistika\n/week — haftalik hisobot\n/goals — bugungi odatlar\n/pomo — Pomodoro holati\n/music — ambient tovushlar\n/settings — xabarlar sozlamasi\n/stop — to'xtatish · /start — yoqish\n/unlink — akkauntni uzish",
     added: "📥 Inbox'ga qo'shildi: <b>{t}</b>\nIlova ochilganda paydo bo'ladi.", addUsage: "✍️ Masalan: <code>/add Kitob o'qish 20 daqiqa</code>",
     doneOk: "✅ Bajarildi! Mukofot ilova ochilganda beriladi.", snoozed: "⏰ {m} daqiqadan keyin yana eslataman",
+    askSubsText: "🧩 <b>{t}</b> ichida hali bajarilmagan sub-tasklar bor. Ularni ham bajarilgan deb belgilaymizmi?",
+    askSubsYes: "✅ Ha, barchasini belgilash", askSubsNo: "Yo'q, faqat asosiy vazifa",
+    subDoneOk: "✅ Sub-task bajarildi! Mukofot ilova ochilganda beriladi.",
     stats: "📊 <b>Statistika</b>", lvl: "Daraja", streak: "Streak", best: "Eng uzun", coins: "Tanga", gems: "Olmos", tasksDone: "Bajarilgan vazifalar",
     week: "📅 <b>Haftalik hisobot</b>", focus: "Fokus (Pomodoro)", days: "kun", goals: "🎯 <b>Bugungi odatlar</b>", noGoals: "Bugun odat yo'q",
     pomoOn: "🍅 <b>{a}</b> — {p}, {m} daqiqa qoldi", pomoOff: "🍅 Hozir Pomodoro ishlamayapti", work: "ish", brk: "tanaffus",
@@ -56,6 +61,9 @@ const T: Record<string, Record<string, string>> = {
     help: "🤖 <b>Commands</b>\n/today — today's tasks\n/add <i>text</i> — add to Inbox\n/stats — stats\n/week — weekly report\n/goals — today's habits\n/pomo — Pomodoro status\n/music — ambient sounds\n/settings — notification settings\n/stop — pause · /start — resume\n/unlink — disconnect",
     added: "📥 Added to Inbox: <b>{t}</b>\nIt will appear when you open the app.", addUsage: "✍️ Example: <code>/add Read 20 minutes</code>",
     doneOk: "✅ Done! Your reward is added when you open the app.", snoozed: "⏰ I'll remind you again in {m} min",
+    askSubsText: "🧩 <b>{t}</b> still has unfinished subtasks. Mark them all as done too?",
+    askSubsYes: "✅ Yes, mark all done", askSubsNo: "No, just the main task",
+    subDoneOk: "✅ Subtask done! Your reward is added when you open the app.",
     stats: "📊 <b>Stats</b>", lvl: "Level", streak: "Streak", best: "Best", coins: "Coins", gems: "Gems", tasksDone: "Tasks done",
     week: "📅 <b>Weekly report</b>", focus: "Focus (Pomodoro)", days: "days", goals: "🎯 <b>Today's habits</b>", noGoals: "No habits today",
     pomoOn: "🍅 <b>{a}</b> — {p}, {m} min left", pomoOff: "🍅 Pomodoro isn't running", work: "work", brk: "break",
@@ -72,6 +80,9 @@ const T: Record<string, Record<string, string>> = {
     help: "🤖 <b>Команды</b>\n/today — задачи на сегодня\n/add <i>текст</i> — во «Входящие»\n/stats — статистика\n/week — отчёт за неделю\n/goals — привычки на сегодня\n/pomo — статус помодоро\n/music — фоновые звуки\n/settings — настройки уведомлений\n/stop — пауза · /start — включить\n/unlink — отключить",
     added: "📥 Добавлено во «Входящие»: <b>{t}</b>\nПоявится при открытии приложения.", addUsage: "✍️ Пример: <code>/add Читать 20 минут</code>",
     doneOk: "✅ Готово! Награда начислится при открытии приложения.", snoozed: "⏰ Напомню через {m} мин",
+    askSubsText: "🧩 В <b>{t}</b> ещё есть незавершённые подзадачи. Отметить их все как выполненные?",
+    askSubsYes: "✅ Да, отметить все", askSubsNo: "Нет, только основную задачу",
+    subDoneOk: "✅ Подзадача выполнена! Награда начислится при открытии приложения.",
     stats: "📊 <b>Статистика</b>", lvl: "Уровень", streak: "Серия", best: "Лучшая", coins: "Монеты", gems: "Алмазы", tasksDone: "Выполнено задач",
     week: "📅 <b>Отчёт за неделю</b>", focus: "Фокус (помодоро)", days: "дн.", goals: "🎯 <b>Привычки на сегодня</b>", noGoals: "Сегодня привычек нет",
     pomoOn: "🍅 <b>{a}</b> — {p}, осталось {m} мин", pomoOff: "🍅 Помодоро сейчас не идёт", work: "работа", brk: "перерыв",
@@ -103,6 +114,27 @@ function dueToday(t: any, date: string, dow: number) {
 }
 const doneToday = (t: any, date: string) => t.repeat === "once" ? !!t.done : t.doneDate === date;
 
+// 🧩 Sub-tasklar: ilovadagi subtaskDueToday/subtaskDoneOnDate bilan bir xil mantiq (script.js'dagi nusxasi)
+function subtaskDueToday(s: any, date: string, dow: number) {
+  if (!s || s.skipped) return false;
+  if (!s.repeat || s.repeat === "once") {
+    const added = s.addedDate || date;
+    if (date < added) return false;
+    if (s.done && s.doneDate) return date <= s.doneDate;
+    return date === added;
+  }
+  if (s.repeat === "daily") return true;
+  if (s.repeat === "weekdays") return dow >= 1 && dow <= 5;
+  if (s.repeat === "custom-days" || s.repeat === "weekly") return Array.isArray(s.days) && s.days.includes(dow);
+  if (s.repeat === "interval") return s.nextDate ? s.nextDate <= date : true;
+  return true;
+}
+function subtaskDoneToday(s: any, date: string, taskId: number, doneLog: Record<string, string[]>) {
+  if (!s.repeat || s.repeat === "once") return !!s.done;
+  const key = `${taskId}_${s.id}`;
+  return !!(doneLog[key] && doneLog[key].includes(date));
+}
+
 const fill = (t: string, o: Record<string, unknown>) => t.replace(/\{(\w+)\}/g, (_, k) => String(o[k] ?? ""));
 function send2(chat: number, text: string, kb: unknown) { return tg("sendMessage", { chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, reply_markup: kb }); }
 const short = (s: unknown, n = 28) => { const x = String(s ?? ""); return x.length > n ? x.slice(0, n - 1) + "…" : x; };
@@ -111,21 +143,56 @@ async function pendingDone(sb: any, userId: string) {
   const { data } = await sb.from("tg_actions").select("task_id").eq("user_id", userId).eq("kind", "done").is("applied_at", null);
   return new Set<number>((data || []).map((r: any) => Number(r.task_id)));
 }
+async function queueTaskDone(sb: any, userId: string, taskId: number, day: string, includeSubtasks: boolean) {
+  const { data: ex } = await sb.from("tg_actions").select("id").eq("user_id", userId).eq("kind", "done").eq("task_id", taskId).is("applied_at", null).limit(1);
+  if (!ex?.length) await sb.from("tg_actions").insert({ user_id: userId, kind: "done", task_id: taskId, payload: { day, includeSubtasks } });
+  await sb.from("tg_snooze").update({ sent_at: new Date().toISOString() }).eq("user_id", userId).eq("task_id", taskId);
+}
+async function queueSubtaskDone(sb: any, userId: string, taskId: number, subId: unknown, day: string) {
+  const { data: ex } = await sb.from("tg_actions").select("id,payload").eq("user_id", userId).eq("kind", "subtask_done").eq("task_id", taskId).is("applied_at", null);
+  if ((ex || []).some((r: any) => String(r.payload?.subId) === String(subId))) return;
+  await sb.from("tg_actions").insert({ user_id: userId, kind: "subtask_done", task_id: taskId, payload: { day, subId } });
+}
+async function pendingSubtaskDone(sb: any, userId: string) {
+  const { data } = await sb.from("tg_actions").select("task_id,payload").eq("user_id", userId).eq("kind", "subtask_done").is("applied_at", null);
+  return new Set<string>((data || []).map((r: any) => `${r.task_id}_${r.payload?.subId}`));
+}
+async function subtaskDoneLogOf(sb: any, userId: string) {
+  const { data } = await sb.from("app_state").select("v:data->subtaskDoneLog").eq("user_id", userId).maybeSingle();
+  return (data?.v as Record<string, string[]>) || {};
+}
 async function todayData(sb: any, userId: string, tz: string) {
   const L = local(tz);
-  const [{ data }, pd] = await Promise.all([sb.from("todos").select("task_data").eq("user_id", userId), pendingDone(sb, userId)]);
+  const [{ data }, pd, pds, doneLog] = await Promise.all([
+    sb.from("todos").select("task_data").eq("user_id", userId),
+    pendingDone(sb, userId),
+    pendingSubtaskDone(sb, userId),
+    subtaskDoneLogOf(sb, userId),
+  ]);
   const tasks = (data || []).map((r: any) => r.task_data).filter((t: any) => dueToday(t, L.date, L.dow));
   tasks.sort((a: any, b: any) => String(a.startTime || "99").localeCompare(String(b.startTime || "99")));
   const isDone = (t: any) => doneToday(t, L.date) || pd.has(Number(t.id));
-  return { tasks, isDone };
+  // Hali bajarilmagan, bugunga tegishli sub-tasklar (telegramda bosilib navbatga qo'yilganlari bundan mustasno)
+  const pendingSubsOf = (t: any) => (Array.isArray(t.subtasks) ? t.subtasks : []).filter((s: any) =>
+    subtaskDueToday(s, L.date, L.dow) && !subtaskDoneToday(s, L.date, t.id, doneLog) && !pds.has(`${t.id}_${s.id}`));
+  return { tasks, isDone, pendingSubsOf };
 }
 async function todayMsg(sb: any, userId: string, tz: string, lang: string) {
-  const tx = T[lang], { tasks, isDone } = await todayData(sb, userId, tz);
+  const tx = T[lang], { tasks, isDone, pendingSubsOf } = await todayData(sb, userId, tz);
   if (!tasks.length) return { text: `${tx.today}\n\n${tx.none}`, kb: openBtn(lang) };
   const done = tasks.filter(isDone).length;
-  const lines = tasks.slice(0, 25).map((t: any) => `${isDone(t) ? "✅" : "▫️"} ${t.startTime ? `<code>${esc(t.startTime)}</code> ` : ""}${t.emoji ? esc(t.emoji) + " " : ""}${esc(t.name)}`);
+  const lines = tasks.slice(0, 25).map((t: any) => {
+    const subs = isDone(t) ? [] : pendingSubsOf(t);
+    return `${isDone(t) ? "✅" : "▫️"} ${t.startTime ? `<code>${esc(t.startTime)}</code> ` : ""}${t.emoji ? esc(t.emoji) + " " : ""}${esc(t.name)}${subs.length ? ` · 🧩${subs.length}` : ""}`;
+  });
   const open = tasks.filter((t: any) => !isDone(t)).slice(0, 8);
-  const kb = { inline_keyboard: [...open.map((t: any) => [{ text: "✅ " + short((t.emoji ? t.emoji + " " : "") + t.name), callback_data: "d:" + t.id }]), ...openBtn(lang).inline_keyboard] };
+  const kb = {
+    inline_keyboard: open.flatMap((t: any) => {
+      const rows = [[{ text: "✅ " + short((t.emoji ? t.emoji + " " : "") + t.name), callback_data: "d:" + t.id }]];
+      pendingSubsOf(t).slice(0, 4).forEach((s: any) => rows.push([{ text: "↳ " + short(s.name, 26), callback_data: "sd:" + t.id + ":" + s.id }]));
+      return rows;
+    }).concat(openBtn(lang).inline_keyboard),
+  };
   return { text: `${tx.today} · ${done}/${tasks.length}\n\n${lines.join("\n")}${tasks.length > 25 ? "\n…" : ""}${open.length ? "\n\n" + tx.today2 : ""}`, kb };
 }
 async function statsText(sb: any, userId: string, lang: string) {
@@ -268,16 +335,40 @@ Deno.serve(async (req) => {
       return new Response("ok");
     }
     if (!link) { await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "ℹ️", show_alert: false }); return new Response("ok"); }
-    if (k === "d" && /^\d+$/.test(a)) {
-      const { data: ex } = await sb.from("tg_actions").select("id").eq("user_id", link.user_id).eq("kind", "done").eq("task_id", Number(a)).is("applied_at", null).limit(1);
-      if (!ex?.length) await sb.from("tg_actions").insert({ user_id: link.user_id, kind: "done", task_id: Number(a), payload: { day: local(link.tz).date } });
-      await sb.from("tg_snooze").update({ sent_at: new Date().toISOString() }).eq("user_id", link.user_id).eq("task_id", Number(a));
-      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: tx.doneOk });
-      // /today ro'yxati bo'lsa — yangilaymiz, aks holda tugmalarni olib tashlaymiz
+    // ✅ /today ro'yxatidagi xabarni yangilash yoki tugmalarni olib tashlash (umumiy yordamchi)
+    const refreshOrClear = async () => {
       if (String(cq.message.text || "").startsWith(tx.today.replace(/<[^>]+>/g, ""))) {
         const m = await todayMsg(sb, link.user_id, link.tz, lg);
         await tg("editMessageText", { chat_id: chat, message_id: cq.message.message_id, text: m.text, parse_mode: "HTML", reply_markup: m.kb });
       } else await tg("editMessageReplyMarkup", { chat_id: chat, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [[{ text: "✅", callback_data: "x" }]] } });
+    };
+    if (k === "d" && /^\d+$/.test(a)) {
+      const taskId = Number(a);
+      const { tasks, pendingSubsOf } = await todayData(sb, link.user_id, link.tz);
+      const t = tasks.find((x: any) => Number(x.id) === taskId);
+      const pend = t ? pendingSubsOf(t) : [];
+      if (pend.length) {
+        // 🧩 Tugallanmagan sub-tasklar bor — avval alohida xabar bilan so'raymiz (asosiy ro'yxat tugmalari saqlanib qolsin deb)
+        await tg("answerCallbackQuery", { callback_query_id: cq.id });
+        await send2(chat, fill(tx.askSubsText, { t: esc(t.name) }), { inline_keyboard: [
+          [{ text: tx.askSubsYes, callback_data: "dy:" + taskId }],
+          [{ text: tx.askSubsNo, callback_data: "dn:" + taskId }],
+        ] });
+        return new Response("ok");
+      }
+      await queueTaskDone(sb, link.user_id, taskId, local(link.tz).date, false);
+      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: tx.doneOk });
+      await refreshOrClear();
+    } else if ((k === "dy" || k === "dn") && /^\d+$/.test(a)) {
+      const taskId = Number(a);
+      await queueTaskDone(sb, link.user_id, taskId, local(link.tz).date, k === "dy");
+      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: tx.doneOk });
+      await tg("editMessageReplyMarkup", { chat_id: chat, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [[{ text: "✅", callback_data: "x" }]] } });
+    } else if (k === "sd" && /^\d+$/.test(a) && b) {
+      // 🧩 Faqat shu bitta sub-taskni bajarildi deb belgilash
+      await queueSubtaskDone(sb, link.user_id, Number(a), b, local(link.tz).date);
+      await tg("answerCallbackQuery", { callback_query_id: cq.id, text: tx.subDoneOk });
+      await refreshOrClear();
     } else if (k === "z" && /^\d+$/.test(a)) {
       const m = Math.max(5, Math.min(240, Number(b) || 15));
       await sb.from("tg_snooze").upsert({ user_id: link.user_id, task_id: Number(a), fire_at: new Date(Date.now() + m * 60000).toISOString(), sent_at: null });
