@@ -12438,12 +12438,19 @@ function subtaskOnceDoneDate(s) {
 }
 function subtaskDueToday(s, dateStr) {
   dateStr = dateStr || today();
-  // 🐞 TUZATILDI: bir martalik sub-task bajarilgandan keyin har kuni qaytadan "bajarilmagan" bo'lib chiqardi.
-  // Endi: qo'shilgan kunidan oldin ko'rinmaydi; bajarilmaguncha har kuni turadi; bajarilgan kundan keyin yo'qoladi.
+  // 🐞 TUZATILDI (2x): avval bajarilgandan keyin ham har kuni "bajarilmagan" bo'lib qayta
+  // chiqardi; keyingi tuzatish esa (bajarilmaguncha har kuni ko'rinadi) boshqa xatoga olib
+  // keldi — takrorlanuvchi ota-vazifa ostidagi bir martalik sub-task HAR KUNI qayta chiqib
+  // qolardi, holbuki u faqat qo'shilgan kunigagina tegishli bo'lishi kerak edi (xuddi oddiy
+  // bir martalik vazifa kabi — faqat "bugun"ga tegishli, ertasiga qoldirilmaydi).
+  // Endi: qo'shilgan kunidan oldin ko'rinmaydi; aynan o'sha kuni (bajarilmagan bo'lsa ham)
+  // ko'rinadi; bajarilgan bo'lsa bajarilgan kunigacha ko'rinadi; boshqa har qanday kunda yo'q.
   if (!s.repeat || s.repeat === 'once') {
-    if (s.addedDate && dateStr < s.addedDate) return false;
+    var addedDate = s.addedDate || dateStr;
+    if (dateStr < addedDate) return false;
     var dd = subtaskOnceDoneDate(s);
-    return !dd || dateStr <= dd;
+    if (dd) return dateStr <= dd;
+    return dateStr === addedDate;
   }
   var dow = new Date(dateStr + 'T00:00:00').getDay();
   if (s.repeat === 'daily') return true;
