@@ -59,6 +59,12 @@
 .acc-loading-box p, .acc-lock-box p { margin: 0; color: var(--text-muted); font-size: 13.5px; }
 .acc-loading-box .acc-acts { justify-content: center; }
 .acc-loading-box .acc-acts[hidden] { display: none; }
+/* ⚡ Odatiy (tez) holatda — faqat aylanuvchi doira, hech qanday matn/tugma
+   (go'yo sahifa F5 bilan yangilanayotgandek). Matn+tugmalar faqat sinxron
+   uzoq davom etsa yoki internet yo'q bo'lsa ko'rinadi (.show-info). */
+.acc-loading-box h3, .acc-loading-box p, .acc-loading-box .acc-acts { display: none; }
+.acc-loading-box.show-info h3, .acc-loading-box.show-info p { display: block; }
+.acc-loading-box.show-info .acc-acts { display: flex; }
 .acc-spin { width: 42px; height: 42px; border-radius: 50%; border: 4px solid var(--border); border-top-color: var(--accent); animation: acc-spin .9s linear infinite; }
 @keyframes acc-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .acc-spin { animation-duration: 3s; } }
