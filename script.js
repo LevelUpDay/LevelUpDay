@@ -15098,6 +15098,7 @@ function toggleLevelPanel() {
   if (show) { p.classList.remove('lvp-in'); void p.offsetWidth; p.classList.add('lvp-in'); }
 }
 
+var _lvpLastCenteredLevel = null;
 function renderLevel() {
   const total = S.xp || 0;
   const lv = getLevel(total);
@@ -15144,6 +15145,18 @@ function renderLevel() {
   }).join('');
   // 🎁 Daraja sovg'alari (extras.js): yetib kelingan darajalarnikini beradi
   try { if (typeof window.xLevelGifts === 'function') window.xLevelGifts(lv.level); } catch (e) {}
+
+  // 📍 Joriy daraja ro'yxatda ko'rinmasdan (pastda/tashqarida) qolib ketmasin — ro'yxat
+  // ilk marta chizilganda yoki daraja o'zgarganda (level up), shu kartani ko'rinadigan
+  // joyga (iloji boricha o'rtaga, boshida bo'lsa — tepaga) aylantiramiz. Foydalanuvchi
+  // ro'yxatni o'zi qo'lda aylantirgan bo'lsa, bir xil darajada qolguncha bunga tegilmaydi.
+  if (_lvpLastCenteredLevel !== lv.level) {
+    _lvpLastCenteredLevel = lv.level;
+    try {
+      var curEl = list.querySelector('.lvp-step.cur');
+      if (curEl) curEl.scrollIntoView({ block: 'center', inline: 'nearest' });
+    } catch (e) {}
+  }
 }
 
 

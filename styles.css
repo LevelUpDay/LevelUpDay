@@ -3753,6 +3753,7 @@ html.tbl-full-on #focus-mini-player, html.tbl-full-on #pomo-float { display: non
 /* ===== 🏆 LEVEL PANEL (lvp) ===== */
 #level-panel.lvp {
   position: relative; overflow: hidden; padding: 14px; border-radius: 18px;
+  container-type: inline-size; container-name: lvp;
   background:
     radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--gold) 16%, transparent), transparent 60%),
     radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 65%),
@@ -3831,6 +3832,20 @@ body.light #level-panel.lvp { background:
 .lvp-need { flex: 0 0 auto; font-size: 10.5px; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
 html.layout-desktop #ds-aside #level-panel.lvp { padding: 14px !important; border-radius: 18px !important; }
 html.layout-desktop #ds-aside .lvp-path { max-height: none; overflow: visible; }
+
+/* 📏 Tor konteyner (masalan o'ng panel #ds-aside-resizer bilan torайтirilganda): "Barcha
+   darajalar" ro'yxatidagi qo'shimcha matnlar (XP soni, sovg'a nomi, "N XP kerak" yozuvi)
+   endi sig'maganda ustma-ust tushib "xunuk" ko'rinishga olib kelardi — shu holatda ularni
+   yashirib, faqat ikonka + nom + holat belgisi (✓/🔒/✦) qoladi, bitta qatorga sig'adi. */
+@container lvp (max-width: 230px) {
+  .lvp-step { gap: 6px; padding: 6px 4px; }
+  .lvp-node { width: 26px; height: 26px; flex: 0 0 26px; font-size: 13px; }
+  .lvp-info b { font-size: 12px; }
+  .lvp-info small, .lvp-gift, .lvp-mini { display: none !important; }
+  .lvp-you, .lvp-need { font-size: 0; padding: 0; background: none; box-shadow: none; width: 20px; height: 20px; display: grid; place-items: center; }
+  .lvp-you::before { content: '✦'; font-size: 12px; color: #F5A623; }
+  .lvp-need::before { content: '🔒'; font-size: 12px; }
+}
 @media (prefers-reduced-motion: reduce) {
   #level-panel.lvp-in, .lvp-step, .lvp-ring #lp-icon, .lvp-fill::after, .lvp-step.cur .lvp-node { animation: none !important; }
 }
