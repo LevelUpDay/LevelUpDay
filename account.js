@@ -93,6 +93,13 @@
       _loadEl.querySelector('[data-retry]').onclick = function () { try { window.cloudRetryNow(); } catch (e) {} tst('🔄 ' + L('Qayta urinilmoqda…', 'Retrying…', 'Повторяем…')); };
       _loadEl.querySelector('[data-out]').onclick = function () { try { cloudLogoutAndWipe(); } catch (e) {} };
     }
+    // ⚡ Odatdagi (tez) holatda — bu ekran shunchaki qoraygan, sahifa qayta
+    // yuklanayotganday aylanuvchi doira bilan ko'rinadi, matn chiqmaydi.
+    // Faqat uzoq davom etsa (~4s) yoki internet yo'q bo'lsa — nega kutayotganini
+    // va "qayta urinish/chiqish" tugmalarini ko'rsatamiz.
+    var box = _loadEl.querySelector('.acc-loading-box');
+    var showInfo = off || (Date.now() - _loadSince > 4000);
+    box.classList.toggle('show-info', showInfo);
     var h = _loadEl.querySelector('h3'), p = _loadEl.querySelector('p');
     var ht = off ? '📴 ' + L('Internet yo\'q', 'No internet', 'Нет интернета') : '☁️ ' + L('Akkaunt yuklanmoqda…', 'Loading your account…', 'Загружаем аккаунт…');
     var pt = L('Bulutdagi ma\'lumotlaringiz olinmoqda. Shu paytda hech narsa o\'zgarmaydi va bulutga yozilmaydi — tangalaringiz xavfsiz.', 'Getting your cloud data. Nothing changes or gets written meanwhile — your coins are safe.', 'Загружаем данные из облака. Пока ничего не меняется и не записывается — монеты в безопасности.') + (S.cloudEmail ? ' (' + S.cloudEmail + ')' : '');
