@@ -862,9 +862,8 @@
     if (o.nick === 'n_custom' && cu.nick && isHex(cu.nick.a)) cx.n = [cu.nick.a].concat(isHex(cu.nick.b) ? [cu.nick.b] : []);
     if (o.frame === 'f_custom' && cu.frame && isHex(cu.frame.a)) cx.f = [cu.frame.a].concat(isHex(cu.frame.b) ? [cu.frame.b] : []);
     if (cx.n || cx.f) o.cx = cx;
+    // Faqat o'zi tanlagan (vitrinadagi, ko'pi bilan 6 ta) yutuqlar — boshqalar profil oynasida shularni ko'radi
     try { var ach = achShowcaseIds(); if (ach.length) o.ach = ach; } catch (e) {}
-    // Barcha olingan yutuqlar — faqat id'lar (ixcham), boshqalar profil oynasida ko'radi
-    try { var all = achEarnedIds(); if (all.length) o.achAll = all; } catch (e) {}
     return Object.keys(o).length ? o : null;
   };
   // nameHtml allaqachon escape qilingan bo'lishi kerak
@@ -1297,10 +1296,6 @@
       '<span class="x-aw-gn">' + H(gn) + '</span></div>';
   }
   var ACH_ALL_MAX = 80;
-  function achEarnedIds(defs) {
-    defs = defs || achDefs();
-    return defs.list.filter(achEarned).map(function (b) { return String(b.id); }).slice(0, ACH_ALL_MAX);
-  }
   // Bazadan kelgan id ro'yxatini tozalash: faqat ta'riflarda bor, takrorlanmagan satrlar
   function achCleanIds(arr, defs, max, seen) {
     var out = [];
@@ -1311,30 +1306,26 @@
     });
     return out;
   }
-  // Boshqa foydalanuvchi uchun (cosmetics.ach / cosmetics.achAll) — faqat ma'lum id'lar, hammasi escape qilinadi
+  // Boshqa foydalanuvchi uchun (cosmetics.ach) — faqat o'zi vitrinaga tanlab qo'ygan (≤6) id'lar, hammasi escape qilinadi
   function achWallParts(c) {
     var defs = achDefs(), seen = {};
     var ok = c && typeof c === 'object';
     var pins = ok ? achCleanIds(c.ach, defs, ACH_MAX, seen) : [];
-    var rest = ok ? achCleanIds(c.achAll, defs, ACH_ALL_MAX, seen) : [];
-    var idx = {}; defs.list.forEach(function (b, i) { idx[b.id] = i; });
-    rest.sort(function (a, z) { return (defs.map[z].tier - defs.map[a].tier) || (idx[a] - idx[z]); });
-    return { defs: defs, pins: pins, rest: rest, hasAll: !!(ok && Array.isArray(c.achAll)) };
+    return { defs: defs, pins: pins };
   }
   window.xAchWallHtml = function (c) {
     try {
       var P = achWallParts(c);
-      var html = P.pins.map(function (id) { return achBadgeHtml(P.defs.map[id], 'x-aw-pin'); }).join('') +
-        P.rest.map(function (id) { return achBadgeHtml(P.defs.map[id]); }).join('');
+      var html = P.pins.map(function (id) { return achBadgeHtml(P.defs.map[id], 'x-aw-pin'); }).join('');
       return html ? '<div class="x-aw-row">' + html + '</div>' : '';
     } catch (e) { return ''; }
   };
-  // Profil modallari uchun tayyor bo'lim: ko'rgazmadagilar avval (ajratilgan), keyin qolganlari
+  // Profil modallari uchun tayyor bo'lim: faqat vitrinaga tanlangan (≤6) yutuqlar
   window.xAchWallSection = function (c) {
     try {
-      var P = achWallParts(c), n = P.pins.length + P.rest.length, total = P.defs.list.length;
+      var P = achWallParts(c), n = P.pins.length;
       var inner = window.xAchWallHtml(c);
-      var cnt = total ? '<span class="x-aw-count">' + n + ' / ' + total + '</span>' : '';
+      var cnt = n ? '<span class="x-aw-count">' + n + ' / ' + ACH_MAX + '</span>' : '';
       return '<div class="x-aw-sec"><div class="x-aw-sec-t"><span>🏅 ' + H(L('Yutuqlar', 'Achievements', 'Достижения')) + '</span>' + cnt + '</div>' +
         (inner || '<div class="x-aw-none">' + H(L('Hali yutuq yo\'q', 'No achievements yet', 'Пока нет достижений')) + '</div>') + '</div>';
     } catch (e) { return ''; }
